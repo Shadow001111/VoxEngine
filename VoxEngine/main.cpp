@@ -1,5 +1,7 @@
 #include "WindowManager.h"
+
 #include "Graphics/Shader.h"
+#include "Graphics/Camera.h"
 
 #include <cstdint>
 #include <iostream>
@@ -12,6 +14,8 @@ struct Vertex
 struct Instance
 {
     int32_t id;
+
+	Instance(int32_t id) : id(id) {}
 };
 
 int main()
@@ -31,7 +35,11 @@ int main()
         };
 
         // Instance data
-        Instance instances[3] = { {0}, {1}, {2} };
+		std::vector<Instance> instances;
+        for (size_t i = 0; i < 100; i++)
+        {
+            instances.emplace_back(i);
+		}
 
         // Buffers
         GLuint vao, vbo, instanceVBO;
@@ -49,7 +57,7 @@ int main()
 
         // Instance buffer
         glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(instances), instances, GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, instances.size() * sizeof(Instance), instances.data() , GL_STATIC_DRAW);
         glEnableVertexAttribArray(1);
         glVertexAttribIPointer(1, 1, GL_INT, sizeof(Instance), (void*)0); // integer attribute
         glVertexAttribDivisor(1, 1); // advance per instance
@@ -66,6 +74,14 @@ int main()
         Shader faceShader(faceShaderSources);
         faceShaderSources.clear();
 
+        // Camera
+        Camera camera({ 0.0f, 0.0f, 10.0f }, glm::radians(180.0f), 0.0f, glm::radians(90.0f), 1280.0f / 720.0f, 0.1f, 10.0f);
+
+        // Face culling
+        glEnable(GL_CULL_FACE);
+        glCullFace(GL_BACK);
+        glFrontFace(GL_CCW);
+
         // Main loop
         while (!wnd.shouldClose())
         {
@@ -74,9 +90,16 @@ int main()
             glClear(GL_COLOR_BUFFER_BIT);
 
 			faceShader.use();
+            {
+                glm::mat4 view = camera.getViewMatrix();
+                glm::mat4 projection = camera.getProjectionMatrix();
+
+				faceShader.setMat4("view", view);
+				faceShader.setMat4("projection", projection);
+            }
 
             glBindVertexArray(vao);
-            glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, 4, 3);
+            glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, 4, instances.size());
             glBindVertexArray(0);
 
             wnd.swapBuffers();
