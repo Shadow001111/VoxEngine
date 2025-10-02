@@ -34,7 +34,7 @@ void Camera::setFOV(float fov)
 void Camera::setYawPitch(float yaw, float pitch)
 {
 	this->yaw = yaw;
-	this->pitch = glm::clamp(pitch, -89.0f, 89.0f);
+	this->pitch = glm::clamp(pitch, -1.5707f, 1.5707f);
 	updateCameraVectors();
 }
 

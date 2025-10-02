@@ -1,5 +1,7 @@
 #include "WindowManager.h"
 
+#include <stdexcept>
+
 WindowManager::WindowManager(const WindowParams& params)
 {
     if (!glfwInit())
@@ -35,6 +37,11 @@ WindowManager::WindowManager(const WindowParams& params)
     // Setup callbacks
     glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
     glfwSetKeyCallback(window, keyCallback);
+
+    //
+	this->width = params.width;
+	this->height = params.height;
+	this->aspectRatio = static_cast<float>(width) / static_cast<float>(height);
 }
 
 WindowManager::~WindowManager()
@@ -66,15 +73,53 @@ GLFWwindow* WindowManager::getWindow() const
 	return window;
 }
 
+int WindowManager::getWidth() const
+{
+    return width;
+}
+
+int WindowManager::getHeight() const
+{
+    return height;
+}
+
+float WindowManager::getAspectRatio() const
+{
+    return aspectRatio;
+}
+
+bool WindowManager::isKeyPressed(int key) const
+{
+	return glfwGetKey(window, key) == GLFW_PRESS;
+}
+
+void WindowManager::getMousePos(float& xpos, float& ypos) const
+{
+    double xpos_,  ypos_;
+	glfwGetCursorPos(window, &xpos_, &ypos_);
+    xpos = static_cast<float>(xpos_);
+	ypos = static_cast<float>(ypos_);
+}
+
 void WindowManager::framebufferSizeCallback(GLFWwindow* window, int width, int height)
 {
     glViewport(0, 0, width, height);
+
+    auto* gm = static_cast<WindowManager*>(glfwGetWindowUserPointer(window));
+	if (gm) gm->onResize(width, height);
 }
 
 void WindowManager::keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
     auto* gm = static_cast<WindowManager*>(glfwGetWindowUserPointer(window));
     if (gm) gm->onKey(key, scancode, action, mods);
+}
+
+void WindowManager::onResize(int width, int height)
+{
+    this->width = width;
+    this->height = height;
+    this->aspectRatio = static_cast<float>(width) / static_cast<float>(height);
 }
 
 void WindowManager::onKey(int key, int scancode, int action, int mods)

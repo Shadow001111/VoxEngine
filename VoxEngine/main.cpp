@@ -75,22 +75,70 @@ int main()
         faceShaderSources.clear();
 
         // Camera
-        Camera camera({ 0.0f, 0.0f, 10.0f }, glm::radians(180.0f), 0.0f, glm::radians(90.0f), 1280.0f / 720.0f, 0.1f, 10.0f);
+        Camera camera({ 0.0f, 0.0f, 10.0f }, glm::radians(180.0f), 0.0f, glm::radians(90.0f), 1280.0f / 720.0f, 0.1f, 100.0f);
 
         // Face culling
         glEnable(GL_CULL_FACE);
         glCullFace(GL_BACK);
         glFrontFace(GL_CCW);
 
+        // Time
+		float lastTime = static_cast<float>(glfwGetTime());
+
+        // Input
+		float lastMouseX = 0.0f, lastMouseY = 0.0f;
+		wnd.getMousePos(lastMouseX, lastMouseY);
+        glfwSetInputMode(wnd.getWindow(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
         // Main loop
         while (!wnd.shouldClose())
         {
+			// Time logic
+			float time = static_cast<float>(glfwGetTime());
+			float deltaTime = time - lastTime;
+			lastTime = time;
+
+			// Input
+            {
+                const float cameraSpeed = 15.0f * deltaTime;
+
+				float leftRight = wnd.isKeyPressed(GLFW_KEY_D) - wnd.isKeyPressed(GLFW_KEY_A);
+				float forwardBackward = wnd.isKeyPressed(GLFW_KEY_W) - wnd.isKeyPressed(GLFW_KEY_S);
+				float worldUpDown = wnd.isKeyPressed(GLFW_KEY_SPACE) - wnd.isKeyPressed(GLFW_KEY_LEFT_CONTROL);
+
+				camera.position += camera.right * leftRight * cameraSpeed;
+				camera.position += camera.front * forwardBackward * cameraSpeed;
+				camera.position += Camera::worldUp * worldUpDown * cameraSpeed;
+            }
+            {
+                float mouseX, mouseY;
+				wnd.getMousePos(mouseX, mouseY);
+
+				const float mouseSensitivity = 0.002f;
+
+                float offsetX = mouseX - lastMouseX;
+				float offsetY = mouseY - lastMouseY;
+
+				lastMouseX = mouseX;
+				lastMouseY = mouseY;
+
+				float yaw = camera.yaw;
+				float pitch = camera.pitch;
+
+				yaw -= offsetX * mouseSensitivity;
+				pitch -= offsetY * mouseSensitivity;
+
+				camera.setYawPitch(yaw, pitch);
+            }
+
             // Rendering
             glClearColor(0.1f, 0.2f, 0.3f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT);
 
 			faceShader.use();
             {
+				camera.setAspectRatio(wnd.getAspectRatio());
+
                 glm::mat4 view = camera.getViewMatrix();
                 glm::mat4 projection = camera.getProjectionMatrix();
 
