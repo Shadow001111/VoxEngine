@@ -16,6 +16,7 @@ void World::loadChunks(const Int3& chunkLoaderPos, int renderDistance)
     {
         return;
     }
+	firstLoad = false;
 	lastChunkLoaderPos = chunkLoaderPos;
 
 	// Unload chunks that are out of range
