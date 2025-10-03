@@ -8,6 +8,24 @@
 
 class World
 {
+	class ChunkPool
+	{
+		std::vector<std::unique_ptr<Chunk>> pool;
+	public:
+		ChunkPool() = default;
+		~ChunkPool() = default;
+
+		ChunkPool(const ChunkPool&) = delete;
+		ChunkPool& operator=(const ChunkPool&) = delete;
+		ChunkPool(ChunkPool&&) = delete;
+		ChunkPool& operator=(ChunkPool&&) = delete;
+
+		std::unique_ptr<Chunk> acquire();
+
+		void release(std::unique_ptr<Chunk> chunk);
+	};
+
+	ChunkPool chunkPool;
 	std::unordered_map<Int3, std::unique_ptr<Chunk>, ChunkHash> chunks;
 
 	Int3 lastChunkLoaderPos;

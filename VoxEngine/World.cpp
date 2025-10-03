@@ -38,6 +38,10 @@ void World::loadChunks(const Int3& chunkLoaderPos, int renderDistance)
 		}
 		for (const Int3& pos : chunksToUnload)
 		{
+			// Return chunk to pool
+			chunkPool.release(std::move(chunks[pos]));
+
+			// Remove from map
 			chunks.erase(pos);
 		}
 	}
@@ -89,9 +93,26 @@ void World::loadChunk(int chunkX, int chunkY, int chunkZ)
 	}
 
 	// Create and initialize chunk
-	auto chunk = std::make_unique<Chunk>();
+	auto chunk = chunkPool.acquire();
 	chunk->init(chunkX, chunkY, chunkZ);
 	chunk->buildBlocks();
 	chunk->buildMesh();
 	chunks[chunk->getPosition()] = std::move(chunk);
+}
+
+std::unique_ptr<Chunk> World::ChunkPool::acquire()
+{
+	if (!pool.empty())
+	{
+		std::unique_ptr<Chunk> chunk = std::move(pool.back());
+		pool.pop_back();
+		return chunk;
+	}
+	return std::make_unique<Chunk>();
+}
+
+void World::ChunkPool::release(std::unique_ptr<Chunk> chunk)
+{
+	chunk->destroy();
+	pool.push_back(std::move(chunk));
 }

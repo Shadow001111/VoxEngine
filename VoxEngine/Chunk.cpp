@@ -1,6 +1,7 @@
 #include "Chunk.h"
 
 #include "Vec2.h"
+#include "Profiler.h"
 
 #include <cassert>
 #include <vector>
@@ -52,6 +53,8 @@ bool Chunk::operator==(const Chunk& other) const
 // Prepares chunk for use
 void Chunk::init(int x, int y, int z)
 {
+	PROFILE_SCOPE("Chunk init");
+
 	// Set position
 	position = Int3(x, y, z);
 
@@ -72,6 +75,8 @@ void Chunk::init(int x, int y, int z)
 // Cleans up resources
 void Chunk::destroy()
 {
+	PROFILE_SCOPE("Chunk destroy");
+
 	// Delete buffers
 	if (instanceVBO)
 	{
@@ -94,6 +99,8 @@ void Chunk::destroy()
 // Fills 'blocks' array
 void Chunk::buildBlocks()
 {
+	PROFILE_SCOPE("Chunk build blocks");
+
 	for (int x = 0; x < CHUNK_SIZE; x++)
 	{
 		for (int z = 0; z < CHUNK_SIZE; z++)
@@ -118,8 +125,10 @@ void Chunk::buildBlocks()
 
 void Chunk::buildMesh()
 {
+	PROFILE_SCOPE("Chunk build mesh");
+
 	// TODO: Mesh allocates each function call, maybe it should be a member and reused?
-	std::vector<BlockFaceInstance> mesh;
+	static thread_local std::vector<BlockFaceInstance> mesh;
 
 	// Collect visible faces
 	for (int x = 0; x < CHUNK_SIZE; x++)
@@ -204,6 +213,9 @@ void Chunk::buildMesh()
 
 		// Store instance count
 		instanceCount = mesh.size();
+
+		// Clear mesh for next build
+		mesh.clear();
 	}
 }
 
