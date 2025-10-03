@@ -21,6 +21,8 @@ class Chunk
 
 	static size_t getIndex(int x, int y, int z);
 public:
+	Chunk* neighbors[6]; // Pointers to neighboring chunks, for easier access when building mesh
+
 	Chunk();
 	~Chunk();
 
@@ -31,7 +33,7 @@ public:
 
 	bool operator==(const Chunk& other) const;
 
-	void init(int x, int y, int z);
+	void init(int x, int y, int z, Chunk** neighbors);
 	void destroy();
 
 	void buildBlocks();
@@ -40,12 +42,16 @@ public:
 	void render() const;
 
 	Block getBlock_inBoundaries(int x, int y, int z) const;
-	Block getBlock_checkNeighbours(int x, int y, int z) const;
+	Block getBlock_checkNeighbors(int x, int y, int z) const;
 
 	int getX() const;
 	int getY() const;
 	int getZ() const;
 	Int3 getPosition() const;
+
+	// Debug
+	size_t getFaceCount() const;
+	size_t getFaceCapacity() const;
 };
 
 class ChunkHash

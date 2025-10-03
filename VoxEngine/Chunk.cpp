@@ -65,6 +65,12 @@ Chunk::Chunk() :
 	glEnableVertexAttribArray(1);
 	glVertexAttribIPointer(1, 1, GL_INT, sizeof(BlockFaceInstance), (void*)0); // integer attribute
 	glVertexAttribDivisor(1, 1); // advance per instance
+
+	// Neighbours are null
+	for (int i = 0; i < 6; i++)
+	{
+		neighbors[i] = nullptr;
+	}
 }
 
 Chunk::~Chunk()
@@ -97,7 +103,7 @@ bool Chunk::operator==(const Chunk& other) const
 }
 
 // Prepares chunk for use
-void Chunk::init(int x, int y, int z)
+void Chunk::init(int x, int y, int z, Chunk** neighbors)
 {
 	PROFILE_SCOPE("Chunk init");
 
@@ -112,12 +118,35 @@ void Chunk::init(int x, int y, int z)
 
 	// Set instance count to 0
 	faceCount = 0;
+
+	// Set neighbours
+	for (int i = 0; i < 6; i++)
+	{
+		Chunk* neighbor = neighbors[i];
+		this->neighbors[i] = neighbor;
+		if (neighbor)
+		{
+			neighbor->neighbors[i ^ 1] = this;
+		}
+	}
 }
 
 // Cleans up resources
 void Chunk::destroy()
 {
+	// Set instance count to 0
 	faceCount = 0;
+
+	// Clear neighbors
+	for (int i = 0; i < 6; i++)
+	{
+		Chunk* neighbor = neighbors[i];
+		if (neighbor)
+		{
+			neighbor->neighbors[i ^ 1] = nullptr;
+			neighbors[i] = nullptr;
+		}
+	}
 }
 
 // Fills 'blocks' array
@@ -168,32 +197,32 @@ void Chunk::buildMesh()
 				}
 
 				// -X
-				if (getBlock_checkNeighbours(x - 1, y, z) == Block::Air)
+				if (getBlock_checkNeighbors(x - 1, y, z) == Block::Air)
 				{
 					mesh.emplace_back(x, y, z, 0);
 				}
 				// +X
-				if (getBlock_checkNeighbours(x + 1, y, z) == Block::Air)
+				if (getBlock_checkNeighbors(x + 1, y, z) == Block::Air)
 				{
 					mesh.emplace_back(x, y, z, 1);
 				}
 				// -Y
-				if (getBlock_checkNeighbours(x, y - 1, z) == Block::Air)
+				if (getBlock_checkNeighbors(x, y - 1, z) == Block::Air)
 				{
 					mesh.emplace_back(x, y, z, 2);
 				}
 				// +Y
-				if (getBlock_checkNeighbours(x, y + 1, z) == Block::Air)
+				if (getBlock_checkNeighbors(x, y + 1, z) == Block::Air)
 				{
 					mesh.emplace_back(x, y, z, 3);
 				}
 				// -Z
-				if (getBlock_checkNeighbours(x, y, z - 1) == Block::Air)
+				if (getBlock_checkNeighbors(x, y, z - 1) == Block::Air)
 				{
 					mesh.emplace_back(x, y, z, 4);
 				}
 				// +Z
-				if (getBlock_checkNeighbours(x, y, z + 1) == Block::Air)
+				if (getBlock_checkNeighbors(x, y, z + 1) == Block::Air)
 				{
 					mesh.emplace_back(x, y, z, 5);
 				}
@@ -241,7 +270,7 @@ Block Chunk::getBlock_inBoundaries(int x, int y, int z) const
 }
 
 // Function checks neighbors, if out of boundaries. Neighbours are considered Air for now.
-Block Chunk::getBlock_checkNeighbours(int x, int y, int z) const
+Block Chunk::getBlock_checkNeighbors(int x, int y, int z) const
 {
 	int nx = x & CHUNK_UPPER_BITS_MASK;
 	int ny = y & CHUNK_UPPER_BITS_MASK;
@@ -249,7 +278,22 @@ Block Chunk::getBlock_checkNeighbours(int x, int y, int z) const
 
 	if (nx != 0 || ny != 0 || nz != 0)
 	{
-		return Block::Air;
+		const Chunk* neighbor = nullptr;
+		if (nx < 0) neighbor = neighbors[0]; // -X
+		else if (nx > 0) neighbor = neighbors[1]; // +X
+		else if (ny < 0) neighbor = neighbors[2]; // -Y
+		else if (ny > 0) neighbor = neighbors[3]; // +Y
+		else if (nz < 0) neighbor = neighbors[4]; // -Z
+		else if (nz > 0) neighbor = neighbors[5]; // +Z
+
+		if (neighbor)
+		{
+			return neighbor->getBlock_inBoundaries(x & CHUNK_LOWER_BITS_MASK, y & CHUNK_LOWER_BITS_MASK, z & CHUNK_LOWER_BITS_MASK);
+		}
+		else
+		{
+			return Block::Air; // No neighbor means air
+		}
 	}
 
 	return blocks[getIndex(x, y, z)];
@@ -273,6 +317,16 @@ int Chunk::getZ() const
 Int3 Chunk::getPosition() const
 {
 	return position;
+}
+
+size_t Chunk::getFaceCount() const
+{
+	return faceCount;
+}
+
+size_t Chunk::getFaceCapacity() const
+{
+	return faceCapacity;
 }
 
 //============================================================================

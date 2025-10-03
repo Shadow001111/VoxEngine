@@ -65,6 +65,28 @@ void World::loadChunks(const Int3& chunkLoaderPos, int renderDistance)
 			}
 		}
 	}
+
+	// Debug
+	{
+		// TODO: Add UI for this
+		/*size_t totalFaces = 0;
+		size_t totalCapacity = 0;
+		for (const auto& pair : chunks)
+		{
+			const Chunk* chunk = pair.second.get();
+			totalFaces += chunk->getFaceCount();
+			totalCapacity += chunk->getFaceCapacity();
+		}
+		if (totalCapacity > 0)
+		{
+			float usage = (float)totalFaces / (float)totalCapacity * 100.0f;
+			std::cout << "Total chunk faces: " << (totalFaces >> 10) << "k / " << (totalCapacity >> 10) << "k (" << usage << "%)" << std::endl;
+		}*/
+	}
+}
+
+void World::update()
+{
 }
 
 void World::render(const Shader& faceShader) const
@@ -91,11 +113,79 @@ void World::loadChunk(int chunkX, int chunkY, int chunkZ)
         return;
 	}
 
+	// Find existing neighbors
+	Chunk* neighbors[6] = { nullptr, nullptr, nullptr, nullptr, nullptr, nullptr };
+
+	{ // -X
+		Int3 npos = chunkPos;
+		npos.x--;
+		auto it = chunks.find(npos);
+		if (it != chunks.end())
+		{
+			neighbors[0] = it->second.get();
+		}
+	}
+	{ // +X
+		Int3 npos = chunkPos;
+		npos.x++;
+		auto it = chunks.find(npos);
+		if (it != chunks.end())
+		{
+			neighbors[1] = it->second.get();
+		}
+	}
+	{ // -Y
+		Int3 npos = chunkPos;
+		npos.y--;
+		auto it = chunks.find(npos);
+		if (it != chunks.end())
+		{
+			neighbors[2] = it->second.get();
+		}
+	}
+	{ // +Y
+		Int3 npos = chunkPos;
+		npos.y++;
+		auto it = chunks.find(npos);
+		if (it != chunks.end())
+		{
+			neighbors[3] = it->second.get();
+		}
+	}
+	{ // -Z
+		Int3 npos = chunkPos;
+		npos.z--;
+		auto it = chunks.find(npos);
+		if (it != chunks.end())
+		{
+			neighbors[4] = it->second.get();
+		}
+	}
+	{ // +Z
+		Int3 npos = chunkPos;
+		npos.z++;
+		auto it = chunks.find(npos);
+		if (it != chunks.end())
+		{
+			neighbors[5] = it->second.get();
+		}
+	}
+
 	// Create and initialize chunk
 	auto chunk = chunkPool.acquire();
-	chunk->init(chunkX, chunkY, chunkZ);
+	chunk->init(chunkX, chunkY, chunkZ, neighbors);
 	chunk->buildBlocks();
 	chunk->buildMesh();
+
+	for (int i = 0; i < 6; i++)
+	{
+		Chunk* neighbor = neighbors[i];
+		if (neighbor)
+		{
+			neighbor->buildMesh();
+		}
+	}
+
 	chunks[chunk->getPosition()] = std::move(chunk);
 }
 

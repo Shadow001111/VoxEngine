@@ -1,7 +1,6 @@
 #pragma once
 #include "Chunk.h"
 
-#include "Graphics/Camera.h"
 #include "Graphics/Shader.h"
 
 #include <unordered_map>
@@ -40,6 +39,7 @@ public:
 	World& operator=(World&&) = delete;
 
 	void loadChunks(const Int3& chunkLoaderPos, int renderDistance);
+	void update();
 	void render(const Shader& faceShader) const;
 private:
 	void loadChunk(int chunkX, int chunkY, int chunkZ);
