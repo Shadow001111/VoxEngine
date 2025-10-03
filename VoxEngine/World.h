@@ -4,6 +4,7 @@
 #include "Graphics/Shader.h"
 
 #include <unordered_map>
+#include <unordered_set>
 
 class World
 {
@@ -26,6 +27,7 @@ class World
 
 	ChunkPool chunkPool;
 	std::unordered_map<Int3, std::unique_ptr<Chunk>, ChunkHash> chunks;
+	std::unordered_set<Chunk*> chunksNeedingMeshRebuild;
 
 	Int3 lastChunkLoaderPos;
 	bool firstLoad = true;
@@ -43,5 +45,7 @@ public:
 	void render(const Shader& faceShader) const;
 private:
 	void loadChunk(int chunkX, int chunkY, int chunkZ);
+
+	void buildChunkMeshes();
 };
 

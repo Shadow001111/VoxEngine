@@ -14,7 +14,7 @@ World::~World()
 
 void World::loadChunks(const Int3& chunkLoaderPos, int renderDistance)
 {
-    if (!firstLoad && lastChunkLoaderPos == chunkLoaderPos)
+	if (!firstLoad && lastChunkLoaderPos == chunkLoaderPos)
     {
         return;
     }
@@ -87,6 +87,10 @@ void World::loadChunks(const Int3& chunkLoaderPos, int renderDistance)
 
 void World::update()
 {
+	if (!chunksNeedingMeshRebuild.empty())
+	{
+		buildChunkMeshes();
+	}
 }
 
 void World::render(const Shader& faceShader) const
@@ -175,18 +179,29 @@ void World::loadChunk(int chunkX, int chunkY, int chunkZ)
 	auto chunk = chunkPool.acquire();
 	chunk->init(chunkX, chunkY, chunkZ, neighbors);
 	chunk->buildBlocks();
-	chunk->buildMesh();
+	chunksNeedingMeshRebuild.insert(chunk.get());
 
 	for (int i = 0; i < 6; i++)
 	{
 		Chunk* neighbor = neighbors[i];
 		if (neighbor)
 		{
-			neighbor->buildMesh();
+			chunksNeedingMeshRebuild.insert(chunk.get());
 		}
 	}
 
 	chunks[chunk->getPosition()] = std::move(chunk);
+}
+
+void World::buildChunkMeshes()
+{
+	PROFILE_SCOPE("Build chunk meshes");
+
+	for (Chunk* chunk : chunksNeedingMeshRebuild)
+	{
+		chunk->buildMesh();
+	}
+	chunksNeedingMeshRebuild.clear();
 }
 
 std::unique_ptr<Chunk> World::ChunkPool::acquire()

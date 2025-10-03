@@ -178,8 +178,6 @@ void Chunk::buildBlocks()
 
 void Chunk::buildMesh()
 {
-	PROFILE_SCOPE("Chunk build mesh");
-
 	// TODO: Mesh allocates each function call, maybe it should be a member and reused?
 	static thread_local std::vector<BlockFaceInstance> mesh;
 
