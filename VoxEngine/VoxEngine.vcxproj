@@ -135,6 +135,7 @@
     <ClCompile Include="Graphics\Shader.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Core\Vec2.cpp" />
+    <ClCompile Include="Core\UpdateTimer.cpp" />
     <ClCompile Include="WindowManager.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -144,6 +145,7 @@
     <ClInclude Include="Graphics\Shader.h" />
     <ClInclude Include="Metrics.h" />
     <ClInclude Include="Core\Vec2.h" />
+    <ClInclude Include="Core\UpdateTimer.h" />
     <ClInclude Include="WindowManager.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -9,6 +9,8 @@
 
 #include "Chunk.h"
 
+#include "UpdateTimer.h"
+
 int main()
 {
     try
@@ -40,6 +42,7 @@ int main()
 
         // Time
 		float lastTime = static_cast<float>(glfwGetTime());
+		UpdateTimer playerInputTimer(20.0f);
 
         // Input
 		float lastMouseX = 0.0f, lastMouseY = 0.0f;
@@ -60,37 +63,43 @@ int main()
 			float deltaTime = time - lastTime;
 			lastTime = time;
 
+			playerInputTimer.addTime(deltaTime);
+
 			// Input
+			if (playerInputTimer.shouldUpdate())
             {
-                const float cameraSpeed = 15.0f * deltaTime;
+				float dt = playerInputTimer.getUpdateInterval();
+                {
+                    const float cameraSpeed = 15.0f * dt;
 
-				float leftRight = wnd.isKeyPressed(GLFW_KEY_D) - wnd.isKeyPressed(GLFW_KEY_A);
-				float forwardBackward = wnd.isKeyPressed(GLFW_KEY_W) - wnd.isKeyPressed(GLFW_KEY_S);
-				float worldUpDown = wnd.isKeyPressed(GLFW_KEY_SPACE) - wnd.isKeyPressed(GLFW_KEY_LEFT_CONTROL);
+                    float leftRight = wnd.isKeyPressed(GLFW_KEY_D) - wnd.isKeyPressed(GLFW_KEY_A);
+                    float forwardBackward = wnd.isKeyPressed(GLFW_KEY_W) - wnd.isKeyPressed(GLFW_KEY_S);
+                    float worldUpDown = wnd.isKeyPressed(GLFW_KEY_SPACE) - wnd.isKeyPressed(GLFW_KEY_LEFT_CONTROL);
 
-				camera.position += camera.right * leftRight * cameraSpeed;
-				camera.position += camera.front * forwardBackward * cameraSpeed;
-				camera.position += Camera::worldUp * worldUpDown * cameraSpeed;
-            }
-            {
-                float mouseX, mouseY;
-				wnd.getMousePos(mouseX, mouseY);
+                    camera.position += camera.right * leftRight * cameraSpeed;
+                    camera.position += camera.front * forwardBackward * cameraSpeed;
+                    camera.position += Camera::worldUp * worldUpDown * cameraSpeed;
+                }
+                {
+                    float mouseX, mouseY;
+                    wnd.getMousePos(mouseX, mouseY);
 
-				const float mouseSensitivity = 0.002f;
+                    const float mouseSensitivity = 0.03f;
 
-                float offsetX = mouseX - lastMouseX;
-				float offsetY = mouseY - lastMouseY;
+                    float offsetX = mouseX - lastMouseX;
+                    float offsetY = mouseY - lastMouseY;
 
-				lastMouseX = mouseX;
-				lastMouseY = mouseY;
+                    lastMouseX = mouseX;
+                    lastMouseY = mouseY;
 
-				float yaw = camera.yaw;
-				float pitch = camera.pitch;
+                    float yaw = camera.yaw;
+                    float pitch = camera.pitch;
 
-				yaw -= offsetX * mouseSensitivity;
-				pitch -= offsetY * mouseSensitivity;
+                    yaw -= offsetX * mouseSensitivity * dt;
+                    pitch -= offsetY * mouseSensitivity * dt;
 
-				camera.setYawPitch(yaw, pitch);
+                    camera.setYawPitch(yaw, pitch);
+                }
             }
 
             // Rendering
