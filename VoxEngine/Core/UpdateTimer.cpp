@@ -1,7 +1,7 @@
 #include "UpdateTimer.h"
 
-UpdateTimer::UpdateTimer(int updatesPerSecond) :
-	accumulatedTime(0.0f), updateInterval(updatesPerSecond > 0 ? 1.0f / (float)updatesPerSecond : 0.0f)
+UpdateTimer::UpdateTimer(float updatesPerSecond) :
+	accumulatedTime(0.0f), updateInterval(updatesPerSecond > 0.0f ? 1.0f / updatesPerSecond : 0.0f)
 {
 }
 

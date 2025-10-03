@@ -1,13 +1,14 @@
 #include "WindowManager.h"
 
 #include "Graphics/Shader.h"
-#include "Player.h"
 
 #include <iostream>
 
 #include "World.h"
+#include "Player.h"
 
 #include "UpdateTimer.h"
+#include "Profiler.h"
 
 int main()
 {
@@ -43,6 +44,7 @@ int main()
 		float lastTime = static_cast<float>(glfwGetTime());
 		UpdateTimer playerUpdateTimer(20.0f);
 		UpdateTimer worldUpdateTimer(20.0f); worldUpdateTimer.setUpdateToTrue();
+		UpdateTimer profilerUpdateTimer(1.0f / 3.0f);
 
         // Input
         glm::vec2 previousMousePos;
@@ -55,6 +57,8 @@ int main()
         // Main loop
         while (!wnd.shouldClose())
         {
+			Profiler::beginFrame();
+
 			// Time logic
 			float time = static_cast<float>(glfwGetTime());
 			float deltaTime = time - lastTime;
@@ -62,6 +66,7 @@ int main()
 
 			playerUpdateTimer.addTime(deltaTime);
 			worldUpdateTimer.addTime(deltaTime);
+			profilerUpdateTimer.addTime(deltaTime);
 
             // World
             if (worldUpdateTimer.shouldUpdate())
@@ -100,6 +105,15 @@ int main()
 
             wnd.swapBuffers();
             wnd.pollEvents();
+
+            //Profiler
+            Profiler::endFrame();
+
+            if (profilerUpdateTimer.shouldUpdate())
+            {
+                Profiler::printProfileReport();
+				Profiler::resetAllProfiles();
+            }
         }
     }
     catch (const std::exception& e)

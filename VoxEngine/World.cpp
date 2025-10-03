@@ -1,5 +1,7 @@
 #include "World.h"
 
+#include "Profiler.h"
+
 #include <iostream>
 
 World::World()
@@ -21,6 +23,8 @@ void World::loadChunks(const Int3& chunkLoaderPos, int renderDistance)
 
 	// Unload chunks that are out of range
 	{
+		PROFILE_SCOPE("Unload chunks");
+
 		std::vector<Int3> chunksToUnload;
 		for (const auto& pair : chunks)
 		{
@@ -40,21 +44,23 @@ void World::loadChunks(const Int3& chunkLoaderPos, int renderDistance)
 
 	// Load chunks in a cubic area around the chunkLoaderPos
 	// TODO: Make area spherical
-    for (int x = -renderDistance; x <= renderDistance; x++)
-    {
-		int chunkX = chunkLoaderPos.x + x;
-        for (int y = -renderDistance; y <= renderDistance; y++)
-        {
-			int chunkY = chunkLoaderPos.y + y;
-            for (int z = -renderDistance; z <= renderDistance; z++)
-            {
-                int chunkZ = chunkLoaderPos.z + z;
-				loadChunk(chunkX, chunkY, chunkZ);
-            }
-        }
-    }
+	{
+		PROFILE_SCOPE("Load chunks");
 
-    std::cout << chunks.size() << std::endl;
+		for (int x = -renderDistance; x <= renderDistance; x++)
+		{
+			int chunkX = chunkLoaderPos.x + x;
+			for (int y = -renderDistance; y <= renderDistance; y++)
+			{
+				int chunkY = chunkLoaderPos.y + y;
+				for (int z = -renderDistance; z <= renderDistance; z++)
+				{
+					int chunkZ = chunkLoaderPos.z + z;
+					loadChunk(chunkX, chunkY, chunkZ);
+				}
+			}
+		}
+	}
 }
 
 void World::render(const Shader& faceShader) const

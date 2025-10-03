@@ -4,7 +4,7 @@ class UpdateTimer
 	float accumulatedTime = 0.0f;
 	float updateInterval = 0.0f;
 public:
-	UpdateTimer(int updatesPerSecond);
+	UpdateTimer(float updatesPerSecond);
 
 	void addTime(float deltaTime);
 	void setUpdateToTrue();
