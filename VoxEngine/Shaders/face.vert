@@ -5,6 +5,7 @@ layout(location = 1) in int instanceData;
 
 uniform mat4 view;
 uniform mat4 projection;
+uniform vec3 chunkPosition;
 
 out vec2 uv;
 
@@ -55,6 +56,6 @@ void main()
     //
     uv = vertexUV;
 
-    vec3 worldPos = vertexPos + vec3(x, y, z);
+    vec3 worldPos = chunkPosition + vertexPos + vec3(x, y, z);
     gl_Position = projection * view * vec4(worldPos, 1.0);
 }

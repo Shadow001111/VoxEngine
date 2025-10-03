@@ -10,10 +10,12 @@ void Player::update(const WindowManager& wnd, float deltaTime, glm::vec2& lastMo
 {
 	previousTransform = transform;
 
-    const float cameraSpeed = 15.0f * deltaTime;
-    const float mouseSensitivity = 0.002f;
     // Position
     {
+		bool sprint = wnd.isKeyPressed(GLFW_KEY_LEFT_SHIFT);
+
+        const float cameraSpeed = (sprint ? 2.0f : 1.0f) * (15.0f * deltaTime);
+
         float leftRight = wnd.isKeyPressed(GLFW_KEY_D) - wnd.isKeyPressed(GLFW_KEY_A);
         float forwardBackward = wnd.isKeyPressed(GLFW_KEY_W) - wnd.isKeyPressed(GLFW_KEY_S);
         float worldUpDown = wnd.isKeyPressed(GLFW_KEY_SPACE) - wnd.isKeyPressed(GLFW_KEY_LEFT_CONTROL);
@@ -32,6 +34,8 @@ void Player::update(const WindowManager& wnd, float deltaTime, glm::vec2& lastMo
     }
     // Rotation
     {
+        const float mouseSensitivity = 0.002f;
+
         float mouseX, mouseY;
         wnd.getMousePos(mouseX, mouseY);
 

@@ -4,10 +4,36 @@
 #include "Player.h"
 
 #include <iostream>
+#include <memory>
 
 #include "Chunk.h"
 
 #include "UpdateTimer.h"
+
+
+void loadChunks(std::unordered_map<Int3, std::unique_ptr<Chunk>, ChunkHash>& chunks, int playerChunkX, int playerChunkY, int playerChunkZ)
+{
+    const int renderDistance = 2; // In chunks
+    for (int x = -renderDistance; x <= renderDistance; x++)
+    {
+        for (int y = -renderDistance; y <= renderDistance; y++)
+        {
+            for (int z = -renderDistance; z <= renderDistance; z++)
+            {
+                int chunkX = playerChunkX + x;
+                int chunkY = playerChunkY + y;
+                int chunkZ = playerChunkZ + z;
+
+                auto chunk = std::make_unique<Chunk>();
+                chunk->init(chunkX, chunkY, chunkZ);
+                chunk->buildBlocks();
+                chunk->buildMesh();
+
+				chunks[chunk->getPosition()] = std::move(chunk);
+            }
+        }
+    }
+}
 
 int main()
 {
@@ -27,7 +53,7 @@ int main()
         faceShaderSources.clear();
 
         // Player
-		Player player({ 8.0f, 8.0f, 24.0f }, glm::radians(180.0f), 0.0f);
+		Player player({ 0.0f, 2.0f, 0.0f }, glm::radians(180.0f), 0.0f);
 		player.getCamera().setAspectRatio(wnd.getAspectRatio());
 
         // Face culling
@@ -49,10 +75,11 @@ int main()
         glfwSetInputMode(wnd.getWindow(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
         // World
-		Chunk chunk;
-        chunk.init(0, 0, 0);
-        chunk.buildBlocks();
-        chunk.buildMesh();
+		std::unordered_map<Int3, std::unique_ptr<Chunk>, ChunkHash> chunks;
+		int playerChunkX = static_cast<int>(floor(player.getPosition().x)) / CHUNK_SIZE;
+		int playerChunkY = static_cast<int>(floor(player.getPosition().y)) / CHUNK_SIZE;
+		int playerChunkZ = static_cast<int>(floor(player.getPosition().z)) / CHUNK_SIZE;
+		loadChunks(chunks, playerChunkX, playerChunkY, playerChunkZ);
 
         // Main loop
         while (!wnd.shouldClose())
@@ -86,7 +113,17 @@ int main()
 				faceShader.setMat4("projection", projection);
             }
 
-            chunk.render();
+            for (const auto& pair : chunks)
+            {
+                const Chunk* chunk = pair.second.get();
+
+				Int3 pos = chunk->getPosition();
+				glm::vec3 chunkWorldPos = glm::vec3(pos.x, pos.y, pos.z) * static_cast<float>(CHUNK_SIZE);
+
+				faceShader.setVec3("chunkPosition", chunkWorldPos.x, chunkWorldPos.y, chunkWorldPos.z);
+
+                chunk->render();
+            }
 			glBindVertexArray(0); // Unbinding chunk's VAO for safety
 
             wnd.swapBuffers();

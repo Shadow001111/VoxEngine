@@ -33,7 +33,7 @@ size_t Chunk::getIndex(int x, int y, int z)
 }
 
 Chunk::Chunk() :
-	X(0), Y(0), Z(0),
+	position(0, 0, 0),
 	vao(0), vbo(0), instanceVBO(0), instanceCount(0)
 {
 }
@@ -43,11 +43,16 @@ Chunk::~Chunk()
 	destroy(); // Just in case
 }
 
+bool Chunk::operator==(const Chunk& other) const
+{
+	return position == other.position;
+}
+
 // Prepares chunk for use
 void Chunk::init(int x, int y, int z)
 {
 	// Set position
-	X = x; Y = y; Z = z;
+	position = Int3(x, y, z);
 
 	// Clear blocks
 	for (int i = 0; i < CHUNK_VOLUME; i++)
@@ -55,7 +60,8 @@ void Chunk::init(int x, int y, int z)
 		blocks[i] = Block::Air;
 	}
 
-	// Create buffers
+	// Create buffers (Assert if buffers already exist)
+	assert(vao == 0 && vbo == 0 && instanceVBO == 0);
 	glGenVertexArrays(1, &vao);
 	glGenBuffers(1, &vbo);
 	glGenBuffers(1, &instanceVBO);
@@ -89,11 +95,14 @@ void Chunk::buildBlocks()
 {
 	for (int x = 0; x < CHUNK_SIZE; x++)
 	{
-		for (int y = 0; y < CHUNK_SIZE; y++)
+		for (int z = 0; z < CHUNK_SIZE; z++)
 		{
-			for (int z = 0; z < CHUNK_SIZE; z++)
+			int globalHeight = 0; // Flat terrain
+
+			for (int y = 0; y < CHUNK_SIZE; y++)
 			{
-				if (((x + y + z) & 1) == 0)
+				int worldY = position.y * CHUNK_SIZE + y;
+				if (worldY < globalHeight)
 				{
 					blocks[getIndex(x, y, z)] = Block::Solid;
 				}
@@ -197,6 +206,7 @@ void Chunk::buildMesh()
 
 void Chunk::render() const
 {
+	if (instanceCount == 0) return;
 	glBindVertexArray(vao);
 	glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, 4, instanceCount);
 }
@@ -223,6 +233,58 @@ Block Chunk::getBlock_checkNeighbours(int x, int y, int z) const
 	}
 
 	return blocks[getIndex(x, y, z)];
+}
+
+int Chunk::getX() const
+{
+	return position.x;
+}
+
+int Chunk::getY() const
+{
+	return position.y;
+}
+
+int Chunk::getZ() const
+{
+	return position.z;
+}
+
+Int3 Chunk::getPosition() const
+{
+	return position;
+}
+
+//============================================================================
+// ChunkHash
+
+size_t ChunkHash::operator()(const Chunk& chunk) const
+{
+	// 21 bits for each coordinate should be enough (-1048576 to 1048575), because chunks won't be generated that far from each other... unless multiplayer.
+	Int3 pos = chunk.getPosition();
+	return (size_t)pos.x | ((size_t)pos.y << 21) | ((size_t)pos.z << 42);
+}
+
+size_t ChunkHash::operator()(const Chunk* chunk) const
+{
+	Int3 pos = chunk->getPosition();
+	return (size_t)pos.x | ((size_t)pos.y << 21) | ((size_t)pos.z << 42);
+}
+
+size_t ChunkHash::operator()(const std::unique_ptr<Chunk>& chunk) const
+{
+	Int3 pos = chunk->getPosition();
+	return (size_t)pos.x | ((size_t)pos.y << 21) | ((size_t)pos.z << 42);
+}
+
+size_t ChunkHash::operator()(int x, int y, int z) const
+{
+	return (size_t)x | ((size_t)y << 21) | ((size_t)z << 42);
+}
+
+size_t ChunkHash::operator()(const Int3& pos) const
+{
+	return (size_t)pos.x | ((size_t)pos.y << 21) | ((size_t)pos.z << 42);
 }
 
 //============================================================================
