@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <iostream>
+#include <memory>
 
 struct Vertex
 {
@@ -13,10 +14,85 @@ struct Vertex
 
 struct Instance
 {
-    int32_t id;
+    int32_t data;
 
-	Instance(int32_t id) : id(id) {}
+    Instance(int x, int y, int z, int normal) : data(0)
+    {
+        // Coords 12 bits
+		data |= (x & 15);
+		data |= (y & 15) << 4;
+		data |= (z & 15) << 8;
+
+		// Normal 3 bits
+		data |= (normal & 7) << 12;
+    }
 };
+
+size_t getIndex(size_t x, size_t y, size_t z)
+{
+    return x + y * 16 + z * 16 * 16;
+}
+
+void buildChunk(std::vector<uint8_t>& blocks)
+{
+	blocks.resize(16 * 16 * 16, 0);
+
+    for (size_t x = 0; x < 16; x++)
+    {
+        for (size_t y = 0; y < 16; y++)
+        {
+            for (size_t z = 0; z < 16; z++)
+            {
+                if (((x + y + z) & 1) == 0)
+                {
+                    blocks[getIndex(x, y, z)] = 1;
+                }
+            }
+        }
+	}
+}
+
+void buildChunkMesh(std::vector<Instance>& mesh, const std::vector<uint8_t>& blocks)
+{
+    mesh.clear();
+
+    for (size_t x = 0; x < 16; x++)
+    {
+        for (size_t y = 0; y < 16; y++)
+        {
+            for (size_t z = 0; z < 16; z++)
+            {
+                if (blocks[getIndex(x, y, z)] == 0)
+                    continue;
+                // Check neighbors
+                if (x == 0 || blocks[getIndex(x - 1, y, z)] == 0) // -X
+                {
+                    mesh.emplace_back(x, y, z, 0);
+                }
+                if (x == 15 || blocks[getIndex(x + 1, y, z)] == 0) // +X
+                {
+                    mesh.emplace_back(x, y, z, 1);
+                }
+                if (y == 0 || blocks[getIndex(x, y - 1, z)] == 0) // -Y
+                {
+                    mesh.emplace_back(x, y, z, 2);
+                }
+                if (y == 15 || blocks[getIndex(x, y + 1, z)] == 0) // +Y
+                {
+                    mesh.emplace_back(x, y, z, 3);
+                }
+                if (z == 0 || blocks[getIndex(x, y, z - 1)] == 0) // -Z
+                {
+                    mesh.emplace_back(x, y, z, 4);
+                }
+                if (z == 15 || blocks[getIndex(x, y, z + 1)] == 0) // +Z
+                {
+                    mesh.emplace_back(x, y, z, 5);
+                }
+            }
+        }
+	}
+}
 
 int main()
 {
@@ -28,18 +104,18 @@ int main()
         // Vertices
 		Vertex vertices[4] = // CCW order
         {
-            { 0.0f, 0.0f },
+			{ 0.0f, 0.0f },
             { 1.0f, 0.0f },
             { 1.0f, 1.0f },
-			{ 0.0f, 1.0f }
+            { 0.0f, 1.0f }
         };
 
         // Instance data
+        std::vector<uint8_t> chunk;
+		buildChunk(chunk);
+
 		std::vector<Instance> instances;
-        for (size_t i = 0; i < 100; i++)
-        {
-            instances.emplace_back(i);
-		}
+		buildChunkMesh(instances, chunk);
 
         // Buffers
         GLuint vao, vbo, instanceVBO;
@@ -75,12 +151,16 @@ int main()
         faceShaderSources.clear();
 
         // Camera
-        Camera camera({ 0.0f, 0.0f, 10.0f }, glm::radians(180.0f), 0.0f, glm::radians(90.0f), 1280.0f / 720.0f, 0.1f, 100.0f);
+        Camera camera({ 8.0f, 8.0f, 24.0f }, glm::radians(180.0f), 0.0f, glm::radians(90.0f), 1.0f, 0.1f, 100.0f);
 
         // Face culling
         glEnable(GL_CULL_FACE);
         glCullFace(GL_BACK);
         glFrontFace(GL_CCW);
+
+        // Depth test
+        glEnable(GL_DEPTH_TEST);
+        glDepthFunc(GL_LESS);
 
         // Time
 		float lastTime = static_cast<float>(glfwGetTime());
@@ -133,7 +213,7 @@ int main()
 
             // Rendering
             glClearColor(0.1f, 0.2f, 0.3f, 1.0f);
-            glClear(GL_COLOR_BUFFER_BIT);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 			faceShader.use();
             {
