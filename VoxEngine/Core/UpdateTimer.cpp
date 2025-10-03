@@ -20,6 +20,16 @@ bool UpdateTimer::shouldUpdate()
 	return false;
 }
 
+float UpdateTimer::getAccumulatedTime() const
+{
+	return accumulatedTime;
+}
+
+float UpdateTimer::getAccumulatedTimeInPercent() const
+{
+	return updateInterval > 0.0f ? (accumulatedTime / updateInterval) : 0.0f;
+}
+
 float UpdateTimer::getUpdateInterval() const
 {
 	return updateInterval;

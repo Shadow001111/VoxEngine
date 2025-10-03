@@ -8,6 +8,9 @@ public:
 
 	void addTime(float deltaTime);
 	bool shouldUpdate();
+
+	float getAccumulatedTime() const;
+	float getAccumulatedTimeInPercent() const;
 	float getUpdateInterval() const;
 };
 
