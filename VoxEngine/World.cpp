@@ -80,7 +80,6 @@ void World::render(const Shader& faceShader) const
 
 		chunk->render();
 	}
-	glBindVertexArray(0); // Unbinding chunk's VAO for safety
 }
 
 void World::loadChunk(int chunkX, int chunkY, int chunkZ)

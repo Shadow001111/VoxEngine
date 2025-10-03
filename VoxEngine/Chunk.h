@@ -16,7 +16,8 @@ class Chunk
 	Block blocks[CHUNK_VOLUME];
 
 	GLuint vao, vbo, instanceVBO; // Buffers
-	size_t instanceCount;
+	size_t faceCount;
+	size_t faceCapacity;
 
 	static size_t getIndex(int x, int y, int z);
 public:

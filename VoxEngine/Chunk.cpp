@@ -36,13 +36,59 @@ size_t Chunk::getIndex(int x, int y, int z)
 
 Chunk::Chunk() :
 	position(0, 0, 0),
-	vao(0), vbo(0), instanceVBO(0), instanceCount(0)
+	vao(0), vbo(0), instanceVBO(0), faceCount(0), faceCapacity(0)
 {
+	// Create buffers once
+	Vec2 vertices[4] = // CCW order
+	{
+		{ 0.0f, 0.0f },
+		{ 1.0f, 0.0f },
+		{ 1.0f, 1.0f },
+		{ 0.0f, 1.0f }
+	};
+
+	glGenVertexArrays(1, &vao);
+	glGenBuffers(1, &vbo);
+	glGenBuffers(1, &instanceVBO);
+
+	// Bind VAO
+	glBindVertexArray(vao);
+
+	// Vertex buffer
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(Vec2), (void*)0);
+
+	// Instance buffer
+	glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+	glEnableVertexAttribArray(1);
+	glVertexAttribIPointer(1, 1, GL_INT, sizeof(BlockFaceInstance), (void*)0); // integer attribute
+	glVertexAttribDivisor(1, 1); // advance per instance
 }
 
 Chunk::~Chunk()
 {
 	destroy(); // Just in case
+
+	// Delete buffers
+	if (instanceVBO)
+	{
+		glDeleteBuffers(1, &instanceVBO);
+		instanceVBO = 0;
+	}
+	if (vbo)
+	{
+		glDeleteBuffers(1, &vbo);
+		vbo = 0;
+	}
+	if (vao)
+	{
+		glDeleteVertexArrays(1, &vao);
+		vao = 0;
+	}
+
+	faceCapacity = 0;
 }
 
 bool Chunk::operator==(const Chunk& other) const
@@ -64,36 +110,14 @@ void Chunk::init(int x, int y, int z)
 		blocks[i] = Block::Air;
 	}
 
-	// Create buffers (Assert if buffers already exist)
-	assert(vao == 0 && vbo == 0 && instanceVBO == 0);
-	glGenVertexArrays(1, &vao);
-	glGenBuffers(1, &vbo);
-	glGenBuffers(1, &instanceVBO);
-	instanceCount = 0;
+	// Set instance count to 0
+	faceCount = 0;
 }
 
 // Cleans up resources
 void Chunk::destroy()
 {
-	PROFILE_SCOPE("Chunk destroy");
-
-	// Delete buffers
-	if (instanceVBO)
-	{
-		glDeleteBuffers(1, &instanceVBO);
-		instanceVBO = 0;
-	}
-	if (vbo)
-	{
-		glDeleteBuffers(1, &vbo);
-		vbo = 0;
-	}
-	if (vao)
-	{
-		glDeleteVertexArrays(1, &vao);
-		vao = 0;
-	}
-	instanceCount = 0;
+	faceCount = 0;
 }
 
 // Fills 'blocks' array
@@ -179,40 +203,21 @@ void Chunk::buildMesh()
 
 	// Upload to GPU
 	{
-		Vec2 vertices[4] = // CCW order
-		{
-			{ 0.0f, 0.0f },
-			{ 1.0f, 0.0f },
-			{ 1.0f, 1.0f },
-			{ 0.0f, 1.0f }
-		};
-
 		// TODO: Maybe have a single VBO/VAO for all chunks, since they use the same vertices?
 
-		// Generate new buffers
-		glGenVertexArrays(1, &vao);
-		glGenBuffers(1, &vbo);
-		glGenBuffers(1, &instanceVBO);
-
-		glBindVertexArray(vao);
-
-		// Vertex buffer
-		glBindBuffer(GL_ARRAY_BUFFER, vbo);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-		glEnableVertexAttribArray(0);
-		glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(Vec2), (void*)0);
-
 		// Instance buffer
+		faceCount = mesh.size();
+
 		glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
-		glBufferData(GL_ARRAY_BUFFER, mesh.size() * sizeof(BlockFaceInstance), mesh.data(), GL_STATIC_DRAW);
-		glEnableVertexAttribArray(1);
-		glVertexAttribIPointer(1, 1, GL_INT, sizeof(BlockFaceInstance), (void*)0); // integer attribute
-		glVertexAttribDivisor(1, 1); // advance per instance
-
-		glBindVertexArray(0);
-
-		// Store instance count
-		instanceCount = mesh.size();
+		if (faceCount > faceCapacity)
+		{
+			faceCapacity = faceCount;
+			glBufferData(GL_ARRAY_BUFFER, faceCount * sizeof(BlockFaceInstance), mesh.data(), GL_STATIC_DRAW);
+		}
+		else
+		{
+			glBufferSubData(GL_ARRAY_BUFFER, 0, faceCount * sizeof(BlockFaceInstance), mesh.data());
+		}
 
 		// Clear mesh for next build
 		mesh.clear();
@@ -221,9 +226,9 @@ void Chunk::buildMesh()
 
 void Chunk::render() const
 {
-	if (instanceCount == 0) return;
+	if (faceCount == 0) return;
 	glBindVertexArray(vao);
-	glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, 4, instanceCount);
+	glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, 4, faceCount);
 }
 
 // Function doesn't check for bounsaries, it trusts the caller. On debug mode, it asserts.
