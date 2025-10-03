@@ -2,7 +2,7 @@
 
 Player::Player(const glm::vec3& position, float yaw, float pitch) :
 	transform(position, yaw, pitch), previousTransform(transform),
-	camera(position, yaw, pitch, glm::radians(90.0f), 1.0f, 0.1f, 100.0f)
+	camera(position, yaw, pitch, glm::radians(90.0f), 1.0f, 0.1f, 128.0f)
 {
 }
 

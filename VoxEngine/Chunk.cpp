@@ -2,8 +2,9 @@
 
 #include "Vec2.h"
 
-#include <assert.h>
+#include <cassert>
 #include <vector>
+#include <iostream>
 
 //============================================================================
 //BlockFaceInstance
@@ -176,6 +177,8 @@ void Chunk::buildMesh()
 			{ 1.0f, 1.0f },
 			{ 0.0f, 1.0f }
 		};
+
+		// TODO: Maybe have a single VBO/VAO for all chunks, since they use the same vertices?
 
 		// Generate new buffers
 		glGenVertexArrays(1, &vao);

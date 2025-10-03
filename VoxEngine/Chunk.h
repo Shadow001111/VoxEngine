@@ -23,6 +23,11 @@ public:
 	Chunk();
 	~Chunk();
 
+	Chunk(const Chunk&) = delete;
+	Chunk& operator=(const Chunk&) = delete;
+	Chunk(Chunk&&) = delete;
+	Chunk& operator=(Chunk&&) = delete;
+
 	bool operator==(const Chunk& other) const;
 
 	void init(int x, int y, int z);

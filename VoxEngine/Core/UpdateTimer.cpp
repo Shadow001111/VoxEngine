@@ -10,6 +10,11 @@ void UpdateTimer::addTime(float deltaTime)
 	accumulatedTime += deltaTime;
 }
 
+void UpdateTimer::setUpdateToTrue()
+{
+	accumulatedTime = updateInterval;
+}
+
 bool UpdateTimer::shouldUpdate()
 {
 	if (accumulatedTime >= updateInterval)

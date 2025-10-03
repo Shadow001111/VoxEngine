@@ -4,36 +4,10 @@
 #include "Player.h"
 
 #include <iostream>
-#include <memory>
 
-#include "Chunk.h"
+#include "World.h"
 
 #include "UpdateTimer.h"
-
-
-void loadChunks(std::unordered_map<Int3, std::unique_ptr<Chunk>, ChunkHash>& chunks, int playerChunkX, int playerChunkY, int playerChunkZ)
-{
-    const int renderDistance = 2; // In chunks
-    for (int x = -renderDistance; x <= renderDistance; x++)
-    {
-        for (int y = -renderDistance; y <= renderDistance; y++)
-        {
-            for (int z = -renderDistance; z <= renderDistance; z++)
-            {
-                int chunkX = playerChunkX + x;
-                int chunkY = playerChunkY + y;
-                int chunkZ = playerChunkZ + z;
-
-                auto chunk = std::make_unique<Chunk>();
-                chunk->init(chunkX, chunkY, chunkZ);
-                chunk->buildBlocks();
-                chunk->buildMesh();
-
-				chunks[chunk->getPosition()] = std::move(chunk);
-            }
-        }
-    }
-}
 
 int main()
 {
@@ -68,6 +42,7 @@ int main()
         // Time
 		float lastTime = static_cast<float>(glfwGetTime());
 		UpdateTimer playerUpdateTimer(20.0f);
+		UpdateTimer worldUpdateTimer(20.0f); worldUpdateTimer.setUpdateToTrue();
 
         // Input
         glm::vec2 previousMousePos;
@@ -75,11 +50,7 @@ int main()
         glfwSetInputMode(wnd.getWindow(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
         // World
-		std::unordered_map<Int3, std::unique_ptr<Chunk>, ChunkHash> chunks;
-		int playerChunkX = static_cast<int>(floor(player.getPosition().x)) / CHUNK_SIZE;
-		int playerChunkY = static_cast<int>(floor(player.getPosition().y)) / CHUNK_SIZE;
-		int playerChunkZ = static_cast<int>(floor(player.getPosition().z)) / CHUNK_SIZE;
-		loadChunks(chunks, playerChunkX, playerChunkY, playerChunkZ);
+        World world;
 
         // Main loop
         while (!wnd.shouldClose())
@@ -90,6 +61,18 @@ int main()
 			lastTime = time;
 
 			playerUpdateTimer.addTime(deltaTime);
+			worldUpdateTimer.addTime(deltaTime);
+
+            // World
+            if (worldUpdateTimer.shouldUpdate())
+            {
+				glm::vec3 playerPos = player.getPosition();
+				int playerChunkX = int(floorf(playerPos.x / (float)CHUNK_SIZE));
+                int playerChunkY = int(floorf(playerPos.y / (float)CHUNK_SIZE));
+                int playerChunkZ = int(floorf(playerPos.z / (float)CHUNK_SIZE));
+				Int3 playerChunkPos(playerChunkX, playerChunkY, playerChunkZ);
+				world.loadChunks(playerChunkPos, 8);
+            }
 
 			// Player
 			if (playerUpdateTimer.shouldUpdate())
@@ -113,18 +96,7 @@ int main()
 				faceShader.setMat4("projection", projection);
             }
 
-            for (const auto& pair : chunks)
-            {
-                const Chunk* chunk = pair.second.get();
-
-				Int3 pos = chunk->getPosition();
-				glm::vec3 chunkWorldPos = glm::vec3(pos.x, pos.y, pos.z) * static_cast<float>(CHUNK_SIZE);
-
-				faceShader.setVec3("chunkPosition", chunkWorldPos.x, chunkWorldPos.y, chunkWorldPos.z);
-
-                chunk->render();
-            }
-			glBindVertexArray(0); // Unbinding chunk's VAO for safety
+			world.render(faceShader);
 
             wnd.swapBuffers();
             wnd.pollEvents();

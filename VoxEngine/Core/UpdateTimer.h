@@ -7,6 +7,8 @@ public:
 	UpdateTimer(int updatesPerSecond);
 
 	void addTime(float deltaTime);
+	void setUpdateToTrue();
+
 	bool shouldUpdate();
 
 	float getAccumulatedTime() const;
