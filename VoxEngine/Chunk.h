@@ -16,6 +16,8 @@ class Chunk
 	size_t faceCount;
 	size_t faceCapacity;
 
+	bool loadedChunkColumnData;
+
 	static size_t getIndex(int x, int y, int z);
 public:
 	Chunk* neighbors[6]; // Pointers to neighboring chunks, for easier access when building mesh

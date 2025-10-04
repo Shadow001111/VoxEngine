@@ -65,24 +65,6 @@ void World::loadChunksAroundPlayer(const Int3& chunkLoaderPos, int renderDistanc
 			}
 		}
 	}
-
-	// Debug
-	{
-		// TODO: Add UI for this
-		/*size_t totalFaces = 0;
-		size_t totalCapacity = 0;
-		for (const auto& pair : chunks)
-		{
-			const Chunk* chunk = pair.second.get();
-			totalFaces += chunk->getFaceCount();
-			totalCapacity += chunk->getFaceCapacity();
-		}
-		if (totalCapacity > 0)
-		{
-			float usage = (float)totalFaces / (float)totalCapacity * 100.0f;
-			std::cout << "Total chunk faces: " << (totalFaces >> 10) << "k / " << (totalCapacity >> 10) << "k (" << usage << "%)" << std::endl;
-		}*/
-	}
 }
 
 void World::update()

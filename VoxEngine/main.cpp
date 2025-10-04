@@ -10,7 +10,6 @@
 #include "UpdateTimer.h"
 #include "Profiler.h"
 
-// TODO: Potential memory leak somewhere? (when moving around)
 int main()
 {
     try

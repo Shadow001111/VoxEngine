@@ -6,7 +6,6 @@
 #include <unordered_map>
 #include <memory>
 
-// TODO: Keep track of usage so we can delete safely
 struct ChunkColumnData
 {
 	int X, Z; // Coordinates in chunk space
@@ -24,7 +23,6 @@ public:
 	int* getHeightWritePointer();
 };
 
-// TODO: Implement cleaning up unneeded columns
 class TerrainGenerator
 {
 	class ChunkColumnDataPool

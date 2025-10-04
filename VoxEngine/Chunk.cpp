@@ -130,6 +130,9 @@ void Chunk::init(int x, int y, int z, Chunk** neighbors)
 			neighbor->neighbors[i ^ 1] = this;
 		}
 	}
+
+	//
+	loadedChunkColumnData = false;
 }
 
 // Cleans up resources
@@ -150,8 +153,10 @@ void Chunk::destroy()
 	}
 
 	// Release chunk column data
-	// TODO: If buildBlocks won't be called, it will release. It's bad.
-	TerrainGenerator::getInstance().releaseChunkColumnData(position.x, position.z);
+	if (loadedChunkColumnData)
+	{
+		TerrainGenerator::getInstance().releaseChunkColumnData(position.x, position.z);
+	}
 }
 
 // Fills 'blocks' array
@@ -161,6 +166,7 @@ void Chunk::buildBlocks()
 
 	auto chunkColumnData = TerrainGenerator::getInstance().loadChunkColumnData(position.x, position.z);
 	const int* heightMap = chunkColumnData->getHeightReadPointer();
+	loadedChunkColumnData = true;
 
 	for (int x = 0; x < CHUNK_SIZE; x++)
 	{
@@ -238,7 +244,7 @@ void Chunk::buildMesh()
 
 	// Upload to GPU
 	{
-		// TODO: Maybe have a single VBO/VAO for all chunks, since they use the same vertices?
+		// TODO: Maybe have a single VBO/VAO for all chunks, since they use the same vertices? If possible, I dunno.
 		
 		// TODO: Maybe have a pool for instance buffers? Chunk should ask for the minimum sized buffer that fits his needs.
 		// If there's none, it gets closest one and changes its size.
