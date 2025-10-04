@@ -12,7 +12,7 @@ Int2::Int2(int x, int y) :
 
 bool Int2::operator==(const Int2& other) const
 {
-	return false;
+	return x == other.x && y == other.y;
 }
 
 size_t Int2Hasher::operator()(const Int2& other) const
