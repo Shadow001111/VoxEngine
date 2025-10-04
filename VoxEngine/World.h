@@ -7,6 +7,7 @@
 #include <unordered_set>
 #include <memory>
 
+// TODO: Chunks still have faces between their neighbors somehow
 class World
 {
 	class ChunkPool
@@ -44,6 +45,9 @@ public:
 	void loadChunksAroundPlayer(const Int3& chunkLoaderPos, int renderDistance);
 	void update();
 	void render(const Shader& faceShader) const;
+
+	// Debug
+	void rebuildAllChunkMeshes();
 private:
 	void loadChunk(int chunkX, int chunkY, int chunkZ);
 

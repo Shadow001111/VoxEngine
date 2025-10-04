@@ -108,6 +108,17 @@ void World::render(const Shader& faceShader) const
 	}
 }
 
+void World::rebuildAllChunkMeshes()
+{
+	PROFILE_SCOPE("Build chunk meshes");
+
+	chunksNeedingMeshRebuild.clear();
+	for (const auto& pair : chunks)
+	{
+		pair.second->buildMesh();
+	}
+}
+
 void World::loadChunk(int chunkX, int chunkY, int chunkZ)
 {
 	// Check if chunk already exists
@@ -180,17 +191,16 @@ void World::loadChunk(int chunkX, int chunkY, int chunkZ)
 	chunk->init(chunkX, chunkY, chunkZ, neighbors);
 	chunk->buildBlocks();
 	chunksNeedingMeshRebuild.insert(chunk.get());
+	chunks[chunk->getPosition()] = std::move(chunk);
 
 	for (int i = 0; i < 6; i++)
 	{
 		Chunk* neighbor = neighbors[i];
 		if (neighbor)
 		{
-			chunksNeedingMeshRebuild.insert(chunk.get());
+			chunksNeedingMeshRebuild.insert(neighbor);
 		}
 	}
-
-	chunks[chunk->getPosition()] = std::move(chunk);
 }
 
 void World::buildChunkMeshes()

@@ -78,6 +78,12 @@ int main()
 				Int3 playerChunkPos(playerChunkX, playerChunkY, playerChunkZ);
 				world.loadChunksAroundPlayer(playerChunkPos, 8);
 				world.update();
+
+                if (wnd.isKeyPressed(GLFW_KEY_P))
+                {
+                    world.rebuildAllChunkMeshes();
+                    std::cout << "World: All chunks meshes are rebuild." << std::endl;
+                }
             }
 
 			// Player
