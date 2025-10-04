@@ -40,6 +40,19 @@ void World::loadChunksAroundPlayer(const Int3& chunkLoaderPos, int renderDistanc
 		for (const Int3& pos : chunksToUnload)
 		{
 			auto it = chunks.find(pos);
+
+			const Chunk* chunk = it->second.get();
+			Chunk::State state = chunk->getState();
+			bool isBeingProcessed = chunk->isBeingProcessed();
+
+			// TODO: Should stop processing chunk
+			// Maybe chunk pool shouldn't return processing chunk to the pool.
+			// It should store it to some vector, where it will be checked, it will be returned to the pool when done processing.
+			if (state != Chunk::State::Ready)
+			{
+				std::cout << (size_t)state << " " << isBeingProcessed << std::endl;
+			}
+
 			chunkPool.release(std::move(it->second));
 			chunks.erase(it);
 		}

@@ -14,7 +14,7 @@ class Chunk
 public:
 	enum class State
 	{
-		NeedsBlocks,      // Just created needs block generation
+		NeedsBlocks = 0,  // Just created needs block generation
 		BuildingBlocks,   // Currently building blocks in background
 		NeedsMesh,        // Blocks ready, needs mesh generation
 		Ready             // Mesh ready, can render
@@ -30,6 +30,8 @@ private:
 	bool loadedChunkColumnData;
 
 	std::atomic<State> state;
+
+	std::atomic<bool> beingProcessed;
 
 	static size_t getIndex(int x, int y, int z);
 public:
@@ -61,9 +63,14 @@ public:
 	int getZ() const;
 	Int3 getPosition() const;
 
-	// State management
+	// Atomic getters and setters
 	State getState() const;
 	void setState(State newState);
+
+	bool isBeingProcessed() const;
+private:
+	void setIsBeingProcessed(bool value);
+public:
 
 	// Debug
 	size_t getFaceCount() const;

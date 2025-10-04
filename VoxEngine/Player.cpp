@@ -14,7 +14,7 @@ void Player::update(const WindowManager& wnd, float deltaTime, glm::vec2& lastMo
     {
 		bool sprint = wnd.isKeyPressed(GLFW_KEY_LEFT_SHIFT);
 
-        const float cameraSpeed = (sprint ? 2.0f : 1.0f) * (15.0f * deltaTime);
+        const float cameraSpeed = (sprint ? 4.0f : 1.0f) * (15.0f * deltaTime);
 
         float leftRight = wnd.isKeyPressed(GLFW_KEY_D) - wnd.isKeyPressed(GLFW_KEY_A);
         float forwardBackward = wnd.isKeyPressed(GLFW_KEY_W) - wnd.isKeyPressed(GLFW_KEY_S);

@@ -37,7 +37,8 @@ size_t Chunk::getIndex(int x, int y, int z)
 
 Chunk::Chunk() :
 	position(0, 0, 0),
-	vao(0), vbo(0), instanceVBO(0), faceCount(0), faceCapacity(0)
+	vao(0), vbo(0), instanceVBO(0), faceCount(0), faceCapacity(0),
+	beingProcessed(false)
 {
 	// Create buffers once
 	Vec2 vertices[4] = // CCW order
@@ -168,6 +169,9 @@ void Chunk::destroy()
 // Fills 'blocks' array
 void Chunk::buildBlocks()
 {
+	assert(!isBeingProcessed());
+	setIsBeingProcessed(true);
+
 	auto chunkColumnData = TerrainGenerator::getInstance().loadChunkColumnData(position.x, position.z);
 	const int* heightMap = chunkColumnData->heightMap;
 	loadedChunkColumnData = true;
@@ -192,10 +196,16 @@ void Chunk::buildBlocks()
 			}
 		}
 	}
+
+	assert(isBeingProcessed());
+	setIsBeingProcessed(false);
 }
 
 void Chunk::buildMesh()
 {
+	assert(!isBeingProcessed());
+	setIsBeingProcessed(true);
+
 	static thread_local std::vector<BlockFaceInstance> mesh;
 	assert(mesh.empty());
 	mesh.clear();
@@ -270,6 +280,9 @@ void Chunk::buildMesh()
 
 		mesh.clear();
 	}
+
+	assert(isBeingProcessed());
+	setIsBeingProcessed(false);
 }
 
 void Chunk::render() const
@@ -346,6 +359,16 @@ Chunk::State Chunk::getState() const
 void Chunk::setState(State newState)
 {
 	state.store(newState, std::memory_order_release);
+}
+
+bool Chunk::isBeingProcessed() const
+{
+	return beingProcessed.load(std::memory_order_acquire);
+}
+
+void Chunk::setIsBeingProcessed(bool value)
+{
+	beingProcessed.store(value, std::memory_order_release);
 }
 
 size_t Chunk::getFaceCount() const
