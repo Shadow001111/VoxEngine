@@ -76,7 +76,7 @@ int main()
                 int playerChunkY = int(floorf(playerPos.y / (float)CHUNK_SIZE));
                 int playerChunkZ = int(floorf(playerPos.z / (float)CHUNK_SIZE));
 				Int3 playerChunkPos(playerChunkX, playerChunkY, playerChunkZ);
-				world.loadChunks(playerChunkPos, 8);
+				world.loadChunksAroundPlayer(playerChunkPos, 8);
 				world.update();
             }
 

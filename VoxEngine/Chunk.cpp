@@ -178,8 +178,8 @@ void Chunk::buildBlocks()
 
 void Chunk::buildMesh()
 {
-	// TODO: Mesh allocates each function call, maybe it should be a member and reused?
 	static thread_local std::vector<BlockFaceInstance> mesh;
+	mesh.clear();
 
 	// Collect visible faces
 	for (int x = 0; x < CHUNK_SIZE; x++)
@@ -245,9 +245,6 @@ void Chunk::buildMesh()
 		{
 			glBufferSubData(GL_ARRAY_BUFFER, 0, faceCount * sizeof(BlockFaceInstance), mesh.data());
 		}
-
-		// Clear mesh for next build
-		mesh.clear();
 	}
 }
 

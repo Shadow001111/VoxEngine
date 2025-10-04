@@ -12,7 +12,7 @@ World::~World()
 {
 }
 
-void World::loadChunks(const Int3& chunkLoaderPos, int renderDistance)
+void World::loadChunksAroundPlayer(const Int3& chunkLoaderPos, int renderDistance)
 {
 	if (!firstLoad && lastChunkLoaderPos == chunkLoaderPos)
     {

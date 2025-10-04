@@ -40,7 +40,7 @@ public:
 	World(World&&) = delete;
 	World& operator=(World&&) = delete;
 
-	void loadChunks(const Int3& chunkLoaderPos, int renderDistance);
+	void loadChunksAroundPlayer(const Int3& chunkLoaderPos, int renderDistance);
 	void update();
 	void render(const Shader& faceShader) const;
 private:

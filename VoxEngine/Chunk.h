@@ -9,7 +9,6 @@
 #include <memory>
 
 // TODO: Maybe 'blocks' should be a pointer to a dynamically allocated array, so it can be moved without copying?
-// TODO: Implement chunk pool
 class Chunk
 {
 	Int3 position; // Chunk coordinates in chunk space
