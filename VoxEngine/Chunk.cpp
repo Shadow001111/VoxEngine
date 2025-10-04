@@ -148,6 +148,10 @@ void Chunk::destroy()
 			neighbors[i] = nullptr;
 		}
 	}
+
+	// Release chunk column data
+	// TODO: If buildBlocks won't be called, it will release. It's bad.
+	TerrainGenerator::getInstance().releaseChunkColumnData(position.x, position.z);
 }
 
 // Fills 'blocks' array

@@ -10,6 +10,7 @@
 struct ChunkColumnData
 {
 	int X, Z; // Coordinates in chunk space
+	uint32_t referenceCount;
 
 	int heightMap[CHUNK_AREA];
 public:
@@ -57,8 +58,11 @@ public:
 	static TerrainGenerator& getInstance();
 
 	const ChunkColumnData* loadChunkColumnData(int x, int z);
-	void unloadChunkColumnData(int x, int z);
+	void releaseChunkColumnData(int x, int z);
+
+	// Debug
+	size_t getChunkColumnDataCount() const;
 private:
-	void initChunkColumnData(ChunkColumnData* column, int x, int z);
+	void initChunkColumnData(ChunkColumnData* column, int X, int Z);
 };
 

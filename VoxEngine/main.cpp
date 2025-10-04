@@ -76,7 +76,7 @@ int main()
                 int playerChunkY = int(floorf(playerPos.y / (float)CHUNK_SIZE));
                 int playerChunkZ = int(floorf(playerPos.z / (float)CHUNK_SIZE));
 				Int3 playerChunkPos(playerChunkX, playerChunkY, playerChunkZ);
-				world.loadChunksAroundPlayer(playerChunkPos, 2);
+				world.loadChunksAroundPlayer(playerChunkPos, 8);
 				world.update();
             }
 
@@ -112,7 +112,7 @@ int main()
 
             if (profilerUpdateTimer.shouldUpdate())
             {
-                //Profiler::printProfileReport();
+                Profiler::printProfileReport();
 				Profiler::resetAllProfiles();
             }
         }
