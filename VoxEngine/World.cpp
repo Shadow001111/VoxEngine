@@ -69,7 +69,12 @@ void World::loadChunksAroundPlayer(const Int3& chunkLoaderPos, int renderDistanc
 
 void World::update()
 {
-	if (!chunksNeedingMeshRebuild.empty())
+	if (!blocksBuildChunkContainer.empty())
+	{
+		buildChunkBlocks();
+	}
+
+	if (!meshBuildChunkContainer.empty())
 	{
 		buildChunkMeshes();
 	}
@@ -94,7 +99,7 @@ void World::rebuildAllChunkMeshes()
 {
 	PROFILE_SCOPE("Build chunk meshes");
 
-	chunksNeedingMeshRebuild.clear();
+	meshBuildChunkContainer.clear();
 	for (const auto& pair : chunks)
 	{
 		pair.second->buildMesh();
@@ -185,8 +190,10 @@ void World::loadChunk(int chunkX, int chunkY, int chunkZ)
 	// Create and initialize chunk
 	auto chunk = chunkPool.acquire();
 	chunk->init(chunkX, chunkY, chunkZ, neighbors);
-	chunk->buildBlocks();
-	chunksNeedingMeshRebuild.insert(chunk.get());
+
+	blocksBuildChunkContainer.insert(chunk.get());
+	meshBuildChunkContainer.insert(chunk.get());
+
 	chunks[chunk->getPosition()] = std::move(chunk);
 
 	for (int i = 0; i < 6; i++)
@@ -194,20 +201,31 @@ void World::loadChunk(int chunkX, int chunkY, int chunkZ)
 		Chunk* neighbor = neighbors[i];
 		if (neighbor)
 		{
-			chunksNeedingMeshRebuild.insert(neighbor);
+			meshBuildChunkContainer.insert(neighbor);
 		}
 	}
+}
+
+void World::buildChunkBlocks()
+{
+	PROFILE_SCOPE("Build chunk blocks");
+
+	for (Chunk* chunk : blocksBuildChunkContainer)
+	{
+		chunk->buildBlocks();
+	}
+	blocksBuildChunkContainer.clear();
 }
 
 void World::buildChunkMeshes()
 {
 	PROFILE_SCOPE("Build chunk meshes");
 
-	for (Chunk* chunk : chunksNeedingMeshRebuild)
+	for (Chunk* chunk : meshBuildChunkContainer)
 	{
 		chunk->buildMesh();
 	}
-	chunksNeedingMeshRebuild.clear();
+	meshBuildChunkContainer.clear();
 }
 
 std::unique_ptr<Chunk> World::ChunkPool::acquire()

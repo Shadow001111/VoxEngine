@@ -112,10 +112,11 @@ void Chunk::init(int x, int y, int z, Chunk** neighbors)
 	position = Int3(x, y, z);
 
 	// Clear blocks
-	for (int i = 0; i < CHUNK_VOLUME; i++)
+	// TODO: This in unecessary, since buildBlocks fills whole array
+	/*for (int i = 0; i < CHUNK_VOLUME; i++)
 	{
 		blocks[i] = Block::Air;
-	}
+	}*/
 
 	// Set instance count to 0
 	faceCount = 0;
@@ -162,8 +163,6 @@ void Chunk::destroy()
 // Fills 'blocks' array
 void Chunk::buildBlocks()
 {
-	PROFILE_SCOPE("Chunk build blocks");
-
 	auto chunkColumnData = TerrainGenerator::getInstance().loadChunkColumnData(position.x, position.z);
 	const int* heightMap = chunkColumnData->getHeightReadPointer();
 	loadedChunkColumnData = true;
@@ -193,6 +192,7 @@ void Chunk::buildBlocks()
 void Chunk::buildMesh()
 {
 	static thread_local std::vector<BlockFaceInstance> mesh;
+	assert(mesh.empty());
 	mesh.clear();
 
 	// Collect visible faces

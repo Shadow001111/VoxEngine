@@ -28,7 +28,8 @@ class World
 
 	ChunkPool chunkPool;
 	std::unordered_map<Int3, std::unique_ptr<Chunk>, Int3Hasher> chunks;
-	std::unordered_set<Chunk*> chunksNeedingMeshRebuild;
+	std::unordered_set<Chunk*> blocksBuildChunkContainer;
+	std::unordered_set<Chunk*> meshBuildChunkContainer;
 
 	Int3 lastChunkLoaderPos;
 	bool firstLoad = true;
@@ -52,6 +53,7 @@ public:
 private:
 	void loadChunk(int chunkX, int chunkY, int chunkZ);
 
+	void buildChunkBlocks();
 	void buildChunkMeshes();
 };
 
