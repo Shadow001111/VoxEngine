@@ -68,6 +68,11 @@ bool WindowManager::shouldClose() const
     return glfwWindowShouldClose(window);
 }
 
+void WindowManager::setTitle(const std::string& title) const
+{
+    glfwSetWindowTitle(window, title.c_str());
+}
+
 GLFWwindow* WindowManager::getWindow() const
 {
 	return window;

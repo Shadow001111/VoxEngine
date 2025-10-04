@@ -239,6 +239,9 @@ void Chunk::buildMesh()
 	// Upload to GPU
 	{
 		// TODO: Maybe have a single VBO/VAO for all chunks, since they use the same vertices?
+		
+		// TODO: Maybe have a pool for instance buffers? Chunk should ask for the minimum sized buffer that fits his needs.
+		// If there's none, it gets closest one and changes its size.
 
 		// Instance buffer
 		faceCount = mesh.size();
@@ -253,6 +256,8 @@ void Chunk::buildMesh()
 		{
 			glBufferSubData(GL_ARRAY_BUFFER, 0, faceCount * sizeof(BlockFaceInstance), mesh.data());
 		}
+
+		mesh.clear();
 	}
 }
 

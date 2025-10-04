@@ -10,6 +10,7 @@
 #include "UpdateTimer.h"
 #include "Profiler.h"
 
+// TODO: Potential memory leak somewhere? (when moving around)
 int main()
 {
     try
@@ -52,6 +53,7 @@ int main()
 		UpdateTimer playerUpdateTimer(20.0f);
 		UpdateTimer worldUpdateTimer(20.0f); worldUpdateTimer.setUpdateToTrue();
 		UpdateTimer profilerUpdateTimer(1.0f / 3.0f);
+        UpdateTimer debugUpdateTimer(10.0f);
 
         // Main loop
         while (!wnd.shouldClose())
@@ -69,6 +71,7 @@ int main()
 			playerUpdateTimer.addTime(deltaTime);
 			worldUpdateTimer.addTime(deltaTime);
 			profilerUpdateTimer.addTime(deltaTime);
+            debugUpdateTimer.addTime(deltaTime);
 
             // World
             if (worldUpdateTimer.shouldUpdate())
@@ -115,6 +118,20 @@ int main()
 
             //Profiler
             Profiler::endFrame();
+
+            // Debug
+            if (debugUpdateTimer.shouldUpdate())
+            {
+                size_t totalFaces, totalFaceCapacity, potentialMaximumCapacity;
+                world.getChunkMeshesInfo(totalFaces, totalFaceCapacity, potentialMaximumCapacity);
+
+                std::string title = "Faces/Capacity/Maximum: "
+                    + std::to_string(totalFaces >> 10) + "k/"
+                    + std::to_string(totalFaceCapacity >> 10) + "k/"
+                    + std::to_string(potentialMaximumCapacity >> 10) + "k";
+
+                wnd.setTitle(title);
+            }
 
             if (profilerUpdateTimer.shouldUpdate())
             {

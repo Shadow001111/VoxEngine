@@ -47,6 +47,8 @@ public:
 
 	// Debug
 	void rebuildAllChunkMeshes();
+
+	void getChunkMeshesInfo(size_t& totalFaces, size_t& totalFaceCapacity, size_t& potentialMaximumCapacity);
 private:
 	void loadChunk(int chunkX, int chunkY, int chunkZ);
 

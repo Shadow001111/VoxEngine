@@ -25,9 +25,12 @@ public:
 	void pollEvents() const;
     void swapBuffers() const;
 	bool shouldClose() const;
-    GLFWwindow* getWindow() const;
 
-	// Getters for width, height, and aspect ratio
+    // Setters
+    void setTitle(const std::string& title) const;
+
+	// Getters
+    GLFWwindow* getWindow() const;
     int getWidth() const;
     int getHeight() const;
     float getAspectRatio() const;

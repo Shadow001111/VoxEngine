@@ -119,6 +119,20 @@ void World::rebuildAllChunkMeshes()
 	}
 }
 
+void World::getChunkMeshesInfo(size_t& totalFaces, size_t& totalFaceCapacity, size_t& potentialMaximumCapacity)
+{
+	totalFaces = 0;
+	totalFaceCapacity = 0;
+	for (const auto& pair : chunks)
+	{
+		const Chunk* chunk = pair.second.get();
+		totalFaces += chunk->getFaceCount();
+		totalFaceCapacity += chunk->getFaceCapacity();
+	}
+
+	potentialMaximumCapacity = chunks.size() * CHUNK_VOLUME / 2 * 6;
+}
+
 void World::loadChunk(int chunkX, int chunkY, int chunkZ)
 {
 	// Check if chunk already exists
