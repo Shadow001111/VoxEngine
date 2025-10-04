@@ -7,7 +7,6 @@
 #include <unordered_set>
 #include <memory>
 
-// TODO: Chunks still have faces between their neighbors somehow
 class World
 {
 	class ChunkPool

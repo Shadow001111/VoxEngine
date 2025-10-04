@@ -14,10 +14,10 @@ int main()
 {
     try
     {
-        WindowParams params{ 1280, 720, "My OpenGL 4.6 Window", true };
-        WindowManager wnd(params);
+        // Window
+        WindowManager wnd({ 1280, 720, "My OpenGL 4.6 Window", true });
 
-        // Shaders sources
+        // Shaders
         std::vector<Shader::ShaderSource> faceShaderSources =
         {
             {GL_VERTEX_SHADER, "Shaders/face.vert"},
@@ -27,37 +27,39 @@ int main()
         Shader faceShader(faceShaderSources);
         faceShaderSources.clear();
 
-        // Player
-		Player player({ 0.0f, 2.0f, 0.0f }, glm::radians(180.0f), 0.0f);
-		player.getCamera().setAspectRatio(wnd.getAspectRatio());
-
-        // Face culling
+        // OpenGL states
         glEnable(GL_CULL_FACE);
         glCullFace(GL_BACK);
         glFrontFace(GL_CCW);
 
-        // Depth test
         glEnable(GL_DEPTH_TEST);
         glDepthFunc(GL_LESS);
 
-        // Time
+        // Player
+        Player player({ 0.0f, 2.0f, 0.0f }, glm::radians(180.0f), 0.0f);
+        player.getCamera().setAspectRatio(wnd.getAspectRatio());
+
+        // World
+        World world;
+
+        // Input
+        glm::vec2 previousMousePos;
+        wnd.getMousePos(previousMousePos.x, previousMousePos.y);
+        glfwSetInputMode(wnd.getWindow(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
+        // Timers
 		float lastTime = static_cast<float>(glfwGetTime());
 		UpdateTimer playerUpdateTimer(20.0f);
 		UpdateTimer worldUpdateTimer(20.0f); worldUpdateTimer.setUpdateToTrue();
 		UpdateTimer profilerUpdateTimer(1.0f / 3.0f);
 
-        // Input
-        glm::vec2 previousMousePos;
-		wnd.getMousePos(previousMousePos.x, previousMousePos.y);
-        glfwSetInputMode(wnd.getWindow(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-
-        // World
-        World world;
-
         // Main loop
         while (!wnd.shouldClose())
         {
 			Profiler::beginFrame();
+
+            // Poll events
+            wnd.pollEvents();
 
 			// Time logic
 			float time = static_cast<float>(glfwGetTime());
@@ -72,10 +74,12 @@ int main()
             if (worldUpdateTimer.shouldUpdate())
             {
 				glm::vec3 playerPos = player.getPosition();
-				int playerChunkX = int(floorf(playerPos.x / (float)CHUNK_SIZE));
-                int playerChunkY = int(floorf(playerPos.y / (float)CHUNK_SIZE));
-                int playerChunkZ = int(floorf(playerPos.z / (float)CHUNK_SIZE));
-				Int3 playerChunkPos(playerChunkX, playerChunkY, playerChunkZ);
+                Int3 playerChunkPos(
+                    static_cast<int>(floorf(playerPos.x / CHUNK_SIZE)),
+                    static_cast<int>(floorf(playerPos.y / CHUNK_SIZE)),
+                    static_cast<int>(floorf(playerPos.z / CHUNK_SIZE))
+                );
+
 				world.loadChunksAroundPlayer(playerChunkPos, 8);
 				world.update();
 
@@ -100,18 +104,14 @@ int main()
 			faceShader.use();
             {
 				const Camera& camera = player.getCamera();
-
-                glm::mat4 view = camera.getViewMatrix();
-                glm::mat4 projection = camera.getProjectionMatrix();
-
-				faceShader.setMat4("view", view);
-				faceShader.setMat4("projection", projection);
+				faceShader.setMat4("view", camera.getViewMatrix());
+				faceShader.setMat4("projection", camera.getProjectionMatrix());
             }
 
 			world.render(faceShader);
 
+            // Swap buffers
             wnd.swapBuffers();
-            wnd.pollEvents();
 
             //Profiler
             Profiler::endFrame();
