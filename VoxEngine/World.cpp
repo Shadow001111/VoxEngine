@@ -39,11 +39,9 @@ void World::loadChunksAroundPlayer(const Int3& chunkLoaderPos, int renderDistanc
 		}
 		for (const Int3& pos : chunksToUnload)
 		{
-			// Return chunk to pool
-			chunkPool.release(std::move(chunks[pos]));
-
-			// Remove from map
-			chunks.erase(pos);
+			auto it = chunks.find(pos);
+			chunkPool.release(std::move(it->second));
+			chunks.erase(it);
 		}
 	}
 
