@@ -6,6 +6,7 @@
 #include <cassert>
 #include <vector>
 #include <iostream>
+#include "TerrainGenerator.h"
 
 //============================================================================
 //BlockFaceInstance
@@ -154,11 +155,14 @@ void Chunk::buildBlocks()
 {
 	PROFILE_SCOPE("Chunk build blocks");
 
+	auto chunkColumnData = TerrainGenerator::getInstance().loadChunkColumnData(position.x, position.z);
+	const int* heightMap = chunkColumnData->getHeightReadPointer();
+
 	for (int x = 0; x < CHUNK_SIZE; x++)
 	{
 		for (int z = 0; z < CHUNK_SIZE; z++)
 		{
-			int globalHeight = 0; // Flat terrain
+			const int globalHeight = heightMap[z + x * CHUNK_SIZE];
 
 			for (int y = 0; y < CHUNK_SIZE; y++)
 			{
@@ -322,38 +326,6 @@ size_t Chunk::getFaceCount() const
 size_t Chunk::getFaceCapacity() const
 {
 	return faceCapacity;
-}
-
-//============================================================================
-// ChunkHash
-
-size_t ChunkHash::operator()(const Chunk& chunk) const
-{
-	// 21 bits for each coordinate should be enough (-1048576 to 1048575), because chunks won't be generated that far from each other... unless multiplayer.
-	Int3 pos = chunk.getPosition();
-	return (size_t)pos.x | ((size_t)pos.y << 21) | ((size_t)pos.z << 42);
-}
-
-size_t ChunkHash::operator()(const Chunk* chunk) const
-{
-	Int3 pos = chunk->getPosition();
-	return (size_t)pos.x | ((size_t)pos.y << 21) | ((size_t)pos.z << 42);
-}
-
-size_t ChunkHash::operator()(const std::unique_ptr<Chunk>& chunk) const
-{
-	Int3 pos = chunk->getPosition();
-	return (size_t)pos.x | ((size_t)pos.y << 21) | ((size_t)pos.z << 42);
-}
-
-size_t ChunkHash::operator()(int x, int y, int z) const
-{
-	return (size_t)x | ((size_t)y << 21) | ((size_t)z << 42);
-}
-
-size_t ChunkHash::operator()(const Int3& pos) const
-{
-	return (size_t)pos.x | ((size_t)pos.y << 21) | ((size_t)pos.z << 42);
 }
 
 //============================================================================

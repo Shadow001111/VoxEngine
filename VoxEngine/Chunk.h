@@ -6,8 +6,6 @@
 
 #include <glad/glad.h>
 
-#include <memory>
-
 // TODO: Maybe 'blocks' should be a pointer to a dynamically allocated array, so it can be moved without copying?
 class Chunk
 {
@@ -51,14 +49,4 @@ public:
 	// Debug
 	size_t getFaceCount() const;
 	size_t getFaceCapacity() const;
-};
-
-class ChunkHash
-{
-public:
-	size_t operator()(const Chunk& chunk) const;
-	size_t operator()(const Chunk* chunk) const;
-	size_t operator()(const std::unique_ptr<Chunk>& chunk) const;
-	size_t operator()(int x, int y, int z) const;
-	size_t operator()(const Int3& pos) const;
 };

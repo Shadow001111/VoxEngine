@@ -135,11 +135,13 @@
     <ClCompile Include="Graphics\Camera.cpp" />
     <ClCompile Include="glad.c" />
     <ClCompile Include="Graphics\Shader.cpp" />
+    <ClCompile Include="Core\Int2.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Core\Vec2.cpp" />
     <ClCompile Include="Core\UpdateTimer.cpp" />
     <ClCompile Include="Core\Transform.cpp" />
     <ClCompile Include="Player.cpp" />
+    <ClCompile Include="TerrainGenerator.cpp" />
     <ClCompile Include="WindowManager.cpp" />
     <ClCompile Include="World.cpp" />
   </ItemGroup>
@@ -151,11 +153,13 @@
     <ClInclude Include="Core\Profiler.h" />
     <ClInclude Include="Graphics\Camera.h" />
     <ClInclude Include="Graphics\Shader.h" />
+    <ClInclude Include="Core\Int2.h" />
     <ClInclude Include="Metrics.h" />
     <ClInclude Include="Core\Vec2.h" />
     <ClInclude Include="Core\UpdateTimer.h" />
     <ClInclude Include="Core\Transform.h" />
     <ClInclude Include="Player.h" />
+    <ClInclude Include="TerrainGenerator.h" />
     <ClInclude Include="WindowManager.h" />
     <ClInclude Include="World.h" />
   </ItemGroup>

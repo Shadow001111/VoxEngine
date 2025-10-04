@@ -5,6 +5,7 @@
 
 #include <unordered_map>
 #include <unordered_set>
+#include <memory>
 
 class World
 {
@@ -26,7 +27,7 @@ class World
 	};
 
 	ChunkPool chunkPool;
-	std::unordered_map<Int3, std::unique_ptr<Chunk>, ChunkHash> chunks;
+	std::unordered_map<Int3, std::unique_ptr<Chunk>, Int3Hasher> chunks;
 	std::unordered_set<Chunk*> chunksNeedingMeshRebuild;
 
 	Int3 lastChunkLoaderPos;

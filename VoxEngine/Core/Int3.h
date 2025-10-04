@@ -9,3 +9,9 @@ struct Int3
 
 	bool operator==(const Int3& other) const;
 };
+
+struct Int3Hasher
+{
+public:
+	size_t operator()(const Int3& other) const;
+};
