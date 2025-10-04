@@ -90,6 +90,11 @@ int main()
                     world.rebuildAllChunkMeshes();
                     std::cout << "World: All chunks meshes are rebuild." << std::endl;
                 }
+
+                if (wnd.isKeyPressed(GLFW_KEY_O))
+                {
+                    world.debugMethod();
+                }
             }
 
 			// Player

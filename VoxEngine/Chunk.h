@@ -6,9 +6,20 @@
 
 #include <glad/glad.h>
 
+#include <atomic>
+
 // TODO: Maybe 'blocks' should be a pointer to a dynamically allocated array, so it can be moved without copying?
 class Chunk
 {
+public:
+	enum class State
+	{
+		NeedsBlocks,      // Just created needs block generation
+		BuildingBlocks,   // Currently building blocks in background
+		NeedsMesh,        // Blocks ready, needs mesh generation
+		Ready             // Mesh ready, can render
+	};
+private:
 	Int3 position; // Chunk coordinates in chunk space
 	Block blocks[CHUNK_VOLUME];
 
@@ -17,6 +28,8 @@ class Chunk
 	size_t faceCapacity;
 
 	bool loadedChunkColumnData;
+
+	std::atomic<State> state;
 
 	static size_t getIndex(int x, int y, int z);
 public:
@@ -47,6 +60,10 @@ public:
 	int getY() const;
 	int getZ() const;
 	Int3 getPosition() const;
+
+	// State management
+	State getState() const;
+	void setState(State newState);
 
 	// Debug
 	size_t getFaceCount() const;

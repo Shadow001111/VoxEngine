@@ -72,7 +72,7 @@ void World::update()
 {
 	if (!blocksBuildChunkContainer.empty())
 	{
-		buildChunkBlocks();
+		startBuildingChunkBlocks();
 	}
 
 	if (!meshBuildChunkContainer.empty())
@@ -87,6 +87,11 @@ void World::render(const Shader& faceShader) const
 	for (const auto& pair : chunks)
 	{
 		const Chunk* chunk = pair.second.get();
+
+		if (chunk->getState() != Chunk::State::Ready)
+		{
+			continue;
+		}
 
 		Int3 pos = chunk->getPosition();
 		glm::vec3 chunkWorldPos = glm::vec3(pos.x, pos.y, pos.z) * static_cast<float>(CHUNK_SIZE);
@@ -104,8 +109,29 @@ void World::rebuildAllChunkMeshes()
 	meshBuildChunkContainer.clear();
 	for (const auto& pair : chunks)
 	{
-		pair.second->buildMesh();
+		Chunk* chunk = pair.second.get();
+		if (chunk->getState() == Chunk::State::Ready)
+		{
+			chunk->buildMesh();
+		}
 	}
+}
+
+void World::debugMethod()
+{
+	int count[4] = { 0, 0, 0, 0 };
+	for (const auto& pair : chunks)
+	{
+		auto state = pair.second->getState();
+		size_t index = (size_t)state;
+		count[index]++;
+	}
+
+	for (int i = 0; i < 4; i++)
+	{
+		std::cout << count[i] << " ";
+	}
+	std::cout << std::endl;
 }
 
 void World::getChunkMeshesInfo(size_t& totalFaces, size_t& totalFaceCapacity, size_t& potentialMaximumCapacity)
@@ -192,55 +218,65 @@ void World::loadChunk(int chunkX, int chunkY, int chunkZ)
 	// Create and initialize chunk
 	auto chunk = chunkPool.acquire();
 	chunk->init(chunkX, chunkY, chunkZ, neighbors);
+	Chunk* chunkPtr = chunk.get();
 
-	blocksBuildChunkContainer.insert(chunk.get());
-	meshBuildChunkContainer.insert(chunk.get());
+	// Add to blocks build queue
+	{
+		std::lock_guard<std::mutex> lock(blocksBuildMutex);
+		blocksBuildChunkContainer.insert(chunkPtr);
+	}
 
 	chunks[chunk->getPosition()] = std::move(chunk);
-
-	for (int i = 0; i < 6; i++)
-	{
-		Chunk* neighbor = neighbors[i];
-		if (neighbor)
-		{
-			meshBuildChunkContainer.insert(neighbor);
-		}
-	}
 }
 
-void World::buildChunkBlocks()
+void World::startBuildingChunkBlocks()
 {
-	// Time for first load:
-	// Single-threaded: 8.4 ms
-	// Multi-threaded (12 threads) (min chunk size 1): 4.5 ms
-	// Multi-threaded (10 threads) (min chunk size 500): 4.3 ms
-	// Multi-threaded (5 threads) (min chunk size 1000): 4.33 ms
-	// Multi-threaded (4 threads) (min chunk size 1500): 4.33 ms
-	// Multi-threaded (3 threads) (min chunk size 2000): 4.8 ms
+	// Maybe add PROFILE_SCOPE inside Chunk::buildBlocks. Make Profiler thread safe.
+	PROFILE_SCOPE("Start building chunk blocks");
 
-	PROFILE_SCOPE("Build chunk blocks");
-
-	if (false)
+	// Collect chunks that need block building
+	std::vector<Chunk*> chunksToProcess;
 	{
+		std::lock_guard<std::mutex> lock(blocksBuildMutex);
+		if (blocksBuildChunkContainer.empty())
+		{
+			return;
+		}
+
+		chunksToProcess.reserve(blocksBuildChunkContainer.size());
 		for (Chunk* chunk : blocksBuildChunkContainer)
 		{
-			chunk->buildBlocks();
+			chunk->setState(Chunk::State::BuildingBlocks);
+			chunksToProcess.push_back(chunk);
 		}
 		blocksBuildChunkContainer.clear();
 	}
-	else
+
+	// Submit work to thread pool
+	// TODO: Maybe batch for less mutex locking
+	ThreadPool& pool = ParallelUtils::getGlobalThreadPool();
+	for (Chunk* chunk : chunksToProcess)
 	{
-		// Convert set to vector for parallel processing
-		std::vector<Chunk*> chunksToProcess(blocksBuildChunkContainer.begin(), blocksBuildChunkContainer.end());
-		blocksBuildChunkContainer.clear();
-
-		// Use parallel for to build blocks across multiple threads
-		ParallelUtils::parallelForEach(chunksToProcess, 500, [](Chunk* chunk)
+		pool.enqueue([this, chunk]()
 			{
+				// Build blocks in background thread
 				chunk->buildBlocks();
-			});
 
-		// TODO: Instead of waiting for a completion, chunks should be building between updates. When chunk will build its blocks, it will be allowed to build mesh.
+				// Mark as needing mesh
+				chunk->setState(Chunk::State::NeedsMesh);
+
+				std::lock_guard<std::mutex> lock(meshBuildMutex);
+				meshBuildChunkContainer.insert(chunk);
+
+				for (int i = 0; i < 6; i++)
+				{
+					Chunk* neighbor = chunk->neighbors[i];
+					if (neighbor && neighbor->getState() == Chunk::State::Ready)
+					{
+						meshBuildChunkContainer.insert(neighbor);
+					}
+				}
+			});
 	}
 }
 
@@ -248,11 +284,40 @@ void World::buildChunkMeshes()
 {
 	PROFILE_SCOPE("Build chunk meshes");
 
-	for (Chunk* chunk : meshBuildChunkContainer)
+	// Collect chunks that need mesh building
+	std::vector<Chunk*> chunksToProcess;
+	{
+		std::lock_guard<std::mutex> lock(meshBuildMutex);
+		if (meshBuildChunkContainer.empty())
+		{
+			return;
+		}
+
+		std::unordered_set<Chunk*> remainingChunks;
+		remainingChunks.reserve(meshBuildChunkContainer.size());
+
+		chunksToProcess.reserve(meshBuildChunkContainer.size());
+		for (Chunk* chunk : meshBuildChunkContainer)
+		{
+			Chunk::State state = chunk->getState();
+			if (state == Chunk::State::NeedsMesh || state == Chunk::State::Ready)
+			{
+				chunksToProcess.push_back(chunk);
+			}
+			else
+			{
+				remainingChunks.insert(chunk);
+			}
+		}
+		meshBuildChunkContainer.swap(remainingChunks);
+	}
+
+	// Build meshes on main thread (OpenGL calls)
+	for (Chunk* chunk : chunksToProcess)
 	{
 		chunk->buildMesh();
+		chunk->setState(Chunk::State::Ready);
 	}
-	meshBuildChunkContainer.clear();
 }
 
 std::unique_ptr<Chunk> World::ChunkPool::acquire()

@@ -7,6 +7,9 @@
 #include <unordered_set>
 #include <memory>
 
+#include <mutex>
+#include <atomic>
+
 class World
 {
 	class ChunkPool
@@ -28,7 +31,11 @@ class World
 
 	ChunkPool chunkPool;
 	std::unordered_map<Int3, std::unique_ptr<Chunk>, Int3Hasher> chunks;
+	
+	std::mutex blocksBuildMutex;
 	std::unordered_set<Chunk*> blocksBuildChunkContainer;
+	
+	std::mutex meshBuildMutex;
 	std::unordered_set<Chunk*> meshBuildChunkContainer;
 
 	Int3 lastChunkLoaderPos;
@@ -48,12 +55,13 @@ public:
 
 	// Debug
 	void rebuildAllChunkMeshes();
+	void debugMethod();
 
 	void getChunkMeshesInfo(size_t& totalFaces, size_t& totalFaceCapacity, size_t& potentialMaximumCapacity);
 private:
 	void loadChunk(int chunkX, int chunkY, int chunkZ);
 
-	void buildChunkBlocks();
+	void startBuildingChunkBlocks();
 	void buildChunkMeshes();
 };
 

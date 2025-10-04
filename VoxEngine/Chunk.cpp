@@ -134,6 +134,9 @@ void Chunk::init(int x, int y, int z, Chunk** neighbors)
 
 	//
 	loadedChunkColumnData = false;
+
+	// Reset state
+	state.store(State::NeedsBlocks, std::memory_order_release);
 }
 
 // Cleans up resources
@@ -158,6 +161,8 @@ void Chunk::destroy()
 	{
 		TerrainGenerator::getInstance().releaseChunkColumnData(position.x, position.z);
 	}
+
+	// State can be not reset, because who cares?
 }
 
 // Fills 'blocks' array
@@ -331,6 +336,16 @@ int Chunk::getZ() const
 Int3 Chunk::getPosition() const
 {
 	return position;
+}
+
+Chunk::State Chunk::getState() const
+{
+	return state.load(std::memory_order_acquire);
+}
+
+void Chunk::setState(State newState)
+{
+	state.store(newState, std::memory_order_release);
 }
 
 size_t Chunk::getFaceCount() const
