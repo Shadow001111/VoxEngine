@@ -5,6 +5,7 @@
 
 #include <unordered_map>
 #include <memory>
+#include <mutex>
 
 struct ChunkColumnData
 {
@@ -18,9 +19,6 @@ public:
 
 	void init(int x, int z);
 	void destroy();
-
-	const int* getHeightReadPointer() const;
-	int* getHeightWritePointer();
 };
 
 class TerrainGenerator
@@ -28,6 +26,7 @@ class TerrainGenerator
 	class ChunkColumnDataPool
 	{
 		std::vector<std::unique_ptr<ChunkColumnData>> pool;
+		std::mutex poolMutex;
 	public:
 		ChunkColumnDataPool() = default;
 		~ChunkColumnDataPool() = default;
@@ -44,6 +43,7 @@ class TerrainGenerator
 
 	ChunkColumnDataPool chunkColumnDataPool;
 	std::unordered_map<Int2, std::unique_ptr<ChunkColumnData>, Int2Hasher> chunkColumnData;
+	mutable std::mutex dataMutex; // Protects chunkColumnData map
 public:
 	TerrainGenerator() = default;
 	~TerrainGenerator() = default;

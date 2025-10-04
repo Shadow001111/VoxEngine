@@ -42,6 +42,11 @@ void ThreadPool::waitForCompletion()
     }
 }
 
+size_t ThreadPool::getThreadCount() const
+{
+    return workers.size();
+}
+
 void ThreadPool::workerThread()
 {
     while(true)

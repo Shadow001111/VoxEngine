@@ -1,6 +1,7 @@
 #include "World.h"
 
 #include "Profiler.h"
+#include "ThreadPool.h"
 
 #include <iostream>
 
@@ -82,6 +83,7 @@ void World::update()
 
 void World::render(const Shader& faceShader) const
 {
+	// TODO: Use ssbo for chunk's position. Maybe it's faster? Though takes much more memory.
 	for (const auto& pair : chunks)
 	{
 		const Chunk* chunk = pair.second.get();
@@ -208,13 +210,38 @@ void World::loadChunk(int chunkX, int chunkY, int chunkZ)
 
 void World::buildChunkBlocks()
 {
+	// Time for first load:
+	// Single-threaded: 8.4 ms
+	// Multi-threaded (12 threads) (min chunk size 1): 4.5 ms
+	// Multi-threaded (10 threads) (min chunk size 500): 4.3 ms
+	// Multi-threaded (5 threads) (min chunk size 1000): 4.33 ms
+	// Multi-threaded (4 threads) (min chunk size 1500): 4.33 ms
+	// Multi-threaded (3 threads) (min chunk size 2000): 4.8 ms
+
 	PROFILE_SCOPE("Build chunk blocks");
 
-	for (Chunk* chunk : blocksBuildChunkContainer)
+	if (false)
 	{
-		chunk->buildBlocks();
+		for (Chunk* chunk : blocksBuildChunkContainer)
+		{
+			chunk->buildBlocks();
+		}
+		blocksBuildChunkContainer.clear();
 	}
-	blocksBuildChunkContainer.clear();
+	else
+	{
+		// Convert set to vector for parallel processing
+		std::vector<Chunk*> chunksToProcess(blocksBuildChunkContainer.begin(), blocksBuildChunkContainer.end());
+		blocksBuildChunkContainer.clear();
+
+		// Use parallel for to build blocks across multiple threads
+		ParallelUtils::parallelForEach(chunksToProcess, 500, [](Chunk* chunk)
+			{
+				chunk->buildBlocks();
+			});
+
+		// TODO: Instead of waiting for a completion, chunks should be building between updates. When chunk will build its blocks, it will be allowed to build mesh.
+	}
 }
 
 void World::buildChunkMeshes()

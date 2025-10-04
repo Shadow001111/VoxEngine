@@ -7,6 +7,7 @@
 #include <future>
 #include <functional>
 #include <atomic>
+#include <iostream>
 
 class ThreadPool
 {
@@ -24,7 +25,7 @@ public:
 		-> std::future<typename std::result_of<F(Args...)>::type>;
 
 	void waitForCompletion();
-	size_t getThreadCount() const { return workers.size(); }
+    size_t getThreadCount() const;
 private:
 	void workerThread();
 };
@@ -54,7 +55,8 @@ inline auto ThreadPool::enqueue(F&& f, Args && ...args) -> std::future<typename 
 }
 
 // Parallel execution utilities
-class ParallelUtils {
+class ParallelUtils
+{
 public:
     static ThreadPool& getGlobalThreadPool();
 
@@ -107,6 +109,8 @@ void ParallelUtils::parallelFor(size_t start, size_t end, size_t minChunkSize, F
     {
         future.wait();
     }
+
+    std::cout << futures.size() << std::endl;
 }
 
 template<typename Container, typename Func>

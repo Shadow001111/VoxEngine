@@ -164,7 +164,7 @@ void Chunk::destroy()
 void Chunk::buildBlocks()
 {
 	auto chunkColumnData = TerrainGenerator::getInstance().loadChunkColumnData(position.x, position.z);
-	const int* heightMap = chunkColumnData->getHeightReadPointer();
+	const int* heightMap = chunkColumnData->heightMap;
 	loadedChunkColumnData = true;
 
 	for (int x = 0; x < CHUNK_SIZE; x++)

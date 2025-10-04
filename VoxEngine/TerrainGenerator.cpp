@@ -28,21 +28,12 @@ void ChunkColumnData::destroy()
 	referenceCount = 0;
 }
 
-const int* ChunkColumnData::getHeightReadPointer() const
-{
-	return heightMap;
-}
-
-int* ChunkColumnData::getHeightWritePointer()
-{
-	return heightMap;
-}
-
 //============================================================================
 //ChunkColumnDataPool
 
 std::unique_ptr<ChunkColumnData> TerrainGenerator::ChunkColumnDataPool::acquire()
 {
+	std::lock_guard<std::mutex> lock(poolMutex);
 	if (!pool.empty())
 	{
 		std::unique_ptr<ChunkColumnData> chunkColumnData = std::move(pool.back());
@@ -55,6 +46,8 @@ std::unique_ptr<ChunkColumnData> TerrainGenerator::ChunkColumnDataPool::acquire(
 void TerrainGenerator::ChunkColumnDataPool::release(std::unique_ptr<ChunkColumnData> chunkColumnData)
 {
 	chunkColumnData->destroy();
+
+	std::lock_guard<std::mutex> lock(poolMutex);
 	pool.push_back(std::move(chunkColumnData));
 }
 
@@ -71,6 +64,8 @@ const ChunkColumnData* TerrainGenerator::loadChunkColumnData(int x, int z)
 {
 	PROFILE_SCOPE("Load chunk column data");
 
+	std::lock_guard<std::mutex> lock(dataMutex);
+
 	// Check if column already exists
 	Int2 pos(x, z);
 	auto it = chunkColumnData.find(pos);
@@ -81,7 +76,22 @@ const ChunkColumnData* TerrainGenerator::loadChunkColumnData(int x, int z)
 	}
 
 	// Create column
+	dataMutex.unlock();
 	std::unique_ptr<ChunkColumnData> column = chunkColumnDataPool.acquire();
+	dataMutex.lock();
+
+	// Check again in case another thread created it while we were acquiring from pool
+	it = chunkColumnData.find(pos);
+	if (it != chunkColumnData.end())
+	{
+		// Another thread beat us to it, return the column to the pool
+		dataMutex.unlock();
+		chunkColumnDataPool.release(std::move(column));
+		dataMutex.lock();
+
+		it->second->referenceCount++;
+		return it->second.get();
+	}
 
 	// Move column into the map
 	auto inserted = chunkColumnData.insert(std::make_pair(pos, std::move(column)));
@@ -98,6 +108,8 @@ void TerrainGenerator::releaseChunkColumnData(int x, int z)
 {
 	PROFILE_SCOPE("Release chunk column data");
 
+	std::lock_guard<std::mutex> lock(dataMutex);
+
 	Int2 pos(x, z);
 	auto it = chunkColumnData.find(pos);
 	if (it == chunkColumnData.end())
@@ -111,13 +123,19 @@ void TerrainGenerator::releaseChunkColumnData(int x, int z)
 	// If no more references, unload the column
 	if (it->second->referenceCount <= 0)
 	{
-		chunkColumnDataPool.release(std::move(it->second));
+		std::unique_ptr<ChunkColumnData> columnToRelease = std::move(it->second);
 		chunkColumnData.erase(it);
+
+		// Release to pool without holding the data mutex
+		dataMutex.unlock();
+		chunkColumnDataPool.release(std::move(columnToRelease));
+		dataMutex.lock();
 	}
 }
 
 size_t TerrainGenerator::getChunkColumnDataCount() const
 {
+	std::lock_guard<std::mutex> lock(dataMutex);
 	return chunkColumnData.size();
 }
 
@@ -127,7 +145,7 @@ void TerrainGenerator::initChunkColumnData(ChunkColumnData* column, int X, int Z
 
 	column->init(X, Z);
 
-	int* heightMap = column->getHeightWritePointer();
+	int* heightMap = column->heightMap;
 	for (int x = 0; x < CHUNK_SIZE; x++)
 	{
 		int globalX = x + X * CHUNK_SIZE;
