@@ -9,6 +9,7 @@ uniform vec3 chunkPosition;
 
 out vec2 uv;
 flat out float ao[4];
+out float depth;
 
 void main()
 {
@@ -76,5 +77,10 @@ void main()
     uv = vertexUV;
 
     vec3 worldPos = chunkPosition + vertexPos + vec3(x, y, z);
-    gl_Position = projection * view * vec4(worldPos, 1.0);
+    vec4 viewPos = view * vec4(worldPos, 1.0);
+    
+    // Calculate depth (distance from camera in view space)
+    depth = length(viewPos.xyz);
+    
+    gl_Position = projection * viewPos;
 }

@@ -28,6 +28,18 @@ class World
 		void release(std::unique_ptr<Chunk> chunk);
 	};
 
+	// TODO: Add ability for
+	struct Visuals
+	{
+		glm::vec3 backgroundColor = {}; // Also fog color
+		float fogMaxDistance = 0.0f; // Should be set as render distance
+		float fogDensity = 0.0f;
+		float fogGradient = 0.0f;
+
+		static float calculateFogDensity(float renderDistance_, float fogGradient_);
+		static float calculateFogGradient(float renderDistance_, float fogDensity_);
+	};
+
 	ChunkPool chunkPool;
 	std::unordered_map<Int3, std::unique_ptr<Chunk>, Int3Hasher> chunks;
 	
@@ -40,6 +52,8 @@ class World
 	Int3 lastChunkLoaderPos;
 	bool firstLoad = true;
 public:
+	Visuals visuals;
+
 	World();
 	~World();
 

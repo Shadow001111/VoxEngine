@@ -5,6 +5,9 @@
 
 #include <iostream>
 
+//============================================================================
+// World
+
 World::World()
 {
 }
@@ -349,13 +352,16 @@ void World::startBuildingChunkMeshes()
 					// Mark as chunk as Ready. His mesh can be not on the GPU yet.
 					chunk->setState(Chunk::State::Ready);
 
-					// TODO: Issue: Chunk's mesh if flickering.
+					// TODO: Issue: Chunk's mesh is flickering.
 					// Settings Ready state should be done in Chunk::sendMedhesToGPU
 					// Even if yes, mesh is flickering even more. It takes more time to send mesh to GPU, but we set Ready state immediately.
 				});
 		}
 	}
 }
+
+//============================================================================
+// ChunkPool
 
 std::unique_ptr<Chunk> World::ChunkPool::acquire()
 {
@@ -373,3 +379,18 @@ void World::ChunkPool::release(std::unique_ptr<Chunk> chunk)
 	chunk->destroy();
 	pool.push_back(std::move(chunk));
 }
+
+//============================================================================
+// Visuals
+
+float World::Visuals::calculateFogDensity(float renderDistance_, float fogGradient_)
+{
+	return powf(-logf(1e-3f), 1.0f / fogGradient_) / renderDistance_;
+}
+
+float World::Visuals::calculateFogGradient(float renderDistance_, float fogDensity_)
+{
+	return logf(-logf(1e-3f)) / logf(renderDistance_ * fogDensity_);
+}
+
+//============================================================================

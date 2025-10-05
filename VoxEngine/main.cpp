@@ -10,7 +10,10 @@
 
 int main()
 {
-    constexpr int CHUNK_LOAD_DISTANCE = 4;
+    constexpr int CHUNK_LOAD_DISTANCE = 8;
+
+    constexpr float CAMERA_FAR_PLANE = (CHUNK_LOAD_DISTANCE + 0.5f) * (CHUNK_SIZE * 1.41f);
+    constexpr float FOG_DISTANCE = (CHUNK_LOAD_DISTANCE + 0.5f) * CHUNK_SIZE;
 
     try
     {
@@ -38,10 +41,24 @@ int main()
         // Player
         Player player({ 0.0f, 2.0f, 0.0f }, glm::radians(180.0f), 0.0f);
         player.getCamera().setAspectRatio(wnd.getAspectRatio());
-        player.getCamera().setFarPlane((CHUNK_LOAD_DISTANCE + 0.5f) * (CHUNK_SIZE * 1.41f));
+        player.getCamera().setFarPlane(CAMERA_FAR_PLANE);
 
         // World
         World world;
+
+        world.visuals.backgroundColor = { 0.52f, 0.8f, 0.92f }; // Sky color
+        world.visuals.fogGradient = 5.0f;
+        world.visuals.fogDensity = world.visuals.calculateFogDensity(FOG_DISTANCE, world.visuals.fogGradient);
+
+        {
+            faceShader.use();
+
+            // Fog
+            const auto& fogColor = world.visuals.backgroundColor;
+            faceShader.setVec3("fogColor", fogColor.x, fogColor.y, fogColor.z);
+            faceShader.setFloat("fogDensity", world.visuals.fogDensity);
+            faceShader.setFloat("fogGradient", world.visuals.fogGradient);
+        }
 
         // Input
         glm::vec2 previousMousePos;
@@ -106,11 +123,15 @@ int main()
 			player.interpolateCameraTransform(playerUpdateTimer.getAccumulatedTimeInPercent());
 
             // Rendering
-            glClearColor(0.1f, 0.2f, 0.3f, 1.0f);
+            {
+                const auto& color = world.visuals.backgroundColor;
+                glClearColor(color.x, color.y, color.z, 1.0f);
+            }
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 			faceShader.use();
             {
+                // Camera
 				const Camera& camera = player.getCamera();
 				faceShader.setMat4("view", camera.getViewMatrix());
 				faceShader.setMat4("projection", camera.getProjectionMatrix());

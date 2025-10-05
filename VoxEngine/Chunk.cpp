@@ -119,13 +119,6 @@ void Chunk::init(int x, int y, int z, Chunk** neighbors)
 	// Set position
 	position = Int3(x, y, z);
 
-	// Clear blocks
-	// TODO: This in unecessary, since buildBlocks fills whole array
-	/*for (int i = 0; i < CHUNK_VOLUME; i++)
-	{
-		blocks[i] = Block::Air;
-	}*/
-
 	// Set instance count to 0
 	faceCount = 0;
 
@@ -179,7 +172,7 @@ void Chunk::buildBlocks()
 	assert(!isBeingProcessed());
 	setIsBeingProcessed(true);
 
-	auto chunkColumnData = TerrainGenerator::getInstance().loadChunkColumnData(position.x, position.z);
+	const ChunkColumnData* chunkColumnData = TerrainGenerator::getInstance().loadChunkColumnData(position.x, position.z);
 	const int* heightMap = chunkColumnData->heightMap;
 	loadedChunkColumnData = true;
 
@@ -367,9 +360,9 @@ Block Chunk::getBlock_checkNeighborsTraverse(int x, int y, int z) const
 	}
 
 	// Determine which direction(s) we need to traverse
-	int dirX = (nx < 0) ? 0 : (nx > 0) ? 1 : -1; // -1 means no X traversal
-	int dirY = (ny < 0) ? 2 : (ny > 0) ? 3 : -1; // -1 means no Y traversal
-	int dirZ = (nz < 0) ? 4 : (nz > 0) ? 5 : -1; // -1 means no Z traversal
+	int dirX = (nx < 0) ? 0 : ((nx > 0) ? 1 : -1); // -1 means no X traversal
+	int dirY = (ny < 0) ? 2 : ((ny > 0) ? 3 : -1); // -1 means no Y traversal
+	int dirZ = (nz < 0) ? 4 : ((nz > 0) ? 5 : -1); // -1 means no Z traversal
 
 	const Chunk* neighbor = this;
 

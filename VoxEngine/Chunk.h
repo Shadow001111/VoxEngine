@@ -17,7 +17,6 @@ struct BlockFaceInstance
 	BlockFaceInstance(int x, int y, int z, int normal, int ao);
 };
 
-// TODO: Maybe 'blocks' should be a pointer to a dynamically allocated array, so it can be moved without copying?
 class Chunk
 {
 public:
