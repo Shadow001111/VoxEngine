@@ -62,51 +62,54 @@ TerrainGenerator& TerrainGenerator::getInstance()
 
 const ChunkColumnData* TerrainGenerator::loadChunkColumnData(int x, int z)
 {
-	PROFILE_SCOPE("Load chunk column data");
+	//PROFILE_SCOPE("Load chunk column data"); TODO: Make Profiler thread safe
 
-	std::lock_guard<std::mutex> lock(dataMutex);
+	Int2 pos(x, z);
 
 	// Check if column already exists
-	Int2 pos(x, z);
-	auto it = chunkColumnData.find(pos);
-	if (it != chunkColumnData.end())
 	{
-		it->second->referenceCount++;
-		return it->second.get();
+		std::lock_guard<std::mutex> lock(dataMutex);
+		auto it = chunkColumnData.find(pos);
+		if (it != chunkColumnData.end())
+		{
+			it->second->referenceCount++;
+			return it->second.get();
+		}
 	}
 
 	// Create column
-	dataMutex.unlock();
 	std::unique_ptr<ChunkColumnData> column = chunkColumnDataPool.acquire();
-	dataMutex.lock();
 
 	// Check again in case another thread created it while we were acquiring from pool
-	it = chunkColumnData.find(pos);
-	if (it != chunkColumnData.end())
 	{
-		// Another thread beat us to it, return the column to the pool
-		dataMutex.unlock();
-		chunkColumnDataPool.release(std::move(column));
-		dataMutex.lock();
+		std::lock_guard<std::mutex> lock(dataMutex);
+		auto it = chunkColumnData.find(pos);
+		if (it != chunkColumnData.end())
+		{
+			// Another thread beat us to it, return the column to the pool
+			dataMutex.unlock();
+			chunkColumnDataPool.release(std::move(column));
+			dataMutex.lock();
 
-		it->second->referenceCount++;
-		return it->second.get();
+			it->second->referenceCount++;
+			return it->second.get();
+		}
+
+		// Move column into the map
+		auto inserted = chunkColumnData.insert(std::make_pair(pos, std::move(column)));
+
+		// Init column
+		ChunkColumnData* columnPtr = inserted.first->second.get();
+		initChunkColumnData(columnPtr, x, z);
+		columnPtr->referenceCount = 1;
+
+		return columnPtr;
 	}
-
-	// Move column into the map
-	auto inserted = chunkColumnData.insert(std::make_pair(pos, std::move(column)));
-
-	// Init column
-	ChunkColumnData* columnPtr = inserted.first->second.get();
-	initChunkColumnData(columnPtr, x, z);
-	columnPtr->referenceCount = 1;
-
-	return columnPtr;
 }
 
 void TerrainGenerator::releaseChunkColumnData(int x, int z)
 {
-	PROFILE_SCOPE("Release chunk column data");
+	//PROFILE_SCOPE("Release chunk column data"); TODO: Make Profiler thread safe
 
 	std::lock_guard<std::mutex> lock(dataMutex);
 

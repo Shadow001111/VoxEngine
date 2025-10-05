@@ -348,7 +348,9 @@ void World::startBuildingChunkMeshes()
 					// Mark as chunk as Ready. His mesh can be not on the GPU yet.
 					chunk->setState(Chunk::State::Ready);
 
-					// TODO: Issue: Chunk's mesh if flickering
+					// TODO: Issue: Chunk's mesh if flickering.
+					// Settings Ready state should be done in Chunk::sendMedhesToGPU
+					// Even if yes, mesh is flickering even more. It takes more time to send mesh to GPU, but we set Ready state immediately.
 				});
 		}
 	}

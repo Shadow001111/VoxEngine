@@ -10,6 +10,8 @@
 
 int main()
 {
+    constexpr int CHUNK_LOAD_DISTANCE = 14;
+
     try
     {
         // Window
@@ -36,6 +38,7 @@ int main()
         // Player
         Player player({ 0.0f, 2.0f, 0.0f }, glm::radians(180.0f), 0.0f);
         player.getCamera().setAspectRatio(wnd.getAspectRatio());
+        player.getCamera().setFarPlane((CHUNK_LOAD_DISTANCE + 0.5f) * (CHUNK_SIZE * 1.41f));
 
         // World
         World world;
@@ -80,7 +83,7 @@ int main()
                     static_cast<int>(floorf(playerPos.z / CHUNK_SIZE))
                 );
 
-				world.loadChunksAroundPlayer(playerChunkPos, 14);
+				world.loadChunksAroundPlayer(playerChunkPos, CHUNK_LOAD_DISTANCE);
 				world.update();
 
                 if (wnd.isKeyPressed(GLFW_KEY_P))

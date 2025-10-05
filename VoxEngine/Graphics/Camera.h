@@ -26,8 +26,9 @@ public:
 	void setPitch(float pitch);
 	void setYawPitch(float yaw, float pitch);
 	void setTransform(const Transform& transform);
-	void setAspectRatio(float aspect);
 	void setFOV(float fov);
+	void setAspectRatio(float aspect);
+	void setFarPlane(float farPlane);
 
 	void move(const glm::vec3& delta);
 	void rotate(float deltaYaw, float deltaPitch);

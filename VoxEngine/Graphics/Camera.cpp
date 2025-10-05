@@ -51,16 +51,21 @@ void Camera::setTransform(const Transform& transform)
 	vectorsUpdateRequired = true;
 }
 
-void Camera::setAspectRatio(float aspect)
-{
-	aspectRatio = aspect;
-}
-
 void Camera::setFOV(float fov)
 {
 	if (fov < 1.0f) fov = 1.0f;
 	if (fov > 90.0f) fov = 90.0f;
 	FOV = fov;
+}
+
+void Camera::setAspectRatio(float aspect)
+{
+	aspectRatio = aspect;
+}
+
+void Camera::setFarPlane(float farPlane)
+{
+	this->farPlane = farPlane;
 }
 
 void Camera::move(const glm::vec3& delta)
