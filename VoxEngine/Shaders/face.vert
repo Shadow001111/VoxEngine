@@ -8,15 +8,34 @@ uniform mat4 projection;
 uniform vec3 chunkPosition;
 
 out vec2 uv;
+flat out float ao[4];
 
 void main()
 {
-    // Unpack
+    // Unpack face data
     int x = instanceData & 15;
     int y = (instanceData >> 4) & 15;
     int z = (instanceData >> 8) & 15;
 
     int normal = (instanceData >> 12) & 7;
+
+    int faceAO = (instanceData >> 15) & 255;
+
+    // Unpack all AO values
+    int ao0 = faceAO & 3;
+    int ao1 = (faceAO >> 2) & 3;
+    int ao2 = (faceAO >> 4) & 3;
+    int ao3 = faceAO >> 6;
+    
+    // Fix anisotropy by flipping diagonal if needed
+    // Check if we need to flip the quad orientation
+    int vertexIndex = gl_VertexID % 4;
+    int aoValue;
+
+    ao[0] = float(ao0) / 3.0;
+    ao[1] = float(ao1) / 3.0;
+    ao[2] = float(ao2) / 3.0;
+    ao[3] = float(ao3) / 3.0;
 
     // Move quad to face
     vec3 vertexPos = vec3(0.0);

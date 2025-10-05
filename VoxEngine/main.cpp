@@ -10,7 +10,7 @@
 
 int main()
 {
-    constexpr int CHUNK_LOAD_DISTANCE = 14;
+    constexpr int CHUNK_LOAD_DISTANCE = 4;
 
     try
     {

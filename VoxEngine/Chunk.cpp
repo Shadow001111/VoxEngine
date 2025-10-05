@@ -5,13 +5,12 @@
 
 #include <cassert>
 #include <vector>
-#include <iostream>
 #include "TerrainGenerator.h"
 
 //============================================================================
 //BlockFaceInstance
 
-BlockFaceInstance::BlockFaceInstance(int x, int y, int z, int normal) : data(0)
+BlockFaceInstance::BlockFaceInstance(int x, int y, int z, int normal, int ao) : data(0)
 {
 	// Coords 12 bits
 	data |= (x & 15);
@@ -20,6 +19,9 @@ BlockFaceInstance::BlockFaceInstance(int x, int y, int z, int normal) : data(0)
 
 	// Normal 3 bits
 	data |= (normal & 7) << 12;
+
+	// Ambient occlusion 8 bits
+	data |= (ao & 255) << 15;
 }
 
 //============================================================================
@@ -190,7 +192,7 @@ void Chunk::buildBlocks()
 			for (int y = 0; y < CHUNK_SIZE; y++)
 			{
 				int worldY = position.y * CHUNK_SIZE + y;
-				if (worldY < globalHeight)
+				if (worldY <= globalHeight)
 				{
 					blocks[getIndex(x, y, z)] = Block::Solid;
 				}
@@ -227,34 +229,40 @@ void Chunk::buildMesh()
 				}
 
 				// -X
-				if (getBlock_checkNeighbors(x - 1, y, z) == Block::Air)
+				if (getBlock_checkSideNeighbor(x - 1, y, z, 0) == Block::Air)
 				{
-					mesh.emplace_back(x, y, z, 0);
+					int ao = calculateFaceAO(x, y, z, 0);
+					mesh.emplace_back(x, y, z, 0, ao);
 				}
 				// +X
-				if (getBlock_checkNeighbors(x + 1, y, z) == Block::Air)
+				if (getBlock_checkSideNeighbor(x + 1, y, z, 1) == Block::Air)
 				{
-					mesh.emplace_back(x, y, z, 1);
+					int ao = calculateFaceAO(x, y, z, 1);
+					mesh.emplace_back(x, y, z, 1, ao);
 				}
 				// -Y
-				if (getBlock_checkNeighbors(x, y - 1, z) == Block::Air)
+				if (getBlock_checkSideNeighbor(x, y - 1, z, 2) == Block::Air)
 				{
-					mesh.emplace_back(x, y, z, 2);
+					int ao = calculateFaceAO(x, y, z, 2);
+					mesh.emplace_back(x, y, z, 2, ao);
 				}
 				// +Y
-				if (getBlock_checkNeighbors(x, y + 1, z) == Block::Air)
+				if (getBlock_checkSideNeighbor(x, y + 1, z, 3) == Block::Air)
 				{
-					mesh.emplace_back(x, y, z, 3);
+					int ao = calculateFaceAO(x, y, z, 3);
+					mesh.emplace_back(x, y, z, 3, ao);
 				}
 				// -Z
-				if (getBlock_checkNeighbors(x, y, z - 1) == Block::Air)
+				if (getBlock_checkSideNeighbor(x, y, z - 1, 4) == Block::Air)
 				{
-					mesh.emplace_back(x, y, z, 4);
+					int ao = calculateFaceAO(x, y, z, 4);
+					mesh.emplace_back(x, y, z, 4, ao);
 				}
 				// +Z
-				if (getBlock_checkNeighbors(x, y, z + 1) == Block::Air)
+				if (getBlock_checkSideNeighbor(x, y, z + 1, 5) == Block::Air)
 				{
-					mesh.emplace_back(x, y, z, 5);
+					int ao = calculateFaceAO(x, y, z, 5);
+					mesh.emplace_back(x, y, z, 5, ao);
 				}
 			}
 		}
@@ -281,7 +289,7 @@ void Chunk::render() const
 	glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, 4, faceCount);
 }
 
-// Function doesn't check for bounsaries, it trusts the caller. On debug mode, it asserts.
+// Function doesn't check for boundaries, it trusts the caller. On debug mode, it asserts.
 Block Chunk::getBlock_inBoundaries(int x, int y, int z) const
 {
 	assert(x >= 0 && x < CHUNK_SIZE);
@@ -290,34 +298,221 @@ Block Chunk::getBlock_inBoundaries(int x, int y, int z) const
 	return blocks[getIndex(x, y, z)];
 }
 
-// Function checks neighbors, if out of boundaries. Neighbours are considered Air for now.
+Block Chunk::getBlock_checkSideNeighbor(int x, int y, int z, int side) const
+{
+	int nx = x & CHUNK_UPPER_BITS_MASK;
+	int ny = y & CHUNK_UPPER_BITS_MASK;
+	int nz = z & CHUNK_UPPER_BITS_MASK;
+
+	if (nx == 0 && ny == 0 && nz == 0)
+	{
+		return blocks[getIndex(x, y, z)];
+	}
+
+	const Chunk* neighbor = neighbors[side];
+	if (neighbor)
+	{
+		return neighbor->getBlock_inBoundaries(x & CHUNK_LOWER_BITS_MASK, y & CHUNK_LOWER_BITS_MASK, z & CHUNK_LOWER_BITS_MASK);
+	}
+	else
+	{
+		return Block::Air;
+	}
+}
+
+// Function checks neighbors, if out of boundaries. Handles only 6 neighbors.
 Block Chunk::getBlock_checkNeighbors(int x, int y, int z) const
 {
 	int nx = x & CHUNK_UPPER_BITS_MASK;
 	int ny = y & CHUNK_UPPER_BITS_MASK;
 	int nz = z & CHUNK_UPPER_BITS_MASK;
 
-	if (nx != 0 || ny != 0 || nz != 0)
+	if (nx == 0 && ny == 0 && nz == 0)
 	{
-		const Chunk* neighbor = nullptr;
-		if (nx < 0) neighbor = neighbors[0]; // -X
-		else if (nx > 0) neighbor = neighbors[1]; // +X
-		else if (ny < 0) neighbor = neighbors[2]; // -Y
-		else if (ny > 0) neighbor = neighbors[3]; // +Y
-		else if (nz < 0) neighbor = neighbors[4]; // -Z
-		else if (nz > 0) neighbor = neighbors[5]; // +Z
-
-		if (neighbor)
-		{
-			return neighbor->getBlock_inBoundaries(x & CHUNK_LOWER_BITS_MASK, y & CHUNK_LOWER_BITS_MASK, z & CHUNK_LOWER_BITS_MASK);
-		}
-		else
-		{
-			return Block::Air; // No neighbor means air
-		}
+		return blocks[getIndex(x, y, z)];
 	}
 
-	return blocks[getIndex(x, y, z)];
+	const Chunk* neighbor = nullptr;
+	if (nx < 0) neighbor = neighbors[0]; // -X
+	else if (nx > 0) neighbor = neighbors[1]; // +X
+	else if (ny < 0) neighbor = neighbors[2]; // -Y
+	else if (ny > 0) neighbor = neighbors[3]; // +Y
+	else if (nz < 0) neighbor = neighbors[4]; // -Z
+	else if (nz > 0) neighbor = neighbors[5]; // +Z
+
+	if (neighbor)
+	{
+		return neighbor->getBlock_inBoundaries(x & CHUNK_LOWER_BITS_MASK, y & CHUNK_LOWER_BITS_MASK, z & CHUNK_LOWER_BITS_MASK);
+	}
+	else
+	{
+		return Block::Air;
+	}
+}
+
+// Function checks neighbors, if out of boundaries. Handles diagonal neighbors too.
+// TODO: Consider storing 26 neighbors in Chunk
+Block Chunk::getBlock_checkNeighborsTraverse(int x, int y, int z) const
+{
+	// TODO: Traverse can fail and success depending on traversal order. I think it won't be noticable on normal render distance.
+
+	int nx = x & CHUNK_UPPER_BITS_MASK;
+	int ny = y & CHUNK_UPPER_BITS_MASK;
+	int nz = z & CHUNK_UPPER_BITS_MASK;
+
+	// If within current chunk bounds
+	if (nx == 0 && ny == 0 && nz == 0)
+	{
+		return blocks[getIndex(x, y, z)];
+	}
+
+	// Determine which direction(s) we need to traverse
+	int dirX = (nx < 0) ? 0 : (nx > 0) ? 1 : -1; // -1 means no X traversal
+	int dirY = (ny < 0) ? 2 : (ny > 0) ? 3 : -1; // -1 means no Y traversal
+	int dirZ = (nz < 0) ? 4 : (nz > 0) ? 5 : -1; // -1 means no Z traversal
+
+	const Chunk* neighbor = this;
+
+	// Traverse in X direction first
+	if (dirX != -1)
+	{
+		neighbor = neighbor->neighbors[dirX];
+		if (!neighbor) return Block::Air;
+	}
+
+	// Then traverse in Y direction
+	if (dirY != -1)
+	{
+		neighbor = neighbor->neighbors[dirY];
+		if (!neighbor) return Block::Air;
+	}
+
+	// Finally traverse in Z direction
+	if (dirZ != -1)
+	{
+		neighbor = neighbor->neighbors[dirZ];
+		if (!neighbor) return Block::Air;
+	}
+
+	// Get local coordinates in the final neighbor chunk
+	int localX = x & CHUNK_LOWER_BITS_MASK;
+	int localY = y & CHUNK_LOWER_BITS_MASK;
+	int localZ = z & CHUNK_LOWER_BITS_MASK;
+
+	return neighbor->getBlock_inBoundaries(localX, localY, localZ);
+}
+
+int Chunk::calculateVertexAO(bool side1, bool side2, bool corner) const
+{
+	if (side1 && side2)
+	{
+		return 0; // Darkest
+	}
+	return 3 - (side1 + side2 + corner); // 3, 2, or 1
+}
+
+int Chunk::calculateFaceAO(int x, int y, int z, int normal) const
+{
+	// For each face normal, we need to check 8 neighbors around the face
+	// The AO calculation depends on which direction the face is facing
+
+	bool n[8]; // 8 neighbors around the face
+	int ao0, ao1, ao2, ao3;
+
+	switch (normal)
+	{
+	case 0: // -X face
+		n[0] = Block::Air != getBlock_checkNeighborsTraverse(x - 1, y - 1, z - 1);
+		n[1] = Block::Air != getBlock_checkNeighborsTraverse(x - 1, y - 1, z);
+		n[2] = Block::Air != getBlock_checkNeighborsTraverse(x - 1, y - 1, z + 1);
+		n[3] = Block::Air != getBlock_checkNeighborsTraverse(x - 1, y, z - 1);
+		n[4] = Block::Air != getBlock_checkNeighborsTraverse(x - 1, y, z + 1);
+		n[5] = Block::Air != getBlock_checkNeighborsTraverse(x - 1, y + 1, z - 1);
+		n[6] = Block::Air != getBlock_checkNeighborsTraverse(x - 1, y + 1, z);
+		n[7] = Block::Air != getBlock_checkNeighborsTraverse(x - 1, y + 1, z + 1);
+
+		ao0 =  calculateVertexAO(n[1], n[3], n[0]);
+		ao1 =  calculateVertexAO(n[1], n[4], n[2]);
+		ao2 =  calculateVertexAO(n[6], n[4], n[7]);
+		ao3 =  calculateVertexAO(n[6], n[3], n[5]);
+		break;
+	case 1: // +X face
+		n[0] = Block::Air != getBlock_checkNeighborsTraverse(x + 1, y - 1, z - 1);
+		n[1] = Block::Air != getBlock_checkNeighborsTraverse(x + 1, y - 1, z);
+		n[2] = Block::Air != getBlock_checkNeighborsTraverse(x + 1, y - 1, z + 1);
+		n[3] = Block::Air != getBlock_checkNeighborsTraverse(x + 1, y, z - 1);
+		n[4] = Block::Air != getBlock_checkNeighborsTraverse(x + 1, y, z + 1);
+		n[5] = Block::Air != getBlock_checkNeighborsTraverse(x + 1, y + 1, z - 1);
+		n[6] = Block::Air != getBlock_checkNeighborsTraverse(x + 1, y + 1, z);
+		n[7] = Block::Air != getBlock_checkNeighborsTraverse(x + 1, y + 1, z + 1);
+
+		ao0 = calculateVertexAO(n[1], n[4], n[2]);
+		ao1 = calculateVertexAO(n[1], n[3], n[0]);
+		ao2 = calculateVertexAO(n[6], n[3], n[5]);
+		ao3 = calculateVertexAO(n[6], n[4], n[7]);
+		break;
+	case 2: // -Y face
+		n[0] = Block::Air != getBlock_checkNeighborsTraverse(x - 1, y - 1, z - 1);
+		n[1] = Block::Air != getBlock_checkNeighborsTraverse(x, y - 1, z - 1);
+		n[2] = Block::Air != getBlock_checkNeighborsTraverse(x + 1, y - 1, z - 1);
+		n[3] = Block::Air != getBlock_checkNeighborsTraverse(x - 1, y - 1, z);
+		n[4] = Block::Air != getBlock_checkNeighborsTraverse(x + 1, y - 1, z);
+		n[5] = Block::Air != getBlock_checkNeighborsTraverse(x - 1, y - 1, z + 1);
+		n[6] = Block::Air != getBlock_checkNeighborsTraverse(x, y - 1, z + 1);
+		n[7] = Block::Air != getBlock_checkNeighborsTraverse(x + 1, y - 1, z + 1);
+
+		ao0 = calculateVertexAO(n[1], n[4], n[2]);
+		ao1 = calculateVertexAO(n[1], n[3], n[0]);
+		ao2 = calculateVertexAO(n[6], n[3], n[5]);
+		ao3 = calculateVertexAO(n[6], n[4], n[7]);
+		break;
+	case 3: // +Y face
+		n[0] = Block::Air != getBlock_checkNeighborsTraverse(x - 1, y + 1, z - 1);
+		n[1] = Block::Air != getBlock_checkNeighborsTraverse(x, y + 1, z - 1);
+		n[2] = Block::Air != getBlock_checkNeighborsTraverse(x + 1, y + 1, z - 1);
+		n[3] = Block::Air != getBlock_checkNeighborsTraverse(x - 1, y + 1, z);
+		n[4] = Block::Air != getBlock_checkNeighborsTraverse(x + 1, y + 1, z);
+		n[5] = Block::Air != getBlock_checkNeighborsTraverse(x - 1, y + 1, z + 1);
+		n[6] = Block::Air != getBlock_checkNeighborsTraverse(x, y + 1, z + 1);
+		n[7] = Block::Air != getBlock_checkNeighborsTraverse(x + 1, y + 1, z + 1);
+
+		ao0 = calculateVertexAO(n[4], n[1], n[2]);
+		ao1 = calculateVertexAO(n[3], n[1], n[0]);
+		ao2 = calculateVertexAO(n[3], n[6], n[5]);
+		ao3 = calculateVertexAO(n[4], n[6], n[7]);
+		break;
+	case 4: // -Z face
+		n[0] = Block::Air != getBlock_checkNeighborsTraverse(x - 1, y - 1, z - 1);
+		n[1] = Block::Air != getBlock_checkNeighborsTraverse(x, y - 1, z - 1);
+		n[2] = Block::Air != getBlock_checkNeighborsTraverse(x + 1, y - 1, z - 1);
+		n[3] = Block::Air != getBlock_checkNeighborsTraverse(x - 1, y, z - 1);
+		n[4] = Block::Air != getBlock_checkNeighborsTraverse(x + 1, y, z - 1);
+		n[5] = Block::Air != getBlock_checkNeighborsTraverse(x - 1, y + 1, z - 1);
+		n[6] = Block::Air != getBlock_checkNeighborsTraverse(x, y + 1, z - 1);
+		n[7] = Block::Air != getBlock_checkNeighborsTraverse(x + 1, y + 1, z - 1);
+
+		ao0 = calculateVertexAO(n[1], n[4], n[2]);
+		ao1 = calculateVertexAO(n[1], n[3], n[0]);
+		ao2 = calculateVertexAO(n[6], n[3], n[5]);
+		ao3 = calculateVertexAO(n[6], n[4], n[7]);
+		break;
+	case 5: // +Z face
+		n[0] = Block::Air != getBlock_checkNeighborsTraverse(x - 1, y - 1, z + 1);
+		n[1] = Block::Air != getBlock_checkNeighborsTraverse(x, y - 1, z + 1);
+		n[2] = Block::Air != getBlock_checkNeighborsTraverse(x + 1, y - 1, z + 1);
+		n[3] = Block::Air != getBlock_checkNeighborsTraverse(x - 1, y, z + 1);
+		n[4] = Block::Air != getBlock_checkNeighborsTraverse(x + 1, y, z + 1);
+		n[5] = Block::Air != getBlock_checkNeighborsTraverse(x - 1, y + 1, z + 1);
+		n[6] = Block::Air != getBlock_checkNeighborsTraverse(x, y + 1, z + 1);
+		n[7] = Block::Air != getBlock_checkNeighborsTraverse(x + 1, y + 1, z + 1);
+
+		ao0 = calculateVertexAO(n[1], n[3], n[0]);
+		ao1 = calculateVertexAO(n[1], n[4], n[2]);
+		ao2 = calculateVertexAO(n[6], n[4], n[7]);
+		ao3 = calculateVertexAO(n[6], n[3], n[5]);
+		break;
+	}
+	return ao0 | (ao1 << 2) | (ao2 << 4) | (ao3 << 6);
 }
 
 int Chunk::getX() const

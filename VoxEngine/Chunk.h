@@ -14,7 +14,7 @@ struct BlockFaceInstance
 {
 	int32_t data;
 
-	BlockFaceInstance(int x, int y, int z, int normal);
+	BlockFaceInstance(int x, int y, int z, int normal, int ao);
 };
 
 // TODO: Maybe 'blocks' should be a pointer to a dynamically allocated array, so it can be moved without copying?
@@ -78,8 +78,13 @@ public:
 	void render() const;
 
 	Block getBlock_inBoundaries(int x, int y, int z) const;
+	Block getBlock_checkSideNeighbor(int x, int y, int z, int side) const;
 	Block getBlock_checkNeighbors(int x, int y, int z) const;
-
+	Block getBlock_checkNeighborsTraverse(int x, int y, int z) const;
+private:
+	int calculateVertexAO(bool side1, bool side2, bool corner) const;
+	int calculateFaceAO(int x, int y, int z, int normal) const;
+public:
 	int getX() const;
 	int getY() const;
 	int getZ() const;

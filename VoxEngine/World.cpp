@@ -79,6 +79,7 @@ void World::update()
 void World::render(const Shader& faceShader) const
 {
 	// TODO: Use ssbo for chunk's position. Maybe it's faster? Though takes much more memory.
+	// TODO: Add camera culling
 	for (const auto& pair : chunks)
 	{
 		const Chunk* chunk = pair.second.get();
