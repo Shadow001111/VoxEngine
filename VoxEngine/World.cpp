@@ -25,13 +25,14 @@ void World::loadChunksAroundPlayer(const Int3& chunkLoaderPos, int renderDistanc
 	// Unload chunks that are out of range
 	unloadChunksOutsideRange(renderDistance);
 
-	// Load chunks in a cubic area around the chunkLoaderPos
+	// Load chunks in a cubic area around the lastChunkLoaderPos
 	// TODO: Make area spherical
+
+	static std::vector<Chunk*> chunksToSend;
+	chunksToSend.clear();
+
 	{
 		PROFILE_SCOPE("Load chunks");
-
-		static std::vector<Chunk*> chunksToSend;
-		chunksToSend.clear();
 
 		for (int x = -renderDistance; x <= renderDistance; x++)
 		{
@@ -46,13 +47,15 @@ void World::loadChunksAroundPlayer(const Int3& chunkLoaderPos, int renderDistanc
 				}
 			}
 		}
+	}
 
+	{
+		PROFILE_SCOPE("Send chunks to blocksBuildChunkContainer");
+
+		std::lock_guard<std::mutex> lock(blocksBuildMutex);
+		for (Chunk* chunkPtr : chunksToSend)
 		{
-			std::lock_guard<std::mutex> lock(blocksBuildMutex);
-			for (Chunk* chunkPtr : chunksToSend)
-			{
-				blocksBuildChunkContainer.insert(chunkPtr);
-			}
+			blocksBuildChunkContainer.insert(chunkPtr);
 		}
 	}
 }
@@ -244,7 +247,7 @@ void World::loadChunk(int chunkX, int chunkY, int chunkZ, std::vector<Chunk*>& c
 
 	chunksToSend.push_back(chunk.get());
 
-	chunks.emplace(chunkPosition, std::move(chunk)); // Takes much time
+	chunks.emplace(chunkPosition, std::move(chunk)); // Takes much time when map is large
 }
 
 void World::startBuildingChunkBlocks()
@@ -332,7 +335,7 @@ void World::startBuildingChunkMeshes()
 
 	// Submit mesh building to thread pool
 	{
-		PROFILE_SCOPE("Sumbit chunks to mesh building");
+		PROFILE_SCOPE("Send chunks to mesh building");
 
 		ThreadPool& pool = ParallelUtils::getGlobalThreadPool();
 		for (Chunk* chunk : chunksToProcess)
