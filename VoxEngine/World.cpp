@@ -29,6 +29,10 @@ void World::loadChunksAroundPlayer(const Int3& chunkLoaderPos, int renderDistanc
 	// TODO: Make area spherical
 	{
 		PROFILE_SCOPE("Load chunks");
+
+		static std::vector<Chunk*> chunksToSend;
+		chunksToSend.clear();
+
 		for (int x = -renderDistance; x <= renderDistance; x++)
 		{
 			int chunkX = chunkLoaderPos.x + x;
@@ -38,8 +42,16 @@ void World::loadChunksAroundPlayer(const Int3& chunkLoaderPos, int renderDistanc
 				for (int z = -renderDistance; z <= renderDistance; z++)
 				{
 					int chunkZ = chunkLoaderPos.z + z;
-					loadChunk(chunkX, chunkY, chunkZ);
+					loadChunk(chunkX, chunkY, chunkZ, chunksToSend);
 				}
+			}
+		}
+
+		{
+			std::lock_guard<std::mutex> lock(blocksBuildMutex);
+			for (Chunk* chunkPtr : chunksToSend)
+			{
+				blocksBuildChunkContainer.insert(chunkPtr);
 			}
 		}
 	}
@@ -207,7 +219,7 @@ void World::unloadChunksOutsideRange(int renderDistance)
 	}
 }
 
-void World::loadChunk(int chunkX, int chunkY, int chunkZ)
+void World::loadChunk(int chunkX, int chunkY, int chunkZ, std::vector<Chunk*>& chunksToSend)
 {
 	// Check if chunk already exists
 	Int3 chunkPosition = { chunkX, chunkY, chunkZ };
@@ -229,16 +241,10 @@ void World::loadChunk(int chunkX, int chunkY, int chunkZ)
 	// Create and initialize chunk
 	auto chunk = chunkPool.acquire();
 	chunk->init(chunkX, chunkY, chunkZ, neighbors);
-	Chunk* chunkPtr = chunk.get();
 
-	// Add to blocks build queue
-	// TODO: Maybe collect chunks to send them to blockBuilding at once
-	{
-		std::lock_guard<std::mutex> lock(blocksBuildMutex);
-		blocksBuildChunkContainer.insert(chunkPtr);
-	}
+	chunksToSend.push_back(chunk.get());
 
-	chunks.emplace(chunkPosition, std::move(chunk));
+	chunks.emplace(chunkPosition, std::move(chunk)); // Takes much time
 }
 
 void World::startBuildingChunkBlocks()

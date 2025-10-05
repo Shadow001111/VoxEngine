@@ -65,7 +65,7 @@ private:
 	bool chunkExistsAt(int x, int y, int z) const;
 
 	void unloadChunksOutsideRange(int renderDistance);
-	void loadChunk(int chunkX, int chunkY, int chunkZ);
+	void loadChunk(int chunkX, int chunkY, int chunkZ, std::vector<Chunk*>& chunksToSend);
 
 	void startBuildingChunkBlocks();
 	void startBuildingChunkMeshes();
