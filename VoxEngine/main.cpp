@@ -1,7 +1,5 @@
 #include "WindowManager.h"
 
-#include "Graphics/Shader.h"
-
 #include <iostream>
 
 #include "World.h"
@@ -73,7 +71,7 @@ int main()
             debugUpdateTimer.addTime(deltaTime);
 
             // World
-            if (worldUpdateTimer.shouldUpdate())
+            while (worldUpdateTimer.shouldUpdate())
             {
 				glm::vec3 playerPos = player.getPosition();
                 Int3 playerChunkPos(
@@ -82,7 +80,7 @@ int main()
                     static_cast<int>(floorf(playerPos.z / CHUNK_SIZE))
                 );
 
-				world.loadChunksAroundPlayer(playerChunkPos, 8);
+				world.loadChunksAroundPlayer(playerChunkPos, 14);
 				world.update();
 
                 if (wnd.isKeyPressed(GLFW_KEY_P))
@@ -98,7 +96,7 @@ int main()
             }
 
 			// Player
-			if (playerUpdateTimer.shouldUpdate())
+			while (playerUpdateTimer.shouldUpdate())
             {
 				player.update(wnd, playerUpdateTimer.getUpdateInterval(), previousMousePos);
             }

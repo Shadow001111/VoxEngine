@@ -6,7 +6,16 @@
 
 #include <glad/glad.h>
 
+#include <vector>
+#include <mutex>
 #include <atomic>
+
+struct BlockFaceInstance
+{
+	int32_t data;
+
+	BlockFaceInstance(int x, int y, int z, int normal);
+};
 
 // TODO: Maybe 'blocks' should be a pointer to a dynamically allocated array, so it can be moved without copying?
 class Chunk
@@ -14,18 +23,31 @@ class Chunk
 public:
 	enum class State
 	{
-		NeedsBlocks = 0,  // Just created needs block generation
-		BuildingBlocks,   // Currently building blocks in background
-		NeedsMesh,        // Blocks ready, needs mesh generation
-		Ready             // Mesh ready, can render
+		NeedsBlocks = 0,
+		BuildingBlocks,
+		NeedsMesh,
+		BuildingMesh,
+		Ready
 	};
+private:
+	struct PendingMeshUpload
+	{
+		std::vector<BlockFaceInstance> instances;
+		GLuint instanceVBO;
+		Chunk* chunk; // for face capacity. TODO: Should be removed
+
+		PendingMeshUpload(std::vector<BlockFaceInstance>&& instances, GLuint instanceVBO, Chunk* chunk);
+	};
+
+	static std::mutex meshUploadMutex;
+	static std::vector<PendingMeshUpload> pendingMeshUploads;
 private:
 	Int3 position; // Chunk coordinates in chunk space
 	Block blocks[CHUNK_VOLUME];
 
 	GLuint vao, vbo, instanceVBO; // Buffers
-	size_t faceCount;
-	size_t faceCapacity;
+	uint32_t faceCount;
+	uint32_t faceCapacity;
 
 	bool loadedChunkColumnData;
 
@@ -71,8 +93,10 @@ public:
 private:
 	void setIsBeingProcessed(bool value);
 public:
+	// Static method to process all pending mesh uploads on main thread
+	static void sendMeshesToGPU();
 
 	// Debug
-	size_t getFaceCount() const;
-	size_t getFaceCapacity() const;
+	uint32_t getFaceCount() const;
+	uint32_t getFaceCapacity() const;
 };

@@ -23,46 +23,12 @@ void World::loadChunksAroundPlayer(const Int3& chunkLoaderPos, int renderDistanc
 	lastChunkLoaderPos = chunkLoaderPos;
 
 	// Unload chunks that are out of range
-	{
-		PROFILE_SCOPE("Unload chunks");
-
-		std::vector<Int3> chunksToUnload;
-		for (const auto& pair : chunks)
-		{
-			const Int3& pos = pair.first;
-			if (std::abs(pos.x - chunkLoaderPos.x) > renderDistance ||
-				std::abs(pos.y - chunkLoaderPos.y) > renderDistance ||
-				std::abs(pos.z - chunkLoaderPos.z) > renderDistance)
-			{
-				chunksToUnload.push_back(pos);
-			}
-		}
-		for (const Int3& pos : chunksToUnload)
-		{
-			auto it = chunks.find(pos);
-
-			const Chunk* chunk = it->second.get();
-			Chunk::State state = chunk->getState();
-			bool isBeingProcessed = chunk->isBeingProcessed();
-
-			// TODO: Should stop processing chunk
-			// Maybe chunk pool shouldn't return processing chunk to the pool.
-			// It should store it to some vector, where it will be checked, it will be returned to the pool when done processing.
-			if (state != Chunk::State::Ready)
-			{
-				std::cout << (size_t)state << " " << isBeingProcessed << std::endl;
-			}
-
-			chunkPool.release(std::move(it->second));
-			chunks.erase(it);
-		}
-	}
+	unloadChunksOutsideRange(renderDistance);
 
 	// Load chunks in a cubic area around the chunkLoaderPos
 	// TODO: Make area spherical
 	{
 		PROFILE_SCOPE("Load chunks");
-
 		for (int x = -renderDistance; x <= renderDistance; x++)
 		{
 			int chunkX = chunkLoaderPos.x + x;
@@ -88,8 +54,11 @@ void World::update()
 
 	if (!meshBuildChunkContainer.empty())
 	{
-		buildChunkMeshes();
+		startBuildingChunkMeshes();
 	}
+
+	// Process all pending mesh uploads on main thread
+	Chunk::sendMeshesToGPU();
 }
 
 void World::render(const Shader& faceShader) const
@@ -115,15 +84,20 @@ void World::render(const Shader& faceShader) const
 
 void World::rebuildAllChunkMeshes()
 {
-	PROFILE_SCOPE("Build chunk meshes");
+	PROFILE_SCOPE("Rebuild all chunk meshes");
 
-	meshBuildChunkContainer.clear();
-	for (const auto& pair : chunks)
+	// Queue all ready chunks for mesh rebuild
 	{
-		Chunk* chunk = pair.second.get();
-		if (chunk->getState() == Chunk::State::Ready)
+		std::lock_guard<std::mutex> lock(meshBuildMutex);
+		meshBuildChunkContainer.clear();
+		for (const auto& pair : chunks)
 		{
-			chunk->buildMesh();
+			Chunk* chunk = pair.second.get();
+			if (chunk->getState() == Chunk::State::Ready)
+			{
+				chunk->setState(Chunk::State::NeedsMesh);
+				meshBuildChunkContainer.insert(chunk);
+			}
 		}
 	}
 }
@@ -157,6 +131,50 @@ void World::getChunkMeshesInfo(size_t& totalFaces, size_t& totalFaceCapacity, si
 	}
 
 	potentialMaximumCapacity = chunks.size() * CHUNK_VOLUME / 2 * 6;
+}
+
+void World::unloadChunksOutsideRange(int renderDistance)
+{
+	std::vector<Int3> chunksToUnload;
+	{
+		const int x = lastChunkLoaderPos.x;
+		const int y = lastChunkLoaderPos.y;
+		const int z = lastChunkLoaderPos.z;
+
+		PROFILE_SCOPE("Unload chunks: collect");
+		for (const auto& pair : chunks)
+		{
+			const Int3& pos = pair.first;
+			if (std::abs(pos.x - x) > renderDistance ||
+				std::abs(pos.y - y) > renderDistance ||
+				std::abs(pos.z - z) > renderDistance)
+			{
+				chunksToUnload.push_back(pos);
+			}
+		}
+	}
+	{
+		PROFILE_SCOPE("Unload chunks: unload");
+		for (const Int3& pos : chunksToUnload)
+		{
+			auto it = chunks.find(pos);
+
+			const Chunk* chunk = it->second.get();
+			Chunk::State state = chunk->getState();
+			bool isBeingProcessed = chunk->isBeingProcessed();
+
+			// TODO: Should stop processing chunk
+			// Maybe chunk pool shouldn't return processing chunk to the pool.
+			// It should store it to some vector, where it will be checked, it will be returned to the pool when done processing.
+			if (state != Chunk::State::Ready)
+			{
+				std::cout << (size_t)state << " " << isBeingProcessed << std::endl;
+			}
+
+			chunkPool.release(std::move(it->second));
+			chunks.erase(it);
+		}
+	}
 }
 
 void World::loadChunk(int chunkX, int chunkY, int chunkZ)
@@ -291,13 +309,13 @@ void World::startBuildingChunkBlocks()
 	}
 }
 
-void World::buildChunkMeshes()
+void World::startBuildingChunkMeshes()
 {
-	PROFILE_SCOPE("Build chunk meshes");
-
 	// Collect chunks that need mesh building
 	std::vector<Chunk*> chunksToProcess;
 	{
+		PROFILE_SCOPE("Collect chunks for mesh building");
+
 		std::lock_guard<std::mutex> lock(meshBuildMutex);
 		if (meshBuildChunkContainer.empty())
 		{
@@ -313,6 +331,7 @@ void World::buildChunkMeshes()
 			Chunk::State state = chunk->getState();
 			if (state == Chunk::State::NeedsMesh || state == Chunk::State::Ready)
 			{
+				chunk->setState(Chunk::State::BuildingMesh);
 				chunksToProcess.push_back(chunk);
 			}
 			else
@@ -323,11 +342,24 @@ void World::buildChunkMeshes()
 		meshBuildChunkContainer.swap(remainingChunks);
 	}
 
-	// Build meshes on main thread (OpenGL calls)
-	for (Chunk* chunk : chunksToProcess)
+	// Submit mesh building to thread pool
 	{
-		chunk->buildMesh();
-		chunk->setState(Chunk::State::Ready);
+		PROFILE_SCOPE("Sumbit chunks to mesh building");
+
+		ThreadPool& pool = ParallelUtils::getGlobalThreadPool();
+		for (Chunk* chunk : chunksToProcess)
+		{
+			pool.enqueue([chunk]()
+				{
+					// Build mesh in background thread (no OpenGL calls here)
+					chunk->buildMesh();
+
+					// Mark as chunk as Ready. His mesh can be not on the GPU yet.
+					chunk->setState(Chunk::State::Ready);
+
+					// TODO: Issue: Chunk's mesh if flickering
+				});
+		}
 	}
 }
 

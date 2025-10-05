@@ -11,24 +11,31 @@
 //============================================================================
 //BlockFaceInstance
 
-struct BlockFaceInstance
+BlockFaceInstance::BlockFaceInstance(int x, int y, int z, int normal) : data(0)
 {
-	int32_t data;
+	// Coords 12 bits
+	data |= (x & 15);
+	data |= (y & 15) << 4;
+	data |= (z & 15) << 8;
 
-	BlockFaceInstance(int x, int y, int z, int normal) : data(0)
-	{
-		// Coords 12 bits
-		data |= (x & 15);
-		data |= (y & 15) << 4;
-		data |= (z & 15) << 8;
+	// Normal 3 bits
+	data |= (normal & 7) << 12;
+}
 
-		// Normal 3 bits
-		data |= (normal & 7) << 12;
-	}
-};
+//============================================================================
+// PendingMeshUpload
+
+Chunk::PendingMeshUpload::PendingMeshUpload(std::vector<BlockFaceInstance>&& instances, GLuint instanceVBO, Chunk* chunk) :
+	instances(std::move(instances)), instanceVBO(instanceVBO), chunk(chunk)
+{
+}
 
 //============================================================================
 // Chunk
+
+std::mutex Chunk::meshUploadMutex;
+std::vector<Chunk::PendingMeshUpload> Chunk::pendingMeshUploads;
+
 
 size_t Chunk::getIndex(int x, int y, int z)
 {
@@ -206,9 +213,7 @@ void Chunk::buildMesh()
 	assert(!isBeingProcessed());
 	setIsBeingProcessed(true);
 
-	static thread_local std::vector<BlockFaceInstance> mesh;
-	assert(mesh.empty());
-	mesh.clear();
+	std::vector<BlockFaceInstance> mesh;
 
 	// Collect visible faces
 	for (int x = 0; x < CHUNK_SIZE; x++)
@@ -257,28 +262,14 @@ void Chunk::buildMesh()
 		}
 	}
 
-	// Upload to GPU
+	// Queue mesh for GPU upload on main thread
 	{
-		// TODO: Maybe have a single VBO/VAO for all chunks, since they use the same vertices? If possible, I dunno.
-		
-		// TODO: Maybe have a pool for instance buffers? Chunk should ask for the minimum sized buffer that fits his needs.
-		// If there's none, it gets closest one and changes its size.
-
-		// Instance buffer
-		faceCount = mesh.size();
-
-		glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
-		if (faceCount > faceCapacity)
-		{
-			faceCapacity = faceCount;
-			glBufferData(GL_ARRAY_BUFFER, faceCount * sizeof(BlockFaceInstance), mesh.data(), GL_STATIC_DRAW);
-		}
-		else
-		{
-			glBufferSubData(GL_ARRAY_BUFFER, 0, faceCount * sizeof(BlockFaceInstance), mesh.data());
-		}
-
-		mesh.clear();
+		std::lock_guard<std::mutex> lock(meshUploadMutex);
+		pendingMeshUploads.emplace_back(
+			std::move(mesh),
+			instanceVBO,
+			this
+			);
 	}
 
 	assert(isBeingProcessed());
@@ -371,12 +362,48 @@ void Chunk::setIsBeingProcessed(bool value)
 	beingProcessed.store(value, std::memory_order_release);
 }
 
-size_t Chunk::getFaceCount() const
+void Chunk::sendMeshesToGPU()
+{
+	PROFILE_SCOPE("Send meshes to GPU");
+
+	// Get all pending uploads
+	std::vector<PendingMeshUpload> uploads;
+	{
+		std::lock_guard<std::mutex> lock(meshUploadMutex);
+		uploads.swap(pendingMeshUploads);
+	}
+
+	// Process each upload
+	for (auto& upload : uploads)
+	{
+		const auto& mesh = upload.instances;
+		GLuint vbo = upload.instanceVBO;
+		Chunk* chunk = upload.chunk;
+
+		// Upload to GPU
+		chunk->faceCount = mesh.size();
+
+		glBindBuffer(GL_ARRAY_BUFFER, vbo);
+		if (chunk->faceCount > chunk->faceCapacity)
+		{
+			chunk->faceCapacity = chunk->faceCount;
+			glBufferData(GL_ARRAY_BUFFER, chunk->faceCount * sizeof(BlockFaceInstance),
+				mesh.data(), GL_STATIC_DRAW);
+		}
+		else
+		{
+			glBufferSubData(GL_ARRAY_BUFFER, 0, chunk->faceCount * sizeof(BlockFaceInstance),
+				mesh.data());
+		}
+	}
+}
+
+uint32_t Chunk::getFaceCount() const
 {
 	return faceCount;
 }
 
-size_t Chunk::getFaceCapacity() const
+uint32_t Chunk::getFaceCapacity() const
 {
 	return faceCapacity;
 }

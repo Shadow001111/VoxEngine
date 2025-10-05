@@ -8,7 +8,6 @@
 #include <memory>
 
 #include <mutex>
-#include <atomic>
 
 class World
 {
@@ -59,9 +58,10 @@ public:
 
 	void getChunkMeshesInfo(size_t& totalFaces, size_t& totalFaceCapacity, size_t& potentialMaximumCapacity);
 private:
+	void unloadChunksOutsideRange(int renderDistance);
 	void loadChunk(int chunkX, int chunkY, int chunkZ);
 
 	void startBuildingChunkBlocks();
-	void buildChunkMeshes();
+	void startBuildingChunkMeshes();
 };
 
