@@ -58,6 +58,12 @@ public:
 
 	void getChunkMeshesInfo(size_t& totalFaces, size_t& totalFaceCapacity, size_t& potentialMaximumCapacity);
 private:
+	Chunk* getChunkAt(const Int3& position) const;
+	Chunk* getChunkAt(int x, int y, int z) const;
+
+	bool chunkExistsAt(const Int3& position) const;
+	bool chunkExistsAt(int x, int y, int z) const;
+
 	void unloadChunksOutsideRange(int renderDistance);
 	void loadChunk(int chunkX, int chunkY, int chunkZ);
 

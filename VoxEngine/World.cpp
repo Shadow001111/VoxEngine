@@ -133,6 +133,36 @@ void World::getChunkMeshesInfo(size_t& totalFaces, size_t& totalFaceCapacity, si
 	potentialMaximumCapacity = chunks.size() * CHUNK_VOLUME / 2 * 6;
 }
 
+Chunk* World::getChunkAt(const Int3& position) const
+{
+	auto it = chunks.find(position);
+	if (it == chunks.end())
+	{
+		return nullptr;
+	}
+	return it->second.get();
+}
+
+Chunk* World::getChunkAt(int x, int y, int z) const
+{
+	auto it = chunks.find(Int3(x, y, z));
+	if (it == chunks.end())
+	{
+		return nullptr;
+	}
+	return it->second.get();
+}
+
+bool World::chunkExistsAt(const Int3& position) const
+{
+	return chunks.find(position) != chunks.end();
+}
+
+bool World::chunkExistsAt(int x, int y, int z) const
+{
+	return chunks.find(Int3(x, y, z)) != chunks.end();
+}
+
 void World::unloadChunksOutsideRange(int renderDistance)
 {
 	std::vector<Int3> chunksToUnload;
@@ -180,69 +210,21 @@ void World::unloadChunksOutsideRange(int renderDistance)
 void World::loadChunk(int chunkX, int chunkY, int chunkZ)
 {
 	// Check if chunk already exists
-	Int3 chunkPos(chunkX, chunkY, chunkZ);
-    if (chunks.find(chunkPos) != chunks.end())
+	Int3 chunkPosition = { chunkX, chunkY, chunkZ };
+    if (chunkExistsAt(chunkPosition))
     {
         return;
 	}
 
 	// Find existing neighbors
-	Chunk* neighbors[6] = { nullptr, nullptr, nullptr, nullptr, nullptr, nullptr };
-
-	{ // -X
-		Int3 npos = chunkPos;
-		npos.x--;
-		auto it = chunks.find(npos);
-		if (it != chunks.end())
-		{
-			neighbors[0] = it->second.get();
-		}
-	}
-	{ // +X
-		Int3 npos = chunkPos;
-		npos.x++;
-		auto it = chunks.find(npos);
-		if (it != chunks.end())
-		{
-			neighbors[1] = it->second.get();
-		}
-	}
-	{ // -Y
-		Int3 npos = chunkPos;
-		npos.y--;
-		auto it = chunks.find(npos);
-		if (it != chunks.end())
-		{
-			neighbors[2] = it->second.get();
-		}
-	}
-	{ // +Y
-		Int3 npos = chunkPos;
-		npos.y++;
-		auto it = chunks.find(npos);
-		if (it != chunks.end())
-		{
-			neighbors[3] = it->second.get();
-		}
-	}
-	{ // -Z
-		Int3 npos = chunkPos;
-		npos.z--;
-		auto it = chunks.find(npos);
-		if (it != chunks.end())
-		{
-			neighbors[4] = it->second.get();
-		}
-	}
-	{ // +Z
-		Int3 npos = chunkPos;
-		npos.z++;
-		auto it = chunks.find(npos);
-		if (it != chunks.end())
-		{
-			neighbors[5] = it->second.get();
-		}
-	}
+	Chunk* neighbors[6] = {
+		getChunkAt(chunkX - 1, chunkY, chunkZ),
+		getChunkAt(chunkX + 1, chunkY, chunkZ),
+		getChunkAt(chunkX, chunkY - 1, chunkZ),
+		getChunkAt(chunkX, chunkY + 1, chunkZ),
+		getChunkAt(chunkX, chunkY, chunkZ - 1),
+		getChunkAt(chunkX, chunkY, chunkZ + 1)
+	};
 
 	// Create and initialize chunk
 	auto chunk = chunkPool.acquire();
@@ -250,12 +232,13 @@ void World::loadChunk(int chunkX, int chunkY, int chunkZ)
 	Chunk* chunkPtr = chunk.get();
 
 	// Add to blocks build queue
+	// TODO: Maybe collect chunks to send them to blockBuilding at once
 	{
 		std::lock_guard<std::mutex> lock(blocksBuildMutex);
 		blocksBuildChunkContainer.insert(chunkPtr);
 	}
 
-	chunks[chunk->getPosition()] = std::move(chunk);
+	chunks.emplace(chunkPosition, std::move(chunk));
 }
 
 void World::startBuildingChunkBlocks()
@@ -282,7 +265,6 @@ void World::startBuildingChunkBlocks()
 	}
 
 	// Submit work to thread pool
-	// TODO: Maybe batch for less mutex locking
 	ThreadPool& pool = ParallelUtils::getGlobalThreadPool();
 	for (Chunk* chunk : chunksToProcess)
 	{

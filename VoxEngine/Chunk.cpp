@@ -114,8 +114,6 @@ bool Chunk::operator==(const Chunk& other) const
 // Prepares chunk for use
 void Chunk::init(int x, int y, int z, Chunk** neighbors)
 {
-	PROFILE_SCOPE("Chunk init");
-
 	// Set position
 	position = Int3(x, y, z);
 
@@ -144,7 +142,7 @@ void Chunk::init(int x, int y, int z, Chunk** neighbors)
 	loadedChunkColumnData = false;
 
 	// Reset state
-	state.store(State::NeedsBlocks, std::memory_order_release);
+	setState(State::NeedsBlocks);
 }
 
 // Cleans up resources
