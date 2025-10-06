@@ -23,8 +23,8 @@ int main()
         // Shaders
         std::vector<Shader::ShaderSource> faceShaderSources =
         {
-            {GL_VERTEX_SHADER, "Shaders/face.vert"},
-            {GL_FRAGMENT_SHADER, "Shaders/face.frag"}
+            {GL_VERTEX_SHADER, "res/Shaders/face.vert"},
+            {GL_FRAGMENT_SHADER, "res/Shaders/face.frag"}
         };
 
         Shader faceShader(faceShaderSources);
