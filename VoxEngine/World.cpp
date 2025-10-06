@@ -96,17 +96,13 @@ void World::render(const Camera& camera, const Shader& faceShader) const
 	}
 
 	// TODO: Use ssbo for chunk's position. Maybe it's faster? Though takes much more memory.
-	// TODO: Add camera culling
 	// TODO: is static_cast in loop is a bad idea or compiler casts one time and saves?
 
 	std::vector<ChunkRenderInfo> chunksToRender;
 	{
-		PROFILE_SCOPE("Render: collect chunks");
+		PROFILE_SCOPE("Render: collect and sort chunks");
 
 		collectChunksToRender(chunksToRender, camera);
-	}
-	{
-		PROFILE_SCOPE("Render: sort chunks by distance");
 
 		std::sort(chunksToRender.begin(), chunksToRender.end(),
 			[](const ChunkRenderInfo& a, const ChunkRenderInfo& b)
