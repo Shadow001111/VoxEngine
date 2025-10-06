@@ -67,7 +67,7 @@ public:
 	// Debug
 	size_t getChunkColumnDataCount() const;
 private:
-	static void initChunkColumnData(ChunkColumnData* column, int X, int Z);
+	void initChunkColumnData(ChunkColumnData* column, int X, int Z);
 
 	static void computeInitialHeightMap(int* heightMap, int chunkX, int chunkZ);
 

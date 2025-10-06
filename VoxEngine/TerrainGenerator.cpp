@@ -66,6 +66,7 @@ TerrainGenerator& TerrainGenerator::getInstance()
 const ChunkColumnData* TerrainGenerator::loadChunkColumnData(int chunkX, int chunkZ)
 {
 	//PROFILE_SCOPE("Load chunk column data"); TODO: Make Profiler thread safe
+	// TODO: Don't check two times
 
 	Int2 pos(chunkX, chunkZ);
 
@@ -84,6 +85,7 @@ const ChunkColumnData* TerrainGenerator::loadChunkColumnData(int chunkX, int chu
 	std::unique_ptr<ChunkColumnData> column = chunkColumnDataPool.acquire();
 
 	// Check again in case another thread created it while we were acquiring from pool
+	// TODO: Mutex prevents generating height maps in parallel. Without it, bugs appear. FIX IT!
 	{
 		std::lock_guard<std::mutex> lock(dataMutex);
 		auto it = chunkColumnData.find(pos);
@@ -147,8 +149,6 @@ size_t TerrainGenerator::getChunkColumnDataCount() const
 
 void TerrainGenerator::initChunkColumnData(ChunkColumnData* column, int chunkX, int chunkZ)
 {
-	PROFILE_SCOPE("Init chunk column data");
-
 	column->init(chunkX, chunkZ);
 
 	if (simplexNoise.get() == nullptr)
@@ -196,6 +196,7 @@ void TerrainGenerator::computeInitialHeightMap(int* heightMap, int chunkX, int c
 	const float weirdnessAmplitude = 20.0f;
 
 	// Fill height map. Calaculate new values. Flip X and Z because FastNoise does wrong orientation.
+	// TODO: Add spline for continental noise
 	for (int x = 0; x < CHUNK_SIZE; x++)
 	{
 		for (int z = 0; z < CHUNK_SIZE; z++)
@@ -261,7 +262,7 @@ void TerrainGenerator::computeLayeredNoise_2D(float* noiseArray, int chunkX, int
 	}
 
 	const float invMaxSum = (params.amplitudeFactor == 1.0f || params.layerCount == 1) ?
-		params.layerCount :
+		1.0f / params.layerCount :
 		(1.0f - params.amplitudeFactor) / (1.0f - powf(params.amplitudeFactor, params.layerCount));
 
 	if (invMaxSum != 1.0f)
