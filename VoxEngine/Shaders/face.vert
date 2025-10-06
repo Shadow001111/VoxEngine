@@ -42,6 +42,7 @@ void main()
     vec3 vertexPos = vec3(0.0);
     vec2 vertexUV = vec2(0.0);
 
+    // TODO: Maybe remove branching
     if (normal == 0) //  -x
     {
         vertexPos = vec3(0.0, aPos.x, 1.0 - aPos.y);

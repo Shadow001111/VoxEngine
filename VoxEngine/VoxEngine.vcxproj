@@ -134,7 +134,9 @@
     <ClCompile Include="Chunk.cpp" />
     <ClCompile Include="Core\Int3.cpp" />
     <ClCompile Include="Core\Profiler.cpp" />
+    <ClCompile Include="Core\Shapes.cpp" />
     <ClCompile Include="Core\ThreadPool.cpp" />
+    <ClCompile Include="Core\Shapes\Box.cpp" />
     <ClCompile Include="Graphics\Camera.cpp" />
     <ClCompile Include="glad.c" />
     <ClCompile Include="Graphics\Shader.cpp" />
@@ -143,6 +145,7 @@
     <ClCompile Include="Core\Vec2.cpp" />
     <ClCompile Include="Core\UpdateTimer.cpp" />
     <ClCompile Include="Core\Transform.cpp" />
+    <ClCompile Include="Core\Shapes\Plane.cpp" />
     <ClCompile Include="Player.cpp" />
     <ClCompile Include="TerrainGenerator.cpp" />
     <ClCompile Include="WindowManager.cpp" />
@@ -154,7 +157,9 @@
     <ClInclude Include="Core\CoreMath.h" />
     <ClInclude Include="Core\Int3.h" />
     <ClInclude Include="Core\Profiler.h" />
+    <ClInclude Include="Core\Shapes.h" />
     <ClInclude Include="Core\ThreadPool.h" />
+    <ClInclude Include="Core\Shapes\Box.h" />
     <ClInclude Include="Graphics\Camera.h" />
     <ClInclude Include="Graphics\Shader.h" />
     <ClInclude Include="Core\Int2.h" />
@@ -162,6 +167,7 @@
     <ClInclude Include="Core\Vec2.h" />
     <ClInclude Include="Core\UpdateTimer.h" />
     <ClInclude Include="Core\Transform.h" />
+    <ClInclude Include="Core\Shapes\Plane.h" />
     <ClInclude Include="Player.h" />
     <ClInclude Include="TerrainGenerator.h" />
     <ClInclude Include="WindowManager.h" />

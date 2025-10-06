@@ -129,15 +129,7 @@ int main()
             }
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-			faceShader.use();
-            {
-                // Camera
-				const Camera& camera = player.getCamera();
-				faceShader.setMat4("view", camera.getViewMatrix());
-				faceShader.setMat4("projection", camera.getProjectionMatrix());
-            }
-
-			world.render(faceShader);
+			world.render(player.getCamera(), faceShader);
 
             // Swap buffers
             wnd.swapBuffers();
@@ -148,13 +140,14 @@ int main()
             // Debug
             if (debugUpdateTimer.shouldUpdate())
             {
-                size_t totalFaces, totalFaceCapacity, potentialMaximumCapacity;
-                world.getChunkMeshesInfo(totalFaces, totalFaceCapacity, potentialMaximumCapacity);
+                size_t totalFaces, totalFaceCapacity, potentialMaximumCapacity, renderedFaceCount;
+                world.getChunkMeshesInfo(totalFaces, totalFaceCapacity, potentialMaximumCapacity, renderedFaceCount);
 
-                std::string title = "Faces/Capacity/Maximum: "
+                std::string title = "Faces/Capacity/Maximum/Rendered: "
                     + std::to_string(totalFaces >> 10) + "k/"
                     + std::to_string(totalFaceCapacity >> 10) + "k/"
-                    + std::to_string(potentialMaximumCapacity >> 10) + "k";
+                    + std::to_string(potentialMaximumCapacity >> 10) + "k/"
+                    + std::to_string(renderedFaceCount >> 10) + "k";
 
                 wnd.setTitle(title);
             }

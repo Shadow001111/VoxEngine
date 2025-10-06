@@ -2,6 +2,7 @@
 #include "Chunk.h"
 
 #include "Graphics/Shader.h"
+#include "Graphics/Camera.h"
 
 #include <unordered_map>
 #include <unordered_set>
@@ -51,6 +52,9 @@ class World
 
 	Int3 lastChunkLoaderPos;
 	bool firstLoad = true;
+
+	// Debug
+	mutable size_t renderedFaceCount;
 public:
 	Visuals visuals;
 
@@ -64,13 +68,13 @@ public:
 
 	void loadChunksAroundPlayer(const Int3& chunkLoaderPos, int renderDistance);
 	void update();
-	void render(const Shader& faceShader) const;
+	void render(const Camera& camera, const Shader& faceShader) const;
 
 	// Debug
 	void rebuildAllChunkMeshes();
 	void debugMethod();
 
-	void getChunkMeshesInfo(size_t& totalFaces, size_t& totalFaceCapacity, size_t& potentialMaximumCapacity);
+	void getChunkMeshesInfo(size_t& totalFaces, size_t& totalFaceCapacity, size_t& potentialMaximumCapacity, size_t& renderedFaceCount);
 private:
 	Chunk* getChunkAt(const Int3& position) const;
 	Chunk* getChunkAt(int x, int y, int z) const;

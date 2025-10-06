@@ -79,10 +79,16 @@ void World::update()
 	Chunk::sendMeshesToGPU();
 }
 
-void World::render(const Shader& faceShader) const
+void World::render(const Camera& camera, const Shader& faceShader) const
 {
+	// Preparing
+	faceShader.use();
+	faceShader.setMat4("view", camera.getViewMatrix());
+	faceShader.setMat4("projection", camera.getProjectionMatrix());
+
 	// TODO: Use ssbo for chunk's position. Maybe it's faster? Though takes much more memory.
 	// TODO: Add camera culling
+	renderedFaceCount = 0;
 	for (const auto& pair : chunks)
 	{
 		const Chunk* chunk = pair.second.get();
@@ -98,6 +104,7 @@ void World::render(const Shader& faceShader) const
 		faceShader.setVec3("chunkPosition", chunkWorldPos.x, chunkWorldPos.y, chunkWorldPos.z);
 
 		chunk->render();
+		renderedFaceCount += chunk->getFaceCount();
 	}
 }
 
@@ -138,7 +145,7 @@ void World::debugMethod()
 	std::cout << std::endl;
 }
 
-void World::getChunkMeshesInfo(size_t& totalFaces, size_t& totalFaceCapacity, size_t& potentialMaximumCapacity)
+void World::getChunkMeshesInfo(size_t& totalFaces, size_t& totalFaceCapacity, size_t& potentialMaximumCapacity, size_t& renderedFaceCount)
 {
 	totalFaces = 0;
 	totalFaceCapacity = 0;
@@ -150,6 +157,7 @@ void World::getChunkMeshesInfo(size_t& totalFaces, size_t& totalFaceCapacity, si
 	}
 
 	potentialMaximumCapacity = chunks.size() * CHUNK_VOLUME / 2 * 6;
+	renderedFaceCount = this->renderedFaceCount;
 }
 
 Chunk* World::getChunkAt(const Int3& position) const
@@ -251,7 +259,7 @@ void World::loadChunk(int chunkX, int chunkY, int chunkZ, std::vector<Chunk*>& c
 
 	chunksToSend.push_back(chunk.get());
 
-	chunks.emplace(chunkPosition, std::move(chunk)); // Takes much time when map is large
+	chunks.emplace(chunkPosition, std::move(chunk)); // Takes much time when many chunks are being loaded
 }
 
 void World::startBuildingChunkBlocks()
