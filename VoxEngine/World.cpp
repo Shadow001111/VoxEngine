@@ -81,49 +81,46 @@ void World::update()
 
 void World::render(const Camera& camera, const Shader& faceShader) const
 {
-	// Preparing
-	faceShader.use();
-	faceShader.setMat4("view", camera.getViewMatrix());
-	faceShader.setMat4("projection", camera.getProjectionMatrix());
+	{
+		PROFILE_SCOPE("Render: Set uniforms");
 
-	// Frustum culling preparing
-	const Frustum& frustum = camera.getFrustum();
-	Box chunkShape(glm::vec3(0.0f), glm::vec3(CHUNK_SIZE * 0.5f));
+		// Preparing
+		faceShader.use();
+		faceShader.setMat4("view", camera.getViewMatrix());
+		faceShader.setMat4("projection", camera.getProjectionMatrix());
+
+		const auto& fogColor = visuals.backgroundColor;
+		faceShader.setVec3("fogColor", fogColor.x, fogColor.y, fogColor.z);
+		faceShader.setFloat("fogDensity", visuals.fogDensity);
+		faceShader.setFloat("fogGradient", visuals.fogGradient);
+	}
 
 	// TODO: Use ssbo for chunk's position. Maybe it's faster? Though takes much more memory.
 	// TODO: Add camera culling
-	renderedFaceCount = 0;
-	for (const auto& pair : chunks)
+	// TODO: is static_cast in loop is a bad idea or compiler casts one time and saves?
+
+	std::vector<const Chunk*> chunksToRender;
 	{
-		const Chunk* chunk = pair.second.get();
+		PROFILE_SCOPE("Render: collect chunks");
 
-		// Check if mesh is ready
-		if (chunk->getState() != Chunk::State::Ready)
+		collectChunksToRender(chunksToRender, camera.getFrustum());
+	}
+
+	{
+		PROFILE_SCOPE("Render");
+
+		renderedFaceCount = 0;
+		for (const Chunk* chunk : chunksToRender)
 		{
-			continue;
+			// Check is chunk is on frustum
+			Int3 chunkPosition = chunk->getPosition();
+			glm::vec3 chunkWorldPosition = glm::vec3(chunkPosition.x, chunkPosition.y, chunkPosition.z) * static_cast<float>(CHUNK_SIZE);
+
+			faceShader.setVec3("chunkPosition", chunkWorldPosition.x, chunkWorldPosition.y, chunkWorldPosition.z);
+
+			chunk->render(); // Takes most of the time
+			renderedFaceCount += chunk->getFaceCount();
 		}
-
-		// Check if mesh isn't empty
-		if (chunk->getFaceCount() == 0)
-		{
-			continue;
-		}
-
-		// Check is chunk is on frustum
-		Int3 chunkPosition = chunk->getPosition();
-		glm::vec3 chunkPositionGlm = glm::vec3(chunkPosition.x, chunkPosition.y, chunkPosition.z);
-		glm::vec3 chunkWorldPosition = chunkPositionGlm * static_cast<float>(CHUNK_SIZE);
-
-		chunkShape.center = chunkWorldPosition + chunkShape.halfExtents;
-		if (!frustum.checkBox(chunkShape))
-		{
-			continue;
-		}
-
-		faceShader.setVec3("chunkPosition", chunkWorldPosition.x, chunkWorldPosition.y, chunkWorldPosition.z);
-
-		chunk->render();
-		renderedFaceCount += chunk->getFaceCount();
 	}
 }
 
@@ -384,6 +381,43 @@ void World::startBuildingChunkMeshes()
 					// Even if yes, mesh is flickering even more. It takes more time to send mesh to GPU, but we set Ready state immediately.
 				});
 		}
+	}
+}
+
+void World::collectChunksToRender(std::vector<const Chunk*>& chunksToRender, const Frustum& frustum) const
+{
+	Box chunkShape(glm::vec3(0.0f), glm::vec3(CHUNK_SIZE * 0.5f));
+
+	chunksToRender.reserve(chunks.size());
+
+	for (const auto& pair : chunks)
+	{
+		const Chunk* chunk = pair.second.get();
+
+		// Check if mesh is ready
+		if (chunk->getState() != Chunk::State::Ready)
+		{
+			continue;
+		}
+
+		// Check if mesh isn't empty
+		if (chunk->getFaceCount() == 0)
+		{
+			continue;
+		}
+
+		// Check is chunk is on frustum
+		Int3 chunkPosition = chunk->getPosition();
+		glm::vec3 chunkPositionGlm = glm::vec3(chunkPosition.x, chunkPosition.y, chunkPosition.z);
+		glm::vec3 chunkWorldPosition = chunkPositionGlm * static_cast<float>(CHUNK_SIZE);
+
+		chunkShape.center = chunkWorldPosition + chunkShape.halfExtents;
+		if (!frustum.checkBox(chunkShape))
+		{
+			continue;
+		}
+
+		chunksToRender.push_back(chunk);
 	}
 }
 

@@ -50,16 +50,6 @@ int main()
         world.visuals.fogGradient = 5.0f;
         world.visuals.fogDensity = world.visuals.calculateFogDensity(FOG_DISTANCE, world.visuals.fogGradient);
 
-        {
-            faceShader.use();
-
-            // Fog
-            const auto& fogColor = world.visuals.backgroundColor;
-            faceShader.setVec3("fogColor", fogColor.x, fogColor.y, fogColor.z);
-            faceShader.setFloat("fogDensity", world.visuals.fogDensity);
-            faceShader.setFloat("fogGradient", world.visuals.fogGradient);
-        }
-
         // Input
         glm::vec2 previousMousePos;
         wnd.getMousePos(previousMousePos.x, previousMousePos.y);

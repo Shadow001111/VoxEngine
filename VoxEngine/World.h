@@ -87,5 +87,7 @@ private:
 
 	void startBuildingChunkBlocks();
 	void startBuildingChunkMeshes();
+
+	void collectChunksToRender(std::vector<const Chunk*>& chunksToRender, const Frustum& frustum) const;
 };
 
