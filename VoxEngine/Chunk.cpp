@@ -557,6 +557,12 @@ void Chunk::sendMeshesToGPU()
 	std::vector<PendingMeshUpload> uploads;
 	{
 		std::lock_guard<std::mutex> lock(meshUploadMutex);
+
+		if (pendingMeshUploads.empty())
+		{
+			return;
+		}
+
 		uploads.swap(pendingMeshUploads);
 	}
 

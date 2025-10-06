@@ -38,6 +38,9 @@ WindowManager::WindowManager(const WindowParams& params)
     glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
     glfwSetKeyCallback(window, keyCallback);
 
+    // vsync
+    glfwSwapInterval(1);
+
     //
 	this->width = params.width;
 	this->height = params.height;
