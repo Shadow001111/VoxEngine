@@ -38,7 +38,7 @@ float interpolateAO_Triang()
     diag1 = mix(
         (1.0 - uv.x - uv.y) * ao0 + uv.x * ao1 + uv.y * ao3,          // uv.x + uv.y < 1
         (1.0 - uv.y) * ao1 + (uv.x + uv.y - 1.0) * ao2 + (1.0 - uv.x) * ao3, // uv.x + uv.y >= 1
-        step(1.0 - uv.x - uv.y, 0.0)
+        step(1.0, uv.x + uv.y)
     );
 
     // Determine which diagonal to use

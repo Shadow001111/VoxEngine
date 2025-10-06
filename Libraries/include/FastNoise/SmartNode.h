@@ -188,7 +188,7 @@ namespace FastNoise
 
         explicit operator bool() const noexcept
         {
-            return mPtr != nullptr;
+            return mPtr;
         }
 
         T* get() const noexcept

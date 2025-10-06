@@ -141,4 +141,12 @@
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <CopyFileToFolders Include="..\Libraries\bin\FastNoise.dll">
+      <Filter>Файлы ресурсов</Filter>
+    </CopyFileToFolders>
+    <CopyFileToFolders Include="..\Libraries\bin\FastNoiseD.dll">
+      <Filter>Файлы ресурсов</Filter>
+    </CopyFileToFolders>
+  </ItemGroup>
 </Project>

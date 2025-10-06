@@ -3,6 +3,9 @@
 
 #include "Int2.h"
 
+#define FASTNOISE_STATIC_LIB
+#include "FastNoise/FastNoise.h"
+
 #include <unordered_map>
 #include <memory>
 #include <mutex>
@@ -44,6 +47,9 @@ class TerrainGenerator
 	ChunkColumnDataPool chunkColumnDataPool;
 	std::unordered_map<Int2, std::unique_ptr<ChunkColumnData>, Int2Hasher> chunkColumnData;
 	mutable std::mutex dataMutex; // Protects chunkColumnData map
+	
+	static int seed;
+	static thread_local FastNoise::SmartNode<FastNoise::Simplex> simplexNoise;
 public:
 	TerrainGenerator() = default;
 	~TerrainGenerator() = default;
@@ -55,12 +61,27 @@ public:
 
 	static TerrainGenerator& getInstance();
 
-	const ChunkColumnData* loadChunkColumnData(int x, int z);
-	void releaseChunkColumnData(int x, int z);
+	const ChunkColumnData* loadChunkColumnData(int chunkX, int chunkZ);
+	void releaseChunkColumnData(int chunkX, int chunkZ);
 
 	// Debug
 	size_t getChunkColumnDataCount() const;
 private:
-	void initChunkColumnData(ChunkColumnData* column, int X, int Z);
+	static void initChunkColumnData(ChunkColumnData* column, int X, int Z);
+
+	static void computeInitialHeightMap(int* heightMap, int chunkX, int chunkZ);
+
+	struct NoiseParams
+	{
+		float amplitude = 1.0f;
+		float frequency = 1.0f;
+
+		int layerCount = 1;
+		float amplitudeFactor = 0.5f;
+		float frequencyFactor = 2.0f;
+	};
+
+	static void computeNoise_2D(float* noiseArray, int chunkX, int chunkZ, float frequency);
+	static void computeLayeredNoise_2D(float* noiseArray, int chunkX, int chunkZ, const NoiseParams& params);
 };
 
