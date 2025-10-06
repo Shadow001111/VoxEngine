@@ -29,7 +29,6 @@ class World
 		void release(std::unique_ptr<Chunk> chunk);
 	};
 
-	// TODO: Add ability for
 	struct Visuals
 	{
 		glm::vec3 backgroundColor = {}; // Also fog color
@@ -39,6 +38,15 @@ class World
 
 		static float calculateFogDensity(float renderDistance_, float fogGradient_);
 		static float calculateFogGradient(float renderDistance_, float fogDensity_);
+	};
+
+	struct ChunkRenderInfo
+	{
+		const Chunk* chunk;
+		glm::vec3 chunkWorldPosition;
+		float distanceSquared;
+
+		ChunkRenderInfo(const Chunk* chunk, const glm::vec3& chunkWorldPosition, float distanceSquared);
 	};
 
 	ChunkPool chunkPool;
@@ -88,6 +96,6 @@ private:
 	void startBuildingChunkBlocks();
 	void startBuildingChunkMeshes();
 
-	void collectChunksToRender(std::vector<const Chunk*>& chunksToRender, const Frustum& frustum) const;
+	void collectChunksToRender(std::vector<ChunkRenderInfo>& chunksToRender, const Camera& camera) const;
 };
 

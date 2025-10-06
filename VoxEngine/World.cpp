@@ -82,7 +82,7 @@ void World::update()
 void World::render(const Camera& camera, const Shader& faceShader) const
 {
 	{
-		PROFILE_SCOPE("Render: Set uniforms");
+		PROFILE_SCOPE("Render: set uniforms");
 
 		// Preparing
 		faceShader.use();
@@ -99,27 +99,33 @@ void World::render(const Camera& camera, const Shader& faceShader) const
 	// TODO: Add camera culling
 	// TODO: is static_cast in loop is a bad idea or compiler casts one time and saves?
 
-	std::vector<const Chunk*> chunksToRender;
+	std::vector<ChunkRenderInfo> chunksToRender;
 	{
 		PROFILE_SCOPE("Render: collect chunks");
 
-		collectChunksToRender(chunksToRender, camera.getFrustum());
+		collectChunksToRender(chunksToRender, camera);
 	}
+	{
+		PROFILE_SCOPE("Render: sort chunks by distance");
 
+		std::sort(chunksToRender.begin(), chunksToRender.end(),
+			[](const ChunkRenderInfo& a, const ChunkRenderInfo& b)
+			{
+				return a.distanceSquared < b.distanceSquared;
+			});
+	}
 	{
 		PROFILE_SCOPE("Render");
 
 		renderedFaceCount = 0;
-		for (const Chunk* chunk : chunksToRender)
+		for (const auto& info : chunksToRender)
 		{
-			// Check is chunk is on frustum
-			Int3 chunkPosition = chunk->getPosition();
-			glm::vec3 chunkWorldPosition = glm::vec3(chunkPosition.x, chunkPosition.y, chunkPosition.z) * static_cast<float>(CHUNK_SIZE);
-
+			// Set chunk position
+			glm::vec3 chunkWorldPosition = info.chunkWorldPosition;
 			faceShader.setVec3("chunkPosition", chunkWorldPosition.x, chunkWorldPosition.y, chunkWorldPosition.z);
 
-			chunk->render(); // Takes most of the time
-			renderedFaceCount += chunk->getFaceCount();
+			info.chunk->render(); // Takes most of the time
+			renderedFaceCount += info.chunk->getFaceCount();
 		}
 	}
 }
@@ -384,12 +390,16 @@ void World::startBuildingChunkMeshes()
 	}
 }
 
-void World::collectChunksToRender(std::vector<const Chunk*>& chunksToRender, const Frustum& frustum) const
+void World::collectChunksToRender(std::vector<ChunkRenderInfo>& chunksToRender, const Camera& camera) const
 {
+	const Frustum& frustum = camera.getFrustum();
 	Box chunkShape(glm::vec3(0.0f), glm::vec3(CHUNK_SIZE * 0.5f));
+
+	glm::vec3 cameraPosition = camera.getPosition();
 
 	chunksToRender.reserve(chunks.size());
 
+	// TODO: Sort chunks by distance and check if overdraw is noticable on GPU
 	for (const auto& pair : chunks)
 	{
 		const Chunk* chunk = pair.second.get();
@@ -417,7 +427,11 @@ void World::collectChunksToRender(std::vector<const Chunk*>& chunksToRender, con
 			continue;
 		}
 
-		chunksToRender.push_back(chunk);
+		glm::vec3 chunkCenter = chunkWorldPosition + chunkShape.halfExtents;
+		glm::vec3 diff = chunkCenter - cameraPosition;
+
+		float distanceSquared = glm::dot(diff, diff);
+		chunksToRender.emplace_back(chunk, chunkWorldPosition, distanceSquared);
 	}
 }
 
@@ -452,6 +466,14 @@ float World::Visuals::calculateFogDensity(float renderDistance_, float fogGradie
 float World::Visuals::calculateFogGradient(float renderDistance_, float fogDensity_)
 {
 	return logf(-logf(1e-3f)) / logf(renderDistance_ * fogDensity_);
+}
+
+//============================================================================
+// ChunkRenderInfo
+
+World::ChunkRenderInfo::ChunkRenderInfo(const Chunk* chunk, const glm::vec3& chunkWorldPosition, float distanceSquared) :
+	chunk(chunk), chunkWorldPosition(chunkWorldPosition), distanceSquared(distanceSquared)
+{
 }
 
 //============================================================================
