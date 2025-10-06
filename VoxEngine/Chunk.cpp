@@ -277,7 +277,8 @@ void Chunk::buildMesh()
 
 void Chunk::render() const
 {
-	if (faceCount == 0) return;
+	// We are already checking for face count inside World method
+	//if (faceCount == 0) return;
 	glBindVertexArray(vao);
 	glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, 4, faceCount);
 }

@@ -137,6 +137,7 @@
     <ClCompile Include="Core\Shapes.cpp" />
     <ClCompile Include="Core\ThreadPool.cpp" />
     <ClCompile Include="Core\Shapes\Box.cpp" />
+    <ClCompile Include="Graphics\Frustum.cpp" />
     <ClCompile Include="Graphics\Camera.cpp" />
     <ClCompile Include="glad.c" />
     <ClCompile Include="Graphics\Shader.cpp" />
@@ -160,6 +161,7 @@
     <ClInclude Include="Core\Shapes.h" />
     <ClInclude Include="Core\ThreadPool.h" />
     <ClInclude Include="Core\Shapes\Box.h" />
+    <ClInclude Include="Graphics\Frustum.h" />
     <ClInclude Include="Graphics\Camera.h" />
     <ClInclude Include="Graphics\Shader.h" />
     <ClInclude Include="Core\Int2.h" />

@@ -23,7 +23,7 @@ void Player::update(const WindowManager& wnd, float deltaTime, glm::vec2& lastMo
         glm::vec3 movementVector = glm::vec3(0.0f);
 
         movementVector += camera.getRight() * leftRight;
-        movementVector += camera.getFront() * forwardBackward;
+        movementVector += camera.getForward() * forwardBackward;
         movementVector.y += worldUpDown;
 
         if (glm::length(movementVector) > 0.0f)

@@ -86,6 +86,10 @@ void World::render(const Camera& camera, const Shader& faceShader) const
 	faceShader.setMat4("view", camera.getViewMatrix());
 	faceShader.setMat4("projection", camera.getProjectionMatrix());
 
+	// Frustum culling preparing
+	const Frustum& frustum = camera.getFrustum();
+	Box chunkShape(glm::vec3(0.0f), glm::vec3(CHUNK_SIZE * 0.5f));
+
 	// TODO: Use ssbo for chunk's position. Maybe it's faster? Though takes much more memory.
 	// TODO: Add camera culling
 	renderedFaceCount = 0;
@@ -93,15 +97,30 @@ void World::render(const Camera& camera, const Shader& faceShader) const
 	{
 		const Chunk* chunk = pair.second.get();
 
+		// Check if mesh is ready
 		if (chunk->getState() != Chunk::State::Ready)
 		{
 			continue;
 		}
 
-		Int3 pos = chunk->getPosition();
-		glm::vec3 chunkWorldPos = glm::vec3(pos.x, pos.y, pos.z) * static_cast<float>(CHUNK_SIZE);
+		// Check if mesh isn't empty
+		if (chunk->getFaceCount() == 0)
+		{
+			continue;
+		}
 
-		faceShader.setVec3("chunkPosition", chunkWorldPos.x, chunkWorldPos.y, chunkWorldPos.z);
+		// Check is chunk is on frustum
+		Int3 chunkPosition = chunk->getPosition();
+		glm::vec3 chunkPositionGlm = glm::vec3(chunkPosition.x, chunkPosition.y, chunkPosition.z);
+		glm::vec3 chunkWorldPosition = chunkPositionGlm * static_cast<float>(CHUNK_SIZE);
+
+		chunkShape.center = chunkWorldPosition + chunkShape.halfExtents;
+		if (!frustum.checkBox(chunkShape))
+		{
+			continue;
+		}
+
+		faceShader.setVec3("chunkPosition", chunkWorldPosition.x, chunkWorldPosition.y, chunkWorldPosition.z);
 
 		chunk->render();
 		renderedFaceCount += chunk->getFaceCount();

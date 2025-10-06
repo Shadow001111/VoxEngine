@@ -1,20 +1,27 @@
 #pragma once
 #include "Transform.h"
+#include "Frustum.h"
 
 class Camera
 {
 	Transform transform;
 
-	mutable glm::vec3 front;
+	mutable glm::vec3 forward;
 	mutable glm::vec3 up;
 	mutable glm::vec3 right;
 	mutable bool vectorsUpdateRequired = true;
+
+	mutable Frustum frustum;
+	mutable bool frustumUpdateRequired = true;
 
 	static glm::vec3 worldUp;
 
 	float FOV; // Radians
 	float aspectRatio;
 	float nearPlane, farPlane;
+
+	void updateCameraVectors() const;
+	void updateFrustum() const;
 public:
 	Camera(const glm::vec3 position, float yaw, float pitch, float FOV, float aspectRatio, float nearPlane, float farPlane);
 
@@ -37,10 +44,9 @@ public:
 	float getYaw() const;
 	float getPitch() const;
 	Transform getTransform() const;
-	glm::vec3 getFront() const;
+	glm::vec3 getForward() const;
 	glm::vec3 getUp() const;
 	glm::vec3 getRight() const;
-
-	void updateCameraVectors() const;
+	const Frustum& getFrustum() const;
 };
 
