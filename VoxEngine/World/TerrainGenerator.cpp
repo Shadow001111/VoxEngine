@@ -65,7 +65,6 @@ TerrainGenerator& TerrainGenerator::getInstance()
 
 const ChunkColumnData* TerrainGenerator::loadChunkColumnData(int chunkX, int chunkZ)
 {
-	//PROFILE_SCOPE("Load chunk column data"); TODO: Make Profiler thread safe
 	// TODO: Don't check two times
 
 	Int2 pos(chunkX, chunkZ);
@@ -161,6 +160,8 @@ void TerrainGenerator::initChunkColumnData(ChunkColumnData* column, int chunkX, 
 
 void TerrainGenerator::computeInitialHeightMap(int* heightMap, int chunkX, int chunkZ)
 {
+	PROFILE_SCOPE("Compute height map");
+
 	// Computing continental noise array
 	float continentalNoiseArray[CHUNK_AREA];
 	{

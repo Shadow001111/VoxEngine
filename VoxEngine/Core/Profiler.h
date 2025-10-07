@@ -4,7 +4,9 @@
 #include <string>
 #include <vector>
 #include <limits>
+#include <mutex>
 
+// TODO: Maybe for each thread create a new instance of Profiler and then collect all of them. Idk if it is better than just mutex.
 class Profiler
 {
 public:
@@ -19,19 +21,13 @@ public:
         void addSample(double time);
         void reset();
     };
-
 private:
     static std::unordered_map<std::string, ProfileData> profileData;
     static std::chrono::high_resolution_clock::time_point frameStartTime;
-    static double lastFrameTime;
-
+    static std::mutex profileDataMutex;
 public:
     static void beginFrame();
     static void endFrame();
-    static double getLastFrameTime() { return lastFrameTime; }
-
-    static void beginProfile(const std::string& name);
-    static void endProfile(const std::string& name);
 
     static const ProfileData* getProfileData(const std::string& name);
     static std::vector<std::pair<std::string, ProfileData>> getAllProfileData();
@@ -39,8 +35,7 @@ public:
     static void resetAllProfiles();
     static void printProfileReport();
 
-    // Allow ScopedProfiler access to private members
-    friend class ScopedProfiler;
+    static void addSample(const std::string& name, double duration);
 };
 
 // RAII helper class for automatic profiling
@@ -56,6 +51,14 @@ public:
     ~ScopedProfiler();
 };
 
-// Convenience macros for easy profiling
-#define PROFILE_SCOPE(name) ScopedProfiler _prof(name)
-#define PROFILE_FUNCTION() ScopedProfiler _prof(__FUNCTION__)
+#ifndef SCOPED_PROFILING_ENABLED
+#define SCOPED_PROFILING_ENABLED 1
+#endif
+
+#if SCOPED_PROFILING_ENABLED
+    #define PROFILE_SCOPE(name) ScopedProfiler _prof(name)
+    #define PROFILE_FUNCTION() ScopedProfiler _prof(__FUNCTION__)
+#else
+    #define PROFILE_SCOPE(name) ((void)0)
+    #define PROFILE_FUNCTION() ((void)0)
+#endif

@@ -27,7 +27,7 @@ void Profiler::ProfileData::reset()
 // Static member definitions
 std::unordered_map<std::string, Profiler::ProfileData> Profiler::profileData;
 std::chrono::high_resolution_clock::time_point Profiler::frameStartTime;
-double Profiler::lastFrameTime = 0.0;
+std::mutex Profiler::profileDataMutex;
 
 void Profiler::beginFrame()
 {
@@ -37,36 +37,13 @@ void Profiler::beginFrame()
 void Profiler::endFrame()
 {
     auto frameEndTime = std::chrono::high_resolution_clock::now();
-    lastFrameTime = std::chrono::duration<double, std::milli>(frameEndTime - frameStartTime).count();
-
-    // Add frame time to profile data
-    auto it = profileData.find("Frame Total");
-    if (it != profileData.end())
-    {
-        it->second.addSample(lastFrameTime);
-    }
-    else
-    {
-        ProfileData data;
-        data.addSample(lastFrameTime);
-        profileData["Frame Total"] = data;
-    }
-}
-
-void Profiler::beginProfile(const std::string& name)
-{
-    // This method is kept for manual profiling if needed
-    // For most use cases, prefer ScopedProfiler
-}
-
-void Profiler::endProfile(const std::string& name)
-{
-    // This method is kept for manual profiling if needed
-    // For most use cases, prefer ScopedProfiler
+    double duration = std::chrono::duration<double, std::milli>(frameEndTime - frameStartTime).count();
+    addSample("Frame Total", duration);
 }
 
 const Profiler::ProfileData* Profiler::getProfileData(const std::string& name)
 {
+    std::lock_guard<std::mutex> lock(profileDataMutex);
     auto it = profileData.find(name);
     return (it != profileData.end()) ? &it->second : nullptr;
 }
@@ -74,11 +51,14 @@ const Profiler::ProfileData* Profiler::getProfileData(const std::string& name)
 std::vector<std::pair<std::string, Profiler::ProfileData>> Profiler::getAllProfileData()
 {
     std::vector<std::pair<std::string, ProfileData>> result;
-    result.reserve(profileData.size());
 
-    for (const auto& pair : profileData)
     {
-        result.push_back(pair);
+        std::lock_guard<std::mutex> lock(profileDataMutex);
+        result.reserve(profileData.size());
+        for (const auto& pair : profileData)
+        {
+            result.push_back(pair);
+        }
     }
 
     // Sort by average time (descending)
@@ -92,6 +72,7 @@ std::vector<std::pair<std::string, Profiler::ProfileData>> Profiler::getAllProfi
 
 void Profiler::resetAllProfiles()
 {
+    std::lock_guard<std::mutex> lock(profileDataMutex);
     for (auto& pair : profileData)
     {
         pair.second.reset();
@@ -185,6 +166,22 @@ void Profiler::printProfileReport()
     std::cout << std::string(100, '=') << std::endl;
 }
 
+void Profiler::addSample(const std::string& name, double duration)
+{
+    std::lock_guard<std::mutex> lock(profileDataMutex);
+    auto it = profileData.find(name);
+    if (it != profileData.end())
+    {
+        it->second.addSample(duration);
+    }
+    else
+    {
+        ProfileData data;
+        data.addSample(duration);
+        profileData.emplace(name, data);
+    }
+}
+
 ScopedProfiler::ScopedProfiler(const std::string& profileName) : name(profileName)
 {
     startTime = std::chrono::high_resolution_clock::now();
@@ -193,17 +190,6 @@ ScopedProfiler::ScopedProfiler(const std::string& profileName) : name(profileNam
 ScopedProfiler::~ScopedProfiler()
 {
     auto endTime = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration<double, std::milli>(endTime - startTime).count();
-
-    auto it = Profiler::profileData.find(name);
-    if (it != Profiler::profileData.end())
-    {
-        it->second.addSample(duration);
-    }
-    else
-    {
-        Profiler::ProfileData data;
-        data.addSample(duration);
-        Profiler::profileData[name] = data;
-    }
+    double duration = std::chrono::duration<double, std::milli>(endTime - startTime).count();
+    Profiler::addSample(name, duration);
 }

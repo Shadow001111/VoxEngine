@@ -182,22 +182,25 @@ void Chunk::buildBlocks()
 	const int* heightMap = chunkColumnData->heightMap;
 	loadedChunkColumnData = true;
 
-	for (int x = 0; x < CHUNK_SIZE; x++)
 	{
-		for (int z = 0; z < CHUNK_SIZE; z++)
+		PROFILE_SCOPE("Chunk build blocks");
+		for (int x = 0; x < CHUNK_SIZE; x++)
 		{
-			const int globalHeight = heightMap[z + x * CHUNK_SIZE];
-
-			for (int y = 0; y < CHUNK_SIZE; y++)
+			for (int z = 0; z < CHUNK_SIZE; z++)
 			{
-				int worldY = position.y * CHUNK_SIZE + y;
-				if (worldY <= globalHeight)
+				const int globalHeight = heightMap[z + x * CHUNK_SIZE];
+
+				for (int y = 0; y < CHUNK_SIZE; y++)
 				{
-					blocks[getIndex(x, y, z)] = Block::GrassBlock;
-				}
-				else
-				{
-					blocks[getIndex(x, y, z)] = Block::Air;
+					int worldY = position.y * CHUNK_SIZE + y;
+					if (worldY <= globalHeight)
+					{
+						blocks[getIndex(x, y, z)] = Block::GrassBlock;
+					}
+					else
+					{
+						blocks[getIndex(x, y, z)] = Block::Air;
+					}
 				}
 			}
 		}
@@ -209,6 +212,8 @@ void Chunk::buildBlocks()
 
 void Chunk::buildMesh()
 {
+	PROFILE_SCOPE("Chunk build mesh");
+
 	assert(!isBeingProcessed());
 	setIsBeingProcessed(true);
 

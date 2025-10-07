@@ -129,7 +129,6 @@ void World::render(const Camera& camera) const
 	}
 
 	// TODO: Use ssbo for chunk's position. Maybe it's faster? Though takes much more memory.
-	// TODO: is static_cast in loop is a bad idea or compiler casts one time and stores?
 
 	std::vector<ChunkRenderInfo> chunksToRender;
 	{
@@ -429,8 +428,10 @@ void World::startBuildingChunkMeshes()
 
 void World::collectChunksToRender(std::vector<ChunkRenderInfo>& chunksToRender, const Camera& camera) const
 {
+	const float CHUNK_SIZE_FLOAT = static_cast<float>(CHUNK_SIZE);
+
 	const Frustum& frustum = camera.getFrustum();
-	Box chunkShape(glm::vec3(0.0f), glm::vec3(CHUNK_SIZE * 0.5f));
+	Box chunkShape(glm::vec3(0.0f), glm::vec3(CHUNK_SIZE_FLOAT * 0.5f));
 
 	glm::vec3 cameraPosition = camera.getPosition();
 
@@ -455,7 +456,7 @@ void World::collectChunksToRender(std::vector<ChunkRenderInfo>& chunksToRender, 
 		// Check is chunk is on frustum
 		Int3 chunkPosition = chunk->getPosition();
 		glm::vec3 chunkPositionGlm = glm::vec3(chunkPosition.x, chunkPosition.y, chunkPosition.z);
-		glm::vec3 chunkWorldPosition = chunkPositionGlm * static_cast<float>(CHUNK_SIZE);
+		glm::vec3 chunkWorldPosition = chunkPositionGlm * CHUNK_SIZE_FLOAT;
 
 		chunkShape.center = chunkWorldPosition + chunkShape.halfExtents;
 		if (!frustum.checkBox(chunkShape))
