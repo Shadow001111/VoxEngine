@@ -19,6 +19,8 @@ World::World()
 
 	faceShader = std::make_unique<Shader>(faceShaderSources);
 	faceShaderSources.clear();
+
+	//
 }
 
 World::~World()
