@@ -50,8 +50,7 @@ void World::loadChunksAroundPlayer(const Int3& chunkLoaderPos, int renderDistanc
 	// Unload chunks that are out of range
 	unloadChunksOutsideRange(renderDistance);
 
-	// Load chunks in a cubic area around the lastChunkLoaderPos
-	// TODO: Make area spherical
+	// Load chunks in a spherical area around the lastChunkLoaderPos
 
 	static std::vector<Chunk*> chunksToSend;
 	chunksToSend.clear();
@@ -59,15 +58,26 @@ void World::loadChunksAroundPlayer(const Int3& chunkLoaderPos, int renderDistanc
 	{
 		PROFILE_SCOPE("Load chunks");
 
+		int renderDistanceSquared = renderDistance * renderDistance;
+
 		for (int x = -renderDistance; x <= renderDistance; x++)
 		{
 			int chunkX = chunkLoaderPos.x + x;
-			for (int y = -renderDistance; y <= renderDistance; y++)
+
+			int D1 = renderDistanceSquared - x * x;
+			int yRange = (int)sqrtf(D1);
+
+			for (int y = -yRange; y <= yRange; y++)
 			{
 				int chunkY = chunkLoaderPos.y + y;
-				for (int z = -renderDistance; z <= renderDistance; z++)
+
+				int D2 = D1 - y * y;
+				int zRange = (int)sqrtf(D2);
+
+				for (int z = -zRange; z <= zRange; z++)
 				{
 					int chunkZ = chunkLoaderPos.z + z;
+
 					loadChunk(chunkX, chunkY, chunkZ, chunksToSend);
 				}
 			}
@@ -239,13 +249,21 @@ void World::unloadChunksOutsideRange(int renderDistance)
 		const int y = lastChunkLoaderPos.y;
 		const int z = lastChunkLoaderPos.z;
 
+		int renderDistanceSquared = renderDistance * renderDistance;
+
 		PROFILE_SCOPE("Unload chunks: collect");
 		for (const auto& pair : chunks)
 		{
 			const Int3& pos = pair.first;
-			if (std::abs(pos.x - x) > renderDistance ||
-				std::abs(pos.y - y) > renderDistance ||
-				std::abs(pos.z - z) > renderDistance)
+			
+			// Calculate squared distance from chunk loader position
+			int dx = pos.x - x;
+			int dy = pos.y - y;
+			int dz = pos.z - z;
+			int distanceSquared = dx * dx + dy * dy + dz * dz;
+			
+			// Unload if outside spherical range
+			if (distanceSquared > renderDistanceSquared)
 			{
 				chunksToUnload.push_back(pos);
 			}
@@ -418,7 +436,6 @@ void World::collectChunksToRender(std::vector<ChunkRenderInfo>& chunksToRender, 
 
 	chunksToRender.reserve(chunks.size());
 
-	// TODO: Sort chunks by distance and check if overdraw is noticable on GPU
 	for (const auto& pair : chunks)
 	{
 		const Chunk* chunk = pair.second.get();

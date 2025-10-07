@@ -23,8 +23,8 @@ class BlockDataBase
 
 	static BlockData BLOCK_DATABASE[(size_t)Block::__BlockCount__];
 public:
-	static inline const BlockData& getBlockData(Block block);
-	static inline const BlockData& getBlockData(size_t index);
+	static const BlockData& getBlockData(Block block);
+	static const BlockData& getBlockData(size_t index);
 };
 
 class BlockTextureIDDatabase

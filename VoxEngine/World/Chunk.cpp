@@ -354,10 +354,9 @@ Block Chunk::getBlock_checkNeighbors(int x, int y, int z) const
 }
 
 // Function checks neighbors, if out of boundaries. Handles diagonal neighbors too.
-// TODO: Consider storing 26 neighbors in Chunk
 Block Chunk::getBlock_checkNeighborsTraverse(int x, int y, int z) const
 {
-	// TODO: Traverse can fail and success depending on traversal order. I think it won't be noticable on normal render distance.
+	// Note: Traverse may fail depending on traversal order. Isn't critical for ambient occlusion computing.
 
 	int nx = x & CHUNK_UPPER_BITS_MASK;
 	int ny = y & CHUNK_UPPER_BITS_MASK;

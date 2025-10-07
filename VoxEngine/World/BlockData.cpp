@@ -21,14 +21,17 @@ BlockData BlockDataBase::BLOCK_DATABASE[(size_t)Block::__BlockCount__] =
 	{"grass_block_side", "grass_block_side", "dirt", "grass_block_top", "grass_block_side", "grass_block_side"}
 };
 
-inline const BlockData& BlockDataBase::getBlockData(Block block)
+const BlockData& BlockDataBase::getBlockData(Block block)
 {
 	return BLOCK_DATABASE[static_cast<size_t>(block)];
 }
 
-inline const BlockData& BlockDataBase::getBlockData(size_t index)
+const BlockData& BlockDataBase::getBlockData(size_t index)
 {
-	// TODO: Maybe add check condition?
+	if (index >= (size_t)Block::__BlockCount__)
+	{
+		return BLOCK_DATABASE[0];
+	}
 	return BLOCK_DATABASE[index];
 }
 
