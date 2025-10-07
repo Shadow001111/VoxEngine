@@ -143,7 +143,7 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Chunk.cpp" />
+    <ClCompile Include="World\Chunk.cpp" />
     <ClCompile Include="Core\Int3.cpp" />
     <ClCompile Include="Core\Profiler.cpp" />
     <ClCompile Include="Core\Shapes.cpp" />
@@ -159,14 +159,14 @@
     <ClCompile Include="Core\UpdateTimer.cpp" />
     <ClCompile Include="Core\Transform.cpp" />
     <ClCompile Include="Core\Shapes\Plane.cpp" />
-    <ClCompile Include="Player.cpp" />
-    <ClCompile Include="TerrainGenerator.cpp" />
+    <ClCompile Include="World\Player.cpp" />
+    <ClCompile Include="World\TerrainGenerator.cpp" />
     <ClCompile Include="WindowManager.cpp" />
-    <ClCompile Include="World.cpp" />
+    <ClCompile Include="World\World.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Block.h" />
-    <ClInclude Include="Chunk.h" />
+    <ClInclude Include="World\Block.h" />
+    <ClInclude Include="World\Chunk.h" />
     <ClInclude Include="Core\CoreMath.h" />
     <ClInclude Include="Core\Int3.h" />
     <ClInclude Include="Core\Profiler.h" />
@@ -177,15 +177,15 @@
     <ClInclude Include="Graphics\Camera.h" />
     <ClInclude Include="Graphics\Shader.h" />
     <ClInclude Include="Core\Int2.h" />
-    <ClInclude Include="Metrics.h" />
+    <ClInclude Include="World\Metrics.h" />
     <ClInclude Include="Core\Vec2.h" />
     <ClInclude Include="Core\UpdateTimer.h" />
     <ClInclude Include="Core\Transform.h" />
     <ClInclude Include="Core\Shapes\Plane.h" />
-    <ClInclude Include="Player.h" />
-    <ClInclude Include="TerrainGenerator.h" />
+    <ClInclude Include="World\Player.h" />
+    <ClInclude Include="World\TerrainGenerator.h" />
     <ClInclude Include="WindowManager.h" />
-    <ClInclude Include="World.h" />
+    <ClInclude Include="World\World.h" />
   </ItemGroup>
   <ItemGroup>
     <CopyFileToFolders Include="..\Libraries\bin\FastNoise.dll">

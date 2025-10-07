@@ -1,8 +1,8 @@
 #pragma once
 #include "Chunk.h"
 
-#include "Graphics/Shader.h"
-#include "Graphics/Camera.h"
+#include "../Graphics/Shader.h"
+#include "../Graphics/Camera.h"
 
 #include <unordered_map>
 #include <unordered_set>

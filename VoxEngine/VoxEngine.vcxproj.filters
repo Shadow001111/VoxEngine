@@ -30,7 +30,7 @@
     <ClCompile Include="Graphics\Camera.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="Chunk.cpp">
+    <ClCompile Include="World\Chunk.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
     <ClCompile Include="Core\Vec2.cpp">
@@ -42,19 +42,19 @@
     <ClCompile Include="Core\Transform.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="Player.cpp">
+    <ClCompile Include="World\Player.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
     <ClCompile Include="Core\Int3.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="World.cpp">
+    <ClCompile Include="World\World.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
     <ClCompile Include="Core\Profiler.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="TerrainGenerator.cpp">
+    <ClCompile Include="World\TerrainGenerator.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
     <ClCompile Include="Core\Int2.cpp">
@@ -86,13 +86,13 @@
     <ClInclude Include="Graphics\Camera.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="Chunk.h">
+    <ClInclude Include="World\Chunk.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="Block.h">
+    <ClInclude Include="World\Block.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="Metrics.h">
+    <ClInclude Include="World\Metrics.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Core\Vec2.h">
@@ -107,19 +107,19 @@
     <ClInclude Include="Core\CoreMath.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="Player.h">
+    <ClInclude Include="World\Player.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Core\Int3.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="World.h">
+    <ClInclude Include="World\World.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Core\Profiler.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="TerrainGenerator.h">
+    <ClInclude Include="World\TerrainGenerator.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Core\Int2.h">

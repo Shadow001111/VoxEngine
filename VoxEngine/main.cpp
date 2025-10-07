@@ -2,8 +2,8 @@
 
 #include <iostream>
 
-#include "World.h"
-#include "Player.h"
+#include "World/World.h"
+#include "World/Player.h"
 
 #include "UpdateTimer.h"
 #include "Profiler.h"
