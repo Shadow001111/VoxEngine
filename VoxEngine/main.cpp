@@ -20,16 +20,6 @@ int main()
         // Window
         WindowManager wnd({ 1280, 720, "My OpenGL 4.6 Window", true });
 
-        // Shaders
-        std::vector<Shader::ShaderSource> faceShaderSources =
-        {
-            {GL_VERTEX_SHADER, "res/Shaders/face.vert"},
-            {GL_FRAGMENT_SHADER, "res/Shaders/face.frag"}
-        };
-
-        Shader faceShader(faceShaderSources);
-        faceShaderSources.clear();
-
         // OpenGL states
         glEnable(GL_CULL_FACE);
         glCullFace(GL_BACK);
@@ -119,7 +109,7 @@ int main()
             }
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-			world.render(player.getCamera(), faceShader);
+			world.render(player.getCamera());
 
             // Swap buffers
             wnd.swapBuffers();

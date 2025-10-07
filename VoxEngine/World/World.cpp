@@ -10,6 +10,15 @@
 
 World::World()
 {
+	// Shaders
+	std::vector<Shader::ShaderSource> faceShaderSources =
+	{
+		{GL_VERTEX_SHADER, "res/Shaders/face.vert"},
+		{GL_FRAGMENT_SHADER, "res/Shaders/face.frag"}
+	};
+
+	faceShader = std::make_unique<Shader>(faceShaderSources);
+	faceShaderSources.clear();
 }
 
 World::~World()
@@ -79,24 +88,25 @@ void World::update()
 	Chunk::sendMeshesToGPU();
 }
 
-void World::render(const Camera& camera, const Shader& faceShader) const
+void World::render(const Camera& camera) const
 {
+	faceShader->use();
 	{
 		PROFILE_SCOPE("Render: set uniforms");
 
-		// Preparing
-		faceShader.use();
-		faceShader.setMat4("view", camera.getViewMatrix());
-		faceShader.setMat4("projection", camera.getProjectionMatrix());
+		// Matrices
+		faceShader->setMat4("view", camera.getViewMatrix());
+		faceShader->setMat4("projection", camera.getProjectionMatrix());
 
+		// Fog
 		const auto& fogColor = visuals.backgroundColor;
-		faceShader.setVec3("fogColor", fogColor.x, fogColor.y, fogColor.z);
-		faceShader.setFloat("fogDensity", visuals.fogDensity);
-		faceShader.setFloat("fogGradient", visuals.fogGradient);
+		faceShader->setVec3("fogColor", fogColor.x, fogColor.y, fogColor.z);
+		faceShader->setFloat("fogDensity", visuals.fogDensity);
+		faceShader->setFloat("fogGradient", visuals.fogGradient);
 	}
 
 	// TODO: Use ssbo for chunk's position. Maybe it's faster? Though takes much more memory.
-	// TODO: is static_cast in loop is a bad idea or compiler casts one time and saves?
+	// TODO: is static_cast in loop is a bad idea or compiler casts one time and stores?
 
 	std::vector<ChunkRenderInfo> chunksToRender;
 	{
@@ -118,7 +128,7 @@ void World::render(const Camera& camera, const Shader& faceShader) const
 		{
 			// Set chunk position
 			glm::vec3 chunkWorldPosition = info.chunkWorldPosition;
-			faceShader.setVec3("chunkPosition", chunkWorldPosition.x, chunkWorldPosition.y, chunkWorldPosition.z);
+			faceShader->setVec3("chunkPosition", chunkWorldPosition.x, chunkWorldPosition.y, chunkWorldPosition.z);
 
 			info.chunk->render(); // Takes most of the time
 			renderedFaceCount += info.chunk->getFaceCount();
@@ -454,12 +464,12 @@ void World::ChunkPool::release(std::unique_ptr<Chunk> chunk)
 //============================================================================
 // Visuals
 
-float World::Visuals::calculateFogDensity(float renderDistance_, float fogGradient_)
+float World::VisualSettings::calculateFogDensity(float renderDistance_, float fogGradient_)
 {
 	return powf(-logf(1e-3f), 1.0f / fogGradient_) / renderDistance_;
 }
 
-float World::Visuals::calculateFogGradient(float renderDistance_, float fogDensity_)
+float World::VisualSettings::calculateFogGradient(float renderDistance_, float fogDensity_)
 {
 	return logf(-logf(1e-3f)) / logf(renderDistance_ * fogDensity_);
 }

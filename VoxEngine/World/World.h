@@ -29,7 +29,7 @@ class World
 		void release(std::unique_ptr<Chunk> chunk);
 	};
 
-	struct Visuals
+	struct VisualSettings
 	{
 		glm::vec3 backgroundColor = {}; // Also fog color
 		float fogMaxDistance = 0.0f; // Should be set as render distance
@@ -61,10 +61,13 @@ class World
 	Int3 lastChunkLoaderPos;
 	bool firstLoad = true;
 
+	// Shaders
+	std::unique_ptr<Shader> faceShader;
+
 	// Debug
 	mutable size_t renderedFaceCount;
 public:
-	Visuals visuals;
+	VisualSettings visuals;
 
 	World();
 	~World();
@@ -76,7 +79,7 @@ public:
 
 	void loadChunksAroundPlayer(const Int3& chunkLoaderPos, int renderDistance);
 	void update();
-	void render(const Camera& camera, const Shader& faceShader) const;
+	void render(const Camera& camera) const;
 
 	// Debug
 	void rebuildAllChunkMeshes();
