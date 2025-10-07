@@ -4,5 +4,5 @@
 enum class Block : uint8_t
 {
 	Air = 0,
-	Solid = 1
+	GrassBlock = 1
 };

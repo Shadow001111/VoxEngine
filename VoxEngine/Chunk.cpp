@@ -187,7 +187,7 @@ void Chunk::buildBlocks()
 				int worldY = position.y * CHUNK_SIZE + y;
 				if (worldY <= globalHeight)
 				{
-					blocks[getIndex(x, y, z)] = Block::Solid;
+					blocks[getIndex(x, y, z)] = Block::GrassBlock;
 				}
 				else
 				{
