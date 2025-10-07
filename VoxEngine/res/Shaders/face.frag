@@ -4,8 +4,12 @@ uniform vec3 fogColor;
 uniform float fogDensity;
 uniform float fogGradient;
 
+uniform sampler2DArray blockTextures;
+
 in vec2 uv;
 flat in float ao[4];
+flat in uint textureID;
+
 in float depth;
 
 out vec4 FragColor;
@@ -52,7 +56,7 @@ float interpolateAO_Triang()
 
 void main()
 {
-    vec3 baseColor = vec3(1.0);
+    vec3 baseColor = texture(blockTextures, vec3(uv, textureID)).xyz;
     vec3 shadedColor = baseColor * interpolateAO_Triang();
 
     float inverseFogEffect = clamp(exp(-pow(depth * fogDensity, fogGradient)), 0.0, 1.0);

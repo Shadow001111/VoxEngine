@@ -9,6 +9,8 @@ uniform vec3 chunkPosition;
 
 out vec2 uv;
 flat out float ao[4];
+flat out uint textureID;
+
 out float depth;
 
 void main()
@@ -21,6 +23,8 @@ void main()
     int normal = (instanceData >> 12) & 7;
 
     int faceAO = (instanceData >> 15) & 255;
+
+    textureID = (instanceData >> 23) & 511; 
 
     // Unpack all AO values
     int ao0 = faceAO & 3;

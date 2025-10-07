@@ -4,5 +4,6 @@
 enum class Block : uint8_t
 {
 	Air = 0,
-	GrassBlock = 1
+	GrassBlock,
+	__BlockCount__
 };

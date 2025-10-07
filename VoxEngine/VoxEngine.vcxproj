@@ -143,6 +143,8 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Graphics\BlockTextureArray.cpp" />
+    <ClCompile Include="Core\StringIndexer.cpp" />
     <ClCompile Include="World\BlockData.cpp" />
     <ClCompile Include="World\Chunk.cpp" />
     <ClCompile Include="Core\Int3.cpp" />
@@ -166,6 +168,8 @@
     <ClCompile Include="World\World.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Graphics\BlockTextureArray.h" />
+    <ClInclude Include="Core\StringIndexer.h" />
     <ClInclude Include="World\Block.h" />
     <ClInclude Include="World\BlockData.h" />
     <ClInclude Include="World\Chunk.h" />

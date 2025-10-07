@@ -10,18 +10,23 @@
 //============================================================================
 //BlockFaceInstance
 
-BlockFaceInstance::BlockFaceInstance(int x, int y, int z, int normal, int ao) : data(0)
+BlockFaceInstance::BlockFaceInstance(int x, int y, int z, int normal, int ao, int textureID) : data(0)
 {
-	// Coords 12 bits
+	// (32 bits left) Coords 12 bits
 	data |= (x & 15);
 	data |= (y & 15) << 4;
 	data |= (z & 15) << 8;
 
-	// Normal 3 bits
+	// (20 bits left) Normal 3 bits
 	data |= (normal & 7) << 12;
 
-	// Ambient occlusion 8 bits
+	// (17 bits left) Ambient occlusion 8 bits
 	data |= (ao & 255) << 15;
+
+	// (9 bits left) Texture ID
+	data |= (textureID & 511) << 23;
+
+	// (0 bits left)
 }
 
 //============================================================================
@@ -37,6 +42,7 @@ Chunk::PendingMeshUpload::PendingMeshUpload(std::vector<BlockFaceInstance>&& ins
 
 std::mutex Chunk::meshUploadMutex;
 std::vector<Chunk::PendingMeshUpload> Chunk::pendingMeshUploads;
+BlockTextureIDDatabase Chunk::blockTextureDatabase;
 
 
 size_t Chunk::getIndex(int x, int y, int z)
@@ -221,41 +227,44 @@ void Chunk::buildMesh()
 					continue;
 				}
 
+				// TODO: Maybe should copy?
+				const auto& textureIDs = blockTextureDatabase.getBlockTextureIDs(block);
+
 				// -X
 				if (getBlock_checkSideNeighbor(x - 1, y, z, 0) == Block::Air)
 				{
 					int ao = calculateFaceAO(x, y, z, 0);
-					mesh.emplace_back(x, y, z, 0, ao);
+					mesh.emplace_back(x, y, z, 0, ao, textureIDs.ids[0]);
 				}
 				// +X
 				if (getBlock_checkSideNeighbor(x + 1, y, z, 1) == Block::Air)
 				{
 					int ao = calculateFaceAO(x, y, z, 1);
-					mesh.emplace_back(x, y, z, 1, ao);
+					mesh.emplace_back(x, y, z, 1, ao, textureIDs.ids[1]);
 				}
 				// -Y
 				if (getBlock_checkSideNeighbor(x, y - 1, z, 2) == Block::Air)
 				{
 					int ao = calculateFaceAO(x, y, z, 2);
-					mesh.emplace_back(x, y, z, 2, ao);
+					mesh.emplace_back(x, y, z, 2, ao, textureIDs.ids[2]);
 				}
 				// +Y
 				if (getBlock_checkSideNeighbor(x, y + 1, z, 3) == Block::Air)
 				{
 					int ao = calculateFaceAO(x, y, z, 3);
-					mesh.emplace_back(x, y, z, 3, ao);
+					mesh.emplace_back(x, y, z, 3, ao, textureIDs.ids[3]);
 				}
 				// -Z
 				if (getBlock_checkSideNeighbor(x, y, z - 1, 4) == Block::Air)
 				{
 					int ao = calculateFaceAO(x, y, z, 4);
-					mesh.emplace_back(x, y, z, 4, ao);
+					mesh.emplace_back(x, y, z, 4, ao, textureIDs.ids[4]);
 				}
 				// +Z
 				if (getBlock_checkSideNeighbor(x, y, z + 1, 5) == Block::Air)
 				{
 					int ao = calculateFaceAO(x, y, z, 5);
-					mesh.emplace_back(x, y, z, 5, ao);
+					mesh.emplace_back(x, y, z, 5, ao, textureIDs.ids[5]);
 				}
 			}
 		}

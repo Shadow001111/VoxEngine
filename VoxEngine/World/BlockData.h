@@ -1,6 +1,9 @@
 #pragma once
 #include "Block.h"
 
+#include <vector>
+#include <string>
+
 struct BlockData
 {
 	const char* texName_negativeX = nullptr;
@@ -15,7 +18,32 @@ struct BlockData
 
 class BlockDataBase
 {
-	static BlockData BLOCK_DATABASE[];
+	BlockDataBase() = delete;
+	~BlockDataBase() = delete;
+
+	static BlockData BLOCK_DATABASE[(size_t)Block::__BlockCount__];
 public:
 	static inline const BlockData& getBlockData(Block block);
+	static inline const BlockData& getBlockData(size_t index);
+};
+
+class BlockTextureIDDatabase
+{
+	struct BlockTextureIDs
+	{
+		uint16_t ids[6];
+	};
+	BlockTextureIDs* blockTexturesIDs;
+public:
+	BlockTextureIDDatabase();
+	~BlockTextureIDDatabase();
+
+	void build(std::vector<std::string>& textureNames);
+
+	BlockTextureIDDatabase(const BlockTextureIDDatabase& other) = delete;
+	BlockTextureIDDatabase& operator=(const BlockTextureIDDatabase& other) = delete;
+	BlockTextureIDDatabase(BlockTextureIDDatabase&& other) = delete;
+	BlockTextureIDDatabase& operator=(BlockTextureIDDatabase&& other) = delete;
+
+	const BlockTextureIDs& getBlockTextureIDs(Block block) const;
 };

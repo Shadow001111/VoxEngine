@@ -20,7 +20,18 @@ World::World()
 	faceShader = std::make_unique<Shader>(faceShaderSources);
 	faceShaderSources.clear();
 
-	//
+	// Block textures
+	std::vector<std::string> blockTextureNames;
+	{
+		PROFILE_SCOPE("BlockTextureIDDatabase build");
+		Chunk::blockTextureDatabase.build(blockTextureNames);
+	}
+	{
+		PROFILE_SCOPE("Block texture array creation");
+		blockTextureArray = std::make_unique<BlockTextureArray>("res/Textures", blockTextureNames, 0, 16);
+		blockTextureArray->bind();
+		faceShader->setInt("blockTextures", blockTextureArray->getUnit());
+	}
 }
 
 World::~World()

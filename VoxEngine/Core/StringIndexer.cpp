@@ -2,6 +2,16 @@
 
 size_t StringIndexer::getID(const char* textureName)
 {
+    return getID(std::string(textureName));
+}
+
+size_t StringIndexer::getID(const std::string& textureName)
+{
+    if (textureName.empty())
+    {
+        return -1;
+    }
+
     auto it = nameToID.find(textureName);
     if (it == nameToID.end())
     {
@@ -12,14 +22,7 @@ size_t StringIndexer::getID(const char* textureName)
     return it->second;
 }
 
-size_t StringIndexer::getID(const std::string& textureName)
+const std::unordered_map<std::string, size_t>& StringIndexer::getNameToIDMap() const
 {
-    auto it = nameToID.find(textureName);
-    if (it == nameToID.end())
-    {
-        size_t id = nameToID.size();
-        nameToID.emplace(textureName, id);
-        return id;
-    }
-    return it->second;
+    return nameToID;
 }

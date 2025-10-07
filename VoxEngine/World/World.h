@@ -3,6 +3,7 @@
 
 #include "../Graphics/Shader.h"
 #include "../Graphics/Camera.h"
+#include "../Graphics/BlockTextureArray.h"
 
 #include <unordered_map>
 #include <unordered_set>
@@ -61,8 +62,9 @@ class World
 	Int3 lastChunkLoaderPos;
 	bool firstLoad = true;
 
-	// Shaders
+	// Resources
 	std::unique_ptr<Shader> faceShader;
+	std::unique_ptr <BlockTextureArray> blockTextureArray;
 
 	// Debug
 	mutable size_t renderedFaceCount;

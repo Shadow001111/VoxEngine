@@ -14,7 +14,7 @@ struct BlockFaceInstance
 {
 	int32_t data;
 
-	BlockFaceInstance(int x, int y, int z, int normal, int ao);
+	BlockFaceInstance(int x, int y, int z, int normal, int ao, int textureID);
 };
 
 class Chunk
@@ -56,6 +56,8 @@ private:
 
 	static size_t getIndex(int x, int y, int z);
 public:
+	static BlockTextureIDDatabase blockTextureDatabase;
+
 	Chunk* neighbors[6]; // Pointers to neighboring chunks, for easier access when building mesh
 
 	Chunk();
