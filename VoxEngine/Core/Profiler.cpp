@@ -29,6 +29,21 @@ std::unordered_map<std::string, Profiler::ProfileData> Profiler::profileData;
 std::chrono::high_resolution_clock::time_point Profiler::frameStartTime;
 std::mutex Profiler::profileDataMutex;
 
+const char* Profiler::getCategoryColor(ProfileCategory category)
+{
+    switch (category)
+    {
+    case ProfileCategory::FrameTotal: return ProfilerColors::FRAME_TOTAL;
+    case ProfileCategory::Render: return ProfilerColors::RENDER;
+    case ProfileCategory::ChunkLoadUnload: return ProfilerColors::CHUNK_LOAD_UNLOAD;
+    case ProfileCategory::ChunkBlocks: return ProfilerColors::CHUNK_BLOCKS;
+    case ProfileCategory::ChunkMesh: return ProfilerColors::CHUNK_MESH;
+    case ProfileCategory::TerrainGeneration: return ProfilerColors::TERRAIN_GENERATION;
+    case ProfileCategory::General:
+    default:                           return ProfilerColors::GENERAL;
+    }
+}
+
 void Profiler::beginFrame()
 {
     frameStartTime = std::chrono::high_resolution_clock::now();
@@ -38,7 +53,7 @@ void Profiler::endFrame()
 {
     auto frameEndTime = std::chrono::high_resolution_clock::now();
     double duration = std::chrono::duration<double, std::milli>(frameEndTime - frameStartTime).count();
-    addSample("Frame Total", duration);
+    addSample("Frame Total", duration, ProfileCategory::FrameTotal);
 }
 
 const Profiler::ProfileData* Profiler::getProfileData(const std::string& name)
@@ -114,6 +129,9 @@ void Profiler::printProfileReport()
 
         double minTime = (data.minTime == std::numeric_limits<double>::max()) ? 0.0 : data.minTime;
 
+        const char* color = getCategoryColor(data.category);
+
+        std::cout << color;
         std::cout << std::setw(30) << name.substr(0, 29) // Truncate long names
             << std::setw(12) << data.getAverageTime()
             << std::setw(12) << minTime
@@ -129,7 +147,7 @@ void Profiler::printProfileReport()
             std::cout << std::setw(8) << std::setprecision(1) << percentage << "%";
         }
 
-        std::cout << "\n";
+        std::cout << ProfilerColors::RESET << "\n";
     }
 
     std::cout << std::string(100, '-') << "\n";
@@ -166,7 +184,7 @@ void Profiler::printProfileReport()
     std::cout << std::string(100, '=') << std::endl;
 }
 
-void Profiler::addSample(const std::string& name, double duration)
+void Profiler::addSample(const std::string& name, double duration, ProfileCategory category)
 {
     std::lock_guard<std::mutex> lock(profileDataMutex);
     auto it = profileData.find(name);
@@ -177,12 +195,14 @@ void Profiler::addSample(const std::string& name, double duration)
     else
     {
         ProfileData data;
+        data.category = category;
         data.addSample(duration);
         profileData.emplace(name, data);
     }
 }
 
-ScopedProfiler::ScopedProfiler(const std::string& profileName) : name(profileName)
+ScopedProfiler::ScopedProfiler(const char* profileName, ProfileCategory category) :
+    name(profileName), category(category)
 {
     startTime = std::chrono::high_resolution_clock::now();
 }
@@ -191,5 +211,5 @@ ScopedProfiler::~ScopedProfiler()
 {
     auto endTime = std::chrono::high_resolution_clock::now();
     double duration = std::chrono::duration<double, std::milli>(endTime - startTime).count();
-    Profiler::addSample(name, duration);
+    Profiler::addSample(name, duration, category);
 }

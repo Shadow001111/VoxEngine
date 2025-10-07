@@ -160,7 +160,9 @@ void TerrainGenerator::initChunkColumnData(ChunkColumnData* column, int chunkX, 
 
 void TerrainGenerator::computeInitialHeightMap(int* heightMap, int chunkX, int chunkZ)
 {
-	PROFILE_SCOPE("Compute height map");
+	// TODO: (Whtn moving down) Chunks on edge of render area may unload, they are last, destroying the column.
+	// Maybe get rid of unused columns in loop after creating chunks. Maybe use time or distance to determine liftime of unused column.
+	PROFILE_SCOPE("Compute height map", ProfileCategory::TerrainGeneration);
 
 	// Computing continental noise array
 	float continentalNoiseArray[CHUNK_AREA];

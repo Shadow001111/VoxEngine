@@ -23,11 +23,11 @@ World::World()
 	// Block textures
 	std::vector<std::string> blockTextureNames;
 	{
-		PROFILE_SCOPE("BlockTextureIDDatabase build");
+		PROFILE_SCOPE("BlockTextureIDDatabase build", ProfileCategory::General);
 		Chunk::blockTextureDatabase.build(blockTextureNames);
 	}
 	{
-		PROFILE_SCOPE("Block texture array creation");
+		PROFILE_SCOPE("Block texture array creation", ProfileCategory::General);
 		blockTextureArray = std::make_unique<BlockTextureArray>("res/Textures", blockTextureNames, 0, 16);
 		blockTextureArray->bind();
 		faceShader->setInt("blockTextures", blockTextureArray->getUnit());
@@ -56,7 +56,7 @@ void World::loadChunksAroundPlayer(const Int3& chunkLoaderPos, int renderDistanc
 	chunksToSend.clear();
 
 	{
-		PROFILE_SCOPE("Load chunks");
+		PROFILE_SCOPE("Load chunks", ProfileCategory::ChunkLoadUnload);
 
 		int renderDistanceSquared = renderDistance * renderDistance;
 
@@ -85,7 +85,7 @@ void World::loadChunksAroundPlayer(const Int3& chunkLoaderPos, int renderDistanc
 	}
 
 	{
-		PROFILE_SCOPE("Send chunks to blocksBuildChunkContainer");
+		PROFILE_SCOPE("Send chunks to blocksBuildChunkContainer", ProfileCategory::ChunkBlocks);
 
 		std::lock_guard<std::mutex> lock(blocksBuildMutex);
 		for (Chunk* chunkPtr : chunksToSend)
@@ -115,8 +115,6 @@ void World::render(const Camera& camera) const
 {
 	faceShader->use();
 	{
-		PROFILE_SCOPE("Render: set uniforms");
-
 		// Matrices
 		faceShader->setMat4("view", camera.getViewMatrix());
 		faceShader->setMat4("projection", camera.getProjectionMatrix());
@@ -132,7 +130,7 @@ void World::render(const Camera& camera) const
 
 	std::vector<ChunkRenderInfo> chunksToRender;
 	{
-		PROFILE_SCOPE("Render: collect and sort chunks");
+		PROFILE_SCOPE("Render: collect chunks", ProfileCategory::Render);
 
 		collectChunksToRender(chunksToRender, camera);
 
@@ -143,7 +141,7 @@ void World::render(const Camera& camera) const
 			});
 	}
 	{
-		PROFILE_SCOPE("Render");
+		PROFILE_SCOPE("Render", ProfileCategory::Render);
 
 		renderedFaceCount = 0;
 		for (const auto& info : chunksToRender)
@@ -160,8 +158,6 @@ void World::render(const Camera& camera) const
 
 void World::rebuildAllChunkMeshes()
 {
-	PROFILE_SCOPE("Rebuild all chunk meshes");
-
 	// Queue all ready chunks for mesh rebuild
 	{
 		std::lock_guard<std::mutex> lock(meshBuildMutex);
@@ -250,7 +246,7 @@ void World::unloadChunksOutsideRange(int renderDistance)
 
 		int renderDistanceSquared = renderDistance * renderDistance;
 
-		PROFILE_SCOPE("Unload chunks: collect");
+		PROFILE_SCOPE("Unload chunks: collect", ProfileCategory::ChunkLoadUnload);
 		for (const auto& pair : chunks)
 		{
 			const Int3& pos = pair.first;
@@ -269,7 +265,7 @@ void World::unloadChunksOutsideRange(int renderDistance)
 		}
 	}
 	{
-		PROFILE_SCOPE("Unload chunks: unload");
+		PROFILE_SCOPE("Unload chunks: unload", ProfileCategory::ChunkLoadUnload);
 		for (const Int3& pos : chunksToUnload)
 		{
 			auto it = chunks.find(pos);
@@ -323,7 +319,7 @@ void World::loadChunk(int chunkX, int chunkY, int chunkZ, std::vector<Chunk*>& c
 void World::startBuildingChunkBlocks()
 {
 	// Maybe add PROFILE_SCOPE inside Chunk::buildBlocks. Make Profiler thread safe.
-	PROFILE_SCOPE("Start building chunk blocks");
+	PROFILE_SCOPE("Start building chunk blocks", ProfileCategory::ChunkBlocks);
 
 	// Collect chunks that need block building
 	std::vector<Chunk*> chunksToProcess;
@@ -375,7 +371,7 @@ void World::startBuildingChunkMeshes()
 	// Collect chunks that need mesh building
 	std::vector<Chunk*> chunksToProcess;
 	{
-		PROFILE_SCOPE("Collect chunks for mesh building");
+		PROFILE_SCOPE("Collect chunks for mesh building", ProfileCategory::ChunkMesh);
 
 		std::lock_guard<std::mutex> lock(meshBuildMutex);
 		if (meshBuildChunkContainer.empty())
@@ -405,7 +401,7 @@ void World::startBuildingChunkMeshes()
 
 	// Submit mesh building to thread pool
 	{
-		PROFILE_SCOPE("Send chunks to mesh building");
+		PROFILE_SCOPE("Send chunks to mesh building", ProfileCategory::ChunkMesh);
 
 		ThreadPool& pool = ParallelUtils::getGlobalThreadPool();
 		for (Chunk* chunk : chunksToProcess)

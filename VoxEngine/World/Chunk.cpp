@@ -183,7 +183,7 @@ void Chunk::buildBlocks()
 	loadedChunkColumnData = true;
 
 	{
-		PROFILE_SCOPE("Chunk build blocks");
+		PROFILE_SCOPE("Chunk build blocks", ProfileCategory::ChunkBlocks);
 		for (int x = 0; x < CHUNK_SIZE; x++)
 		{
 			for (int z = 0; z < CHUNK_SIZE; z++)
@@ -212,7 +212,7 @@ void Chunk::buildBlocks()
 
 void Chunk::buildMesh()
 {
-	PROFILE_SCOPE("Chunk build mesh");
+	PROFILE_SCOPE("Chunk build mesh", ProfileCategory::ChunkMesh);
 
 	assert(!isBeingProcessed());
 	setIsBeingProcessed(true);
@@ -564,7 +564,7 @@ void Chunk::setIsBeingProcessed(bool value)
 
 void Chunk::sendMeshesToGPU()
 {
-	PROFILE_SCOPE("Send meshes to GPU");
+	PROFILE_SCOPE("Send meshes to GPU", ProfileCategory::ChunkMesh);
 
 	// Get all pending uploads
 	std::vector<PendingMeshUpload> uploads;
