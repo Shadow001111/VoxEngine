@@ -143,6 +143,7 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="World\BlockData.cpp" />
     <ClCompile Include="World\Chunk.cpp" />
     <ClCompile Include="Core\Int3.cpp" />
     <ClCompile Include="Core\Profiler.cpp" />
@@ -166,6 +167,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="World\Block.h" />
+    <ClInclude Include="World\BlockData.h" />
     <ClInclude Include="World\Chunk.h" />
     <ClInclude Include="Core\CoreMath.h" />
     <ClInclude Include="Core\Int3.h" />
