@@ -58,6 +58,21 @@ const char* Profiler::getCategoryColor(ProfileCategory category)
     }
 }
 
+const char* Profiler::getCategoryName(ProfileCategory category)
+{
+    switch (category)
+    {
+    case ProfileCategory::FrameTotal: return "Frame Total";
+    case ProfileCategory::Render: return "Render";
+    case ProfileCategory::ChunkLoadUnload: return "Chunk Load/Unload";
+    case ProfileCategory::ChunkBlocks: return "Chunk Blocks";
+    case ProfileCategory::ChunkMesh: return "Chunk Mesh";
+    case ProfileCategory::TerrainGeneration: return "Terrain Generation";
+    case ProfileCategory::General: return "General";
+    default: return "Unknown";
+    }
+}
+
 void Profiler::beginFrame()
 {
     frameStartTime = std::chrono::high_resolution_clock::now();
@@ -176,6 +191,45 @@ void Profiler::printProfileEntry(const std::string& name, const ProfileData& dat
     std::cout << ProfilerColors::RESET << "\n";
 }
 
+void Profiler::printCategoryStatistics(const std::unordered_map<ProfileCategory, double>& categoryTotals, const ProfileData* frameData)
+{
+    if (categoryTotals.empty()) return;
+
+    std::cout << "Category Statistics:\n";
+    std::cout << std::left;
+    std::cout << std::setw(ProfilerReport::COL_NAME) << "Category"
+        << std::setw(ProfilerReport::COL_TOTAL) << "Total (ms)"
+        << "% of Frame" << "\n";
+    std::cout << std::string(ProfilerReport::TOTAL_WIDTH, '-') << "\n";
+
+    // Sort categories by total time (descending)
+    std::vector<std::pair<ProfileCategory, double>> sortedCategories(categoryTotals.begin(), categoryTotals.end());
+    std::sort(sortedCategories.begin(), sortedCategories.end(),
+        [](const auto& a, const auto& b) { return a.second > b.second; });
+
+    for (const auto& pair : sortedCategories)
+    {
+        ProfileCategory category = pair.first;
+        double totalTime = pair.second;
+
+        const char* color = getCategoryColor(category);
+        const char* name = getCategoryName(category);
+
+        std::cout << color << std::left;
+        std::cout << std::setw(ProfilerReport::COL_NAME) << name
+            << std::setw(ProfilerReport::COL_TOTAL) << std::setprecision(4) << totalTime;
+
+        // Show percentage of frame time
+        if (frameData && frameData->totalTime > 0.0)
+        {
+            double percentage = (totalTime / frameData->totalTime) * 100.0;
+            std::cout << std::setprecision(1) << percentage << "%";
+        }
+
+        std::cout << ProfilerColors::RESET << "\n";
+    }
+}
+
 void Profiler::printFrameStatistics(const ProfileData* frameData)
 {
     if (!frameData) return;
@@ -215,7 +269,7 @@ void Profiler::printProfileReport()
     std::streamsize originalPrecision = std::cout.precision();
 
     //
-    std::cout << "\n=== PERFORMANCE PROFILE REPORT " << std::string(ProfilerReport::TOTAL_WIDTH - 33, '=') << "\n";
+    std::cout << "\n===[PERFORMANCE PROFILE REPORT]" << std::string(ProfilerReport::TOTAL_WIDTH - 32, '=') << "\n";
     std::cout << std::fixed << std::setprecision(4);
 
     printTableHeader();
@@ -223,15 +277,31 @@ void Profiler::printProfileReport()
     auto sortedData = getAllProfileData();
     const ProfileData* frameData = getProfileData("Frame Total");
 
+    // Track time per category.
+    std::unordered_map<ProfileCategory, double> categoryTotals;
+
     // Print all profile entries
+    std::cout << "Entries Statistics:\n";
     for (const auto& pair : sortedData)
     {
-        printProfileEntry(pair.first, pair.second, frameData);
+        const auto& name = pair.first;
+        const auto& data = pair.second;
+
+        printProfileEntry(name, data, frameData);
+    
+        if (name != "Frame Total")
+        {
+            categoryTotals[data.category] += data.totalTime;
+        }
     }
 
-    std::cout << std::string(ProfilerReport::TOTAL_WIDTH, '-') << "\n";
+    std::cout << std::string(ProfilerReport::TOTAL_WIDTH, '=') << "\n";
 
-    printFrameStatistics(frameData);
+    printCategoryStatistics(categoryTotals, frameData);
+
+    //std::cout << std::string(ProfilerReport::TOTAL_WIDTH, '=') << "\n";
+
+    //printFrameStatistics(frameData);
 
     std::cout << std::string(ProfilerReport::TOTAL_WIDTH, '=') << std::endl;
 

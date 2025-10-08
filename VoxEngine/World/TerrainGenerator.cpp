@@ -113,7 +113,7 @@ const ChunkColumnData* TerrainGenerator::loadChunkColumnData(int chunkX, int chu
 
 void TerrainGenerator::releaseChunkColumnData(int chunkX, int chunkZ)
 {
-	//PROFILE_SCOPE("Release chunk column data"); TODO: Make Profiler thread safe
+	PROFILE_SCOPE("Release chunk column data", ProfileCategory::General);
 
 	std::lock_guard<std::mutex> lock(dataMutex);
 

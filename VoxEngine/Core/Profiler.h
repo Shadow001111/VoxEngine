@@ -14,13 +14,13 @@ enum class ProfileCategory
     ChunkLoadUnload,
     ChunkBlocks,
     ChunkMesh,
-    TerrainGeneration
+    TerrainGeneration,
+    __COUNT__
 };
 
 // TODO: Maybe for each thread create a new instance of Profiler and then collect all of them. Idk if it is better than just mutex.
 class Profiler
 {
-public:
     struct ProfileData
     {
         double totalTime = 0.0;
@@ -33,12 +33,13 @@ public:
         void addSample(double time);
         void reset();
     };
-private:
+
     static std::unordered_map<std::string, ProfileData> profileData;
     static std::chrono::high_resolution_clock::time_point frameStartTime;
     static std::mutex profileDataMutex;
 
     static const char* getCategoryColor(ProfileCategory category);
+    static const char* getCategoryName(ProfileCategory category);
 public:
     static void beginFrame();
     static void endFrame();
@@ -49,10 +50,12 @@ public:
     static void addSample(const std::string& name, double duration, ProfileCategory category);
 
     static void resetAllProfiles();
-
+private:
     static void printTableHeader();
     static void printProfileEntry(const std::string& name, const ProfileData& data, const ProfileData* frameData);
+    static void printCategoryStatistics(const std::unordered_map<ProfileCategory, double>& categoryTotals, const ProfileData* frameData);
     static void printFrameStatistics(const ProfileData* frameData);
+public:
     static void printProfileReport();
 };
 
