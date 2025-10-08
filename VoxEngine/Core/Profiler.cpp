@@ -263,7 +263,7 @@ void Profiler::printProfileEntry(const std::string& name, const ProfileData& dat
 
     // Add percentage if not the frame total itself
     double percentage = (data.totalTime / frameTotalTime) * 100.0;
-    std::cout << std::setw(ProfilerReport::COL_PERCENT) << std::setprecision(1) << percentage << "%";
+    std::cout << std::setw(ProfilerReport::COL_PERCENT) << percentage << "%";
 
     std::cout << ProfilerColors::RESET << "\n";
 }
@@ -335,7 +335,7 @@ void Profiler::printProfileReport()
     if (totalTime > 0.0f)
     {
         // Print all profile entries
-        std::cout << "Entries Statistics:\n";
+        std::cout << "Entries Statistics:\n" << std::setprecision(1);
         for (const auto& pair : sortedData)
         {
             const auto& name = pair.first;
