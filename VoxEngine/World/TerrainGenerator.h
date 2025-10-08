@@ -62,7 +62,7 @@ public:
 	static TerrainGenerator& getInstance();
 
 	const ChunkColumnData* loadChunkColumnData(int chunkX, int chunkZ);
-	void releaseChunkColumnData(int chunkX, int chunkZ);
+	void unloadChunkColumnData(int chunkX, int chunkZ);
 
 	// Debug
 	size_t getChunkColumnDataCount() const;

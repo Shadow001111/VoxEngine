@@ -166,7 +166,7 @@ void Chunk::destroy()
 	// Release chunk column data
 	if (loadedChunkColumnData)
 	{
-		TerrainGenerator::getInstance().releaseChunkColumnData(position.x, position.z);
+		TerrainGenerator::getInstance().unloadChunkColumnData(position.x, position.z);
 	}
 
 	// State can be not reset, because who cares?

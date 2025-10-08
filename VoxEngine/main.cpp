@@ -55,9 +55,7 @@ int main()
         // Main loop
         while (!wnd.shouldClose())
         {
-			Profiler::beginFrame();
-
-            // Poll events
+			// Poll events
             wnd.pollEvents();
 
 			// Time logic
@@ -112,10 +110,7 @@ int main()
 			world.render(player.getCamera());
 
             // Swap buffers
-            wnd.swapBuffers();
-
-            //Profiler
-            Profiler::endFrame();
+            wnd.swapBuffers();;
 
             // Debug
             if (debugUpdateTimer.shouldUpdate())
@@ -135,7 +130,6 @@ int main()
             if (profilerUpdateTimer.shouldUpdate())
             {
                 Profiler::printProfileReport();
-				Profiler::resetAllProfiles();
             }
         }
     }

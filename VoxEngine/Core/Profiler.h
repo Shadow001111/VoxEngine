@@ -8,7 +8,6 @@
 
 enum class ProfileCategory
 {
-    FrameTotal,
     General,
     Render,
     ChunkLoadUnload,
@@ -38,11 +37,16 @@ class Profiler
     static std::chrono::high_resolution_clock::time_point frameStartTime;
     static std::mutex profileDataMutex;
 
+    static thread_local std::string manualProfileName;
+    static thread_local ProfileCategory manualProfileCategory;
+    static thread_local std::chrono::high_resolution_clock::time_point manualProfileStartTime;
+
     static const char* getCategoryColor(ProfileCategory category);
     static const char* getCategoryName(ProfileCategory category);
 public:
-    static void beginFrame();
-    static void endFrame();
+    // Note: Track single (smth) time per thread. If it will be called two or more times before 'endProfile', previous data will be reset.
+    static void beginProfile(const char* profileName, ProfileCategory category);
+    static void endProfile();
 
     static const ProfileData* getProfileData(const std::string& name);
     static std::vector<std::pair<std::string, ProfileData>> getAllProfileData();
@@ -52,9 +56,8 @@ public:
     static void resetAllProfiles();
 private:
     static void printTableHeader();
-    static void printProfileEntry(const std::string& name, const ProfileData& data, const ProfileData* frameData);
-    static void printCategoryStatistics(const std::unordered_map<ProfileCategory, double>& categoryTotals, const ProfileData* frameData);
-    static void printFrameStatistics(const ProfileData* frameData);
+    static void printProfileEntry(const std::string& name, const ProfileData& data, double frameTotalTime);
+    static void printCategoryStatistics(const std::unordered_map<ProfileCategory, double>& categoryTotals, double frameTotalTime);
 public:
     static void printProfileReport();
 };
@@ -64,11 +67,10 @@ class ScopedProfiler
 {
 private:
     std::string name;
-    std::chrono::high_resolution_clock::time_point startTime;
     ProfileCategory category;
+    std::chrono::high_resolution_clock::time_point startTime;
 public:
     ScopedProfiler(const char* profileName, ProfileCategory category);
-
     ~ScopedProfiler();
 };
 

@@ -29,13 +29,15 @@ std::unordered_map<std::string, Profiler::ProfileData> Profiler::profileData;
 std::chrono::high_resolution_clock::time_point Profiler::frameStartTime;
 std::mutex Profiler::profileDataMutex;
 
+thread_local std::string Profiler::manualProfileName;
+thread_local ProfileCategory Profiler::manualProfileCategory;
+thread_local std::chrono::high_resolution_clock::time_point Profiler::manualProfileStartTime;
+
 namespace ProfilerColors
 {
     constexpr const char* RESET = "\033[0m";
 
-    constexpr const char* FRAME_TOTAL = "\033[37m";  // White
     constexpr const char* GENERAL = "\033[90m";   // Gray
-
     constexpr const char* RENDER = "\033[31m";   // Red
     constexpr const char* CHUNK_LOAD_UNLOAD = "\033[33m";   // Yellow
     constexpr const char* CHUNK_BLOCKS = "\033[32m";   // Green
@@ -47,7 +49,6 @@ const char* Profiler::getCategoryColor(ProfileCategory category)
 {
     switch (category)
     {
-    case ProfileCategory::FrameTotal: return ProfilerColors::FRAME_TOTAL;
     case ProfileCategory::Render: return ProfilerColors::RENDER;
     case ProfileCategory::ChunkLoadUnload: return ProfilerColors::CHUNK_LOAD_UNLOAD;
     case ProfileCategory::ChunkBlocks: return ProfilerColors::CHUNK_BLOCKS;
@@ -62,7 +63,6 @@ const char* Profiler::getCategoryName(ProfileCategory category)
 {
     switch (category)
     {
-    case ProfileCategory::FrameTotal: return "Frame Total";
     case ProfileCategory::Render: return "Render";
     case ProfileCategory::ChunkLoadUnload: return "Chunk Load/Unload";
     case ProfileCategory::ChunkBlocks: return "Chunk Blocks";
@@ -73,16 +73,18 @@ const char* Profiler::getCategoryName(ProfileCategory category)
     }
 }
 
-void Profiler::beginFrame()
+void Profiler::beginProfile(const char* profileName, ProfileCategory category)
 {
-    frameStartTime = std::chrono::high_resolution_clock::now();
+    manualProfileName = std::string(profileName);
+    manualProfileCategory = category;
+    manualProfileStartTime = std::chrono::high_resolution_clock::now();
 }
 
-void Profiler::endFrame()
+void Profiler::endProfile()
 {
-    auto frameEndTime = std::chrono::high_resolution_clock::now();
-    double duration = std::chrono::duration<double, std::milli>(frameEndTime - frameStartTime).count();
-    addSample("Frame Total", duration, ProfileCategory::FrameTotal);
+    auto endTime = std::chrono::high_resolution_clock::now();
+    double duration = std::chrono::duration<double, std::milli>(endTime - manualProfileStartTime).count();
+    Profiler::addSample(manualProfileName, duration, manualProfileCategory);
 }
 
 const Profiler::ProfileData* Profiler::getProfileData(const std::string& name)
@@ -166,7 +168,7 @@ void Profiler::printTableHeader()
               << std::string(ProfilerReport::TOTAL_WIDTH, '-') << "\n";
 }
 
-void Profiler::printProfileEntry(const std::string& name, const ProfileData& data, const ProfileData* frameData)
+void Profiler::printProfileEntry(const std::string& name, const ProfileData& data, double frameTotalTime)
 {
     if (data.callCount == 0) return;
 
@@ -182,16 +184,13 @@ void Profiler::printProfileEntry(const std::string& name, const ProfileData& dat
               << std::setw(ProfilerReport::COL_CALLS) << data.callCount;
 
     // Add percentage if not the frame total itself
-    if (frameData && frameData->totalTime > 0.0 && name != "Frame Total")
-    {
-        double percentage = (data.totalTime / frameData->totalTime) * 100.0;
-        std::cout << std::setw(ProfilerReport::COL_PERCENT) << std::setprecision(1) << percentage << "%";
-    }
+    double percentage = (data.totalTime / frameTotalTime) * 100.0;
+    std::cout << std::setw(ProfilerReport::COL_PERCENT) << std::setprecision(1) << percentage << "%";
 
     std::cout << ProfilerColors::RESET << "\n";
 }
 
-void Profiler::printCategoryStatistics(const std::unordered_map<ProfileCategory, double>& categoryTotals, const ProfileData* frameData)
+void Profiler::printCategoryStatistics(const std::unordered_map<ProfileCategory, double>& categoryTotals, double frameTotalTime)
 {
     if (categoryTotals.empty()) return;
 
@@ -220,45 +219,10 @@ void Profiler::printCategoryStatistics(const std::unordered_map<ProfileCategory,
             << std::setw(ProfilerReport::COL_TOTAL) << std::setprecision(4) << totalTime;
 
         // Show percentage of frame time
-        if (frameData && frameData->totalTime > 0.0)
-        {
-            double percentage = (totalTime / frameData->totalTime) * 100.0;
-            std::cout << std::setprecision(1) << percentage << "%";
-        }
+        double percentage = (totalTime / frameTotalTime) * 100.0;
+        std::cout << std::setprecision(1) << percentage << "%";
 
         std::cout << ProfilerColors::RESET << "\n";
-    }
-}
-
-void Profiler::printFrameStatistics(const ProfileData* frameData)
-{
-    if (!frameData) return;
-
-    std::cout << "Frame Statistics:\n";
-
-    double avgFrameTime = frameData->getAverageTime();
-    if (avgFrameTime > 0.0)
-    {
-        std::cout << "  Average FPS: " << std::setprecision(2)
-            << (1000.0 / avgFrameTime) << "\n";
-    }
-
-    std::cout << "  Total frames measured: " << frameData->callCount << "\n";
-
-    if (frameData->maxTime > 0.0)
-    {
-        std::cout << "  Worst frame time: " << std::setprecision(4)
-            << frameData->maxTime << " ms ("
-            << std::setprecision(2) << (1000.0 / frameData->maxTime)
-            << " FPS)\n";
-    }
-
-    if (frameData->minTime > 0.0 && frameData->minTime != std::numeric_limits<double>::max())
-    {
-        std::cout << "  Best frame time: " << std::setprecision(4)
-            << frameData->minTime << " ms ("
-            << std::setprecision(2) << (1000.0 / frameData->minTime)
-            << " FPS)\n";
     }
 }
 
@@ -277,44 +241,50 @@ void Profiler::printProfileReport()
     auto sortedData = getAllProfileData();
     const ProfileData* frameData = getProfileData("Frame Total");
 
-    // Track time per category.
+    // Track time per category and total time
     std::unordered_map<ProfileCategory, double> categoryTotals;
+    double totalTime = 0.0f;
 
-    // Print all profile entries
-    std::cout << "Entries Statistics:\n";
     for (const auto& pair : sortedData)
     {
         const auto& name = pair.first;
         const auto& data = pair.second;
 
-        printProfileEntry(name, data, frameData);
-    
-        if (name != "Frame Total")
-        {
-            categoryTotals[data.category] += data.totalTime;
-        }
+        categoryTotals[data.category] += data.totalTime;
+        totalTime += data.totalTime;
     }
 
-    std::cout << std::string(ProfilerReport::TOTAL_WIDTH, '=') << "\n";
+    if (totalTime > 0.0f)
+    {
+        // Print all profile entries
+        std::cout << "Entries Statistics:\n";
+        for (const auto& pair : sortedData)
+        {
+            const auto& name = pair.first;
+            const auto& data = pair.second;
 
-    printCategoryStatistics(categoryTotals, frameData);
+            printProfileEntry(name, data, totalTime);
+        }
 
-    //std::cout << std::string(ProfilerReport::TOTAL_WIDTH, '=') << "\n";
+        std::cout << std::string(ProfilerReport::TOTAL_WIDTH, '=') << "\n";
 
-    //printFrameStatistics(frameData);
+        printCategoryStatistics(categoryTotals, totalTime);
+    }
 
     std::cout << std::string(ProfilerReport::TOTAL_WIDTH, '=') << std::endl;
 
     // Restore original iostream state
     std::cout.flags(originalFlags);
     std::cout.precision(originalPrecision);
+
+    //
+    Profiler::resetAllProfiles();
 }
 
 
 ScopedProfiler::ScopedProfiler(const char* profileName, ProfileCategory category) :
-    name(profileName), category(category)
+    name(profileName), category(category), startTime(std::chrono::high_resolution_clock::now())
 {
-    startTime = std::chrono::high_resolution_clock::now();
 }
 
 ScopedProfiler::~ScopedProfiler()
