@@ -35,27 +35,104 @@ thread_local std::chrono::high_resolution_clock::time_point Profiler::manualProf
 
 namespace ProfilerColors
 {
-    constexpr const char* RESET = "\033[0m";
+    enum class Color
+    {
+        Default = 39,
+        Black = 30,
+        Red = 31,
+        Green = 32,
+        Yellow = 33,
+        Blue = 34,
+        Magenta = 35,
+        Cyan = 36,
+        White = 37,
 
-    constexpr const char* GENERAL = "\033[90m";   // Gray
-    constexpr const char* RENDER = "\033[31m";   // Red
-    constexpr const char* CHUNK_LOAD_UNLOAD = "\033[33m";   // Yellow
-    constexpr const char* CHUNK_BLOCKS = "\033[32m";   // Green
-    constexpr const char* CHUNK_MESH = "\033[36m";   // Cyan
-    constexpr const char* TERRAIN_GENERATION = "\033[35m";   // Magenta
+        BrightBlack = 90,
+        BrightRed = 91,
+        BrightGreen = 92,
+        BrightYellow = 93,
+        BrightBlue = 94,
+        BrightMagenta = 95,
+        BrightCyan = 96,
+        BrightWhite = 97
+    };
+
+    enum class Style
+    {
+        None = 0,
+        Bold = 1,
+        Dim = 2,
+        Italic = 3,
+        Underline = 4,
+        Blink = 5,
+        Invert = 7,
+        Hidden = 8,
+        Strike = 9
+    };
+
+    std::string make_ansi_prefix(Color color = Color::Default, Color bg = Color::Default, std::initializer_list<Style> styles = {})
+    {
+        std::string result = "\033[";
+        bool first = true;
+
+        auto append_code = [&](int code)
+            {
+                if (!first)
+                {
+                    result += ';';
+                }
+                result += std::to_string(code);
+                first = false;
+            };
+
+        append_code(static_cast<int>(color));
+        append_code(static_cast<int>(bg) + 10);
+        for (auto style : styles)
+        {
+            if (style != Style::None)
+            {
+                append_code(static_cast<int>(style));
+            }
+        }
+
+        result += 'm';
+        return result;
+    }
+
+    const char* RESET = "\033[0m";
+
+    const std::string DEFAULT = make_ansi_prefix(Color::Default);
+
+    const std::string RED = make_ansi_prefix(Color::Red);
+    const std::string GREEN = make_ansi_prefix(Color::Green);
+    const std::string YELLOW = make_ansi_prefix(Color::Yellow);
+    const std::string BLUE = make_ansi_prefix(Color::Blue);
+    const std::string MAGENTA = make_ansi_prefix(Color::Magenta);
+    const std::string CYAN = make_ansi_prefix(Color::Cyan);
+
+    const std::string BRIGHT_RED = make_ansi_prefix(Color::BrightRed);
+    const std::string BRIGHT_GREEN = make_ansi_prefix(Color::BrightGreen);
+    const std::string BRIGHT_YELLOW = make_ansi_prefix(Color::BrightYellow);
+    const std::string BRIGHT_BLUE = make_ansi_prefix(Color::BrightBlue);
+    const std::string BRIGHT_MAGENTA = make_ansi_prefix(Color::BrightMagenta);
+    const std::string BRIGHT_CYAN = make_ansi_prefix(Color::BrightCyan);
+
+    const std::string BRIGHT_WHITE = make_ansi_prefix(Color::BrightWhite);
+    const std::string GRAY = make_ansi_prefix(Color::BrightBlack);
 }
 
 const char* Profiler::getCategoryColor(ProfileCategory category)
 {
     switch (category)
     {
-    case ProfileCategory::Render: return ProfilerColors::RENDER;
-    case ProfileCategory::ChunkLoadUnload: return ProfilerColors::CHUNK_LOAD_UNLOAD;
-    case ProfileCategory::ChunkBlocks: return ProfilerColors::CHUNK_BLOCKS;
-    case ProfileCategory::ChunkMesh: return ProfilerColors::CHUNK_MESH;
-    case ProfileCategory::TerrainGeneration: return ProfilerColors::TERRAIN_GENERATION;
-    case ProfileCategory::General:
-    default:                           return ProfilerColors::GENERAL;
+    case ProfileCategory::General:              return ProfilerColors::GRAY.c_str();
+    case ProfileCategory::Render:               return ProfilerColors::RED.c_str();
+    case ProfileCategory::ChunkLoadUnload:      return ProfilerColors::YELLOW.c_str();
+    case ProfileCategory::ChunkBlocks:          return ProfilerColors::GREEN.c_str();
+    case ProfileCategory::ChunkMesh:            return ProfilerColors::CYAN.c_str();
+    case ProfileCategory::TerrainGeneration:    return ProfilerColors::MAGENTA.c_str();
+    case ProfileCategory::ChunkColumnData:      return ProfilerColors::BLUE.c_str();
+    default:                                    return ProfilerColors::GRAY.c_str();
     }
 }
 
@@ -63,12 +140,13 @@ const char* Profiler::getCategoryName(ProfileCategory category)
 {
     switch (category)
     {
+    case ProfileCategory::General: return "General";
     case ProfileCategory::Render: return "Render";
     case ProfileCategory::ChunkLoadUnload: return "Chunk Load/Unload";
     case ProfileCategory::ChunkBlocks: return "Chunk Blocks";
     case ProfileCategory::ChunkMesh: return "Chunk Mesh";
     case ProfileCategory::TerrainGeneration: return "Terrain Generation";
-    case ProfileCategory::General: return "General";
+    case ProfileCategory::ChunkColumnData: return "ChunkColumnData";
     default: return "Unknown";
     }
 }

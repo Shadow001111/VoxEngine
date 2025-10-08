@@ -141,7 +141,7 @@ void World::render(const Camera& camera) const
 			});
 	}
 	{
-		PROFILE_SCOPE("Render", ProfileCategory::Render);
+		//PROFILE_SCOPE("Render", ProfileCategory::Render);
 
 		renderedFaceCount = 0;
 		for (const auto& info : chunksToRender)

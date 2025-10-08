@@ -13,6 +13,7 @@ enum class ProfileCategory
     ChunkLoadUnload,
     ChunkBlocks,
     ChunkMesh,
+    ChunkColumnData,
     TerrainGeneration,
     __COUNT__
 };

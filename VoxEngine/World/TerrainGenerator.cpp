@@ -66,7 +66,7 @@ TerrainGenerator& TerrainGenerator::getInstance()
 const ChunkColumnData* TerrainGenerator::loadChunkColumnData(int chunkX, int chunkZ)
 {
 	// TODO: Don't check in map two times
-	Profiler::beginProfile("Load ChunkColumnData", ProfileCategory::General);
+	Profiler::beginProfile("Load ChunkColumnData", ProfileCategory::ChunkColumnData);
 
 	Int2 pos(chunkX, chunkZ);
 
@@ -121,7 +121,7 @@ const ChunkColumnData* TerrainGenerator::loadChunkColumnData(int chunkX, int chu
 
 void TerrainGenerator::unloadChunkColumnData(int chunkX, int chunkZ)
 {
-	PROFILE_SCOPE("Unload ChunkColumnData", ProfileCategory::General);
+	PROFILE_SCOPE("Unload ChunkColumnData", ProfileCategory::ChunkColumnData);
 
 	std::lock_guard<std::mutex> lock(dataMutex);
 
