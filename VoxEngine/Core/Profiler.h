@@ -6,21 +6,6 @@
 #include <limits>
 #include <mutex>
 
-// ANSI Color codes for console output
-namespace ProfilerColors
-{
-    constexpr const char* RESET = "\033[0m";
-
-    constexpr const char* FRAME_TOTAL = "\033[37m";  // White
-    constexpr const char* GENERAL = "\033[90m";   // Gray
-
-    constexpr const char* RENDER = "\033[31m";   // Red
-    constexpr const char* CHUNK_LOAD_UNLOAD = "\033[33m";   // Yellow
-    constexpr const char* CHUNK_BLOCKS = "\033[32m";   // Green
-    constexpr const char* CHUNK_MESH = "\033[36m";   // Cyan
-    constexpr const char* TERRAIN_GENERATION = "\033[35m";   // Magenta
-}
-
 enum class ProfileCategory
 {
     FrameTotal,
@@ -61,10 +46,14 @@ public:
     static const ProfileData* getProfileData(const std::string& name);
     static std::vector<std::pair<std::string, ProfileData>> getAllProfileData();
 
-    static void resetAllProfiles();
-    static void printProfileReport();
-
     static void addSample(const std::string& name, double duration, ProfileCategory category);
+
+    static void resetAllProfiles();
+
+    static void printTableHeader();
+    static void printProfileEntry(const std::string& name, const ProfileData& data, const ProfileData* frameData);
+    static void printFrameStatistics(const ProfileData* frameData);
+    static void printProfileReport();
 };
 
 // RAII helper class for automatic profiling
