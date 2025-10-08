@@ -9,19 +9,26 @@
 #include <unordered_map>
 #include <memory>
 #include <mutex>
+#include <shared_mutex>
 
-struct ChunkColumnData
+class ChunkColumnData
 {
 	int X, Z; // Coordinates in chunk space
-	uint32_t referenceCount;
 
 	int heightMap[CHUNK_AREA];
 public:
+	std::atomic<uint32_t> referenceCount;
+	mutable std::shared_mutex initMutex; // Locks when heightMap creates.
+	// TODO: Try using conditional_variable with mutex instead of shared_mutex.
+
 	ChunkColumnData();
 	~ChunkColumnData();
 
 	void init(int x, int z);
 	void destroy();
+
+	const int* heightMapRead() const;
+	int* heightMapWrite();
 };
 
 class TerrainGenerator

@@ -179,7 +179,7 @@ void Chunk::buildBlocks()
 	setIsBeingProcessed(true);
 
 	const ChunkColumnData* chunkColumnData = TerrainGenerator::getInstance().loadChunkColumnData(position.x, position.z);
-	const int* heightMap = chunkColumnData->heightMap;
+	const int* heightMap = chunkColumnData->heightMapRead();
 	loadedChunkColumnData = true;
 
 	{
@@ -212,77 +212,83 @@ void Chunk::buildBlocks()
 
 void Chunk::buildMesh()
 {
-	PROFILE_SCOPE("Chunk build mesh", ProfileCategory::ChunkMesh);
-
 	assert(!isBeingProcessed());
 	setIsBeingProcessed(true);
 
 	std::vector<BlockFaceInstance> mesh;
-
-	// Collect visible faces
-	for (int x = 0; x < CHUNK_SIZE; x++)
 	{
-		for (int y = 0; y < CHUNK_SIZE; y++)
+		PROFILE_SCOPE("Build chunk mesh", ProfileCategory::ChunkMesh);
+
+		// Collect visible faces
+		for (int x = 0; x < CHUNK_SIZE; x++)
 		{
-			for (int z = 0; z < CHUNK_SIZE; z++)
+			for (int y = 0; y < CHUNK_SIZE; y++)
 			{
-				Block block = getBlock_inBoundaries(x, y, z);
-				if (block == Block::Air)
+				for (int z = 0; z < CHUNK_SIZE; z++)
 				{
-					continue;
-				}
+					Block block = getBlock_inBoundaries(x, y, z);
+					if (block == Block::Air)
+					{
+						continue;
+					}
 
-				// TODO: Maybe should copy?
-				const auto& textureIDs = blockTextureDatabase.getBlockTextureIDs(block);
+					// TODO: Maybe should copy?
+					const auto& textureIDs = blockTextureDatabase.getBlockTextureIDs(block);
 
-				// -X
-				if (getBlock_checkSideNeighbor(x - 1, y, z, 0) == Block::Air)
-				{
-					int ao = calculateFaceAO(x, y, z, 0);
-					mesh.emplace_back(x, y, z, 0, ao, textureIDs.ids[0]);
-				}
-				// +X
-				if (getBlock_checkSideNeighbor(x + 1, y, z, 1) == Block::Air)
-				{
-					int ao = calculateFaceAO(x, y, z, 1);
-					mesh.emplace_back(x, y, z, 1, ao, textureIDs.ids[1]);
-				}
-				// -Y
-				if (getBlock_checkSideNeighbor(x, y - 1, z, 2) == Block::Air)
-				{
-					int ao = calculateFaceAO(x, y, z, 2);
-					mesh.emplace_back(x, y, z, 2, ao, textureIDs.ids[2]);
-				}
-				// +Y
-				if (getBlock_checkSideNeighbor(x, y + 1, z, 3) == Block::Air)
-				{
-					int ao = calculateFaceAO(x, y, z, 3);
-					mesh.emplace_back(x, y, z, 3, ao, textureIDs.ids[3]);
-				}
-				// -Z
-				if (getBlock_checkSideNeighbor(x, y, z - 1, 4) == Block::Air)
-				{
-					int ao = calculateFaceAO(x, y, z, 4);
-					mesh.emplace_back(x, y, z, 4, ao, textureIDs.ids[4]);
-				}
-				// +Z
-				if (getBlock_checkSideNeighbor(x, y, z + 1, 5) == Block::Air)
-				{
-					int ao = calculateFaceAO(x, y, z, 5);
-					mesh.emplace_back(x, y, z, 5, ao, textureIDs.ids[5]);
+					// TODO: Maybe use a loop for simplifying code?
+					// -X
+					if (getBlock_checkSideNeighbor(x - 1, y, z, 0) == Block::Air)
+					{
+						int ao = calculateFaceAO(x, y, z, 0);
+						mesh.emplace_back(x, y, z, 0, ao, textureIDs.ids[0]);
+					}
+					// +X
+					if (getBlock_checkSideNeighbor(x + 1, y, z, 1) == Block::Air)
+					{
+						int ao = calculateFaceAO(x, y, z, 1);
+						mesh.emplace_back(x, y, z, 1, ao, textureIDs.ids[1]);
+					}
+					// -Y
+					if (getBlock_checkSideNeighbor(x, y - 1, z, 2) == Block::Air)
+					{
+						int ao = calculateFaceAO(x, y, z, 2);
+						mesh.emplace_back(x, y, z, 2, ao, textureIDs.ids[2]);
+					}
+					// +Y
+					if (getBlock_checkSideNeighbor(x, y + 1, z, 3) == Block::Air)
+					{
+						int ao = calculateFaceAO(x, y, z, 3);
+						mesh.emplace_back(x, y, z, 3, ao, textureIDs.ids[3]);
+					}
+					// -Z
+					if (getBlock_checkSideNeighbor(x, y, z - 1, 4) == Block::Air)
+					{
+						int ao = calculateFaceAO(x, y, z, 4);
+						mesh.emplace_back(x, y, z, 4, ao, textureIDs.ids[4]);
+					}
+					// +Z
+					if (getBlock_checkSideNeighbor(x, y, z + 1, 5) == Block::Air)
+					{
+						int ao = calculateFaceAO(x, y, z, 5);
+						mesh.emplace_back(x, y, z, 5, ao, textureIDs.ids[5]);
+					}
 				}
 			}
 		}
 	}
 
-	// Queue mesh for GPU upload on main thread
 	{
+		// TODO: Since we are gonna keep mesh in chunk all time in the future anyway, why not collecting meshes in main thread instead of sending them?
+		// Possibly will take less time, since no mutex locks
+		PROFILE_SCOPE("Send chunk mesh to main thread", ProfileCategory::ChunkMesh);
+
+		// Queue mesh for GPU upload on main thread
 		std::lock_guard<std::mutex> lock(meshUploadMutex);
 		pendingMeshUploads.emplace_back(
 			std::move(mesh),
 			instanceVBO,
 			this
-			);
+		);
 	}
 
 	assert(isBeingProcessed());
@@ -322,10 +328,7 @@ Block Chunk::getBlock_checkSideNeighbor(int x, int y, int z, int side) const
 	{
 		return neighbor->getBlock_inBoundaries(x & CHUNK_LOWER_BITS_MASK, y & CHUNK_LOWER_BITS_MASK, z & CHUNK_LOWER_BITS_MASK);
 	}
-	else
-	{
-		return Block::Air;
-	}
+	return Block::Air;
 }
 
 // Function checks neighbors, if out of boundaries. Handles only 6 neighbors.
@@ -352,10 +355,7 @@ Block Chunk::getBlock_checkNeighbors(int x, int y, int z) const
 	{
 		return neighbor->getBlock_inBoundaries(x & CHUNK_LOWER_BITS_MASK, y & CHUNK_LOWER_BITS_MASK, z & CHUNK_LOWER_BITS_MASK);
 	}
-	else
-	{
-		return Block::Air;
-	}
+	return Block::Air;
 }
 
 // Function checks neighbors, if out of boundaries. Handles diagonal neighbors too.

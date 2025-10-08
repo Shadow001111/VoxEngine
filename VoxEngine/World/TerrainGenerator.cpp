@@ -28,6 +28,18 @@ void ChunkColumnData::destroy()
 	referenceCount = 0;
 }
 
+const int* ChunkColumnData::heightMapRead() const
+{
+	PROFILE_SCOPE("HeightMap read access", ProfileCategory::ChunkColumnData);
+	std::shared_lock<std::shared_mutex> lock(initMutex);
+	return heightMap;
+}
+
+int* ChunkColumnData::heightMapWrite()
+{
+	return heightMap;
+}
+
 //============================================================================
 //ChunkColumnDataPool
 
@@ -65,64 +77,74 @@ TerrainGenerator& TerrainGenerator::getInstance()
 
 const ChunkColumnData* TerrainGenerator::loadChunkColumnData(int chunkX, int chunkZ)
 {
-	// TODO: Don't check in map two times
+	// TODO: Don't check map two times
 	Profiler::beginProfile("Load ChunkColumnData", ProfileCategory::ChunkColumnData);
 
 	Int2 pos(chunkX, chunkZ);
 
 	// Check if column already exists
 	{
-		std::lock_guard<std::mutex> lock(dataMutex);
-		auto it = chunkColumnData.find(pos);
-		if (it != chunkColumnData.end())
+		ChunkColumnData* foundColumn = nullptr;
+		bool wasColumnFound = false;
 		{
-			it->second->referenceCount++;
-
+			std::lock_guard<std::mutex> lock(dataMutex);
+			auto it = chunkColumnData.find(pos);
+			wasColumnFound = it != chunkColumnData.end();
+			foundColumn = it->second.get();
+		}
+		if (wasColumnFound)
+		{
+			foundColumn->referenceCount.fetch_add(1, std::memory_order_acq_rel);
 			Profiler::endProfile();
-			return it->second.get();
+			return foundColumn;
 		}
 	}
 
 	// Create column
 	std::unique_ptr<ChunkColumnData> column = chunkColumnDataPool.acquire();
-
-	// Check again in case another thread created it while we were acquiring from pool
-	// TODO: Mutex prevents generating height maps in parallel. Without it, bugs appear. FIX IT!
+	column->referenceCount = 1;
+	ChunkColumnData* columnPtr = column.get();
 	{
+		// Check again in case another thread created it while we were acquiring from pool
 		std::lock_guard<std::mutex> lock(dataMutex);
-		auto it = chunkColumnData.find(pos);
-		if (it != chunkColumnData.end())
+
+		ChunkColumnData* foundColumn = nullptr;
+		bool wasColumnFound = false;
+		{
+			auto it = chunkColumnData.find(pos);
+			wasColumnFound = it != chunkColumnData.end();
+			foundColumn = it->second.get();
+		}
+		// Mutex could be unlocked here, but I think it will cause problems, creating a gap when other thread checks the stuff.
+		// This thread must book the place for itself for creating the column.
+		if (wasColumnFound)
 		{
 			// Another thread beat us to it, return the column to the pool
-			dataMutex.unlock();
 			chunkColumnDataPool.release(std::move(column));
-			dataMutex.lock();
-
-			it->second->referenceCount++;
-
+			foundColumn->referenceCount.fetch_add(1, std::memory_order_acq_rel);
 			Profiler::endProfile();
-			return it->second.get();
+			return foundColumn;
 		}
 
 		// Move column into the map
-		auto inserted = chunkColumnData.insert(std::make_pair(pos, std::move(column)));
-
-		// Init column
-		ChunkColumnData* columnPtr = inserted.first->second.get();
+		chunkColumnData.emplace(pos, std::move(column));
 
 		Profiler::endProfile();
-
-		initChunkColumnData(columnPtr, chunkX, chunkZ);
-		columnPtr->referenceCount = 1;
-
-		return columnPtr;
 	}
+	{
+		std::unique_lock<std::shared_mutex> lock(columnPtr->initMutex);
+		initChunkColumnData(columnPtr, chunkX, chunkZ);
+	}
+	return columnPtr;
 }
 
 void TerrainGenerator::unloadChunkColumnData(int chunkX, int chunkZ)
 {
+	// TODO: (When moving down) Chunks on edge of render area may unload, they are last, destroying the column.
+	// Maybe get rid of unused columns in loop after creating chunks. Maybe use time or distance to determine lifetime of unused column.
 	PROFILE_SCOPE("Unload ChunkColumnData", ProfileCategory::ChunkColumnData);
 
+	// TODO: Try to use mutex only when reading map and erasing from the map, not when loading referenceCount. Though, maybe it will produce bugs.
 	std::lock_guard<std::mutex> lock(dataMutex);
 
 	Int2 pos(chunkX, chunkZ);
@@ -133,10 +155,11 @@ void TerrainGenerator::unloadChunkColumnData(int chunkX, int chunkZ)
 	}
 
 	// Decrement reference count
-	it->second->referenceCount--;
+	auto oldReferenceCount = it->second->referenceCount.fetch_sub(1, std::memory_order_acq_rel);
+	// 'oldReferenceCount' has value of referenceCount before decrement operation.
 
 	// If no more references, unload the column
-	if (it->second->referenceCount <= 0)
+	if (oldReferenceCount - 1 <= 0)
 	{
 		std::unique_ptr<ChunkColumnData> columnToRelease = std::move(it->second);
 		chunkColumnData.erase(it);
@@ -163,13 +186,11 @@ void TerrainGenerator::initChunkColumnData(ChunkColumnData* column, int chunkX, 
 		simplexNoise = FastNoise::New<FastNoise::Simplex>();
 	}
 
-	computeInitialHeightMap(column->heightMap, chunkX, chunkZ);
+	computeInitialHeightMap(column->heightMapWrite(), chunkX, chunkZ);
 }
 
 void TerrainGenerator::computeInitialHeightMap(int* heightMap, int chunkX, int chunkZ)
 {
-	// TODO: (Whtn moving down) Chunks on edge of render area may unload, they are last, destroying the column.
-	// Maybe get rid of unused columns in loop after creating chunks. Maybe use time or distance to determine liftime of unused column.
 	PROFILE_SCOPE("Compute height map", ProfileCategory::TerrainGeneration);
 
 	// Computing continental noise array
