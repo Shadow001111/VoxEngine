@@ -2,6 +2,7 @@
 
 #include "Profiler.h"
 #include "ThreadPool.h"
+#include "TerrainGenerator.h"
 
 #include <iostream>
 
@@ -109,6 +110,8 @@ void World::update()
 
 	// Process all pending mesh uploads on main thread
 	Chunk::sendMeshesToGPU();
+
+	std::cout << TerrainGenerator::getInstance().getChunkColumnDataCount() << std::endl;
 }
 
 void World::render(const Camera& camera) const
@@ -277,10 +280,10 @@ void World::unloadChunksOutsideRange(int renderDistance)
 			// TODO: Should stop processing chunk
 			// Maybe chunk pool shouldn't return processing chunk to the pool.
 			// It should store it to some vector, where it will be checked, it will be returned to the pool when done processing.
-			if (state != Chunk::State::Ready)
+			/*if (state != Chunk::State::Ready)
 			{
 				std::cout << (size_t)state << " " << isBeingProcessed << std::endl;
-			}
+			}*/
 
 			chunkPool.release(std::move(it->second));
 			chunks.erase(it);

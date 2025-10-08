@@ -48,11 +48,11 @@ private:
 	uint32_t faceCount;
 	uint32_t faceCapacity;
 
-	bool loadedChunkColumnData;
-
 	std::atomic<State> state;
 
 	std::atomic<bool> beingProcessed;
+
+	bool loadedChunkColumnData;
 
 	static size_t getIndex(int x, int y, int z);
 public:

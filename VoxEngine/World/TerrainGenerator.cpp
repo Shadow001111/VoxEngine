@@ -8,8 +8,7 @@
 //============================================================================
 //ChunkColumnData
 
-ChunkColumnData::ChunkColumnData() :
-	referenceCount(0)
+ChunkColumnData::ChunkColumnData()
 {
 }
 
@@ -20,24 +19,37 @@ ChunkColumnData::~ChunkColumnData()
 void ChunkColumnData::init(int x, int z)
 {
 	X = x; Z = z;
-	referenceCount = 0;
 }
 
 void ChunkColumnData::destroy()
 {
 	referenceCount = 0;
+	initialized = false;
 }
 
 const int* ChunkColumnData::heightMapRead() const
 {
 	PROFILE_SCOPE("HeightMap read access", ProfileCategory::ChunkColumnData);
-	std::shared_lock<std::shared_mutex> lock(initMutex);
+
+	std::unique_lock<std::mutex> lock(readDataMutex);
+	readDataCV.wait(lock, [this]() { return initialized; });
+
+	assert(initialized);
 	return heightMap;
 }
 
 int* ChunkColumnData::heightMapWrite()
 {
 	return heightMap;
+}
+
+void ChunkColumnData::setToInitialized()
+{
+	{
+		std::lock_guard<std::mutex> lock(readDataMutex);
+		initialized = true;
+	}
+	readDataCV.notify_all();
 }
 
 //============================================================================
@@ -85,14 +97,17 @@ const ChunkColumnData* TerrainGenerator::loadChunkColumnData(int chunkX, int chu
 	// Check if column already exists
 	{
 		ChunkColumnData* foundColumn = nullptr;
-		bool wasColumnFound = false;
+		bool isColumnFound = false;
 		{
 			std::lock_guard<std::mutex> lock(dataMutex);
 			auto it = chunkColumnData.find(pos);
-			wasColumnFound = it != chunkColumnData.end();
-			foundColumn = it->second.get();
+			isColumnFound = it != chunkColumnData.end();
+			if (isColumnFound)
+			{
+				foundColumn = it->second.get();
+			}
 		}
-		if (wasColumnFound)
+		if (isColumnFound)
 		{
 			foundColumn->referenceCount.fetch_add(1, std::memory_order_acq_rel);
 			Profiler::endProfile();
@@ -104,20 +119,24 @@ const ChunkColumnData* TerrainGenerator::loadChunkColumnData(int chunkX, int chu
 	std::unique_ptr<ChunkColumnData> column = chunkColumnDataPool.acquire();
 	column->referenceCount = 1;
 	ChunkColumnData* columnPtr = column.get();
+
 	{
 		// Check again in case another thread created it while we were acquiring from pool
 		std::lock_guard<std::mutex> lock(dataMutex);
 
 		ChunkColumnData* foundColumn = nullptr;
-		bool wasColumnFound = false;
+		bool isColumnFound = false;
 		{
 			auto it = chunkColumnData.find(pos);
-			wasColumnFound = it != chunkColumnData.end();
-			foundColumn = it->second.get();
+			isColumnFound = it != chunkColumnData.end();
+			if (isColumnFound)
+			{
+				foundColumn = it->second.get();
+			}
 		}
 		// Mutex could be unlocked here, but I think it will cause problems, creating a gap when other thread checks the stuff.
 		// This thread must book the place for itself for creating the column.
-		if (wasColumnFound)
+		if (isColumnFound)
 		{
 			// Another thread beat us to it, return the column to the pool
 			chunkColumnDataPool.release(std::move(column));
@@ -128,12 +147,11 @@ const ChunkColumnData* TerrainGenerator::loadChunkColumnData(int chunkX, int chu
 
 		// Move column into the map
 		chunkColumnData.emplace(pos, std::move(column));
-
-		Profiler::endProfile();
 	}
+	Profiler::endProfile();
 	{
-		std::unique_lock<std::shared_mutex> lock(columnPtr->initMutex);
 		initChunkColumnData(columnPtr, chunkX, chunkZ);
+		columnPtr->setToInitialized();
 	}
 	return columnPtr;
 }
