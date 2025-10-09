@@ -29,27 +29,39 @@ public:
 		Ready
 	};
 private:
-	struct PendingMeshUpload
+	class MeshData
 	{
-		std::vector<BlockFaceInstance> instances;
-		GLuint instanceVBO;
-		Chunk* chunk; // for face capacity. TODO: Should be removed
+		friend Chunk;
 
-		PendingMeshUpload(std::vector<BlockFaceInstance>&& instances, GLuint instanceVBO, Chunk* chunk);
+		GLuint vao, vbo, instanceVBO;
+		uint16_t faceCount[6]; // Count for each side
+		// TODO: Try to have only one int as 'faceCount', not an array
+		uint16_t faceCapacity;
+
+		std::vector<BlockFaceInstance> instances[6]; // TODO: Maybe should have one vector? Just combine 6 vectors. 6 times less gpu buffer write calls.
+
+		bool ready; // TODO: Remove this thing. Just move faceCount setter to sendMeshesToGPU
+
+		MeshData();
+		~MeshData();
+
+		void resetFaceCount();
+		void updateCapacityIfNeeded(size_t faceCount);
+	public:
+		uint16_t getFaceCountSum() const;
+		uint16_t getFaceCapacity() const;
+		bool isReady() const;
 	};
 
 	static std::mutex meshUploadMutex;
-	static std::vector<PendingMeshUpload> pendingMeshUploads;
+	static std::vector<MeshData*> pendingMeshUploads;
 private:
 	Int3 position; // Chunk coordinates in chunk space
 	Block blocks[CHUNK_VOLUME];
 
-	GLuint vao, vbo, instanceVBO; // Buffers
-	uint32_t faceCount;
-	uint32_t faceCapacity;
+	MeshData meshData;
 
 	std::atomic<State> state;
-
 	std::atomic<bool> beingProcessed;
 
 	bool loadedChunkColumnData;
@@ -103,6 +115,5 @@ public:
 	static void sendMeshesToGPU();
 
 	// Debug
-	uint32_t getFaceCount() const;
-	uint32_t getFaceCapacity() const;
+	const MeshData& getMeshData() const;
 };

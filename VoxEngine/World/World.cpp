@@ -110,8 +110,6 @@ void World::update()
 
 	// Process all pending mesh uploads on main thread
 	Chunk::sendMeshesToGPU();
-
-	std::cout << TerrainGenerator::getInstance().getChunkColumnDataCount() << std::endl;
 }
 
 void World::render(const Camera& camera) const
@@ -154,7 +152,7 @@ void World::render(const Camera& camera) const
 			faceShader->setVec3("chunkPosition", chunkWorldPosition.x, chunkWorldPosition.y, chunkWorldPosition.z);
 
 			info.chunk->render(); // Takes most of the time
-			renderedFaceCount += info.chunk->getFaceCount();
+			renderedFaceCount += info.chunk->getMeshData().getFaceCountSum();
 		}
 	}
 }
@@ -201,8 +199,10 @@ void World::getChunkMeshesInfo(size_t& totalFaces, size_t& totalFaceCapacity, si
 	for (const auto& pair : chunks)
 	{
 		const Chunk* chunk = pair.second.get();
-		totalFaces += chunk->getFaceCount();
-		totalFaceCapacity += chunk->getFaceCapacity();
+		const auto& mesh = chunk->getMeshData();
+
+		totalFaces += mesh.getFaceCountSum();
+		totalFaceCapacity += mesh.getFaceCapacity();
 	}
 
 	potentialMaximumCapacity = chunks.size() * CHUNK_VOLUME / 2 * 6;
@@ -446,10 +446,19 @@ void World::collectChunksToRender(std::vector<ChunkRenderInfo>& chunksToRender, 
 			continue;
 		}
 
-		// Check if mesh isn't empty
-		if (chunk->getFaceCount() == 0)
 		{
-			continue;
+			const auto& meshData = chunk->getMeshData();
+			// Check if mesh is ready
+			if (!meshData.isReady())
+			{
+				continue;
+			}
+
+			// Check if mesh isn't empty
+			if (meshData.getFaceCountSum() == 0)
+			{
+				continue;
+			}
 		}
 
 		// Check is chunk is on frustum
