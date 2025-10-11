@@ -94,7 +94,7 @@ void Chunk::MeshData::resetFaceCount()
 	}
 }
 
-void Chunk::MeshData::updateCapacityIfNeeded(size_t faceCount)
+void Chunk::MeshData::allocateMemoryForBuffer(size_t faceCount)
 {
 	if (faceCount > faceCapacity)
 	{
@@ -103,9 +103,9 @@ void Chunk::MeshData::updateCapacityIfNeeded(size_t faceCount)
 	}
 }
 
-uint16_t Chunk::MeshData::getFaceCountSum() const
+size_t Chunk::MeshData::getFaceCountSum() const
 {
-	uint16_t sum = 0;
+	size_t sum = 0;
 	for (int i = 0; i < 6; i++)
 	{
 		sum += faceCount[i];
@@ -113,7 +113,7 @@ uint16_t Chunk::MeshData::getFaceCountSum() const
 	return sum;
 }
 
-uint16_t Chunk::MeshData::getFaceCapacity() const
+size_t Chunk::MeshData::getFaceCapacity() const
 {
 	return faceCapacity;
 }
@@ -136,17 +136,8 @@ size_t Chunk::getIndex(int x, int y, int z)
 	return (x << 8) | (y << 4) | z;
 }
 
-Chunk::Chunk() :
-	position(0, 0, 0),
-	meshData()
+Chunk::Chunk()
 {
-	isLoadedInWorld = false;
-
-	// Neighbours are null
-	for (int i = 0; i < 6; i++)
-	{
-		neighbors[i] = nullptr;
-	}
 }
 
 Chunk::~Chunk()
@@ -165,10 +156,6 @@ void Chunk::init(int x, int y, int z, Chunk** neighbors)
 	// Set position
 	position = Int3(x, y, z);
 
-	//
-	meshData.ready = false;
-	meshData.resetFaceCount();
-
 	// Set neighbours
 	for (int i = 0; i < 6; i++)
 	{
@@ -180,11 +167,12 @@ void Chunk::init(int x, int y, int z, Chunk** neighbors)
 		}
 	}
 
-	// Reset state
-	setState(State::NeedsBlocks);
-
-	//
+	// Reset
 	loadedChunkColumnData = false;
+
+	assert(!meshData.processingFence.isProcessing());
+	meshData.ready = false;
+	meshData.resetFaceCount();
 }
 
 // Cleans up resources
@@ -204,14 +192,22 @@ void Chunk::destroy()
 	// Release chunk column data
 	if (loadedChunkColumnData)
 	{
+		loadedChunkColumnData = false;
 		TerrainGenerator::getInstance().unloadChunkColumnData(position.x, position.z);
 	}
+
+	// Reset
+	assert(!meshData.processingFence.isProcessing());
+	meshData.ready = false;
+	meshData.resetFaceCount();
 }
 
 // Fills 'blocks' array
 void Chunk::buildBlocks()
 {
+	Profiler::beginProfile("Chunk build blocks: wait", ProfileCategory::ChunkBlocks);
 	ScopedProcessingFence scopedFence(processingFence);
+	Profiler::endProfile();
 
 	if (!getIsLoadedInWorld())
 	{
@@ -249,24 +245,20 @@ void Chunk::buildBlocks()
 
 void Chunk::buildMesh()
 {
-	Profiler::st
-
+	Profiler::beginProfile("Build chunk mesh: wait", ProfileCategory::ChunkMesh);
 	ScopedProcessingFence scopedFence(processingFence);
+	Profiler::endProfile();
 
 	if (!getIsLoadedInWorld())
 	{
 		return;
 	}
 
-	for (int i = 0; i < 6; i++)
-	{
-		meshData.instances[i].clear();
-	}
-
 	{
 		PROFILE_SCOPE("Build chunk mesh", ProfileCategory::ChunkMesh);
 
 		// Collect visible faces
+		std::vector<BlockFaceInstance> instances[6];
 		for (int x = 0; x < CHUNK_SIZE; x++)
 		{
 			for (int y = 0; y < CHUNK_SIZE; y++)
@@ -287,44 +279,63 @@ void Chunk::buildMesh()
 					if (getBlock_checkSideNeighbor(x - 1, y, z, 0) == Block::Air)
 					{
 						int ao = calculateFaceAO(x, y, z, 0);
-						meshData.instances[0].emplace_back(x, y, z, 0, ao, textureIDs.ids[0]);
+						instances[0].emplace_back(x, y, z, 0, ao, textureIDs.ids[0]);
 					}
 					// +X
 					if (getBlock_checkSideNeighbor(x + 1, y, z, 1) == Block::Air)
 					{
 						int ao = calculateFaceAO(x, y, z, 1);
-						meshData.instances[1].emplace_back(x, y, z, 1, ao, textureIDs.ids[1]);
+						instances[1].emplace_back(x, y, z, 1, ao, textureIDs.ids[1]);
 					}
 					// -Y
 					if (getBlock_checkSideNeighbor(x, y - 1, z, 2) == Block::Air)
 					{
 						int ao = calculateFaceAO(x, y, z, 2);
-						meshData.instances[2].emplace_back(x, y, z, 2, ao, textureIDs.ids[2]);
+						instances[2].emplace_back(x, y, z, 2, ao, textureIDs.ids[2]);
 					}
 					// +Y
 					if (getBlock_checkSideNeighbor(x, y + 1, z, 3) == Block::Air)
 					{
 						int ao = calculateFaceAO(x, y, z, 3);
-						meshData.instances[3].emplace_back(x, y, z, 3, ao, textureIDs.ids[3]);
+						instances[3].emplace_back(x, y, z, 3, ao, textureIDs.ids[3]);
 					}
 					// -Z
 					if (getBlock_checkSideNeighbor(x, y, z - 1, 4) == Block::Air)
 					{
 						int ao = calculateFaceAO(x, y, z, 4);
-						meshData.instances[4].emplace_back(x, y, z, 4, ao, textureIDs.ids[4]);
+						instances[4].emplace_back(x, y, z, 4, ao, textureIDs.ids[4]);
 					}
 					// +Z
 					if (getBlock_checkSideNeighbor(x, y, z + 1, 5) == Block::Air)
 					{
 						int ao = calculateFaceAO(x, y, z, 5);
-						meshData.instances[5].emplace_back(x, y, z, 5, ao, textureIDs.ids[5]);
+						instances[5].emplace_back(x, y, z, 5, ao, textureIDs.ids[5]);
 					}
 				}
 			}
 		}
-	}
 
-	std::this_thread::sleep_for(std::chrono::milliseconds(20)); // Slowing down for testing
+		// Combine instances vectors
+		size_t faceCountSum = 0;
+		for (int i = 0; i < 6; i++)
+		{
+			size_t faceCount = instances[i].size();
+			meshData.faceCount[i] = faceCount;
+			faceCountSum += faceCount;
+		}
+
+		assert(!meshData.processingFence.isProcessing());
+
+		meshData.instances.clear();
+		meshData.instances.reserve(faceCountSum);
+		for (int i = 0; i < 6; i++)
+		{
+			const auto& vectorToInsert = instances[i];
+			meshData.instances.insert(meshData.instances.end(), vectorToInsert.begin(), vectorToInsert.end());
+		}
+	}
+	
+	std::this_thread::sleep_for(std::chrono::milliseconds(10)); // Slowing down for testing
 
 	if (!getIsLoadedInWorld())
 	{
@@ -344,12 +355,27 @@ void Chunk::buildMesh()
 
 void Chunk::render() const
 {
-	size_t faceCount = meshData.getFaceCountSum();
+	// Checking twice to be sure
+	if (!canBeRendered())
+	{
+		return;
+	}
 
-	assert(faceCount <= meshData.faceCapacity);
-	
+	size_t faceCount = meshData.getFaceCountSum();
 	glBindVertexArray(meshData.vao);
 	glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, 4, faceCount);
+}
+
+bool Chunk::canBeRendered() const
+{
+	size_t faceCount = meshData.getFaceCountSum();
+	return
+		getState() == State::Ready &&
+		meshData.ready &&
+		faceCount > 0 &&
+		faceCount <= meshData.faceCapacity &&
+		!processingFence.isProcessing() &&
+		!meshData.processingFence.isProcessing();
 }
 
 // Function doesn't check for boundaries, it trusts the caller. On debug mode, it asserts.
@@ -603,7 +629,7 @@ void Chunk::setState(State newState)
 
 bool Chunk::getIsProcessing() const
 {
-	return processingFence.isProcessing();
+	return processingFence.isProcessing();// || meshData.processingFence.isProcessing();
 }
 
 bool Chunk::getIsLoadedInWorld() const
@@ -636,35 +662,20 @@ void Chunk::sendMeshesToGPU()
 	// Process each upload
 	for (auto& meshData : uploads)
 	{
+		ScopedProcessingFence scopedFence(meshData->processingFence);
+
 		glBindBuffer(GL_ARRAY_BUFFER, meshData->instanceVBO);
 
 		// Allocating data for buffer
-		size_t faceCountSum = 0;
-		for (int i = 0; i < 6; i++)
-		{
-			size_t faceCount = meshData->instances[i].size();
-			meshData->faceCount[i] = faceCount;
-			faceCountSum += faceCount;
-		}
-		meshData->updateCapacityIfNeeded(faceCountSum);
+		size_t faceCountSum = meshData->getFaceCountSum();
+		meshData->allocateMemoryForBuffer(faceCountSum);
 
 		// Write to buffer
-		size_t offsetInBytes = 0;
-		for (int i = 0; i < 6; i++)
-		{
-			const auto& sideMesh = meshData->instances[i];
-			size_t faceCount = sideMesh.size();
-			size_t meshSizeInBytes = faceCount * sizeof(BlockFaceInstance);
-			glBufferSubData(GL_ARRAY_BUFFER, offsetInBytes, meshSizeInBytes, sideMesh.data());
-			offsetInBytes += meshSizeInBytes;
-		}
+		glBufferSubData(GL_ARRAY_BUFFER, 0, faceCountSum * sizeof(BlockFaceInstance), meshData->instances.data());
 
 		meshData->ready = true;
 
-		for (int i = 0; i < 6; i++)
-		{
-			meshData->instances[i].clear();
-		}
+		meshData->instances.clear();
 	}
 }
 

@@ -132,6 +132,9 @@ int main()
                 Profiler::printProfileReport();
             }
         }
+
+        //
+        Profiler::printProfileReport();
     }
     catch (const std::exception& e)
     {

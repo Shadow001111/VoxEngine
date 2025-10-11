@@ -9,9 +9,10 @@ class Camera
 	mutable glm::vec3 forward;
 	mutable glm::vec3 up;
 	mutable glm::vec3 right;
-	mutable bool vectorsUpdateRequired = true;
 
 	mutable Frustum frustum;
+
+	mutable bool vectorsUpdateRequired = true;
 	mutable bool frustumUpdateRequired = true;
 
 	static glm::vec3 worldUp;

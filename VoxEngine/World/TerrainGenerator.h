@@ -18,11 +18,12 @@ class ChunkColumnData
 	int heightMap[CHUNK_AREA];
 
 	bool initialized = false;
+public:
+	std::atomic<int32_t> referenceCount = 0;
+private:
 	mutable std::mutex readDataMutex; // Prevents chunks from reading heightMap until it's built
 	mutable std::condition_variable readDataCV;
 public:
-	std::atomic<int32_t> referenceCount = 0;
-
 	ChunkColumnData();
 	~ChunkColumnData();
 

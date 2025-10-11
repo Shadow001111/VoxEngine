@@ -100,6 +100,8 @@ void World::loadChunksAroundPlayer(const Int3& chunkLoaderPos, int renderDistanc
 
 void World::update()
 {
+	chunkPool.returnProcessingChunksToPool();
+
 	if (!blocksBuildChunkContainer.empty())
 	{
 		startBuildingChunkBlocks();
@@ -305,6 +307,7 @@ void World::loadChunk(int chunkX, int chunkY, int chunkZ, std::vector<Chunk*>& c
 	auto chunk = chunkPool.acquire();
 	chunk->init(chunkX, chunkY, chunkZ, neighbors);
 	chunk->setIsLoadedInWorld(true);
+	chunk->setState(Chunk::State::NeedsBlocks);
 
 	chunksToSend.push_back(chunk.get());
 
@@ -345,19 +348,12 @@ void World::startBuildingChunkBlocks()
 
 				if (!chunk->getIsLoadedInWorld())
 				{
-					std::cout << "EEEE" << std::endl;
 					return;
 				}
 
-				// Mark as needing mesh
 				chunk->setState(Chunk::State::NeedsMesh);
 
 				std::lock_guard<std::mutex> lock(meshBuildMutex);
-				if (!chunk->getIsLoadedInWorld())
-				{
-					std::cout << "World::startBuildingChunkBlocks" << std::endl;
-					return;
-				}
 				meshBuildChunkContainer.insert(chunk);
 
 				for (int i = 0; i < 6; i++)
@@ -419,7 +415,6 @@ void World::startBuildingChunkMeshes()
 
 					if (!chunk->getIsLoadedInWorld())
 					{
-						std::cout << "CCCC" << std::endl;
 						return;
 					}
 
@@ -448,25 +443,9 @@ void World::collectChunksToRender(std::vector<ChunkRenderInfo>& chunksToRender, 
 	{
 		const Chunk* chunk = pair.second.get();
 
-		// Check if mesh is ready
-		if (chunk->getState() != Chunk::State::Ready)
+		if (!chunk->canBeRendered())
 		{
 			continue;
-		}
-
-		{
-			const auto& meshData = chunk->getMeshData();
-			// Check if mesh is ready
-			if (!meshData.isReady())
-			{
-				continue;
-			}
-
-			// Check if mesh isn't empty
-			if (meshData.getFaceCountSum() == 0)
-			{
-				continue;
-			}
 		}
 
 		// Check is chunk is on frustum
@@ -507,16 +486,42 @@ void World::ChunkPool::release(std::unique_ptr<Chunk> chunk)
 	assert(chunk->getIsLoadedInWorld());
 	chunk->setIsLoadedInWorld(false);
 
+	chunk->destroy();
+
 	if (chunk->getIsProcessing())
 	{
-		chunk->destroy();
 		processingChunks.push_back(std::move(chunk));
-		// TOOD: Return chunks to the pool
 	}
 	else
 	{
-		chunk->destroy();
 		pool.push_back(std::move(chunk));
+	}
+}
+
+void World::ChunkPool::returnProcessingChunksToPool()
+{
+	size_t count = processingChunks.size();
+	if (count == 0)
+	{
+		return;
+	}
+
+	pool.reserve(pool.size() + count);
+
+	auto it = processingChunks.begin();
+	while (it != processingChunks.end())
+	{
+		std::unique_ptr<Chunk>& chunk = *it;
+
+		if (!chunk->getIsProcessing())
+		{
+			pool.push_back(std::move(chunk));
+			it = processingChunks.erase(it);
+		}
+		else
+		{
+			++it;
+		}
 	}
 }
 

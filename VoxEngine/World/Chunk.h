@@ -21,7 +21,7 @@ struct BlockFaceInstance
 class Chunk
 {
 public:
-	enum class State
+	enum class State : uint8_t
 	{
 		NeedsBlocks = 0,
 		BuildingBlocks,
@@ -36,21 +36,21 @@ private:
 
 		GLuint vao, vbo, instanceVBO;
 		uint16_t faceCount[6]; // Count for each side
-		// TODO: Try to have only one int as 'faceCount', not an array
 		uint16_t faceCapacity;
+		bool ready;
 
-		std::vector<BlockFaceInstance> instances[6]; // TODO: Maybe should have one vector? Just combine 6 vectors. 6 times less gpu buffer write calls.
+		std::vector<BlockFaceInstance> instances;
 
-		bool ready; // TODO: Remove this thing. Just move faceCount setter to sendMeshesToGPU
+		ProcessingFence processingFence;
 
 		MeshData();
 		~MeshData();
 
 		void resetFaceCount();
-		void updateCapacityIfNeeded(size_t faceCount);
+		void allocateMemoryForBuffer(size_t faceCount);
 	public:
-		uint16_t getFaceCountSum() const;
-		uint16_t getFaceCapacity() const;
+		size_t getFaceCountSum() const;
+		size_t getFaceCapacity() const;
 		bool isReady() const;
 	};
 
@@ -58,15 +58,15 @@ private:
 	static std::vector<MeshData*> pendingMeshUploads;
 private:
 	Int3 position; // Chunk coordinates in chunk space
+
+	std::atomic<State> state;
+	std::atomic<bool> isLoadedInWorld{ false };
+	bool loadedChunkColumnData = false;
+
 	Block blocks[CHUNK_VOLUME];
 
 	MeshData meshData;
-
-	std::atomic<State> state;
 	ProcessingFence processingFence;
-	std::atomic<bool> isLoadedInWorld;
-
-	bool loadedChunkColumnData = false;
 
 	static size_t getIndex(int x, int y, int z);
 public:
@@ -91,6 +91,7 @@ public:
 	void buildMesh();
 
 	void render() const;
+	bool canBeRendered() const;
 
 	Block getBlock_inBoundaries(int x, int y, int z) const;
 	Block getBlock_checkSideNeighbor(int x, int y, int z, int side) const;

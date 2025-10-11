@@ -27,8 +27,9 @@ class World
 		ChunkPool& operator=(ChunkPool&&) = delete;
 
 		std::unique_ptr<Chunk> acquire();
-
 		void release(std::unique_ptr<Chunk> chunk);
+
+		void returnProcessingChunksToPool();
 	};
 
 	struct VisualSettings
