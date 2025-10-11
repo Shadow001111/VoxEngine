@@ -1,5 +1,5 @@
 #include "Chunk.h"
-#include "TerrainGenerator.h"
+#include "Chunk/TerrainGenerator.h"
 
 #include "Core/Profiler.h"
 
@@ -49,12 +49,11 @@ void Chunk::init(int x, int y, int z, Chunk** neighbors)
 	}
 
 	// Reset
-	setIsLoadedChunkColumnData(false);
+	isLoadedChunkColumnData.store(false, std::memory_order_release);
+	areBlocksBuilt.store(false, std::memory_order_release); 
 
 	assert(!meshData.processingFence.isProcessing());
 	meshData.ready = false;
-
-	wereBlocksBuilt.store(false, std::memory_order_release);
 }
 
 // Cleans up resources
@@ -72,9 +71,9 @@ void Chunk::destroy()
 	}
 
 	// Release chunk column data
-	if (getIsLoadedChunkColumnData())
+	if (isLoadedChunkColumnData.load(std::memory_order_acquire))
 	{
-		setIsLoadedChunkColumnData(false);
+		isLoadedChunkColumnData.store(false, std::memory_order_release);
 		TerrainGenerator::getInstance().unloadChunkColumnData(position.x, position.z);
 	}
 
@@ -94,19 +93,19 @@ void Chunk::buildBlocks()
 		return;
 	}
 
-	if (wereBlocksBuilt.load(std::memory_order_acquire))
+	if (areBlocksBuilt.load(std::memory_order_acquire))
 	{
 		return;
 	}
 
-	if (getIsLoadedChunkColumnData())
+	if (isLoadedChunkColumnData.load(std::memory_order_acquire))
 	{
 		return;
 	}
 
 	const ChunkColumnData* chunkColumnData = TerrainGenerator::getInstance().loadChunkColumnData(position.x, position.z);
 	const int* heightMap = chunkColumnData->heightMapRead();
-	setIsLoadedChunkColumnData(true);
+	isLoadedChunkColumnData.store(true, std::memory_order_release);
 
 	{
 		PROFILE_SCOPE("Chunk build blocks", ProfileCategory::ChunkBlocks);
@@ -132,7 +131,7 @@ void Chunk::buildBlocks()
 		}
 	}
 
-	wereBlocksBuilt.store(true, std::memory_order_release);
+	areBlocksBuilt.store(true, std::memory_order_release);
 }
 
 void Chunk::buildMesh()
@@ -512,6 +511,16 @@ Int3 Chunk::getPosition() const
 	return position;
 }
 
+size_t Chunk::getFaceCount() const
+{
+	return meshData.getFaceCountSum();
+}
+
+size_t Chunk::getFaceCapacity() const
+{
+	return meshData.getFaceCapacity();
+}
+
 Chunk::State Chunk::getState() const
 {
 	return state.load(std::memory_order_acquire);
@@ -535,16 +544,6 @@ bool Chunk::getIsLoadedInWorld() const
 void Chunk::setIsLoadedInWorld(bool value)
 {
 	isLoadedInWorld.store(value, std::memory_order_release);
-}
-
-bool Chunk::getIsLoadedChunkColumnData() const
-{
-	return isLoadedChunkColumnData.load(std::memory_order_acquire);
-}
-
-void Chunk::setIsLoadedChunkColumnData(bool value)
-{
-	isLoadedChunkColumnData.store(value, std::memory_order_release);
 }
 
 void Chunk::sendMeshesToGPU()

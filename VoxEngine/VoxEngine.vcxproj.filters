@@ -30,7 +30,7 @@
     <ClCompile Include="Graphics\Camera.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="World\Chunk.cpp">
+    <ClCompile Include="Game\World\Chunk.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
     <ClCompile Include="Core\Vec2.cpp">
@@ -42,19 +42,19 @@
     <ClCompile Include="Core\Transform.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="World\Player.cpp">
+    <ClCompile Include="Game\Player.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
     <ClCompile Include="Core\Int3.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="World\World.cpp">
+    <ClCompile Include="Game\World.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
     <ClCompile Include="Core\Profiler.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="World\TerrainGenerator.cpp">
+    <ClCompile Include="Game\World\Chunk\TerrainGenerator.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
     <ClCompile Include="Core\Int2.cpp">
@@ -75,7 +75,7 @@
     <ClCompile Include="Graphics\Frustum.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="World\BlockData.cpp">
+    <ClCompile Include="Game\World\Chunk\BlockData.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
     <ClCompile Include="Core\StringIndexer.cpp">
@@ -87,10 +87,19 @@
     <ClCompile Include="Core\Multithreading\ProcessingFence.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="World\Chunk\BlockFaceInstance.cpp">
+    <ClCompile Include="Game\World\Chunk\BlockFaceInstance.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="World\Chunk\MeshData.cpp">
+    <ClCompile Include="Game\World\Chunk\MeshData.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\World\ChunkPool.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\World\WorldVisualSettings.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\RGB.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
   </ItemGroup>
@@ -104,13 +113,10 @@
     <ClInclude Include="Graphics\Camera.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="World\Chunk.h">
+    <ClInclude Include="Game\World\Chunk.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="World\Block.h">
-      <Filter>Файлы заголовков</Filter>
-    </ClInclude>
-    <ClInclude Include="World\Metrics.h">
+    <ClInclude Include="Game\World\Chunk\Block.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Core\Vec2.h">
@@ -125,19 +131,19 @@
     <ClInclude Include="Core\CoreMath.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="World\Player.h">
+    <ClInclude Include="Game\Player.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Core\Int3.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="World\World.h">
+    <ClInclude Include="Game\World.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Core\Profiler.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="World\TerrainGenerator.h">
+    <ClInclude Include="Game\World\Chunk\TerrainGenerator.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Core\Int2.h">
@@ -158,7 +164,7 @@
     <ClInclude Include="Graphics\Frustum.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="World\BlockData.h">
+    <ClInclude Include="Game\World\Chunk\BlockData.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Core\StringIndexer.h">
@@ -170,10 +176,22 @@
     <ClInclude Include="Core\Multithreading\ProcessingFence.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="World\Chunk\BlockFaceInstance.h">
+    <ClInclude Include="Game\World\Chunk\BlockFaceInstance.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="World\Chunk\MeshData.h">
+    <ClInclude Include="Game\World\Chunk\MeshData.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\World\ChunkPool.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\World\Chunk\Metrics.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\World\WorldVisualSettings.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\RGB.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
   </ItemGroup>

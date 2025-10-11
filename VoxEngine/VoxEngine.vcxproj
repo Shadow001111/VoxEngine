@@ -143,13 +143,14 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="World\Chunk\MeshData.cpp" />
-    <ClCompile Include="World\Chunk\BlockFaceInstance.cpp" />
+    <ClCompile Include="Game\World\ChunkPool.cpp" />
+    <ClCompile Include="Game\World\Chunk\MeshData.cpp" />
+    <ClCompile Include="Game\World\Chunk\BlockFaceInstance.cpp" />
     <ClCompile Include="Graphics\BlockTextureArray.cpp" />
     <ClCompile Include="Core\StringIndexer.cpp" />
     <ClCompile Include="Core\Multithreading\ProcessingFence.cpp" />
-    <ClCompile Include="World\BlockData.cpp" />
-    <ClCompile Include="World\Chunk.cpp" />
+    <ClCompile Include="Game\World\Chunk\BlockData.cpp" />
+    <ClCompile Include="Game\World\Chunk.cpp" />
     <ClCompile Include="Core\Int3.cpp" />
     <ClCompile Include="Core\Profiler.cpp" />
     <ClCompile Include="Core\Shapes.cpp" />
@@ -165,20 +166,24 @@
     <ClCompile Include="Core\UpdateTimer.cpp" />
     <ClCompile Include="Core\Transform.cpp" />
     <ClCompile Include="Core\Shapes\Plane.cpp" />
-    <ClCompile Include="World\Player.cpp" />
-    <ClCompile Include="World\TerrainGenerator.cpp" />
+    <ClCompile Include="Game\Player.cpp" />
+    <ClCompile Include="Game\World\Chunk\TerrainGenerator.cpp" />
+    <ClCompile Include="Core\RGB.cpp" />
     <ClCompile Include="WindowManager.cpp" />
-    <ClCompile Include="World\World.cpp" />
+    <ClCompile Include="Game\World.cpp" />
+    <ClCompile Include="Game\World\WorldVisualSettings.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="World\Chunk\MeshData.h" />
-    <ClInclude Include="World\Chunk\BlockFaceInstance.h" />
+    <ClInclude Include="Game\World\ChunkPool.h" />
+    <ClInclude Include="Game\World\Chunk\MeshData.h" />
+    <ClInclude Include="Game\World\Chunk\BlockFaceInstance.h" />
+    <ClInclude Include="Game\World\Chunk\Metrics.h" />
     <ClInclude Include="Graphics\BlockTextureArray.h" />
     <ClInclude Include="Core\StringIndexer.h" />
     <ClInclude Include="Core\Multithreading\ProcessingFence.h" />
-    <ClInclude Include="World\Block.h" />
-    <ClInclude Include="World\BlockData.h" />
-    <ClInclude Include="World\Chunk.h" />
+    <ClInclude Include="Game\World\Chunk\Block.h" />
+    <ClInclude Include="Game\World\Chunk\BlockData.h" />
+    <ClInclude Include="Game\World\Chunk.h" />
     <ClInclude Include="Core\CoreMath.h" />
     <ClInclude Include="Core\Int3.h" />
     <ClInclude Include="Core\Profiler.h" />
@@ -189,15 +194,16 @@
     <ClInclude Include="Graphics\Camera.h" />
     <ClInclude Include="Graphics\Shader.h" />
     <ClInclude Include="Core\Int2.h" />
-    <ClInclude Include="World\Metrics.h" />
     <ClInclude Include="Core\Vec2.h" />
     <ClInclude Include="Core\UpdateTimer.h" />
     <ClInclude Include="Core\Transform.h" />
     <ClInclude Include="Core\Shapes\Plane.h" />
-    <ClInclude Include="World\Player.h" />
-    <ClInclude Include="World\TerrainGenerator.h" />
+    <ClInclude Include="Game\Player.h" />
+    <ClInclude Include="Game\World\Chunk\TerrainGenerator.h" />
+    <ClInclude Include="Core\RGB.h" />
     <ClInclude Include="WindowManager.h" />
-    <ClInclude Include="World\World.h" />
+    <ClInclude Include="Game\World.h" />
+    <ClInclude Include="Game\World\WorldVisualSettings.h" />
   </ItemGroup>
   <ItemGroup>
     <CopyFileToFolders Include="..\Libraries\bin\FastNoise.dll">

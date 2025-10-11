@@ -1,8 +1,7 @@
 #pragma once
 #include "Chunk/MeshData.h"
-
-#include "BlockData.h"
-#include "Metrics.h"
+#include "Chunk/BlockData.h"
+#include "Chunk/Metrics.h"
 
 #include "Core/Int3.h"
 #include "Core/Multithreading/ProcessingFence.h"
@@ -10,6 +9,7 @@
 #include <vector>
 #include <mutex>
 #include <atomic>
+#include <cstdint>
 
 class Chunk
 {
@@ -31,9 +31,7 @@ private:
 	std::atomic<State> state;
 	std::atomic<bool> isLoadedInWorld{ false };
 	std::atomic<bool> isLoadedChunkColumnData { false };
-
-	std::atomic<bool> wereBlocksBuilt{ false };
-	std::atomic<bool> wasMeshBuilt{ false };
+	std::atomic<bool> areBlocksBuilt{ false };
 
 	Block blocks[CHUNK_VOLUME];
 
@@ -77,6 +75,8 @@ public:
 	int getY() const;
 	int getZ() const;
 	Int3 getPosition() const;
+	size_t getFaceCount() const;
+	size_t getFaceCapacity() const;
 
 	// Atomic getters and setters
 	State getState() const;
@@ -86,10 +86,6 @@ public:
 
 	bool getIsLoadedInWorld() const;
 	void setIsLoadedInWorld(bool value);
-
-private:
-	bool getIsLoadedChunkColumnData() const;
-	void setIsLoadedChunkColumnData(bool value);
 public:
 
 	// Static method to process all pending mesh uploads on main thread

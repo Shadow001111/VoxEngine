@@ -1,6 +1,6 @@
 #include "BlockData.h"
 
-#include "StringIndexer.h"
+#include "Core/StringIndexer.h"
 
 #include <algorithm>
 

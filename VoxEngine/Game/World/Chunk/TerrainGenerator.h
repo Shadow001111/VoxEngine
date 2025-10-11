@@ -1,7 +1,8 @@
 #pragma once
+#include "Metrics.h"
+
 #define FASTNOISE_STATIC_LIB
 #include "FastNoise/FastNoise.h"
-#include "Metrics.h"
 
 #include "Core/Int2.h"
 

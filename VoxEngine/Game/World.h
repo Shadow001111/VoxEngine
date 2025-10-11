@@ -1,5 +1,6 @@
 #pragma once
-#include "Chunk.h"
+#include "World/ChunkPool.h"
+#include "World/WorldVisualSettings.h"
 
 #include "Graphics/Shader.h"
 #include "Graphics/Camera.h"
@@ -13,36 +14,6 @@
 
 class World
 {
-	class ChunkPool
-	{
-		std::vector<std::unique_ptr<Chunk>> pool;
-		std::vector<std::unique_ptr<Chunk>> processingChunks;
-	public:
-		ChunkPool() = default;
-		~ChunkPool() = default;
-
-		ChunkPool(const ChunkPool&) = delete;
-		ChunkPool& operator=(const ChunkPool&) = delete;
-		ChunkPool(ChunkPool&&) = delete;
-		ChunkPool& operator=(ChunkPool&&) = delete;
-
-		std::unique_ptr<Chunk> acquire();
-		void release(std::unique_ptr<Chunk> chunk);
-
-		void returnProcessingChunksToPool();
-	};
-
-	struct VisualSettings
-	{
-		glm::vec3 backgroundColor = {}; // Also fog color
-		float fogMaxDistance = 0.0f; // Should be set as render distance
-		float fogDensity = 0.0f;
-		float fogGradient = 0.0f;
-
-		static float calculateFogDensity(float renderDistance_, float fogGradient_);
-		static float calculateFogGradient(float renderDistance_, float fogDensity_);
-	};
-
 	struct ChunkRenderInfo
 	{
 		const Chunk* chunk;
@@ -71,7 +42,7 @@ class World
 	// Debug
 	mutable size_t renderedFaceCount;
 public:
-	VisualSettings visuals;
+	WorldVisualSettings visuals;
 
 	World();
 	~World();

@@ -3,8 +3,8 @@
 #include "Core/UpdateTimer.h"
 #include "Core/Profiler.h"
 
-#include "World/World.h"
-#include "World/Player.h"
+#include "Game/World.h"
+#include "Game/Player.h"
 
 #include <iostream>
 
@@ -103,7 +103,7 @@ int main()
             // Rendering
             {
                 const auto& color = world.visuals.backgroundColor;
-                glClearColor(color.x, color.y, color.z, 1.0f);
+                glClearColor(color.r, color.g, color.b, 1.0f);
             }
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -119,10 +119,10 @@ int main()
                 world.getChunkMeshesInfo(totalFaces, totalFaceCapacity, potentialMaximumCapacity, renderedFaceCount);
 
                 std::string title = "Faces/Capacity/Maximum/Rendered: "
-                    + std::to_string(totalFaces >> 10) + "k/"
-                    + std::to_string(totalFaceCapacity >> 10) + "k/"
-                    + std::to_string(potentialMaximumCapacity >> 10) + "k/"
-                    + std::to_string(renderedFaceCount >> 10) + "k";
+                    + std::to_string(totalFaces / 1000) + "k/"
+                    + std::to_string(totalFaceCapacity / 1000) + "k/"
+                    + std::to_string(potentialMaximumCapacity / 1000) + "k/"
+                    + std::to_string(renderedFaceCount / 1000) + "k";
 
                 wnd.setTitle(title);
             }

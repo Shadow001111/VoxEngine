@@ -1,13 +1,11 @@
 #include "World.h"
-#include "TerrainGenerator.h"
+
+#include "World/Chunk/TerrainGenerator.h"
 
 #include "Core/Profiler.h"
 #include "Core/Multithreading/ThreadPool.h"
 
 #include <iostream>
-
-//============================================================================
-// World
 
 World::World()
 {
@@ -126,7 +124,7 @@ void World::render(const Camera& camera) const
 
 		// Fog
 		const auto& fogColor = visuals.backgroundColor;
-		faceShader->setVec3("fogColor", fogColor.x, fogColor.y, fogColor.z);
+		faceShader->setVec3("fogColor", fogColor.r, fogColor.g, fogColor.b);
 		faceShader->setFloat("fogDensity", visuals.fogDensity);
 		faceShader->setFloat("fogGradient", visuals.fogGradient);
 	}
@@ -156,7 +154,7 @@ void World::render(const Camera& camera) const
 			faceShader->setVec3("chunkPosition", chunkWorldPosition.x, chunkWorldPosition.y, chunkWorldPosition.z);
 
 			info.chunk->render(); // Takes most of the time
-			//renderedFaceCount += info.chunk->getMeshData().getFaceCountSum();
+			renderedFaceCount += info.chunk->getFaceCount();
 		}
 	}
 }
@@ -181,33 +179,20 @@ void World::rebuildAllChunkMeshes()
 
 void World::debugMethod()
 {
-	int count[4] = { 0, 0, 0, 0 };
-	for (const auto& pair : chunks)
-	{
-		auto state = pair.second->getState();
-		size_t index = (size_t)state;
-		count[index]++;
-	}
-
-	for (int i = 0; i < 4; i++)
-	{
-		std::cout << count[i] << " ";
-	}
-	std::cout << std::endl;
+	
 }
 
 void World::getChunkMeshesInfo(size_t& totalFaces, size_t& totalFaceCapacity, size_t& potentialMaximumCapacity, size_t& renderedFaceCount)
 {
 	totalFaces = 0;
 	totalFaceCapacity = 0;
-	/*for (const auto& pair : chunks)
+	for (const auto& pair : chunks)
 	{
 		const Chunk* chunk = pair.second.get();
-		const auto& mesh = chunk->getMeshData();
 
-		totalFaces += mesh.getFaceCountSum();
-		totalFaceCapacity += mesh.getFaceCapacity();
-	}*/
+		totalFaces += chunk->getFaceCount();
+		totalFaceCapacity += chunk->getFaceCapacity();
+	}
 
 	potentialMaximumCapacity = chunks.size() * CHUNK_VOLUME / 2 * 6;
 	renderedFaceCount = this->renderedFaceCount;
@@ -465,77 +450,6 @@ void World::collectChunksToRender(std::vector<ChunkRenderInfo>& chunksToRender, 
 		float distanceSquared = glm::dot(diff, diff);
 		chunksToRender.emplace_back(chunk, chunkWorldPosition, distanceSquared);
 	}
-}
-
-//============================================================================
-// ChunkPool
-
-std::unique_ptr<Chunk> World::ChunkPool::acquire()
-{
-	if (!pool.empty())
-	{
-		std::unique_ptr<Chunk> chunk = std::move(pool.back());
-		pool.pop_back();
-		return chunk;
-	}
-	return std::make_unique<Chunk>();
-}
-
-void World::ChunkPool::release(std::unique_ptr<Chunk> chunk)
-{
-	assert(chunk->getIsLoadedInWorld());
-	chunk->setIsLoadedInWorld(false);
-
-	chunk->destroy();
-
-	if (chunk->getIsProcessing())
-	{
-		processingChunks.push_back(std::move(chunk));
-	}
-	else
-	{
-		pool.push_back(std::move(chunk));
-	}
-}
-
-void World::ChunkPool::returnProcessingChunksToPool()
-{
-	size_t count = processingChunks.size();
-	if (count == 0)
-	{
-		return;
-	}
-
-	pool.reserve(pool.size() + count);
-
-	auto it = processingChunks.begin();
-	while (it != processingChunks.end())
-	{
-		std::unique_ptr<Chunk>& chunk = *it;
-
-		if (!chunk->getIsProcessing())
-		{
-			pool.push_back(std::move(chunk));
-			it = processingChunks.erase(it);
-		}
-		else
-		{
-			++it;
-		}
-	}
-}
-
-//============================================================================
-// Visuals
-
-float World::VisualSettings::calculateFogDensity(float renderDistance_, float fogGradient_)
-{
-	return powf(-logf(1e-3f), 1.0f / fogGradient_) / renderDistance_;
-}
-
-float World::VisualSettings::calculateFogGradient(float renderDistance_, float fogDensity_)
-{
-	return logf(-logf(1e-3f)) / logf(renderDistance_ * fogDensity_);
 }
 
 //============================================================================

@@ -1,5 +1,4 @@
 #pragma once
-#include <cstdint>
 
 constexpr int CHUNK_SIZE = 16;
 constexpr int CHUNK_AREA = CHUNK_SIZE * CHUNK_SIZE;
