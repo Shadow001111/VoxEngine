@@ -1,22 +1,15 @@
 #pragma once
+#include "Chunk/MeshData.h"
+
 #include "BlockData.h"
 #include "Metrics.h"
 
-#include "Int3.h"
-#include "Multithreading/ProcessingFence.h"
-
-#include <glad/glad.h>
+#include "Core/Int3.h"
+#include "Core/Multithreading/ProcessingFence.h"
 
 #include <vector>
 #include <mutex>
 #include <atomic>
-
-struct BlockFaceInstance
-{
-	int32_t data;
-
-	BlockFaceInstance(int x, int y, int z, int normal, int ao, int textureID);
-};
 
 class Chunk
 {
@@ -30,30 +23,6 @@ public:
 		Ready
 	};
 private:
-	class MeshData
-	{
-		friend Chunk;
-
-		GLuint vao, vbo, instanceVBO;
-		uint16_t faceCount[6]; // Count for each side
-		uint16_t faceCapacity;
-		bool ready;
-
-		std::vector<BlockFaceInstance> instances;
-
-		ProcessingFence processingFence;
-
-		MeshData();
-		~MeshData();
-
-		void resetFaceCount();
-		void allocateMemoryForBuffer(size_t faceCount);
-	public:
-		size_t getFaceCountSum() const;
-		size_t getFaceCapacity() const;
-		bool isReady() const;
-	};
-
 	static std::mutex meshUploadMutex;
 	static std::vector<MeshData*> pendingMeshUploads;
 private:
@@ -61,7 +30,10 @@ private:
 
 	std::atomic<State> state;
 	std::atomic<bool> isLoadedInWorld{ false };
-	bool loadedChunkColumnData = false;
+	std::atomic<bool> isLoadedChunkColumnData { false };
+
+	std::atomic<bool> wereBlocksBuilt{ false };
+	std::atomic<bool> wasMeshBuilt{ false };
 
 	Block blocks[CHUNK_VOLUME];
 
@@ -115,9 +87,11 @@ public:
 	bool getIsLoadedInWorld() const;
 	void setIsLoadedInWorld(bool value);
 
+private:
+	bool getIsLoadedChunkColumnData() const;
+	void setIsLoadedChunkColumnData(bool value);
+public:
+
 	// Static method to process all pending mesh uploads on main thread
 	static void sendMeshesToGPU();
-
-	// Debug
-	const MeshData& getMeshData() const;
 };

@@ -1,10 +1,9 @@
 #pragma once
-#include "Metrics.h"
-
-#include "Int2.h"
-
 #define FASTNOISE_STATIC_LIB
 #include "FastNoise/FastNoise.h"
+#include "Metrics.h"
+
+#include "Core/Int2.h"
 
 #include <unordered_map>
 #include <memory>

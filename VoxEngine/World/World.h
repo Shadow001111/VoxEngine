@@ -1,9 +1,9 @@
 #pragma once
 #include "Chunk.h"
 
-#include "../Graphics/Shader.h"
-#include "../Graphics/Camera.h"
-#include "../Graphics/BlockTextureArray.h"
+#include "Graphics/Shader.h"
+#include "Graphics/Camera.h"
+#include "Graphics/BlockTextureArray.h"
 
 #include <unordered_map>
 #include <unordered_set>

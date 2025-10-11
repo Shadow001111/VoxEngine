@@ -1,8 +1,8 @@
 #include "World.h"
-
-#include "Profiler.h"
-#include "Multithreading/ThreadPool.h"
 #include "TerrainGenerator.h"
+
+#include "Core/Profiler.h"
+#include "Core/Multithreading/ThreadPool.h"
 
 #include <iostream>
 
@@ -156,7 +156,7 @@ void World::render(const Camera& camera) const
 			faceShader->setVec3("chunkPosition", chunkWorldPosition.x, chunkWorldPosition.y, chunkWorldPosition.z);
 
 			info.chunk->render(); // Takes most of the time
-			renderedFaceCount += info.chunk->getMeshData().getFaceCountSum();
+			//renderedFaceCount += info.chunk->getMeshData().getFaceCountSum();
 		}
 	}
 }
@@ -200,14 +200,14 @@ void World::getChunkMeshesInfo(size_t& totalFaces, size_t& totalFaceCapacity, si
 {
 	totalFaces = 0;
 	totalFaceCapacity = 0;
-	for (const auto& pair : chunks)
+	/*for (const auto& pair : chunks)
 	{
 		const Chunk* chunk = pair.second.get();
 		const auto& mesh = chunk->getMeshData();
 
 		totalFaces += mesh.getFaceCountSum();
 		totalFaceCapacity += mesh.getFaceCapacity();
-	}
+	}*/
 
 	potentialMaximumCapacity = chunks.size() * CHUNK_VOLUME / 2 * 6;
 	renderedFaceCount = this->renderedFaceCount;

@@ -1,6 +1,6 @@
 #include "TerrainGenerator.h"
 
-#include "Profiler.h"
+#include "Core/Profiler.h"
 
 #include <iostream>
 #include <cmath>

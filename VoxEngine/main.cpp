@@ -1,12 +1,12 @@
 #include "WindowManager.h"
 
-#include <iostream>
+#include "Core/UpdateTimer.h"
+#include "Core/Profiler.h"
 
 #include "World/World.h"
 #include "World/Player.h"
 
-#include "UpdateTimer.h"
-#include "Profiler.h"
+#include <iostream>
 
 int main()
 {

@@ -1,133 +1,14 @@
 #include "Chunk.h"
+#include "TerrainGenerator.h"
 
-#include "Vec2.h"
-#include "Profiler.h"
+#include "Core/Profiler.h"
 
 #include <cassert>
 #include <vector>
 #include <iostream>
 
-#include "TerrainGenerator.h"
-
-//============================================================================
-//BlockFaceInstance
-
-BlockFaceInstance::BlockFaceInstance(int x, int y, int z, int normal, int ao, int textureID) : data(0)
-{
-	// (32 bits left) Coords 12 bits
-	data |= (x & 15);
-	data |= (y & 15) << 4;
-	data |= (z & 15) << 8;
-
-	// (20 bits left) Normal 3 bits
-	data |= (normal & 7) << 12;
-
-	// (17 bits left) Ambient occlusion 8 bits
-	data |= (ao & 255) << 15;
-	
-	// (9 bits left) Texture ID
-	data |= (textureID & 511) << 23;
-
-	// (0 bits left)
-}
-
-//============================================================================
-// MeshData
-
-Chunk::MeshData::MeshData() :
-	vao(0), vbo(0), instanceVBO(0),
-	faceCapacity(0),
-	ready(false)
-{
-	resetFaceCount();
-
-	// Create buffers once
-	Vec2 vertices[4] = // CCW order
-	{
-		{ 0.0f, 0.0f },
-		{ 1.0f, 0.0f },
-		{ 1.0f, 1.0f },
-		{ 0.0f, 1.0f }
-	};
-
-	glGenVertexArrays(1, &vao);
-	glGenBuffers(1, &vbo);
-	glGenBuffers(1, &instanceVBO);
-
-	// Bind VAO
-	glBindVertexArray(vao);
-
-	// Vertex buffer
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(Vec2), (void*)0);
-
-	// Instance buffer
-	glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
-	glEnableVertexAttribArray(1);
-	glVertexAttribIPointer(1, 1, GL_INT, sizeof(BlockFaceInstance), (void*)0); // integer attribute
-	glVertexAttribDivisor(1, 1); // advance per instance
-}
-
-Chunk::MeshData::~MeshData()
-{
-	if (instanceVBO)
-	{
-		glDeleteBuffers(1, &instanceVBO);
-	}
-	if (vbo)
-	{
-		glDeleteBuffers(1, &vbo);
-	}
-	if (vao)
-	{
-		glDeleteVertexArrays(1, &vao);
-	}
-}
-
-void Chunk::MeshData::resetFaceCount()
-{
-	for (int i = 0; i < 6; i++)
-	{
-		faceCount[i] = 0;
-	}
-}
-
-void Chunk::MeshData::allocateMemoryForBuffer(size_t faceCount)
-{
-	if (faceCount > faceCapacity)
-	{
-		faceCapacity = faceCount;
-		glBufferData(GL_ARRAY_BUFFER, faceCapacity * sizeof(BlockFaceInstance), nullptr, GL_STATIC_DRAW);
-	}
-}
-
-size_t Chunk::MeshData::getFaceCountSum() const
-{
-	size_t sum = 0;
-	for (int i = 0; i < 6; i++)
-	{
-		sum += faceCount[i];
-	}
-	return sum;
-}
-
-size_t Chunk::MeshData::getFaceCapacity() const
-{
-	return faceCapacity;
-}
-
-bool Chunk::MeshData::isReady() const
-{
-	return ready;
-}
-
-//============================================================================
-// Chunk
-
 std::mutex Chunk::meshUploadMutex;
-std::vector<Chunk::MeshData*> Chunk::pendingMeshUploads;
+std::vector<MeshData*> Chunk::pendingMeshUploads;
 BlockTextureIDDatabase Chunk::blockTextureDatabase;
 
 
@@ -168,11 +49,12 @@ void Chunk::init(int x, int y, int z, Chunk** neighbors)
 	}
 
 	// Reset
-	loadedChunkColumnData = false;
+	setIsLoadedChunkColumnData(false);
 
 	assert(!meshData.processingFence.isProcessing());
 	meshData.ready = false;
-	meshData.resetFaceCount();
+
+	wereBlocksBuilt.store(false, std::memory_order_release);
 }
 
 // Cleans up resources
@@ -190,16 +72,14 @@ void Chunk::destroy()
 	}
 
 	// Release chunk column data
-	if (loadedChunkColumnData)
+	if (getIsLoadedChunkColumnData())
 	{
-		loadedChunkColumnData = false;
+		setIsLoadedChunkColumnData(false);
 		TerrainGenerator::getInstance().unloadChunkColumnData(position.x, position.z);
 	}
 
-	// Reset
-	assert(!meshData.processingFence.isProcessing());
-	meshData.ready = false;
-	meshData.resetFaceCount();
+	//
+	meshData.instances.clear();
 }
 
 // Fills 'blocks' array
@@ -214,9 +94,19 @@ void Chunk::buildBlocks()
 		return;
 	}
 
+	if (wereBlocksBuilt.load(std::memory_order_acquire))
+	{
+		return;
+	}
+
+	if (getIsLoadedChunkColumnData())
+	{
+		return;
+	}
+
 	const ChunkColumnData* chunkColumnData = TerrainGenerator::getInstance().loadChunkColumnData(position.x, position.z);
 	const int* heightMap = chunkColumnData->heightMapRead();
-	loadedChunkColumnData = true;
+	setIsLoadedChunkColumnData(true);
 
 	{
 		PROFILE_SCOPE("Chunk build blocks", ProfileCategory::ChunkBlocks);
@@ -241,6 +131,8 @@ void Chunk::buildBlocks()
 			}
 		}
 	}
+
+	wereBlocksBuilt.store(true, std::memory_order_release);
 }
 
 void Chunk::buildMesh()
@@ -253,6 +145,8 @@ void Chunk::buildMesh()
 	{
 		return;
 	}
+
+	meshData.ready = false;
 
 	{
 		PROFILE_SCOPE("Build chunk mesh", ProfileCategory::ChunkMesh);
@@ -335,7 +229,7 @@ void Chunk::buildMesh()
 		}
 	}
 	
-	std::this_thread::sleep_for(std::chrono::milliseconds(10)); // Slowing down for testing
+	//std::this_thread::sleep_for(std::chrono::milliseconds(10)); // Slowing down for testing
 
 	if (!getIsLoadedInWorld())
 	{
@@ -355,6 +249,7 @@ void Chunk::buildMesh()
 
 void Chunk::render() const
 {
+	// TODO: Old mesh data can be seen when loading!
 	// Checking twice to be sure
 	if (!canBeRendered())
 	{
@@ -362,7 +257,7 @@ void Chunk::render() const
 	}
 
 	size_t faceCount = meshData.getFaceCountSum();
-	glBindVertexArray(meshData.vao);
+	meshData.bindVAO();
 	glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, 4, faceCount);
 }
 
@@ -373,9 +268,9 @@ bool Chunk::canBeRendered() const
 		getState() == State::Ready &&
 		meshData.ready &&
 		faceCount > 0 &&
-		faceCount <= meshData.faceCapacity &&
-		!processingFence.isProcessing() &&
-		!meshData.processingFence.isProcessing();
+		faceCount <= meshData.getFaceCapacity() &&
+		!processingFence.isProcessing();// &&
+		//!meshData.processingFence.isProcessing();
 }
 
 // Function doesn't check for boundaries, it trusts the caller. On debug mode, it asserts.
@@ -642,6 +537,16 @@ void Chunk::setIsLoadedInWorld(bool value)
 	isLoadedInWorld.store(value, std::memory_order_release);
 }
 
+bool Chunk::getIsLoadedChunkColumnData() const
+{
+	return isLoadedChunkColumnData.load(std::memory_order_acquire);
+}
+
+void Chunk::setIsLoadedChunkColumnData(bool value)
+{
+	isLoadedChunkColumnData.store(value, std::memory_order_release);
+}
+
 void Chunk::sendMeshesToGPU()
 {
 	PROFILE_SCOPE("Send meshes to GPU", ProfileCategory::ChunkMesh);
@@ -664,7 +569,7 @@ void Chunk::sendMeshesToGPU()
 	{
 		ScopedProcessingFence scopedFence(meshData->processingFence);
 
-		glBindBuffer(GL_ARRAY_BUFFER, meshData->instanceVBO);
+		meshData->bindInstanceVBO();
 
 		// Allocating data for buffer
 		size_t faceCountSum = meshData->getFaceCountSum();
@@ -677,11 +582,6 @@ void Chunk::sendMeshesToGPU()
 
 		meshData->instances.clear();
 	}
-}
-
-const Chunk::MeshData& Chunk::getMeshData() const
-{
-	return meshData;
 }
 
 //============================================================================

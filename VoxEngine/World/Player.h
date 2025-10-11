@@ -1,6 +1,6 @@
 #pragma once
-#include "../WindowManager.h" // TODO: Should be removed, but needed for input
-#include "../Graphics/Camera.h"
+#include "WindowManager.h" // TODO: Should be removed, but needed for input
+#include "Graphics/Camera.h"
 
 class Player
 {
