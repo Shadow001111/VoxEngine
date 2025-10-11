@@ -145,12 +145,13 @@
   <ItemGroup>
     <ClCompile Include="Graphics\BlockTextureArray.cpp" />
     <ClCompile Include="Core\StringIndexer.cpp" />
+    <ClCompile Include="Core\Multithreading\ProcessingFence.cpp" />
     <ClCompile Include="World\BlockData.cpp" />
     <ClCompile Include="World\Chunk.cpp" />
     <ClCompile Include="Core\Int3.cpp" />
     <ClCompile Include="Core\Profiler.cpp" />
     <ClCompile Include="Core\Shapes.cpp" />
-    <ClCompile Include="Core\ThreadPool.cpp" />
+    <ClCompile Include="Core\Multithreading\ThreadPool.cpp" />
     <ClCompile Include="Core\Shapes\Box.cpp" />
     <ClCompile Include="Graphics\Frustum.cpp" />
     <ClCompile Include="Graphics\Camera.cpp" />
@@ -170,6 +171,7 @@
   <ItemGroup>
     <ClInclude Include="Graphics\BlockTextureArray.h" />
     <ClInclude Include="Core\StringIndexer.h" />
+    <ClInclude Include="Core\Multithreading\ProcessingFence.h" />
     <ClInclude Include="World\Block.h" />
     <ClInclude Include="World\BlockData.h" />
     <ClInclude Include="World\Chunk.h" />
@@ -177,7 +179,7 @@
     <ClInclude Include="Core\Int3.h" />
     <ClInclude Include="Core\Profiler.h" />
     <ClInclude Include="Core\Shapes.h" />
-    <ClInclude Include="Core\ThreadPool.h" />
+    <ClInclude Include="Core\Multithreading\ThreadPool.h" />
     <ClInclude Include="Core\Shapes\Box.h" />
     <ClInclude Include="Graphics\Frustum.h" />
     <ClInclude Include="Graphics\Camera.h" />

@@ -16,6 +16,7 @@ class World
 	class ChunkPool
 	{
 		std::vector<std::unique_ptr<Chunk>> pool;
+		std::vector<std::unique_ptr<Chunk>> processingChunks;
 	public:
 		ChunkPool() = default;
 		~ChunkPool() = default;

@@ -60,7 +60,7 @@
     <ClCompile Include="Core\Int2.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="Core\ThreadPool.cpp">
+    <ClCompile Include="Core\Multithreading\ThreadPool.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
     <ClCompile Include="Core\Shapes\Box.cpp">
@@ -82,6 +82,9 @@
       <Filter>Исходные файлы</Filter>
     </ClCompile>
     <ClCompile Include="Graphics\BlockTextureArray.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\Multithreading\ProcessingFence.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
   </ItemGroup>
@@ -134,7 +137,7 @@
     <ClInclude Include="Core\Int2.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="Core\ThreadPool.h">
+    <ClInclude Include="Core\Multithreading\ThreadPool.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Core\Shapes\Box.h">
@@ -156,6 +159,9 @@
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Graphics\BlockTextureArray.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\Multithreading\ProcessingFence.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
   </ItemGroup>

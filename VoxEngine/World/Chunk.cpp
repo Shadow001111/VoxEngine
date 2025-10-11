@@ -24,7 +24,7 @@ BlockFaceInstance::BlockFaceInstance(int x, int y, int z, int normal, int ao, in
 
 	// (17 bits left) Ambient occlusion 8 bits
 	data |= (ao & 255) << 15;
-
+	
 	// (9 bits left) Texture ID
 	data |= (textureID & 511) << 23;
 
@@ -138,9 +138,10 @@ size_t Chunk::getIndex(int x, int y, int z)
 
 Chunk::Chunk() :
 	position(0, 0, 0),
-	meshData(),
-	beingProcessed(false)
+	meshData()
 {
+	isLoadedInWorld = false;
+
 	// Neighbours are null
 	for (int i = 0; i < 6; i++)
 	{
@@ -196,7 +197,7 @@ void Chunk::destroy()
 		if (neighbor)
 		{
 			neighbor->neighbors[i ^ 1] = nullptr;
-			//neighbors[i] = nullptr; // No need to clean, we will set new ones in 'init' method
+			neighbors[i] = nullptr;
 		}
 	}
 
@@ -210,8 +211,12 @@ void Chunk::destroy()
 // Fills 'blocks' array
 void Chunk::buildBlocks()
 {
-	assert(!isBeingProcessed());
-	setIsBeingProcessed(true);
+	processingFence.startProcessing();
+
+	if (!getIsLoadedInWorld())
+	{
+		return;
+	}
 
 	const ChunkColumnData* chunkColumnData = TerrainGenerator::getInstance().loadChunkColumnData(position.x, position.z);
 	const int* heightMap = chunkColumnData->heightMapRead();
@@ -241,14 +246,19 @@ void Chunk::buildBlocks()
 		}
 	}
 
-	assert(isBeingProcessed());
-	setIsBeingProcessed(false);
+	processingFence.stopProcessing();
 }
 
 void Chunk::buildMesh()
 {
-	assert(!isBeingProcessed());
-	setIsBeingProcessed(true);
+	processingFence.startProcessing();
+
+	if (!getIsLoadedInWorld())
+	{
+		std::cout << "AAAA" << std::endl;
+		processingFence.stopProcessing();
+		return;
+	}
 
 	for (int i = 0; i < 6; i++)
 	{
@@ -316,6 +326,15 @@ void Chunk::buildMesh()
 		}
 	}
 
+	std::this_thread::sleep_for(std::chrono::milliseconds(20)); // Slowing down for testing
+
+	if (!getIsLoadedInWorld())
+	{
+		std::cout << "BBBB" << std::endl;
+		processingFence.stopProcessing();
+		return;
+	}
+
 	{
 		// TODO: Since we are gonna keep mesh in chunk all time in the future anyway, why not collecting meshes in main thread instead of sending them?
 		// Possibly will take less time, since no mutex locks
@@ -326,15 +345,14 @@ void Chunk::buildMesh()
 		pendingMeshUploads.push_back( &meshData );
 	}
 
-	assert(isBeingProcessed());
-	setIsBeingProcessed(false);
+	processingFence.stopProcessing();
 }
 
 void Chunk::render() const
 {
 	size_t faceCount = meshData.getFaceCountSum();
 
-	assert(faceCount > meshData.faceCapacity);
+	assert(faceCount <= meshData.faceCapacity);
 	
 	glBindVertexArray(meshData.vao);
 	glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, 4, faceCount);
@@ -589,14 +607,19 @@ void Chunk::setState(State newState)
 	state.store(newState, std::memory_order_release);
 }
 
-bool Chunk::isBeingProcessed() const
+bool Chunk::getIsProcessing() const
 {
-	return beingProcessed.load(std::memory_order_acquire);
+	return processingFence.isProcessing();
 }
 
-void Chunk::setIsBeingProcessed(bool value)
+bool Chunk::getIsLoadedInWorld() const
 {
-	beingProcessed.store(value, std::memory_order_release);
+	return isLoadedInWorld.load(std::memory_order_acquire);
+}
+
+void Chunk::setIsLoadedInWorld(bool value)
+{
+	isLoadedInWorld.store(value, std::memory_order_release);
 }
 
 void Chunk::sendMeshesToGPU()

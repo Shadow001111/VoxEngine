@@ -3,6 +3,7 @@
 #include "Metrics.h"
 
 #include "Int3.h"
+#include "Multithreading/ProcessingFence.h"
 
 #include <glad/glad.h>
 
@@ -62,9 +63,10 @@ private:
 	MeshData meshData;
 
 	std::atomic<State> state;
-	std::atomic<bool> beingProcessed;
+	ProcessingFence processingFence;
+	std::atomic<bool> isLoadedInWorld;
 
-	bool loadedChunkColumnData;
+	bool loadedChunkColumnData = false;
 
 	static size_t getIndex(int x, int y, int z);
 public:
@@ -107,10 +109,11 @@ public:
 	State getState() const;
 	void setState(State newState);
 
-	bool isBeingProcessed() const;
-private:
-	void setIsBeingProcessed(bool value);
-public:
+	bool getIsProcessing() const;
+
+	bool getIsLoadedInWorld() const;
+	void setIsLoadedInWorld(bool value);
+
 	// Static method to process all pending mesh uploads on main thread
 	static void sendMeshesToGPU();
 

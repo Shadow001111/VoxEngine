@@ -1,7 +1,7 @@
 #include "World.h"
 
 #include "Profiler.h"
-#include "ThreadPool.h"
+#include "Multithreading/ThreadPool.h"
 #include "TerrainGenerator.h"
 
 #include <iostream>
@@ -31,6 +31,8 @@ World::World()
 		PROFILE_SCOPE("Block texture array creation", ProfileCategory::General);
 		blockTextureArray = std::make_unique<BlockTextureArray>("res/Textures", blockTextureNames, 0, 16);
 		blockTextureArray->bind();
+
+		faceShader->use();
 		faceShader->setInt("blockTextures", blockTextureArray->getUnit());
 	}
 }
@@ -273,18 +275,7 @@ void World::unloadChunksOutsideRange(int renderDistance)
 		{
 			auto it = chunks.find(pos);
 
-			const Chunk* chunk = it->second.get();
-			Chunk::State state = chunk->getState();
-			bool isBeingProcessed = chunk->isBeingProcessed();
-
-			// TODO: Should stop processing chunk
-			// Maybe chunk pool shouldn't return processing chunk to the pool.
-			// It should store it to some vector, where it will be checked, it will be returned to the pool when done processing.
-			/*if (state != Chunk::State::Ready)
-			{
-				std::cout << (size_t)state << " " << isBeingProcessed << std::endl;
-			}*/
-
+			Chunk* chunk = it->second.get();
 			chunkPool.release(std::move(it->second));
 			chunks.erase(it);
 		}
@@ -313,6 +304,7 @@ void World::loadChunk(int chunkX, int chunkY, int chunkZ, std::vector<Chunk*>& c
 	// Create and initialize chunk
 	auto chunk = chunkPool.acquire();
 	chunk->init(chunkX, chunkY, chunkZ, neighbors);
+	chunk->setIsLoadedInWorld(true);
 
 	chunksToSend.push_back(chunk.get());
 
@@ -351,10 +343,21 @@ void World::startBuildingChunkBlocks()
 				// Build blocks in background thread
 				chunk->buildBlocks();
 
+				if (!chunk->getIsLoadedInWorld())
+				{
+					std::cout << "EEEE" << std::endl;
+					return;
+				}
+
 				// Mark as needing mesh
 				chunk->setState(Chunk::State::NeedsMesh);
 
 				std::lock_guard<std::mutex> lock(meshBuildMutex);
+				if (!chunk->getIsLoadedInWorld())
+				{
+					std::cout << "World::startBuildingChunkBlocks" << std::endl;
+					return;
+				}
 				meshBuildChunkContainer.insert(chunk);
 
 				for (int i = 0; i < 6; i++)
@@ -414,7 +417,12 @@ void World::startBuildingChunkMeshes()
 					// Build mesh in background thread (no OpenGL calls here)
 					chunk->buildMesh();
 
-					// Mark as chunk as Ready. His mesh can be not on the GPU yet.
+					if (!chunk->getIsLoadedInWorld())
+					{
+						std::cout << "CCCC" << std::endl;
+						return;
+					}
+
 					chunk->setState(Chunk::State::Ready);
 
 					// TODO: Issue: Chunk's mesh is flickering.
@@ -496,8 +504,20 @@ std::unique_ptr<Chunk> World::ChunkPool::acquire()
 
 void World::ChunkPool::release(std::unique_ptr<Chunk> chunk)
 {
-	chunk->destroy();
-	pool.push_back(std::move(chunk));
+	assert(chunk->getIsLoadedInWorld());
+	chunk->setIsLoadedInWorld(false);
+
+	if (chunk->getIsProcessing())
+	{
+		chunk->destroy();
+		processingChunks.push_back(std::move(chunk));
+		// TOOD: Return chunks to the pool
+	}
+	else
+	{
+		chunk->destroy();
+		pool.push_back(std::move(chunk));
+	}
 }
 
 //============================================================================
