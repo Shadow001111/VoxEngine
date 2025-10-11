@@ -11,8 +11,7 @@ std::mutex Chunk::meshUploadMutex;
 std::vector<MeshData*> Chunk::pendingMeshUploads;
 BlockTextureIDDatabase Chunk::blockTextureDatabase;
 
-
-size_t Chunk::getIndex(int x, int y, int z)
+inline size_t Chunk::getIndex(int x, int y, int z)
 {
 	return (x << 8) | (y << 4) | z;
 }
@@ -26,7 +25,7 @@ Chunk::~Chunk()
 	destroy(); // Just in case
 }
 
-bool Chunk::operator==(const Chunk& other) const
+inline bool Chunk::operator==(const Chunk& other) const
 {
 	return position == other.position;
 }
@@ -91,17 +90,10 @@ void Chunk::buildBlocks()
 	ScopedProcessingFence scopedFence(processingFence);
 	Profiler::endProfile();
 
-	if (!getIsLoadedInWorld())
-	{
-		return;
-	}
-
-	if (areBlocksBuilt.load(std::memory_order_acquire))
-	{
-		return;
-	}
-
-	if (isLoadedChunkColumnData.load(std::memory_order_acquire))
+	if (
+		areBlocksBuilt.load(std::memory_order_acquire) ||
+		!isLoadedInWorld.load(std::memory_order_acquire)
+	)
 	{
 		return;
 	}
@@ -143,7 +135,7 @@ void Chunk::buildMesh()
 	ScopedProcessingFence scopedFence(processingFence);
 	Profiler::endProfile();
 
-	if (!getIsLoadedInWorld())
+	if (!isLoadedInWorld.load(std::memory_order_acquire))
 	{
 		return;
 	}
@@ -171,6 +163,7 @@ void Chunk::buildMesh()
 					const auto& textureIDs = blockTextureDatabase.getBlockTextureIDs(block);
 
 					// TODO: Maybe use a loop for simplifying code?
+					
 					// -X
 					if (getBlock_checkSideNeighbor(x - 1, y, z, 0) == Block::Air)
 					{
@@ -233,7 +226,7 @@ void Chunk::buildMesh()
 	
 	//std::this_thread::sleep_for(std::chrono::milliseconds(10)); // Slowing down for testing
 
-	if (!getIsLoadedInWorld())
+	if (!isLoadedInWorld.load(std::memory_order_acquire))
 	{
 		return;
 	}

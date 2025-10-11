@@ -166,11 +166,9 @@ void World::render(const Camera& camera) const
 		faceShader->setFloat("fogGradient", visuals.fogGradient);
 	}
 
-	// TODO: Use ssbo for chunk's position. Maybe it's faster? Though takes much more memory.
-
 	std::vector<ChunkRenderInfo> chunksToRender;
 	{
-		PROFILE_SCOPE("Render: collect chunks", ProfileCategory::Render);
+		//PROFILE_SCOPE("Render: collect chunks", ProfileCategory::Render);
 
 		collectChunksToRender(chunksToRender, camera);
 
