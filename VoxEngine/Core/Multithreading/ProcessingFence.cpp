@@ -23,3 +23,15 @@ bool ProcessingFence::isProcessing() const noexcept
 {
     return processing.load(std::memory_order_acquire);
 }
+
+
+ScopedProcessingFence::ScopedProcessingFence(ProcessingFence& fence) :
+    fence(fence)
+{
+    fence.startProcessing();
+}
+
+ScopedProcessingFence::~ScopedProcessingFence()
+{
+    fence.stopProcessing();
+}

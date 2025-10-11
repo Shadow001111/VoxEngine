@@ -153,16 +153,20 @@ const char* Profiler::getCategoryName(ProfileCategory category)
 
 void Profiler::beginProfile(const char* profileName, ProfileCategory category)
 {
+#if PROFILING_ENABLED
     manualProfileName = std::string(profileName);
     manualProfileCategory = category;
     manualProfileStartTime = std::chrono::high_resolution_clock::now();
+#endif
 }
 
 void Profiler::endProfile()
 {
+#if PROFILING_ENABLED
     auto endTime = std::chrono::high_resolution_clock::now();
     double duration = std::chrono::duration<double, std::milli>(endTime - manualProfileStartTime).count();
     Profiler::addSample(manualProfileName, duration, manualProfileCategory);
+#endif
 }
 
 const Profiler::ProfileData* Profiler::getProfileData(const std::string& name)

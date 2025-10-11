@@ -75,11 +75,11 @@ public:
     ~ScopedProfiler();
 };
 
-#ifndef SCOPED_PROFILING_ENABLED
-#define SCOPED_PROFILING_ENABLED 1
+#ifndef PROFILING_ENABLED
+#define PROFILING_ENABLED 1
 #endif
 
-#if SCOPED_PROFILING_ENABLED
+#if PROFILING_ENABLED
     #define PROFILE_SCOPE(name, category) ScopedProfiler _prof(name, category)
 #else
     #define PROFILE_SCOPE(name) ((void)0)

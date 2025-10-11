@@ -211,7 +211,7 @@ void Chunk::destroy()
 // Fills 'blocks' array
 void Chunk::buildBlocks()
 {
-	processingFence.startProcessing();
+	ScopedProcessingFence scopedFence(processingFence);
 
 	if (!getIsLoadedInWorld())
 	{
@@ -245,18 +245,16 @@ void Chunk::buildBlocks()
 			}
 		}
 	}
-
-	processingFence.stopProcessing();
 }
 
 void Chunk::buildMesh()
 {
-	processingFence.startProcessing();
+	Profiler::st
+
+	ScopedProcessingFence scopedFence(processingFence);
 
 	if (!getIsLoadedInWorld())
 	{
-		std::cout << "AAAA" << std::endl;
-		processingFence.stopProcessing();
 		return;
 	}
 
@@ -330,8 +328,6 @@ void Chunk::buildMesh()
 
 	if (!getIsLoadedInWorld())
 	{
-		std::cout << "BBBB" << std::endl;
-		processingFence.stopProcessing();
 		return;
 	}
 
@@ -344,8 +340,6 @@ void Chunk::buildMesh()
 		std::lock_guard<std::mutex> lock(meshUploadMutex);
 		pendingMeshUploads.push_back( &meshData );
 	}
-
-	processingFence.stopProcessing();
 }
 
 void Chunk::render() const
