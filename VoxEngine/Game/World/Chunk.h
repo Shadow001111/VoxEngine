@@ -85,7 +85,6 @@ public:
 	bool getIsProcessing() const;
 
 	bool getIsLoadedInWorld() const;
-	void setIsLoadedInWorld(bool value);
 public:
 
 	// Static method to process all pending mesh uploads on main thread

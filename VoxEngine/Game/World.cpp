@@ -39,6 +39,43 @@ World::~World()
 {
 }
 
+void World::preparation(int renderDistance)
+{
+	if (renderDistance <= 0)
+	{
+		return;
+	}
+
+	int area = 0;
+	{
+		int P = 0;
+		int rsq = renderDistance * renderDistance;
+		for (int x = 1; x < renderDistance; x++)
+		{
+			P += (int)sqrtf(rsq - x * x);
+		}
+		area = (P + renderDistance) * 4 + 1;
+	}
+	int chunkCount = 0;
+	{
+		int P = 0;
+		int rsq = renderDistance * renderDistance;
+		for (int x = 1; x < renderDistance; x++)
+		{
+			int D1 = rsq - x * x;
+			int maxY = (int)sqrt(D1);
+			for (int y = 1; y <= maxY; y++)
+			{
+				P += (int)sqrtf(D1 - y * y);
+			}
+		}
+		chunkCount = P * 8 + (area - renderDistance * 2) * 3 - 2;
+	}
+
+	chunkPool.allocate(chunkCount + 10);
+	chunks.reserve(chunkCount + 10);
+}
+
 void World::loadChunksAroundPlayer(const Int3& chunkLoaderPos, int renderDistance)
 {
 	if (!firstLoad && lastChunkLoaderPos == chunkLoaderPos)
@@ -60,7 +97,6 @@ void World::loadChunksAroundPlayer(const Int3& chunkLoaderPos, int renderDistanc
 		PROFILE_SCOPE("Load chunks", ProfileCategory::ChunkLoadUnload);
 
 		int renderDistanceSquared = renderDistance * renderDistance;
-
 		for (int x = -renderDistance; x <= renderDistance; x++)
 		{
 			int chunkX = chunkLoaderPos.x + x;
@@ -88,6 +124,7 @@ void World::loadChunksAroundPlayer(const Int3& chunkLoaderPos, int renderDistanc
 	{
 		PROFILE_SCOPE("Send chunks to blocksBuildChunkContainer", ProfileCategory::ChunkBlocks);
 
+		// TODO: Maybe use vectors instead of unordered sets? Then I could use std::vector.insert to insert the whole vector.
 		std::lock_guard<std::mutex> lock(blocksBuildMutex);
 		for (Chunk* chunkPtr : chunksToSend)
 		{
@@ -273,9 +310,9 @@ void World::loadChunk(int chunkX, int chunkY, int chunkZ, std::vector<Chunk*>& c
 {
 	// Check if chunk already exists
 	Int3 chunkPosition = { chunkX, chunkY, chunkZ };
-    if (chunkExistsAt(chunkPosition))
-    {
-        return;
+	if (chunkExistsAt(chunkPosition))
+	{
+		return;
 	}
 
 	// Find existing neighbors
@@ -289,14 +326,10 @@ void World::loadChunk(int chunkX, int chunkY, int chunkZ, std::vector<Chunk*>& c
 	};
 
 	// Create and initialize chunk
-	auto chunk = chunkPool.acquire();
+	std::unique_ptr<Chunk> chunk = chunkPool.acquire();
 	chunk->init(chunkX, chunkY, chunkZ, neighbors);
-	chunk->setIsLoadedInWorld(true);
-	chunk->setState(Chunk::State::NeedsBlocks);
-
 	chunksToSend.push_back(chunk.get());
-
-	chunks.emplace(chunkPosition, std::move(chunk)); // Takes much time when many chunks are being loaded
+	chunks.emplace(chunkPosition, std::move(chunk));
 }
 
 void World::startBuildingChunkBlocks()

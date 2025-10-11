@@ -10,13 +10,22 @@ std::unique_ptr<Chunk> ChunkPool::acquire()
 		pool.pop_back();
 		return chunk;
 	}
+
+	{
+		size_t allocateCount = 10;
+		pool.reserve(pool.size() + allocateCount);
+		for (size_t i = 0; i < allocateCount; i++)
+		{
+			pool.push_back(std::make_unique<Chunk>());
+		}
+	}
+
 	return std::make_unique<Chunk>();
 }
 
 void ChunkPool::release(std::unique_ptr<Chunk> chunk)
 {
 	assert(chunk->getIsLoadedInWorld());
-	chunk->setIsLoadedInWorld(false);
 
 	chunk->destroy();
 
@@ -27,6 +36,16 @@ void ChunkPool::release(std::unique_ptr<Chunk> chunk)
 	else
 	{
 		pool.push_back(std::move(chunk));
+	}
+}
+
+void ChunkPool::allocate(size_t count)
+{
+	size_t poolSize = pool.size();
+	pool.reserve(poolSize + count);
+	for (size_t i = poolSize; i < count; i++)
+	{
+		pool.push_back(std::make_unique<Chunk>());
 	}
 }
 

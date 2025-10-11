@@ -35,6 +35,7 @@ int main()
 
         // World
         World world;
+        world.preparation(CHUNK_LOAD_DISTANCE);
 
         world.visuals.backgroundColor = { 0.52f, 0.8f, 0.92f }; // Sky color
         world.visuals.fogGradient = 5.0f;

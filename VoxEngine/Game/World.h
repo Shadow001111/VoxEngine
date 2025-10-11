@@ -52,6 +52,7 @@ public:
 	World(World&&) = delete;
 	World& operator=(World&&) = delete;
 
+	void preparation(int renderDistance);
 	void loadChunksAroundPlayer(const Int3& chunkLoaderPos, int renderDistance);
 	void update();
 	void render(const Camera& camera) const;

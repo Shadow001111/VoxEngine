@@ -49,6 +49,8 @@ void Chunk::init(int x, int y, int z, Chunk** neighbors)
 	}
 
 	// Reset
+	setState(Chunk::State::NeedsBlocks);
+	isLoadedInWorld.store(true, std::memory_order_release);
 	isLoadedChunkColumnData.store(false, std::memory_order_release);
 	areBlocksBuilt.store(false, std::memory_order_release); 
 
@@ -70,15 +72,16 @@ void Chunk::destroy()
 		}
 	}
 
+	//
+	isLoadedInWorld.store(false, std::memory_order_release);
+	meshData.instances.clear();
+
 	// Release chunk column data
 	if (isLoadedChunkColumnData.load(std::memory_order_acquire))
 	{
 		isLoadedChunkColumnData.store(false, std::memory_order_release);
 		TerrainGenerator::getInstance().unloadChunkColumnData(position.x, position.z);
 	}
-
-	//
-	meshData.instances.clear();
 }
 
 // Fills 'blocks' array
@@ -539,11 +542,6 @@ bool Chunk::getIsProcessing() const
 bool Chunk::getIsLoadedInWorld() const
 {
 	return isLoadedInWorld.load(std::memory_order_acquire);
-}
-
-void Chunk::setIsLoadedInWorld(bool value)
-{
-	isLoadedInWorld.store(value, std::memory_order_release);
 }
 
 void Chunk::sendMeshesToGPU()

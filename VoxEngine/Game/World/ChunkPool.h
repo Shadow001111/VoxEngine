@@ -20,6 +20,9 @@ public:
 	std::unique_ptr<Chunk> acquire();
 	void release(std::unique_ptr<Chunk> chunk);
 
+	// Allocates only if 'count' is bigger than pool size
+	void allocate(size_t count);
+
 	void returnProcessingChunksToPool();
 };
 

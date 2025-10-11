@@ -17,7 +17,8 @@ bool Int2::operator==(const Int2& other) const
 
 size_t Int2Hasher::operator()(const Int2& other) const
 {
-	size_t x = (size_t)other.x;
-	size_t y = (size_t)other.y;
-	return x | (y << 32);
+	constexpr size_t addConst = 0x9e3779b97f4a7c15;
+	size_t h = (size_t)other.x + addConst;
+	h ^=	   (size_t)other.y + addConst + (h << 6) + (h >> 2);
+	return h;
 }
