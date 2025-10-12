@@ -33,8 +33,6 @@ const int* ChunkColumnData::heightMapRead() const
 
 	std::unique_lock<std::mutex> lock(readDataMutex);
 	readDataCV.wait(lock, [this]() { return initialized; });
-
-	assert(initialized);
 	return heightMap;
 }
 

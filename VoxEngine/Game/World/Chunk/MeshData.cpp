@@ -33,9 +33,14 @@ MeshData::MeshData() :
 
 	// Instance buffer
 	glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+
 	glEnableVertexAttribArray(1);
 	glVertexAttribIPointer(1, 1, GL_INT, sizeof(BlockFaceInstance), (void*)0); // integer attribute
 	glVertexAttribDivisor(1, 1); // advance per instance
+
+	glEnableVertexAttribArray(2);
+	glVertexAttribIPointer(2, 1, GL_INT, sizeof(BlockFaceInstance), (void*)(offsetof(BlockFaceInstance, data2))); // integer attribute
+	glVertexAttribDivisor(2, 1); // advance per instance
 }
 
 MeshData::~MeshData()

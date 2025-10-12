@@ -51,7 +51,8 @@ void Chunk::init(int x, int y, int z, Chunk** neighbors)
 	setState(Chunk::State::NeedsBlocks);
 	isLoadedInWorld.store(true, std::memory_order_release);
 	isLoadedChunkColumnData.store(false, std::memory_order_release);
-	areBlocksBuilt.store(false, std::memory_order_release); 
+	areBlocksBuilt.store(false, std::memory_order_release);
+	isLightBuilt.store(false, std::memory_order_release);
 
 	assert(!meshData.processingFence.isProcessing());
 	meshData.ready = false;
@@ -129,6 +130,47 @@ void Chunk::buildBlocks()
 	areBlocksBuilt.store(true, std::memory_order_release);
 }
 
+void Chunk::buildLight()
+{
+	Profiler::beginProfile("Chunk build light: wait", ProfileCategory::ChunkLight);
+	ScopedProcessingFence scopedFence(processingFence);
+	Profiler::endProfile();
+
+	if (!isLoadedInWorld.load(std::memory_order_acquire))
+	{
+		return;
+	}
+	if (!areBlocksBuilt.load(std::memory_order_acquire))
+	{
+		return;
+	}
+
+	{
+		PROFILE_SCOPE("Chunk build light", ProfileCategory::ChunkLight);
+
+		for (int x = 0; x < CHUNK_SIZE; x++)
+		{
+			for (int y = 0; y < CHUNK_SIZE; y++)
+			{
+				for (int z = 0; z < CHUNK_SIZE; z++)
+				{
+					size_t index = getIndex(x, y, z);
+					if (blocks[index] == Block::Air)
+					{
+						light[index] = 15 << 4;
+					}
+					else
+					{
+						light[index] = 0;
+					}
+				}
+			}
+		}
+	}
+
+	isLightBuilt.store(true, std::memory_order_release);
+}
+
 void Chunk::buildMesh()
 {
 	Profiler::beginProfile("Build chunk mesh: wait", ProfileCategory::ChunkMesh);
@@ -136,6 +178,14 @@ void Chunk::buildMesh()
 	Profiler::endProfile();
 
 	if (!isLoadedInWorld.load(std::memory_order_acquire))
+	{
+		return;
+	}
+	if (!areBlocksBuilt.load(std::memory_order_acquire))
+	{
+		return;
+	}
+	if (!isLightBuilt.load(std::memory_order_acquire))
 	{
 		return;
 	}
@@ -162,43 +212,54 @@ void Chunk::buildMesh()
 					// TODO: Maybe should copy?
 					const auto& textureIDs = blockTextureDatabase.getBlockTextureIDs(block);
 
-					// TODO: Maybe use a loop for simplifying code?
-					
+					// I tried to do a loop, but it doubles the execution time
+
 					// -X
-					if (getBlock_checkSideNeighbor(x - 1, y, z, 0) == Block::Air)
+					std::pair<Block, uint8_t> blockAndLight = getBlockAndLight_checkSideNeighbor(x - 1, y, z, 0);
+					if (blockAndLight.first == Block::Air)
 					{
 						int ao = calculateFaceAO(x, y, z, 0);
-						instances[0].emplace_back(x, y, z, 0, ao, textureIDs.ids[0]);
+						instances[0].emplace_back(x, y, z, 0, ao, textureIDs.ids[0], blockAndLight.second);
 					}
+
 					// +X
-					if (getBlock_checkSideNeighbor(x + 1, y, z, 1) == Block::Air)
+					blockAndLight = getBlockAndLight_checkSideNeighbor(x + 1, y, z, 1);
+					if (blockAndLight.first == Block::Air)
 					{
 						int ao = calculateFaceAO(x, y, z, 1);
-						instances[1].emplace_back(x, y, z, 1, ao, textureIDs.ids[1]);
+						instances[1].emplace_back(x, y, z, 1, ao, textureIDs.ids[1], blockAndLight.second);
 					}
+
 					// -Y
-					if (getBlock_checkSideNeighbor(x, y - 1, z, 2) == Block::Air)
+					blockAndLight = getBlockAndLight_checkSideNeighbor(x, y - 1, z, 2);
+					if (blockAndLight.first == Block::Air)
 					{
 						int ao = calculateFaceAO(x, y, z, 2);
-						instances[2].emplace_back(x, y, z, 2, ao, textureIDs.ids[2]);
+						instances[2].emplace_back(x, y, z, 2, ao, textureIDs.ids[2], blockAndLight.second);
 					}
+
 					// +Y
-					if (getBlock_checkSideNeighbor(x, y + 1, z, 3) == Block::Air)
+					blockAndLight = getBlockAndLight_checkSideNeighbor(x, y + 1, z, 3);
+					if (blockAndLight.first == Block::Air)
 					{
 						int ao = calculateFaceAO(x, y, z, 3);
-						instances[3].emplace_back(x, y, z, 3, ao, textureIDs.ids[3]);
+						instances[3].emplace_back(x, y, z, 3, ao, textureIDs.ids[3], blockAndLight.second);
 					}
+
 					// -Z
-					if (getBlock_checkSideNeighbor(x, y, z - 1, 4) == Block::Air)
+					blockAndLight = getBlockAndLight_checkSideNeighbor(x, y, z - 1, 4);
+					if (blockAndLight.first == Block::Air)
 					{
 						int ao = calculateFaceAO(x, y, z, 4);
-						instances[4].emplace_back(x, y, z, 4, ao, textureIDs.ids[4]);
+						instances[4].emplace_back(x, y, z, 4, ao, textureIDs.ids[4], blockAndLight.second);
 					}
+
 					// +Z
-					if (getBlock_checkSideNeighbor(x, y, z + 1, 5) == Block::Air)
+					blockAndLight = getBlockAndLight_checkSideNeighbor(x, y, z + 1, 5);
+					if (blockAndLight.first == Block::Air)
 					{
 						int ao = calculateFaceAO(x, y, z, 5);
-						instances[5].emplace_back(x, y, z, 5, ao, textureIDs.ids[5]);
+						instances[5].emplace_back(x, y, z, 5, ao, textureIDs.ids[5], blockAndLight.second);
 					}
 				}
 			}
@@ -223,8 +284,6 @@ void Chunk::buildMesh()
 			meshData.instances.insert(meshData.instances.end(), vectorToInsert.begin(), vectorToInsert.end());
 		}
 	}
-	
-	//std::this_thread::sleep_for(std::chrono::milliseconds(10)); // Slowing down for testing
 
 	if (!isLoadedInWorld.load(std::memory_order_acquire))
 	{
@@ -296,33 +355,6 @@ Block Chunk::getBlock_checkSideNeighbor(int x, int y, int z, int side) const
 	return Block::Air;
 }
 
-// Function checks neighbors, if out of boundaries. Handles only 6 neighbors.
-Block Chunk::getBlock_checkNeighbors(int x, int y, int z) const
-{
-	int nx = x & CHUNK_UPPER_BITS_MASK;
-	int ny = y & CHUNK_UPPER_BITS_MASK;
-	int nz = z & CHUNK_UPPER_BITS_MASK;
-
-	if (nx == 0 && ny == 0 && nz == 0)
-	{
-		return blocks[getIndex(x, y, z)];
-	}
-
-	const Chunk* neighbor = nullptr;
-	if (nx < 0) neighbor = neighbors[0]; // -X
-	else if (nx > 0) neighbor = neighbors[1]; // +X
-	else if (ny < 0) neighbor = neighbors[2]; // -Y
-	else if (ny > 0) neighbor = neighbors[3]; // +Y
-	else if (nz < 0) neighbor = neighbors[4]; // -Z
-	else if (nz > 0) neighbor = neighbors[5]; // +Z
-
-	if (neighbor)
-	{
-		return neighbor->getBlock_inBoundaries(x & CHUNK_LOWER_BITS_MASK, y & CHUNK_LOWER_BITS_MASK, z & CHUNK_LOWER_BITS_MASK);
-	}
-	return Block::Air;
-}
-
 // Function checks neighbors, if out of boundaries. Handles diagonal neighbors too.
 Block Chunk::getBlock_checkNeighborsTraverse(int x, int y, int z) const
 {
@@ -372,6 +404,156 @@ Block Chunk::getBlock_checkNeighborsTraverse(int x, int y, int z) const
 	int localZ = z & CHUNK_LOWER_BITS_MASK;
 
 	return neighbor->getBlock_inBoundaries(localX, localY, localZ);
+}
+
+uint8_t Chunk::getLight_inBoundaries(int x, int y, int z) const
+{
+	assert(x >= 0 && x < CHUNK_SIZE);
+	assert(y >= 0 && y < CHUNK_SIZE);
+	assert(z >= 0 && z < CHUNK_SIZE);
+	return light[getIndex(x, y, z)];
+}
+
+uint8_t Chunk::getLight_checkSideNeighbor(int x, int y, int z, int side) const
+{
+	int nx = x & CHUNK_UPPER_BITS_MASK;
+	int ny = y & CHUNK_UPPER_BITS_MASK;
+	int nz = z & CHUNK_UPPER_BITS_MASK;
+
+	if (nx == 0 && ny == 0 && nz == 0)
+	{
+		return light[getIndex(x, y, z)];
+	}
+
+	const Chunk* neighbor = neighbors[side];
+	if (neighbor)
+	{
+		return neighbor->getLight_inBoundaries(x & CHUNK_LOWER_BITS_MASK, y & CHUNK_LOWER_BITS_MASK, z & CHUNK_LOWER_BITS_MASK);
+	}
+	return 15 << 4;
+}
+
+uint8_t Chunk::getLight_checkNeighborsTraverse(int x, int y, int z) const
+{
+	int nx = x & CHUNK_UPPER_BITS_MASK;
+	int ny = y & CHUNK_UPPER_BITS_MASK;
+	int nz = z & CHUNK_UPPER_BITS_MASK;
+
+	// If within current chunk bounds
+	if (nx == 0 && ny == 0 && nz == 0)
+	{
+		return light[getIndex(x, y, z)];
+	}
+
+	// Determine which direction(s) we need to traverse
+	int dirX = (nx < 0) ? 0 : ((nx > 0) ? 1 : -1); // -1 means no X traversal
+	int dirY = (ny < 0) ? 2 : ((ny > 0) ? 3 : -1); // -1 means no Y traversal
+	int dirZ = (nz < 0) ? 4 : ((nz > 0) ? 5 : -1); // -1 means no Z traversal
+
+	const Chunk* neighbor = this;
+
+	// Traverse in X direction first
+	if (dirX != -1)
+	{
+		neighbor = neighbor->neighbors[dirX];
+		if (!neighbor) return 15 << 4;
+	}
+
+	// Then traverse in Y direction
+	if (dirY != -1)
+	{
+		neighbor = neighbor->neighbors[dirY];
+		if (!neighbor) return 15 << 4;
+	}
+
+	// Finally traverse in Z direction
+	if (dirZ != -1)
+	{
+		neighbor = neighbor->neighbors[dirZ];
+		if (!neighbor) return 15 << 4;
+	}
+
+	// Get local coordinates in the final neighbor chunk
+	int localX = x & CHUNK_LOWER_BITS_MASK;
+	int localY = y & CHUNK_LOWER_BITS_MASK;
+	int localZ = z & CHUNK_LOWER_BITS_MASK;
+
+	return neighbor->getLight_inBoundaries(localX, localY, localZ);
+}
+
+std::pair<Block, uint8_t> Chunk::getBlockAndLight_inBoundaries(int x, int y, int z) const
+{
+	assert(x >= 0 && x < CHUNK_SIZE);
+	assert(y >= 0 && y < CHUNK_SIZE);
+	assert(z >= 0 && z < CHUNK_SIZE);
+	return std::make_pair(blocks[getIndex(x, y, z)], light[getIndex(x, y, z)]);
+}
+
+std::pair<Block, uint8_t> Chunk::getBlockAndLight_checkSideNeighbor(int x, int y, int z, int side) const
+{
+	int nx = x & CHUNK_UPPER_BITS_MASK;
+	int ny = y & CHUNK_UPPER_BITS_MASK;
+	int nz = z & CHUNK_UPPER_BITS_MASK;
+
+	if (nx == 0 && ny == 0 && nz == 0)
+	{
+		return std::make_pair(blocks[getIndex(x, y, z)], light[getIndex(x, y, z)]);
+	}
+
+	const Chunk* neighbor = neighbors[side];
+	if (neighbor)
+	{
+		return neighbor->getBlockAndLight_inBoundaries(x & CHUNK_LOWER_BITS_MASK, y & CHUNK_LOWER_BITS_MASK, z & CHUNK_LOWER_BITS_MASK);
+	}
+	return std::make_pair(Block::Air, 15 << 4);
+}
+
+std::pair<Block, uint8_t> Chunk::getBlockAndLight_checkNeighborsTraverse(int x, int y, int z) const
+{
+	int nx = x & CHUNK_UPPER_BITS_MASK;
+	int ny = y & CHUNK_UPPER_BITS_MASK;
+	int nz = z & CHUNK_UPPER_BITS_MASK;
+
+	// If within current chunk bounds
+	if (nx == 0 && ny == 0 && nz == 0)
+	{
+		return std::make_pair(blocks[getIndex(x, y, z)], light[getIndex(x, y, z)]);
+	}
+
+	// Determine which direction(s) we need to traverse
+	int dirX = (nx < 0) ? 0 : ((nx > 0) ? 1 : -1); // -1 means no X traversal
+	int dirY = (ny < 0) ? 2 : ((ny > 0) ? 3 : -1); // -1 means no Y traversal
+	int dirZ = (nz < 0) ? 4 : ((nz > 0) ? 5 : -1); // -1 means no Z traversal
+
+	const Chunk* neighbor = this;
+
+	// Traverse in X direction first
+	if (dirX != -1)
+	{
+		neighbor = neighbor->neighbors[dirX];
+		if (!neighbor) return std::make_pair(Block::Air, 15 << 4);
+	}
+
+	// Then traverse in Y direction
+	if (dirY != -1)
+	{
+		neighbor = neighbor->neighbors[dirY];
+		if (!neighbor) return std::make_pair(Block::Air, 15 << 4);
+	}
+
+	// Finally traverse in Z direction
+	if (dirZ != -1)
+	{
+		neighbor = neighbor->neighbors[dirZ];
+		if (!neighbor) return std::make_pair(Block::Air, 15 << 4);
+	}
+
+	// Get local coordinates in the final neighbor chunk
+	int localX = x & CHUNK_LOWER_BITS_MASK;
+	int localY = y & CHUNK_LOWER_BITS_MASK;
+	int localZ = z & CHUNK_LOWER_BITS_MASK;
+
+	return neighbor->getBlockAndLight_inBoundaries(localX, localY, localZ);
 }
 
 int Chunk::calculateVertexAO(bool side1, bool side2, bool corner) const

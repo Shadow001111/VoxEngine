@@ -12,6 +12,7 @@ enum class ProfileCategory
     Render,
     ChunkLoadUnload,
     ChunkBlocks,
+    ChunkLight,
     ChunkMesh,
     ChunkColumnData,
     TerrainGeneration,

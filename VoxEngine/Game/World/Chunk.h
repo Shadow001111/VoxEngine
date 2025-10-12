@@ -18,8 +18,13 @@ public:
 	{
 		NeedsBlocks = 0,
 		BuildingBlocks,
+
+		NeedsLight,
+		BuildingLight,
+
 		NeedsMesh,
 		BuildingMesh,
+
 		Ready
 	};
 private:
@@ -32,8 +37,10 @@ private:
 	std::atomic<bool> isLoadedInWorld{ false };
 	std::atomic<bool> isLoadedChunkColumnData { false };
 	std::atomic<bool> areBlocksBuilt{ false };
+	std::atomic<bool> isLightBuilt{ false };
 
 	Block blocks[CHUNK_VOLUME];
+	uint8_t light[CHUNK_VOLUME];
 
 	MeshData meshData;
 	ProcessingFence processingFence;
@@ -58,6 +65,7 @@ public:
 	void destroy();
 
 	void buildBlocks();
+	void buildLight();
 	void buildMesh();
 
 	void render() const;
@@ -65,8 +73,15 @@ public:
 
 	Block getBlock_inBoundaries(int x, int y, int z) const;
 	Block getBlock_checkSideNeighbor(int x, int y, int z, int side) const;
-	Block getBlock_checkNeighbors(int x, int y, int z) const;
 	Block getBlock_checkNeighborsTraverse(int x, int y, int z) const;
+
+	uint8_t getLight_inBoundaries(int x, int y, int z) const;
+	uint8_t getLight_checkSideNeighbor(int x, int y, int z, int side) const;
+	uint8_t getLight_checkNeighborsTraverse(int x, int y, int z) const;
+
+	std::pair<Block, uint8_t> getBlockAndLight_inBoundaries(int x, int y, int z) const;
+	std::pair<Block, uint8_t> getBlockAndLight_checkSideNeighbor(int x, int y, int z, int side) const;
+	std::pair<Block, uint8_t> getBlockAndLight_checkNeighborsTraverse(int x, int y, int z) const;
 private:
 	int calculateVertexAO(bool side1, bool side2, bool corner) const;
 	int calculateFaceAO(int x, int y, int z, int normal) const;

@@ -129,6 +129,7 @@ const char* Profiler::getCategoryColor(ProfileCategory category)
     case ProfileCategory::Render:               return ProfilerColors::RED.c_str();
     case ProfileCategory::ChunkLoadUnload:      return ProfilerColors::YELLOW.c_str();
     case ProfileCategory::ChunkBlocks:          return ProfilerColors::GREEN.c_str();
+    case ProfileCategory::ChunkLight:           return ProfilerColors::BRIGHT_RED.c_str();
     case ProfileCategory::ChunkMesh:            return ProfilerColors::CYAN.c_str();
     case ProfileCategory::TerrainGeneration:    return ProfilerColors::MAGENTA.c_str();
     case ProfileCategory::ChunkColumnData:      return ProfilerColors::BLUE.c_str();
@@ -144,6 +145,7 @@ const char* Profiler::getCategoryName(ProfileCategory category)
     case ProfileCategory::Render: return "Render";
     case ProfileCategory::ChunkLoadUnload: return "Chunk Load/Unload";
     case ProfileCategory::ChunkBlocks: return "Chunk Blocks";
+    case ProfileCategory::ChunkLight: return "Chunk Light";
     case ProfileCategory::ChunkMesh: return "Chunk Mesh";
     case ProfileCategory::TerrainGeneration: return "Terrain Generation";
     case ProfileCategory::ChunkColumnData: return "ChunkColumnData";

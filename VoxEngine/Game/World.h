@@ -26,11 +26,11 @@ class World
 	ChunkPool chunkPool;
 	std::unordered_map<Int3, std::unique_ptr<Chunk>, Int3Hasher> chunks;
 	
-	std::mutex blocksBuildMutex;
-	std::unordered_set<Chunk*> blocksBuildChunkContainer;
+	std::unordered_set<Chunk*> buildBlocksContainer;
+	std::mutex buildBlocksMutex;
 	
-	std::mutex meshBuildMutex;
-	std::unordered_set<Chunk*> meshBuildChunkContainer;
+	std::unordered_set<Chunk*> buildMeshContainer;
+	std::mutex buildMeshMutex;
 
 	Int3 lastChunkLoaderPos;
 	bool firstLoad = true;
