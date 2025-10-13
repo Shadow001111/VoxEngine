@@ -82,6 +82,15 @@ void Chunk::destroy()
 		isLoadedChunkColumnData.store(false, std::memory_order_release);
 		TerrainGenerator::getInstance().unloadChunkColumnData(position.x, position.z);
 	}
+
+	//
+	{
+		std::lock_guard<std::mutex> lock(lightMutex);
+		while (!lightQueue.empty())
+		{
+			lightQueue.pop();
+		}
+	}
 }
 
 // Fills 'blocks' array
@@ -125,6 +134,8 @@ void Chunk::buildBlocks()
 				}
 			}
 		}
+
+		blocks[getIndex(7, 7, 7)] = Block::GlowStone;
 	}
 
 	areBlocksBuilt.store(true, std::memory_order_release);
@@ -136,17 +147,26 @@ void Chunk::buildLight()
 	ScopedProcessingFence scopedFence(processingFence);
 	Profiler::endProfile();
 
-	if (!isLoadedInWorld.load(std::memory_order_acquire))
-	{
-		return;
-	}
-	if (!areBlocksBuilt.load(std::memory_order_acquire))
+	if (
+		!isLoadedInWorld.load(std::memory_order_acquire) ||
+		!areBlocksBuilt.load(std::memory_order_acquire)
+		)
 	{
 		return;
 	}
 
+	//
+	const int dx[] = { -1, 1, 0, 0, 0, 0 };
+	const int dy[] = { 0, 0, -1, 1, 0, 0 };
+	const int dz[] = { 0, 0, 0, 0, -1, 1 };
+
+	// Initialize all light values to 0
+	std::fill(std::begin(light), std::end(light), 0);
+
+	// Step 1: Collect light sources
+	std::queue<LightNode> localLightQueue;
 	{
-		PROFILE_SCOPE("Chunk build light", ProfileCategory::ChunkLight);
+		PROFILE_SCOPE("Chunk build light: Collect light sources", ProfileCategory::ChunkLight);
 
 		for (int x = 0; x < CHUNK_SIZE; x++)
 		{
@@ -155,14 +175,142 @@ void Chunk::buildLight()
 				for (int z = 0; z < CHUNK_SIZE; z++)
 				{
 					size_t index = getIndex(x, y, z);
-					if (blocks[index] == Block::Air)
+
+					Block currentBlock = blocks[index];
+					const BlockData* currentBlockData = BlockDataBase::getBlockData(currentBlock);
+
+					uint8_t emission = currentBlockData->lightEmission;
+					if (emission == 0)
 					{
-						light[index] = 15 << 4;
+						continue;
 					}
-					else
+
+					if (currentBlockData->hasTransparentFaces)
 					{
-						light[index] = 0;
+						localLightQueue.emplace(x, y, z, emission, -1);
 					}
+
+					for (int i = 0; i < 6; i++)
+					{
+						int nx = x + dx[i];
+						int ny = y + dy[i];
+						int nz = z + dz[i];
+
+						if ((nx & CHUNK_UPPER_BITS_MASK) == 0 &&
+							(ny & CHUNK_UPPER_BITS_MASK) == 0 &&
+							(nz & CHUNK_UPPER_BITS_MASK) == 0)
+						{
+							localLightQueue.emplace(nx, ny, nz, emission, i);
+						}
+						else
+						{
+							Chunk* neighbor = neighbors[i];
+							if (neighbor == nullptr)
+							{
+								continue;
+							}
+
+							int neighborLocalX = nx & CHUNK_LOWER_BITS_MASK;
+							int neighborLocalY = ny & CHUNK_LOWER_BITS_MASK;
+							int neighborLocalZ = nz & CHUNK_LOWER_BITS_MASK;
+
+							neighbor->addNodeToLightQueue(neighborLocalX, neighborLocalY, neighborLocalZ, emission, i);
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Step 2: Propagate light using flood-fill
+	{
+		PROFILE_SCOPE("Chunk build light: Flood-fill", ProfileCategory::ChunkLight);
+
+		while (!localLightQueue.empty())
+		{
+			auto data = localLightQueue.front();
+			localLightQueue.pop();
+
+			// Get node data
+			int x = data.x;
+			int y = data.y;
+			int z = data.z;
+			uint8_t blockLight = data.lightLevel;
+			int8_t propagationSide = data.propagationSide;
+
+			// Get block data
+			size_t index = getIndex(x, y, z);
+			Block block = blocks[index];
+			const BlockData* blockData = BlockDataBase::getBlockData(block);
+
+			uint8_t lightAbsorption = blockData->lightAbsorption;
+			assert(lightAbsorption > 0);
+
+			// Calculate new light
+			uint8_t newLight;
+			if (propagationSide == -1)
+			{
+				newLight = blockLight;
+			}
+			else
+			{
+				newLight = blockLight > lightAbsorption ? blockLight - lightAbsorption : 0;
+			}
+
+			if (newLight == 0)
+			{
+				continue;
+			}
+
+			// Get current light
+			uint8_t currentLight = light[index];
+
+			// Compare light values
+			if (newLight <= currentLight)
+			{
+				continue;
+			}
+
+			// Store new value
+			light[index] = newLight;
+
+			// Early exit, because spreading light value of 1 will do nothing
+			if (newLight == 1)
+			{
+				continue;
+			}
+
+			// Propagate to 6 neighbors
+			for (int i = 0; i < 6; i++)
+			{
+				if (i == (propagationSide ^ 1))
+				{
+					continue;
+				}
+
+				int nx = x + dx[i];
+				int ny = y + dy[i];
+				int nz = z + dz[i];
+
+				if ((nx & CHUNK_UPPER_BITS_MASK) == 0 &&
+					(ny & CHUNK_UPPER_BITS_MASK) == 0 &&
+					(nz & CHUNK_UPPER_BITS_MASK) == 0)
+				{
+					localLightQueue.emplace(nx, ny, nz, newLight, i);
+				}
+				else
+				{
+					Chunk* neighbor = neighbors[i];
+					if (neighbor == nullptr)
+					{
+						continue;
+					}
+
+					int neighborLocalX = nx & CHUNK_LOWER_BITS_MASK;
+					int neighborLocalY = ny & CHUNK_LOWER_BITS_MASK;
+					int neighborLocalZ = nz & CHUNK_LOWER_BITS_MASK;
+
+					neighbor->addNodeToLightQueue(neighborLocalX, neighborLocalY, neighborLocalZ, newLight, i);
 				}
 			}
 		}
@@ -177,15 +325,11 @@ void Chunk::buildMesh()
 	ScopedProcessingFence scopedFence(processingFence);
 	Profiler::endProfile();
 
-	if (!isLoadedInWorld.load(std::memory_order_acquire))
-	{
-		return;
-	}
-	if (!areBlocksBuilt.load(std::memory_order_acquire))
-	{
-		return;
-	}
-	if (!isLightBuilt.load(std::memory_order_acquire))
+	if (
+		!isLoadedInWorld.load(std::memory_order_acquire) ||
+		!areBlocksBuilt.load(std::memory_order_acquire) ||
+		!isLightBuilt.load(std::memory_order_acquire)
+		)
 	{
 		return;
 	}
@@ -216,7 +360,8 @@ void Chunk::buildMesh()
 
 					// -X
 					std::pair<Block, uint8_t> blockAndLight = getBlockAndLight_checkSideNeighbor(x - 1, y, z, 0);
-					if (blockAndLight.first == Block::Air)
+					const BlockData* blockData = BlockDataBase::getBlockData(blockAndLight.first);
+					if (blockData->hasTransparentFaces && block != blockAndLight.first)
 					{
 						int ao = calculateFaceAO(x, y, z, 0);
 						instances[0].emplace_back(x, y, z, 0, ao, textureIDs.ids[0], blockAndLight.second);
@@ -224,7 +369,8 @@ void Chunk::buildMesh()
 
 					// +X
 					blockAndLight = getBlockAndLight_checkSideNeighbor(x + 1, y, z, 1);
-					if (blockAndLight.first == Block::Air)
+					blockData = BlockDataBase::getBlockData(blockAndLight.first);
+					if (blockData->hasTransparentFaces && block != blockAndLight.first)
 					{
 						int ao = calculateFaceAO(x, y, z, 1);
 						instances[1].emplace_back(x, y, z, 1, ao, textureIDs.ids[1], blockAndLight.second);
@@ -232,7 +378,8 @@ void Chunk::buildMesh()
 
 					// -Y
 					blockAndLight = getBlockAndLight_checkSideNeighbor(x, y - 1, z, 2);
-					if (blockAndLight.first == Block::Air)
+					blockData = BlockDataBase::getBlockData(blockAndLight.first);
+					if (blockData->hasTransparentFaces && block != blockAndLight.first)
 					{
 						int ao = calculateFaceAO(x, y, z, 2);
 						instances[2].emplace_back(x, y, z, 2, ao, textureIDs.ids[2], blockAndLight.second);
@@ -240,7 +387,8 @@ void Chunk::buildMesh()
 
 					// +Y
 					blockAndLight = getBlockAndLight_checkSideNeighbor(x, y + 1, z, 3);
-					if (blockAndLight.first == Block::Air)
+					blockData = BlockDataBase::getBlockData(blockAndLight.first);
+					if (blockData->hasTransparentFaces && block != blockAndLight.first)
 					{
 						int ao = calculateFaceAO(x, y, z, 3);
 						instances[3].emplace_back(x, y, z, 3, ao, textureIDs.ids[3], blockAndLight.second);
@@ -248,7 +396,8 @@ void Chunk::buildMesh()
 
 					// -Z
 					blockAndLight = getBlockAndLight_checkSideNeighbor(x, y, z - 1, 4);
-					if (blockAndLight.first == Block::Air)
+					blockData = BlockDataBase::getBlockData(blockAndLight.first);
+					if (blockData->hasTransparentFaces && block != blockAndLight.first)
 					{
 						int ao = calculateFaceAO(x, y, z, 4);
 						instances[4].emplace_back(x, y, z, 4, ao, textureIDs.ids[4], blockAndLight.second);
@@ -256,7 +405,8 @@ void Chunk::buildMesh()
 
 					// +Z
 					blockAndLight = getBlockAndLight_checkSideNeighbor(x, y, z + 1, 5);
-					if (blockAndLight.first == Block::Air)
+					blockData = BlockDataBase::getBlockData(blockAndLight.first);
+					if (blockData->hasTransparentFaces && block != blockAndLight.first)
 					{
 						int ao = calculateFaceAO(x, y, z, 5);
 						instances[5].emplace_back(x, y, z, 5, ao, textureIDs.ids[5], blockAndLight.second);
@@ -406,6 +556,14 @@ Block Chunk::getBlock_checkNeighborsTraverse(int x, int y, int z) const
 	return neighbor->getBlock_inBoundaries(localX, localY, localZ);
 }
 
+void Chunk::setBlock_inBoundaries(int x, int y, int z, Block block)
+{
+	assert(x >= 0 && x < CHUNK_SIZE);
+	assert(y >= 0 && y < CHUNK_SIZE);
+	assert(z >= 0 && z < CHUNK_SIZE);
+	blocks[getIndex(x, y, z)] = block;
+}
+
 uint8_t Chunk::getLight_inBoundaries(int x, int y, int z) const
 {
 	assert(x >= 0 && x < CHUNK_SIZE);
@@ -481,6 +639,14 @@ uint8_t Chunk::getLight_checkNeighborsTraverse(int x, int y, int z) const
 	return neighbor->getLight_inBoundaries(localX, localY, localZ);
 }
 
+void Chunk::setLight_inBoundaries(int x, int y, int z, uint8_t lightValue)
+{
+	assert(x >= 0 && x < CHUNK_SIZE);
+	assert(y >= 0 && y < CHUNK_SIZE);
+	assert(z >= 0 && z < CHUNK_SIZE);
+	light[getIndex(x, y, z)] = lightValue;
+}
+
 std::pair<Block, uint8_t> Chunk::getBlockAndLight_inBoundaries(int x, int y, int z) const
 {
 	assert(x >= 0 && x < CHUNK_SIZE);
@@ -554,6 +720,12 @@ std::pair<Block, uint8_t> Chunk::getBlockAndLight_checkNeighborsTraverse(int x, 
 	int localZ = z & CHUNK_LOWER_BITS_MASK;
 
 	return neighbor->getBlockAndLight_inBoundaries(localX, localY, localZ);
+}
+
+void Chunk::addNodeToLightQueue(int x, int y, int z, uint8_t lightLevel, int8_t propagationSide)
+{
+	std::lock_guard<std::mutex> lock(lightMutex);
+	lightQueue.emplace(x, y, z, lightLevel, propagationSide);
 }
 
 int Chunk::calculateVertexAO(bool side1, bool side2, bool corner) const
@@ -757,3 +929,8 @@ void Chunk::sendMeshesToGPU()
 }
 
 //============================================================================
+
+LightNode::LightNode(int x, int y, int z, uint8_t lightLevel, int8_t propagationSide) :
+	x(x), y(y), z(z), lightLevel(lightLevel), propagationSide(propagationSide)
+{
+}

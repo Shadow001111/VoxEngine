@@ -142,6 +142,11 @@ void World::update()
 		startBuildingChunkBlocks();
 	}
 
+	if (!buildLightContainer.empty())
+	{
+		startBuildingChunkLight();
+	}
+
 	if (!buildMeshContainer.empty())
 	{
 		startBuildingChunkMeshes();
@@ -367,9 +372,94 @@ void World::startBuildingChunkBlocks()
 						return;
 					}
 
-					chunk->setState(Chunk::State::BuildingLight); // Skip NeedsLight state
+					chunk->setState(Chunk::State::NeedsLight);
 
+					{
+						std::lock_guard<std::mutex> lock(buildLightMutex);
+						buildLightContainer.insert(chunk);
+					}
+
+					/*for (int i = 0; i < 6; i++)
+					{
+						Chunk* neighbor = chunk->neighbors[i];
+						if (neighbor && neighbor->getState() == Chunk::State::NeedsLight)
+						{
+							std::lock_guard<std::mutex> lock(buildLightMutex);
+							buildLightContainer.insert(neighbor);
+						}
+					}*/
+				});
+		}
+	}
+}
+
+void World::startBuildingChunkLight()
+{
+	// Collect chunks that are ready for light building
+	std::vector<Chunk*> chunksToProcess;
+	{
+		PROFILE_SCOPE("Collect chunks for building light", ProfileCategory::ChunkLight);
+
+		std::lock_guard<std::mutex> lock(buildLightMutex);
+		if (buildLightContainer.empty())
+		{
+			return;
+		}
+
+		std::unordered_set<Chunk*> remainingChunks;
+		remainingChunks.reserve(buildLightContainer.size());
+
+		chunksToProcess.reserve(buildLightContainer.size());
+		for (Chunk* chunk : buildLightContainer)
+		{
+			if (chunk->getState() != Chunk::State::NeedsLight)
+			{
+				continue;
+			}
+
+			// Check if all neighbors have blocks built
+			bool allNeighborsReady = true;
+			for (int i = 0; i < 6; i++)
+			{
+				Chunk* neighbor = chunk->neighbors[i];
+				if (neighbor)
+				{
+					Chunk::State neighborState = neighbor->getState();
+					if (neighborState == Chunk::State::NeedsBlocks ||
+						neighborState == Chunk::State::BuildingBlocks)
+					{
+						allNeighborsReady = false;
+						break;
+					}
+				}
+			}
+
+			if (allNeighborsReady)
+			{
+				chunk->setState(Chunk::State::BuildingLight);
+				chunksToProcess.push_back(chunk);
+			}
+			else
+			{
+				// Keep in container, waiting for neighbors
+				remainingChunks.insert(chunk);
+			}
+		}
+
+		buildLightContainer.swap(remainingChunks);
+	}
+
+	// Submit chunks to thread pool
+	{
+		PROFILE_SCOPE("Send chunks to building light", ProfileCategory::ChunkLight);
+
+		ThreadPool& pool = ParallelUtils::getGlobalThreadPool();
+		for (Chunk* chunk : chunksToProcess)
+		{
+			pool.enqueue([this, chunk]()
+				{
 					chunk->buildLight();
+
 					if (!chunk->getIsLoadedInWorld())
 					{
 						return;
@@ -377,15 +467,19 @@ void World::startBuildingChunkBlocks()
 
 					chunk->setState(Chunk::State::NeedsMesh);
 
-					std::lock_guard<std::mutex> lock(buildMeshMutex);
-					buildMeshContainer.insert(chunk);
-
-					for (int i = 0; i < 6; i++)
+					// Queue for mesh building
 					{
-						Chunk* neighbor = chunk->neighbors[i];
-						if (neighbor && neighbor->getState() == Chunk::State::Ready)
+						std::lock_guard<std::mutex> lock(buildMeshMutex);
+						buildMeshContainer.insert(chunk);
+
+						// Also rebuild mesh for neighbors that might be affected
+						for (int i = 0; i < 6; i++)
 						{
-							buildMeshContainer.insert(neighbor);
+							Chunk* neighbor = chunk->neighbors[i];
+							if (neighbor && neighbor->getState() == Chunk::State::Ready)
+							{
+								buildMeshContainer.insert(neighbor);
+							}
 						}
 					}
 				});

@@ -6,6 +6,10 @@
 
 struct BlockData
 {
+	uint8_t lightAbsorption = 1;
+	uint8_t lightEmission = 0;
+	bool hasTransparentFaces = false; // Can be array of 6
+
 	const char* texName_negativeX = nullptr;
 	const char* texName_positiveX = nullptr;
 	const char* texName_negativeY = nullptr;
@@ -13,7 +17,7 @@ struct BlockData
 	const char* texName_negativeZ = nullptr;
 	const char* texName_positiveZ = nullptr;
 
-	BlockData(const char* nxName, const char* pxName, const char* nyName, const char* pyName, const char* nzName, const char* pzName);
+	BlockData(uint8_t lightAbsorption, uint8_t lightEmission, bool hasTransparentFaces, const char* nxName, const char* pxName, const char* nyName, const char* pyName, const char* nzName, const char* pzName);
 };
 
 class BlockDataBase
@@ -23,8 +27,8 @@ class BlockDataBase
 
 	static BlockData BLOCK_DATABASE[(size_t)Block::__BlockCount__];
 public:
-	static const BlockData& getBlockData(Block block);
-	static const BlockData& getBlockData(size_t index);
+	static const BlockData* getBlockData(Block block);
+	static const BlockData* getBlockData(size_t index);
 };
 
 class BlockTextureIDDatabase

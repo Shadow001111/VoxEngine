@@ -28,6 +28,9 @@ class World
 	
 	std::unordered_set<Chunk*> buildBlocksContainer;
 	std::mutex buildBlocksMutex;
+
+	std::unordered_set<Chunk*> buildLightContainer;
+	std::mutex buildLightMutex;
 	
 	std::unordered_set<Chunk*> buildMeshContainer;
 	std::mutex buildMeshMutex;
@@ -73,6 +76,7 @@ private:
 	void loadChunk(int chunkX, int chunkY, int chunkZ, std::vector<Chunk*>& chunksToSend);
 
 	void startBuildingChunkBlocks();
+	void startBuildingChunkLight();
 	void startBuildingChunkMeshes();
 
 	void collectChunksToRender(std::vector<ChunkRenderInfo>& chunksToRender, const Camera& camera) const;

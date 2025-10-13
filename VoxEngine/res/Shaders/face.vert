@@ -34,7 +34,7 @@ void main()
 
     int faceLight = instanceData2 & 255;
     int blockLight = faceLight & 15;
-    int skyLight = (faceLight >> 4) & 15;
+    int skyLight = 0;//(faceLight >> 4) & 15;
     light = max(blockLight, skyLight) / 15.0;
     
     int vertexIndex = gl_VertexID % 4;

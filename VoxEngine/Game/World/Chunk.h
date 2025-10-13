@@ -10,6 +10,17 @@
 #include <mutex>
 #include <atomic>
 #include <cstdint>
+#include <queue>
+
+struct LightNode
+{
+	int x, y, z;
+	uint8_t lightLevel;
+	int8_t propagationSide;
+
+	LightNode(int x, int y, int z, uint8_t lightLevel, int8_t propagationSide);
+};
+
 
 class Chunk
 {
@@ -41,6 +52,9 @@ private:
 
 	Block blocks[CHUNK_VOLUME];
 	uint8_t light[CHUNK_VOLUME];
+
+	std::queue<LightNode> lightQueue;
+	mutable std::mutex lightMutex;
 
 	MeshData meshData;
 	ProcessingFence processingFence;
@@ -75,13 +89,19 @@ public:
 	Block getBlock_checkSideNeighbor(int x, int y, int z, int side) const;
 	Block getBlock_checkNeighborsTraverse(int x, int y, int z) const;
 
+	void setBlock_inBoundaries(int x, int y, int z, Block block);
+
 	uint8_t getLight_inBoundaries(int x, int y, int z) const;
 	uint8_t getLight_checkSideNeighbor(int x, int y, int z, int side) const;
 	uint8_t getLight_checkNeighborsTraverse(int x, int y, int z) const;
 
+	void setLight_inBoundaries(int x, int y, int z, uint8_t lightValue);
+
 	std::pair<Block, uint8_t> getBlockAndLight_inBoundaries(int x, int y, int z) const;
 	std::pair<Block, uint8_t> getBlockAndLight_checkSideNeighbor(int x, int y, int z, int side) const;
 	std::pair<Block, uint8_t> getBlockAndLight_checkNeighborsTraverse(int x, int y, int z) const;
+
+	void addNodeToLightQueue(int x, int y, int z, uint8_t lightLevel, int8_t propagationSide);
 private:
 	int calculateVertexAO(bool side1, bool side2, bool corner) const;
 	int calculateFaceAO(int x, int y, int z, int normal) const;
