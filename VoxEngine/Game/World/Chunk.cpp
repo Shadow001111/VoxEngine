@@ -348,6 +348,7 @@ void Chunk::buildMesh()
 				for (int z = 0; z < CHUNK_SIZE; z++)
 				{
 					Block block = getBlock_inBoundaries(x, y, z);
+					// TODO: Add 'hasFaces' to BlockData
 					if (block == Block::Air)
 					{
 						continue;
@@ -363,8 +364,9 @@ void Chunk::buildMesh()
 					const BlockData* blockData = BlockDataBase::getBlockData(blockAndLight.first);
 					if (blockData->hasTransparentFaces && block != blockAndLight.first)
 					{
-						int ao = calculateFaceAO(x, y, z, 0);
-						instances[0].emplace_back(x, y, z, 0, ao, textureIDs.ids[0], blockAndLight.second);
+						int ao, light;
+						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 0, blockAndLight.second);
+						instances[0].emplace_back(x, y, z, 0, ao, textureIDs.ids[0], light);
 					}
 
 					// +X
@@ -372,8 +374,9 @@ void Chunk::buildMesh()
 					blockData = BlockDataBase::getBlockData(blockAndLight.first);
 					if (blockData->hasTransparentFaces && block != blockAndLight.first)
 					{
-						int ao = calculateFaceAO(x, y, z, 1);
-						instances[1].emplace_back(x, y, z, 1, ao, textureIDs.ids[1], blockAndLight.second);
+						int ao, light;
+						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 1, blockAndLight.second);
+						instances[1].emplace_back(x, y, z, 1, ao, textureIDs.ids[1], light);
 					}
 
 					// -Y
@@ -381,8 +384,9 @@ void Chunk::buildMesh()
 					blockData = BlockDataBase::getBlockData(blockAndLight.first);
 					if (blockData->hasTransparentFaces && block != blockAndLight.first)
 					{
-						int ao = calculateFaceAO(x, y, z, 2);
-						instances[2].emplace_back(x, y, z, 2, ao, textureIDs.ids[2], blockAndLight.second);
+						int ao, light;
+						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 2, blockAndLight.second);
+						instances[2].emplace_back(x, y, z, 2, ao, textureIDs.ids[2], light);
 					}
 
 					// +Y
@@ -390,8 +394,9 @@ void Chunk::buildMesh()
 					blockData = BlockDataBase::getBlockData(blockAndLight.first);
 					if (blockData->hasTransparentFaces && block != blockAndLight.first)
 					{
-						int ao = calculateFaceAO(x, y, z, 3);
-						instances[3].emplace_back(x, y, z, 3, ao, textureIDs.ids[3], blockAndLight.second);
+						int ao, light;
+						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 3, blockAndLight.second);
+						instances[3].emplace_back(x, y, z, 3, ao, textureIDs.ids[3], light);
 					}
 
 					// -Z
@@ -399,8 +404,9 @@ void Chunk::buildMesh()
 					blockData = BlockDataBase::getBlockData(blockAndLight.first);
 					if (blockData->hasTransparentFaces && block != blockAndLight.first)
 					{
-						int ao = calculateFaceAO(x, y, z, 4);
-						instances[4].emplace_back(x, y, z, 4, ao, textureIDs.ids[4], blockAndLight.second);
+						int ao, light;
+						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 4, blockAndLight.second);
+						instances[4].emplace_back(x, y, z, 4, ao, textureIDs.ids[4], light);
 					}
 
 					// +Z
@@ -408,8 +414,9 @@ void Chunk::buildMesh()
 					blockData = BlockDataBase::getBlockData(blockAndLight.first);
 					if (blockData->hasTransparentFaces && block != blockAndLight.first)
 					{
-						int ao = calculateFaceAO(x, y, z, 5);
-						instances[5].emplace_back(x, y, z, 5, ao, textureIDs.ids[5], blockAndLight.second);
+						int ao, light;
+						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 5, blockAndLight.second);
+						instances[5].emplace_back(x, y, z, 5, ao, textureIDs.ids[5], light);
 					}
 				}
 			}
@@ -872,117 +879,192 @@ void Chunk::addNodeToLightQueue(int x, int y, int z, uint8_t lightLevel, int8_t 
 	lightQueue.emplace(x, y, z, lightLevel, propagationSide);
 }
 
-int Chunk::calculateVertexAO(bool side1, bool side2, bool corner) const
+void Chunk::calculateVertexAmbientOcclusionAndLight(int& ao, int& light, uint8_t centerLight, uint8_t side1Light, uint8_t side2Light, uint8_t cornerLight, bool side1Solid, bool side2Solid, bool cornerSolid) const
 {
-	if (side1 && side2)
+	int blockLightSum = centerLight & 0x0F;
+	int skyLightSum = (centerLight >> 4) & 0x0F;
+	int count = 1;
+
+	// If both sides are solid, only use center light
+	if (side1Solid && side2Solid)
 	{
-		return 0; // Darkest
+		// Pack: 4 bits block light, 4 bits sky light
+		ao = 0;
+		light = (blockLightSum & 0x0F) | ((skyLightSum & 0x0F) << 4);
+		return;
 	}
-	return 3 - (side1 + side2 + corner); // 3, 2, or 1
+
+	// Add side1 if not solid
+	if (!side1Solid)
+	{
+		blockLightSum += side1Light & 0x0F;
+		skyLightSum += (side1Light >> 4) & 0x0F;
+		count++;
+	}
+
+	// Add side2 if not solid
+	if (!side2Solid)
+	{
+		blockLightSum += side2Light & 0x0F;
+		skyLightSum += (side2Light >> 4) & 0x0F;
+		count++;
+	}
+
+	// Add corner if neither adjacent side is solid
+	if (!side1Solid && !side2Solid && !cornerSolid)
+	{
+		blockLightSum += cornerLight & 0x0F;
+		skyLightSum += (cornerLight >> 4) & 0x0F;
+		count++;
+	}
+
+	// Average the light values
+	int avgBlockLight = blockLightSum / count;
+	int avgSkyLight = skyLightSum / count;
+
+	//
+	ao = 3 - (side1Solid + side2Solid + cornerSolid);
+	light = (avgBlockLight & 0x0F) | ((avgSkyLight & 0x0F) << 4);
 }
 
-int Chunk::calculateFaceAO(int x, int y, int z, int normal) const
+void Chunk::calculateFaceAmbientOcclusionAndLight(int& ao, int& light, int x, int y, int z, int normal, uint8_t centerFaceLight) const
 {
 	// For each face normal, we need to check 8 neighbors around the face
 	// The AO calculation depends on which direction the face is facing
 
+	std::pair<Block, uint8_t> data[8];
 	bool n[8]; // 8 neighbors around the face
+
 	int ao0, ao1, ao2, ao3;
+	int light0, light1, light2, light3;
 
 	switch (normal)
 	{
 	case 0: // -X face
-		n[0] = Block::Air != getBlock_checkNeighborsTraverse(x - 1, y - 1, z - 1);
-		n[1] = Block::Air != getBlock_checkNeighborsTraverse(x - 1, y - 1, z);
-		n[2] = Block::Air != getBlock_checkNeighborsTraverse(x - 1, y - 1, z + 1);
-		n[3] = Block::Air != getBlock_checkNeighborsTraverse(x - 1, y, z - 1);
-		n[4] = Block::Air != getBlock_checkNeighborsTraverse(x - 1, y, z + 1);
-		n[5] = Block::Air != getBlock_checkNeighborsTraverse(x - 1, y + 1, z - 1);
-		n[6] = Block::Air != getBlock_checkNeighborsTraverse(x - 1, y + 1, z);
-		n[7] = Block::Air != getBlock_checkNeighborsTraverse(x - 1, y + 1, z + 1);
+		data[0] = getBlockAndLight_checkNeighborsTraverse(x - 1, y - 1, z - 1);
+		data[1] = getBlockAndLight_checkNeighborsTraverse(x - 1, y - 1, z);
+		data[2] = getBlockAndLight_checkNeighborsTraverse(x - 1, y - 1, z + 1);
+		data[3] = getBlockAndLight_checkNeighborsTraverse(x - 1, y, z - 1);
+		data[4] = getBlockAndLight_checkNeighborsTraverse(x - 1, y, z + 1);
+		data[5] = getBlockAndLight_checkNeighborsTraverse(x - 1, y + 1, z - 1);
+		data[6] = getBlockAndLight_checkNeighborsTraverse(x - 1, y + 1, z);
+		data[7] = getBlockAndLight_checkNeighborsTraverse(x - 1, y + 1, z + 1);
 
-		ao0 =  calculateVertexAO(n[1], n[3], n[0]);
-		ao1 =  calculateVertexAO(n[1], n[4], n[2]);
-		ao2 =  calculateVertexAO(n[6], n[4], n[7]);
-		ao3 =  calculateVertexAO(n[6], n[3], n[5]);
+		for (int i = 0; i < 8; i++)
+		{
+			n[i] = !BlockDataBase::getBlockData(data[i].first)->hasTransparentFaces;
+		}
+
+		calculateVertexAmbientOcclusionAndLight(ao0, light0, centerFaceLight, data[1].second, data[3].second, data[0].second, n[1], n[3], n[0]);
+		calculateVertexAmbientOcclusionAndLight(ao1, light1, centerFaceLight, data[1].second, data[4].second, data[2].second, n[1], n[4], n[2]);
+		calculateVertexAmbientOcclusionAndLight(ao2, light2, centerFaceLight, data[6].second, data[4].second, data[7].second, n[6], n[4], n[7]);
+		calculateVertexAmbientOcclusionAndLight(ao3, light3, centerFaceLight, data[6].second, data[3].second, data[5].second, n[6], n[3], n[5]);
 		break;
 	case 1: // +X face
-		n[0] = Block::Air != getBlock_checkNeighborsTraverse(x + 1, y - 1, z - 1);
-		n[1] = Block::Air != getBlock_checkNeighborsTraverse(x + 1, y - 1, z);
-		n[2] = Block::Air != getBlock_checkNeighborsTraverse(x + 1, y - 1, z + 1);
-		n[3] = Block::Air != getBlock_checkNeighborsTraverse(x + 1, y, z - 1);
-		n[4] = Block::Air != getBlock_checkNeighborsTraverse(x + 1, y, z + 1);
-		n[5] = Block::Air != getBlock_checkNeighborsTraverse(x + 1, y + 1, z - 1);
-		n[6] = Block::Air != getBlock_checkNeighborsTraverse(x + 1, y + 1, z);
-		n[7] = Block::Air != getBlock_checkNeighborsTraverse(x + 1, y + 1, z + 1);
+		data[0] = getBlockAndLight_checkNeighborsTraverse(x + 1, y - 1, z - 1);
+		data[1] = getBlockAndLight_checkNeighborsTraverse(x + 1, y - 1, z);
+		data[2] = getBlockAndLight_checkNeighborsTraverse(x + 1, y - 1, z + 1);
+		data[3] = getBlockAndLight_checkNeighborsTraverse(x + 1, y, z - 1);
+		data[4] = getBlockAndLight_checkNeighborsTraverse(x + 1, y, z + 1);
+		data[5] = getBlockAndLight_checkNeighborsTraverse(x + 1, y + 1, z - 1);
+		data[6] = getBlockAndLight_checkNeighborsTraverse(x + 1, y + 1, z);
+		data[7] = getBlockAndLight_checkNeighborsTraverse(x + 1, y + 1, z + 1);
 
-		ao0 = calculateVertexAO(n[1], n[4], n[2]);
-		ao1 = calculateVertexAO(n[1], n[3], n[0]);
-		ao2 = calculateVertexAO(n[6], n[3], n[5]);
-		ao3 = calculateVertexAO(n[6], n[4], n[7]);
+		for (int i = 0; i < 8; i++)
+		{
+			n[i] = !BlockDataBase::getBlockData(data[i].first)->hasTransparentFaces;
+		}
+
+		calculateVertexAmbientOcclusionAndLight(ao0, light0, centerFaceLight, data[1].second, data[4].second, data[3].second, n[1], n[4], n[3]);
+		calculateVertexAmbientOcclusionAndLight(ao1, light1, centerFaceLight, data[1].second, data[3].second, data[0].second, n[1], n[3], n[0]);
+		calculateVertexAmbientOcclusionAndLight(ao2, light2, centerFaceLight, data[6].second, data[3].second, data[5].second, n[6], n[3], n[5]);
+		calculateVertexAmbientOcclusionAndLight(ao3, light3, centerFaceLight, data[6].second, data[4].second, data[7].second, n[6], n[4], n[7]);
 		break;
 	case 2: // -Y face
-		n[0] = Block::Air != getBlock_checkNeighborsTraverse(x - 1, y - 1, z - 1);
-		n[1] = Block::Air != getBlock_checkNeighborsTraverse(x, y - 1, z - 1);
-		n[2] = Block::Air != getBlock_checkNeighborsTraverse(x + 1, y - 1, z - 1);
-		n[3] = Block::Air != getBlock_checkNeighborsTraverse(x - 1, y - 1, z);
-		n[4] = Block::Air != getBlock_checkNeighborsTraverse(x + 1, y - 1, z);
-		n[5] = Block::Air != getBlock_checkNeighborsTraverse(x - 1, y - 1, z + 1);
-		n[6] = Block::Air != getBlock_checkNeighborsTraverse(x, y - 1, z + 1);
-		n[7] = Block::Air != getBlock_checkNeighborsTraverse(x + 1, y - 1, z + 1);
+		data[0] = getBlockAndLight_checkNeighborsTraverse(x - 1, y - 1, z - 1);
+		data[1] = getBlockAndLight_checkNeighborsTraverse(x, y - 1, z - 1);
+		data[2] = getBlockAndLight_checkNeighborsTraverse(x + 1, y - 1, z - 1);
+		data[3] = getBlockAndLight_checkNeighborsTraverse(x - 1, y - 1, z);
+		data[4] = getBlockAndLight_checkNeighborsTraverse(x + 1, y - 1, z);
+		data[5] = getBlockAndLight_checkNeighborsTraverse(x - 1, y - 1, z + 1);
+		data[6] = getBlockAndLight_checkNeighborsTraverse(x, y - 1, z + 1);
+		data[7] = getBlockAndLight_checkNeighborsTraverse(x + 1, y - 1, z + 1);
 
-		ao0 = calculateVertexAO(n[1], n[4], n[2]);
-		ao1 = calculateVertexAO(n[1], n[3], n[0]);
-		ao2 = calculateVertexAO(n[6], n[3], n[5]);
-		ao3 = calculateVertexAO(n[6], n[4], n[7]);
+		for (int i = 0; i < 8; i++)
+		{
+			n[i] = !BlockDataBase::getBlockData(data[i].first)->hasTransparentFaces;
+		}
+
+		calculateVertexAmbientOcclusionAndLight(ao0, light0, centerFaceLight, data[1].second, data[4].second, data[3].second, n[1], n[4], n[3]);
+		calculateVertexAmbientOcclusionAndLight(ao1, light1, centerFaceLight, data[1].second, data[3].second, data[0].second, n[1], n[3], n[0]);
+		calculateVertexAmbientOcclusionAndLight(ao2, light2, centerFaceLight, data[6].second, data[3].second, data[5].second, n[6], n[3], n[5]);
+		calculateVertexAmbientOcclusionAndLight(ao3, light3, centerFaceLight, data[6].second, data[4].second, data[7].second, n[6], n[4], n[7]);
 		break;
 	case 3: // +Y face
-		n[0] = Block::Air != getBlock_checkNeighborsTraverse(x - 1, y + 1, z - 1);
-		n[1] = Block::Air != getBlock_checkNeighborsTraverse(x, y + 1, z - 1);
-		n[2] = Block::Air != getBlock_checkNeighborsTraverse(x + 1, y + 1, z - 1);
-		n[3] = Block::Air != getBlock_checkNeighborsTraverse(x - 1, y + 1, z);
-		n[4] = Block::Air != getBlock_checkNeighborsTraverse(x + 1, y + 1, z);
-		n[5] = Block::Air != getBlock_checkNeighborsTraverse(x - 1, y + 1, z + 1);
-		n[6] = Block::Air != getBlock_checkNeighborsTraverse(x, y + 1, z + 1);
-		n[7] = Block::Air != getBlock_checkNeighborsTraverse(x + 1, y + 1, z + 1);
+		data[0] = getBlockAndLight_checkNeighborsTraverse(x - 1, y + 1, z - 1);
+		data[1] = getBlockAndLight_checkNeighborsTraverse(x, y + 1, z - 1);
+		data[2] = getBlockAndLight_checkNeighborsTraverse(x + 1, y + 1, z - 1);
+		data[3] = getBlockAndLight_checkNeighborsTraverse(x - 1, y + 1, z);
+		data[4] = getBlockAndLight_checkNeighborsTraverse(x + 1, y + 1, z);
+		data[5] = getBlockAndLight_checkNeighborsTraverse(x - 1, y + 1, z + 1);
+		data[6] = getBlockAndLight_checkNeighborsTraverse(x, y + 1, z + 1);
+		data[7] = getBlockAndLight_checkNeighborsTraverse(x + 1, y + 1, z + 1);
 
-		ao0 = calculateVertexAO(n[4], n[1], n[2]);
-		ao1 = calculateVertexAO(n[3], n[1], n[0]);
-		ao2 = calculateVertexAO(n[3], n[6], n[5]);
-		ao3 = calculateVertexAO(n[4], n[6], n[7]);
+		for (int i = 0; i < 8; i++)
+		{
+			n[i] = !BlockDataBase::getBlockData(data[i].first)->hasTransparentFaces;
+		}
+
+		calculateVertexAmbientOcclusionAndLight(ao0, light0, centerFaceLight, data[4].second, data[1].second, data[2].second, n[4], n[1], n[2]);
+		calculateVertexAmbientOcclusionAndLight(ao1, light1, centerFaceLight, data[3].second, data[1].second, data[0].second, n[3], n[1], n[0]);
+		calculateVertexAmbientOcclusionAndLight(ao2, light2, centerFaceLight, data[3].second, data[6].second, data[5].second, n[3], n[6], n[5]);
+		calculateVertexAmbientOcclusionAndLight(ao3, light3, centerFaceLight, data[4].second, data[6].second, data[7].second, n[4], n[6], n[7]);
 		break;
 	case 4: // -Z face
-		n[0] = Block::Air != getBlock_checkNeighborsTraverse(x - 1, y - 1, z - 1);
-		n[1] = Block::Air != getBlock_checkNeighborsTraverse(x, y - 1, z - 1);
-		n[2] = Block::Air != getBlock_checkNeighborsTraverse(x + 1, y - 1, z - 1);
-		n[3] = Block::Air != getBlock_checkNeighborsTraverse(x - 1, y, z - 1);
-		n[4] = Block::Air != getBlock_checkNeighborsTraverse(x + 1, y, z - 1);
-		n[5] = Block::Air != getBlock_checkNeighborsTraverse(x - 1, y + 1, z - 1);
-		n[6] = Block::Air != getBlock_checkNeighborsTraverse(x, y + 1, z - 1);
-		n[7] = Block::Air != getBlock_checkNeighborsTraverse(x + 1, y + 1, z - 1);
+		data[0] = getBlockAndLight_checkNeighborsTraverse(x - 1, y - 1, z - 1);
+		data[1] = getBlockAndLight_checkNeighborsTraverse(x, y - 1, z - 1);
+		data[2] = getBlockAndLight_checkNeighborsTraverse(x + 1, y - 1, z - 1);
+		data[3] = getBlockAndLight_checkNeighborsTraverse(x - 1, y, z - 1);
+		data[4] = getBlockAndLight_checkNeighborsTraverse(x + 1, y, z - 1);
+		data[5] = getBlockAndLight_checkNeighborsTraverse(x - 1, y + 1, z - 1);
+		data[6] = getBlockAndLight_checkNeighborsTraverse(x, y + 1, z - 1);
+		data[7] = getBlockAndLight_checkNeighborsTraverse(x + 1, y + 1, z - 1);
 
-		ao0 = calculateVertexAO(n[1], n[4], n[2]);
-		ao1 = calculateVertexAO(n[1], n[3], n[0]);
-		ao2 = calculateVertexAO(n[6], n[3], n[5]);
-		ao3 = calculateVertexAO(n[6], n[4], n[7]);
+		for (int i = 0; i < 8; i++)
+		{
+			n[i] = !BlockDataBase::getBlockData(data[i].first)->hasTransparentFaces;
+		}
+
+		calculateVertexAmbientOcclusionAndLight(ao0, light0, centerFaceLight, data[1].second, data[4].second, data[2].second, n[1], n[4], n[2]);
+		calculateVertexAmbientOcclusionAndLight(ao1, light1, centerFaceLight, data[1].second, data[3].second, data[0].second, n[1], n[3], n[0]);
+		calculateVertexAmbientOcclusionAndLight(ao2, light2, centerFaceLight, data[6].second, data[3].second, data[5].second, n[6], n[3], n[5]);
+		calculateVertexAmbientOcclusionAndLight(ao3, light3, centerFaceLight, data[6].second, data[4].second, data[7].second, n[6], n[4], n[7]);
 		break;
 	case 5: // +Z face
-		n[0] = Block::Air != getBlock_checkNeighborsTraverse(x - 1, y - 1, z + 1);
-		n[1] = Block::Air != getBlock_checkNeighborsTraverse(x, y - 1, z + 1);
-		n[2] = Block::Air != getBlock_checkNeighborsTraverse(x + 1, y - 1, z + 1);
-		n[3] = Block::Air != getBlock_checkNeighborsTraverse(x - 1, y, z + 1);
-		n[4] = Block::Air != getBlock_checkNeighborsTraverse(x + 1, y, z + 1);
-		n[5] = Block::Air != getBlock_checkNeighborsTraverse(x - 1, y + 1, z + 1);
-		n[6] = Block::Air != getBlock_checkNeighborsTraverse(x, y + 1, z + 1);
-		n[7] = Block::Air != getBlock_checkNeighborsTraverse(x + 1, y + 1, z + 1);
+		data[0] = getBlockAndLight_checkNeighborsTraverse(x - 1, y - 1, z + 1);
+		data[1] = getBlockAndLight_checkNeighborsTraverse(x, y - 1, z + 1);
+		data[2] = getBlockAndLight_checkNeighborsTraverse(x + 1, y - 1, z + 1);
+		data[3] = getBlockAndLight_checkNeighborsTraverse(x - 1, y, z + 1);
+		data[4] = getBlockAndLight_checkNeighborsTraverse(x + 1, y, z + 1);
+		data[5] = getBlockAndLight_checkNeighborsTraverse(x - 1, y + 1, z + 1);
+		data[6] = getBlockAndLight_checkNeighborsTraverse(x, y + 1, z + 1);
+		data[7] = getBlockAndLight_checkNeighborsTraverse(x + 1, y + 1, z + 1);
 
-		ao0 = calculateVertexAO(n[1], n[3], n[0]);
-		ao1 = calculateVertexAO(n[1], n[4], n[2]);
-		ao2 = calculateVertexAO(n[6], n[4], n[7]);
-		ao3 = calculateVertexAO(n[6], n[3], n[5]);
+		for (int i = 0; i < 8; i++)
+		{
+			n[i] = !BlockDataBase::getBlockData(data[i].first)->hasTransparentFaces;
+		}
+
+		calculateVertexAmbientOcclusionAndLight(ao0, light0, centerFaceLight, data[1].second, data[3].second, data[0].second, n[1], n[3], n[0]);
+		calculateVertexAmbientOcclusionAndLight(ao1, light1, centerFaceLight, data[1].second, data[4].second, data[2].second, n[1], n[4], n[2]);
+		calculateVertexAmbientOcclusionAndLight(ao2, light2, centerFaceLight, data[6].second, data[4].second, data[7].second, n[6], n[4], n[7]);
+		calculateVertexAmbientOcclusionAndLight(ao3, light3, centerFaceLight, data[6].second, data[3].second, data[5].second, n[6], n[3], n[5]);
 		break;
 	}
-	return ao0 | (ao1 << 2) | (ao2 << 4) | (ao3 << 6);
+
+	//
+	ao = ao0 | (ao1 << 2) | (ao2 << 4) | (ao3 << 6);
+	light = light0 | (light1 << 8) | (light2 << 16) | (light3 << 24);
 }
 
 int Chunk::getX() const

@@ -106,8 +106,8 @@ public:
 
 	void addNodeToLightQueue(int x, int y, int z, uint8_t lightLevel, int8_t propagationSide);
 private:
-	int calculateVertexAO(bool side1, bool side2, bool corner) const;
-	int calculateFaceAO(int x, int y, int z, int normal) const;
+	void calculateVertexAmbientOcclusionAndLight(int& ao, int& light, uint8_t centerLight, uint8_t side1Light, uint8_t side2Light, uint8_t cornerLight, bool side1Solid, bool side2Solid, bool cornerSolid) const;
+	void calculateFaceAmbientOcclusionAndLight(int& ao, int& light, int x, int y, int z, int normal, uint8_t centerFaceLight) const;
 public:
 	int getX() const;
 	int getY() const;

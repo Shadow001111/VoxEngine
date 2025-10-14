@@ -8,19 +8,12 @@ uniform sampler2DArray blockTextures;
 
 in vec2 uv;
 flat in float ao[4];
+flat in float light[4];
 flat in uint textureID;
-flat in float light;
 
 in float depth;
 
 out vec4 FragColor;
-
-float interpolateAO_Quad()
-{
-    float v0 = mix(ao[0], ao[1], uv.x);
-    float v1 = mix(ao[3], ao[2], uv.x);
-    return mix(v0, v1, uv.y);
-}
 
 float interpolateAO_Triang()
 {
@@ -55,10 +48,17 @@ float interpolateAO_Triang()
     return result;
 }
 
+float interpolateLight_Quad()
+{
+    float v0 = mix(light[0], light[1], uv.x);
+    float v1 = mix(light[3], light[2], uv.x);
+    return mix(v0, v1, uv.y);
+}
+
 void main()
 {
     vec3 baseColor = texture(blockTextures, vec3(uv, textureID)).xyz;
-    vec3 shadedColor = baseColor * interpolateAO_Triang() * light;
+    vec3 shadedColor = baseColor * interpolateAO_Triang() * interpolateLight_Quad();
 
     float inverseFogEffect = clamp(exp(-pow(depth * fogDensity, fogGradient)), 0.0, 1.0);
 	vec3 fogProcessedColor = mix(fogColor, shadedColor, inverseFogEffect);

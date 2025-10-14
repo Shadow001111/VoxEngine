@@ -1,7 +1,7 @@
 #include "BlockFaceInstance.h"
 
 BlockFaceInstance::BlockFaceInstance(int32_t x, int32_t y, int32_t z, int32_t normal, int32_t ao, int32_t textureID, int32_t light) :
-	data1(0), data2(0)
+	data1(0), data2(light)
 {
 	{
 		// (32 bits left) Coords 12 bits
@@ -19,11 +19,5 @@ BlockFaceInstance::BlockFaceInstance(int32_t x, int32_t y, int32_t z, int32_t no
 		data1 |= (textureID & 511) << 23;
 
 		// (0 bits left)
-	}
-	{
-		// (32 bits left) Light 8 bits
-		data2 |= (light & 255);
-
-		// (24 bits left)
 	}
 }

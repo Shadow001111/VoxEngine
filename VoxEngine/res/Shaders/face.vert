@@ -1,8 +1,7 @@
 #version 460 core
 
 layout(location = 0) in vec2 aPos;
-layout(location = 1) in int instanceData1;
-layout(location = 2) in int instanceData2;
+layout(location = 1) in ivec2 instanceData;
 
 uniform mat4 view;
 uniform mat4 projection;
@@ -10,40 +9,44 @@ uniform vec3 chunkPosition;
 
 out vec2 uv;
 flat out float ao[4];
+flat out float light[4];
 flat out uint textureID;
-flat out float light;
 
 out float depth;
 
 void main()
 {
     // Unpack face data
-    int x = instanceData1 & 15;
-    int y = (instanceData1 >> 4) & 15;
-    int z = (instanceData1 >> 8) & 15;
+    int x = instanceData.x & 15;
+    int y = (instanceData.x >> 4) & 15;
+    int z = (instanceData.x >> 8) & 15;
 
-    int normal = (instanceData1 >> 12) & 7;
+    int normal = (instanceData.x >> 12) & 7;
 
-    int faceAO = (instanceData1 >> 15) & 255;
+    int faceAO = (instanceData.x >> 15) & 255;
     int ao0 = faceAO & 3;
     int ao1 = (faceAO >> 2) & 3;
     int ao2 = (faceAO >> 4) & 3;
     int ao3 = faceAO >> 6;
 
-    textureID = (instanceData1 >> 23) & 511;
+    textureID = (instanceData.x >> 23) & 511;
 
-    int faceLight = instanceData2 & 255;
-    int blockLight = faceLight & 15;
-    int skyLight = 0;//(faceLight >> 4) & 15;
-    light = max(blockLight, skyLight) / 15.0;
+    int light0 = instanceData.y & 255;
+    int light1 = (instanceData.y >> 8) & 255;
+    int light2 = (instanceData.y >> 16) & 255;
+    int light3 = instanceData.y >> 24;
     
-    int vertexIndex = gl_VertexID % 4;
-    int aoValue;
-
+    // AO
     ao[0] = float(ao0) / 3.0;
     ao[1] = float(ao1) / 3.0;
     ao[2] = float(ao2) / 3.0;
     ao[3] = float(ao3) / 3.0;
+
+    // Light
+    light[0] = max(light0 & 15, light0 >> 4) / 15.0;
+    light[1] = max(light1 & 15, light1 >> 4) / 15.0;
+    light[2] = max(light2 & 15, light2 >> 4) / 15.0;
+    light[3] = max(light3 & 15, light3 >> 4) / 15.0;
 
     // Move quad to face
     vec3 vertexPos = vec3(0.0);
