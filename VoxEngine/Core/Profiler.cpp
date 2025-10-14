@@ -229,7 +229,7 @@ void Profiler::resetAllProfiles()
 // ANSI Color codes for console output
 namespace ProfilerReport
 {
-    constexpr int COL_NAME = 30;
+    constexpr int COL_NAME = 40;
     constexpr int COL_AVG = 12;
     constexpr int COL_MIN = 12;
     constexpr int COL_MAX = 12;

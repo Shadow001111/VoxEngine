@@ -122,8 +122,6 @@ void World::loadChunksAroundPlayer(const Int3& chunkLoaderPos, int renderDistanc
 	}
 
 	{
-		PROFILE_SCOPE("Send chunks to blocksBuildChunkContainer", ProfileCategory::ChunkBlocks);
-
 		// TODO: Maybe use vectors instead of unordered sets? Then I could use std::vector.insert to insert the whole vector.
 		std::lock_guard<std::mutex> lock(buildBlocksMutex);
 		for (Chunk* chunkPtr : chunksToSend)
@@ -144,7 +142,13 @@ void World::update()
 
 	if (!buildLightContainer.empty())
 	{
-		startBuildingChunkLight();
+		startBuildingChunkLights();
+	}
+
+	collectChunksNeedingLightUpdate();
+	if (!lightUpdateContainer.empty())
+	{
+		updateChunkLights();
 	}
 
 	if (!buildMeshContainer.empty())
@@ -272,13 +276,14 @@ void World::unloadChunksOutsideRange(int renderDistance)
 {
 	std::vector<Int3> chunksToUnload;
 	{
+		PROFILE_SCOPE("Unload chunks: collect", ProfileCategory::ChunkLoadUnload);
+
 		const int x = lastChunkLoaderPos.x;
 		const int y = lastChunkLoaderPos.y;
 		const int z = lastChunkLoaderPos.z;
 
 		int renderDistanceSquared = renderDistance * renderDistance;
 
-		PROFILE_SCOPE("Unload chunks: collect", ProfileCategory::ChunkLoadUnload);
 		for (const auto& pair : chunks)
 		{
 			const Int3& pos = pair.first;
@@ -340,7 +345,7 @@ void World::startBuildingChunkBlocks()
 	// Collect chunks
 	std::vector<Chunk*> chunksToProcess;
 	{
-		PROFILE_SCOPE("Collect chunks for building blocks", ProfileCategory::ChunkBlocks);
+		PROFILE_SCOPE("Collect chunks for block building", ProfileCategory::ChunkBlocks);
 
 		std::lock_guard<std::mutex> lock(buildBlocksMutex);
 		if (buildBlocksContainer.empty())
@@ -359,7 +364,7 @@ void World::startBuildingChunkBlocks()
 
 	// Submit chunks to thread pool
 	{
-		PROFILE_SCOPE("Send chunks to building blocks", ProfileCategory::ChunkBlocks);
+		PROFILE_SCOPE("Send chunks to block building", ProfileCategory::ChunkBlocks);
 
 		ThreadPool& pool = ParallelUtils::getGlobalThreadPool();
 		for (Chunk* chunk : chunksToProcess)
@@ -393,12 +398,12 @@ void World::startBuildingChunkBlocks()
 	}
 }
 
-void World::startBuildingChunkLight()
+void World::startBuildingChunkLights()
 {
 	// Collect chunks that are ready for light building
 	std::vector<Chunk*> chunksToProcess;
 	{
-		PROFILE_SCOPE("Collect chunks for building light", ProfileCategory::ChunkLight);
+		PROFILE_SCOPE("Collect chunks for light building", ProfileCategory::ChunkLight);
 
 		std::lock_guard<std::mutex> lock(buildLightMutex);
 		if (buildLightContainer.empty())
@@ -451,7 +456,7 @@ void World::startBuildingChunkLight()
 
 	// Submit chunks to thread pool
 	{
-		PROFILE_SCOPE("Send chunks to building light", ProfileCategory::ChunkLight);
+		PROFILE_SCOPE("Send chunks to light building", ProfileCategory::ChunkLight);
 
 		ThreadPool& pool = ParallelUtils::getGlobalThreadPool();
 		for (Chunk* chunk : chunksToProcess)
@@ -492,7 +497,7 @@ void World::startBuildingChunkMeshes()
 	// Collect chunks
 	std::vector<Chunk*> chunksToProcess;
 	{
-		PROFILE_SCOPE("Collect chunks for building mesh", ProfileCategory::ChunkMesh);
+		PROFILE_SCOPE("Collect chunks for mesh building", ProfileCategory::ChunkMesh);
 
 		std::lock_guard<std::mutex> lock(buildMeshMutex);
 		if (buildMeshContainer.empty())
@@ -522,7 +527,7 @@ void World::startBuildingChunkMeshes()
 
 	// Submit chunks to thread pool
 	{
-		PROFILE_SCOPE("Send chunks to building mesh", ProfileCategory::ChunkMesh);
+		PROFILE_SCOPE("Send chunks to mesh building", ProfileCategory::ChunkMesh);
 
 		ThreadPool& pool = ParallelUtils::getGlobalThreadPool();
 		for (Chunk* chunk : chunksToProcess)
@@ -543,6 +548,84 @@ void World::startBuildingChunkMeshes()
 					// Settings Ready state should be done in Chunk::sendMedhesToGPU
 					// Even if yes, mesh is flickering even more. It takes more time to send mesh to GPU, but we set Ready state immediately.
 				});
+		}
+	}
+}
+
+void World::updateChunkLights()
+{
+	std::unordered_set<Chunk*> chunksToUpdate;
+	std::unordered_set<Chunk*> affectedChunks;
+
+	chunksToUpdate.swap(lightUpdateContainer);
+
+	// Process light updates (on main thread for now, could be threaded later)
+	for (Chunk* chunk : chunksToUpdate)
+	{
+		if (!chunk->getIsLoadedInWorld())
+		{
+			continue;
+		}
+
+		chunk->updateLight();
+		affectedChunks.insert(chunk);
+
+		// Check if neighbors need updates too
+		for (int i = 0; i < 6; i++)
+		{
+			Chunk* neighbor = chunk->neighbors[i];
+			if (neighbor && neighbor->hasLightUpdates())
+			{
+				affectedChunks.insert(neighbor);
+			}
+		}
+	}
+
+	// Re-check for more updates (light can cascade)
+	for (Chunk* chunk : affectedChunks)
+	{
+		if (chunk->hasLightUpdates())
+		{
+			lightUpdateContainer.insert(chunk);
+		}
+	}
+
+	// Queue affected chunks for mesh rebuild
+	{
+		std::lock_guard<std::mutex> lock(buildMeshMutex);
+		for (Chunk* chunk : affectedChunks)
+		{
+			if (chunk->getState() == Chunk::State::NeedsMesh)
+			{
+				buildMeshContainer.insert(chunk);
+
+				// Also rebuild neighbors that might be affected by lighting changes
+				for (int i = 0; i < 6; i++)
+				{
+					Chunk* neighbor = chunk->neighbors[i];
+					if (neighbor && neighbor->getState() == Chunk::State::Ready)
+					{
+						neighbor->setState(Chunk::State::NeedsMesh);
+						buildMeshContainer.insert(neighbor);
+					}
+				}
+			}
+		}
+	}
+}
+
+void World::collectChunksNeedingLightUpdate()
+{
+	PROFILE_SCOPE("Collect chunks needing light update", ProfileCategory::ChunkLight);
+
+	for (const auto& pair : chunks)
+	{
+		Chunk* chunk = pair.second.get();
+
+		// Only update chunks that are ready and have pending light updates
+		if (chunk->getState() == Chunk::State::Ready && chunk->hasLightUpdates())
+		{
+			lightUpdateContainer.insert(chunk);
 		}
 	}
 }

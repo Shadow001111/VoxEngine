@@ -96,7 +96,7 @@ void Chunk::destroy()
 // Fills 'blocks' array
 void Chunk::buildBlocks()
 {
-	Profiler::beginProfile("Chunk build blocks: wait", ProfileCategory::ChunkBlocks);
+	Profiler::beginProfile("Build chunk blocks: wait", ProfileCategory::ChunkBlocks);
 	ScopedProcessingFence scopedFence(processingFence);
 	Profiler::endProfile();
 
@@ -113,7 +113,7 @@ void Chunk::buildBlocks()
 	isLoadedChunkColumnData.store(true, std::memory_order_release);
 
 	{
-		PROFILE_SCOPE("Chunk build blocks", ProfileCategory::ChunkBlocks);
+		PROFILE_SCOPE("Build chunk blocks", ProfileCategory::ChunkBlocks);
 		for (int x = 0; x < CHUNK_SIZE; x++)
 		{
 			for (int z = 0; z < CHUNK_SIZE; z++)
@@ -143,7 +143,7 @@ void Chunk::buildBlocks()
 
 void Chunk::buildLight()
 {
-	Profiler::beginProfile("Chunk build light: wait", ProfileCategory::ChunkLight);
+	Profiler::beginProfile("Build chunk light: wait", ProfileCategory::ChunkLight);
 	ScopedProcessingFence scopedFence(processingFence);
 	Profiler::endProfile();
 
@@ -166,7 +166,7 @@ void Chunk::buildLight()
 	// Step 1: Collect light sources
 	std::queue<LightNode> localLightQueue;
 	{
-		PROFILE_SCOPE("Chunk build light: Collect light sources", ProfileCategory::ChunkLight);
+		PROFILE_SCOPE("Build chunk light: collect light sources", ProfileCategory::ChunkLight);
 
 		for (int x = 0; x < CHUNK_SIZE; x++)
 		{
@@ -224,7 +224,7 @@ void Chunk::buildLight()
 
 	// Step 2: Propagate light using flood-fill
 	{
-		PROFILE_SCOPE("Chunk build light: Flood-fill", ProfileCategory::ChunkLight);
+		PROFILE_SCOPE("Build chunk light: flood-fill", ProfileCategory::ChunkLight);
 
 		while (!localLightQueue.empty())
 		{
@@ -443,12 +443,156 @@ void Chunk::buildMesh()
 	{
 		// TODO: Since we are gonna keep mesh in chunk all time in the future anyway, why not collecting meshes in main thread instead of sending them?
 		// Possibly will take less time, since no mutex locks
-		PROFILE_SCOPE("Send chunk mesh to main thread", ProfileCategory::ChunkMesh);
+		PROFILE_SCOPE("Send chunk meshes to main thread", ProfileCategory::ChunkMesh);
 
 		// Queue mesh for GPU upload on main thread
 		std::lock_guard<std::mutex> lock(meshUploadMutex);
 		pendingMeshUploads.push_back( &meshData );
 	}
+}
+
+void Chunk::updateLight()
+{
+	Profiler::beginProfile("Update chunk light: wait", ProfileCategory::ChunkLight);
+	ScopedProcessingFence scopedFence(processingFence);
+	Profiler::endProfile();
+
+	if (
+		!isLoadedInWorld.load(std::memory_order_acquire) ||
+		!areBlocksBuilt.load(std::memory_order_acquire)
+		)
+	{
+		return;
+	}
+
+	PROFILE_SCOPE("Update chunk light", ProfileCategory::ChunkLight);
+
+	// Get pending light updates
+	std::queue<LightNode> localLightQueue;
+	{
+		std::lock_guard<std::mutex> lock(lightMutex);
+		if (lightQueue.empty())
+		{
+			return;
+		}
+		localLightQueue.swap(lightQueue);
+	}
+
+	const int dx[] = { -1, 1, 0, 0, 0, 0 };
+	const int dy[] = { 0, 0, -1, 1, 0, 0 };
+	const int dz[] = { 0, 0, 0, 0, -1, 1 };
+
+	bool lightChanged = false;
+
+	// Process light propagation
+	while (!localLightQueue.empty())
+	{
+		auto data = localLightQueue.front();
+		localLightQueue.pop();
+
+		int x = data.x;
+		int y = data.y;
+		int z = data.z;
+		uint8_t blockLight = data.lightLevel;
+		int8_t propagationSide = data.propagationSide;
+
+		assert(x >= 0 && x < CHUNK_SIZE);
+		assert(y >= 0 && y < CHUNK_SIZE);
+		assert(z >= 0 && z < CHUNK_SIZE);
+
+		// Get block data
+		size_t index = getIndex(x, y, z);
+		Block block = blocks[index];
+		const BlockData* blockData = BlockDataBase::getBlockData(block);
+
+		uint8_t lightAbsorption = blockData->lightAbsorption;
+		assert(lightAbsorption > 0);
+
+		// Calculate new light
+		uint8_t newLight;
+		if (propagationSide == -1)
+		{
+			newLight = blockLight;
+		}
+		else
+		{
+			newLight = blockLight > lightAbsorption ? blockLight - lightAbsorption : 0;
+		}
+
+		if (newLight == 0)
+		{
+			continue;
+		}
+
+		// Get current light
+		uint8_t currentLight = light[index];
+
+		// Compare light values
+		if (newLight <= currentLight)
+		{
+			continue;
+		}
+
+		// Store new value
+		light[index] = newLight;
+		lightChanged = true;
+
+		// Early exit for light value of 1
+		if (newLight == 1)
+		{
+			continue;
+		}
+
+		// Propagate to 6 neighbors
+		for (int i = 0; i < 6; i++)
+		{
+			// Don't propagate back to where it came from
+			if (i == (propagationSide ^ 1))
+			{
+				continue;
+			}
+
+			int nx = x + dx[i];
+			int ny = y + dy[i];
+			int nz = z + dz[i];
+
+			// Check if within current chunk
+			if ((nx & CHUNK_UPPER_BITS_MASK) == 0 &&
+				(ny & CHUNK_UPPER_BITS_MASK) == 0 &&
+				(nz & CHUNK_UPPER_BITS_MASK) == 0)
+			{
+				// Add to local queue for processing
+				localLightQueue.emplace(nx, ny, nz, newLight, i);
+			}
+			else
+			{
+				// Propagate to neighbor chunk
+				Chunk* neighbor = neighbors[i];
+				if (neighbor == nullptr)
+				{
+					continue;
+				}
+
+				int neighborLocalX = nx & CHUNK_LOWER_BITS_MASK;
+				int neighborLocalY = ny & CHUNK_LOWER_BITS_MASK;
+				int neighborLocalZ = nz & CHUNK_LOWER_BITS_MASK;
+
+				neighbor->addNodeToLightQueue(neighborLocalX, neighborLocalY, neighborLocalZ, newLight, i);
+			}
+		}
+	}
+
+	// If light changed, mark for mesh rebuild
+	if (lightChanged && getState() == State::Ready)
+	{
+		setState(State::NeedsMesh);
+	}
+}
+
+bool Chunk::hasLightUpdates() const
+{
+	std::lock_guard<std::mutex> lock(lightMutex);
+	return !lightQueue.empty();
 }
 
 void Chunk::render() const

@@ -82,6 +82,9 @@ public:
 	void buildLight();
 	void buildMesh();
 
+	void updateLight();
+	bool hasLightUpdates() const;
+
 	void render() const;
 	bool canBeRendered() const;
 

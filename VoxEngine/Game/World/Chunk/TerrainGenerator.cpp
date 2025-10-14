@@ -29,7 +29,7 @@ void ChunkColumnData::destroy()
 
 const int* ChunkColumnData::heightMapRead() const
 {
-	PROFILE_SCOPE("HeightMap read access", ProfileCategory::ChunkColumnData);
+	PROFILE_SCOPE("Read height map", ProfileCategory::ChunkColumnData);
 
 	std::unique_lock<std::mutex> lock(readDataMutex);
 	readDataCV.wait(lock, [this]() { return initialized; });
