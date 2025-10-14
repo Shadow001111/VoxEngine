@@ -96,10 +96,6 @@ void Chunk::destroy()
 // Fills 'blocks' array
 void Chunk::buildBlocks()
 {
-	Profiler::beginProfile("Build chunk blocks: wait", ProfileCategory::ChunkBlocks);
-	ScopedProcessingFence scopedFence(processingFence);
-	Profiler::endProfile();
-
 	if (
 		areBlocksBuilt.load(std::memory_order_acquire) ||
 		!isLoadedInWorld.load(std::memory_order_acquire)
@@ -107,6 +103,10 @@ void Chunk::buildBlocks()
 	{
 		return;
 	}
+
+	Profiler::beginProfile("Build chunk blocks: wait", ProfileCategory::ChunkBlocks);
+	ScopedProcessingFence scopedFence(processingFence);
+	Profiler::endProfile();
 
 	const ChunkColumnData* chunkColumnData = TerrainGenerator::getInstance().loadChunkColumnData(position.x, position.z);
 	const int* heightMap = chunkColumnData->heightMapRead();
@@ -134,8 +134,6 @@ void Chunk::buildBlocks()
 				}
 			}
 		}
-
-		blocks[getIndex(7, 7, 7)] = Block::GlowStone;
 	}
 
 	areBlocksBuilt.store(true, std::memory_order_release);
@@ -143,10 +141,6 @@ void Chunk::buildBlocks()
 
 void Chunk::buildLight()
 {
-	Profiler::beginProfile("Build chunk light: wait", ProfileCategory::ChunkLight);
-	ScopedProcessingFence scopedFence(processingFence);
-	Profiler::endProfile();
-
 	if (
 		!isLoadedInWorld.load(std::memory_order_acquire) ||
 		!areBlocksBuilt.load(std::memory_order_acquire)
@@ -154,6 +148,10 @@ void Chunk::buildLight()
 	{
 		return;
 	}
+
+	Profiler::beginProfile("Build chunk light: wait", ProfileCategory::ChunkLight);
+	ScopedProcessingFence scopedFence(processingFence);
+	Profiler::endProfile();
 
 	//
 	const int dx[] = { -1, 1, 0, 0, 0, 0 };
@@ -175,6 +173,7 @@ void Chunk::buildLight()
 				for (int z = 0; z < CHUNK_SIZE; z++)
 				{
 					size_t index = getIndex(x, y, z);
+					light[index] = 15 << 4;
 
 					Block currentBlock = blocks[index];
 					const BlockData* currentBlockData = BlockDataBase::getBlockData(currentBlock);
@@ -235,7 +234,7 @@ void Chunk::buildLight()
 			int x = data.x;
 			int y = data.y;
 			int z = data.z;
-			uint8_t blockLight = data.lightLevel;
+			uint8_t blockLight = data.lightLevel & 15;
 			int8_t propagationSide = data.propagationSide;
 
 			// Get block data
@@ -247,35 +246,37 @@ void Chunk::buildLight()
 			assert(lightAbsorption > 0);
 
 			// Calculate new light
-			uint8_t newLight;
+			uint8_t newBlockLight;
 			if (propagationSide == -1)
 			{
-				newLight = blockLight;
+				newBlockLight = blockLight;
 			}
 			else
 			{
-				newLight = blockLight > lightAbsorption ? blockLight - lightAbsorption : 0;
+				newBlockLight = blockLight > lightAbsorption ? blockLight - lightAbsorption : 0;
 			}
 
-			if (newLight == 0)
+			if (newBlockLight == 0)
 			{
 				continue;
 			}
 
 			// Get current light
 			uint8_t currentLight = light[index];
+			uint8_t currentBlockLight = currentLight & 15;
+			uint8_t currentSkyLight = currentLight << 4;
 
 			// Compare light values
-			if (newLight <= currentLight)
+			if (newBlockLight <= currentBlockLight)
 			{
 				continue;
 			}
 
 			// Store new value
-			light[index] = newLight;
+			light[index] = currentSkyLight | newBlockLight;
 
 			// Early exit, because spreading light value of 1 will do nothing
-			if (newLight == 1)
+			if (newBlockLight == 1)
 			{
 				continue;
 			}
@@ -296,7 +297,7 @@ void Chunk::buildLight()
 					(ny & CHUNK_UPPER_BITS_MASK) == 0 &&
 					(nz & CHUNK_UPPER_BITS_MASK) == 0)
 				{
-					localLightQueue.emplace(nx, ny, nz, newLight, i);
+					localLightQueue.emplace(nx, ny, nz, newBlockLight, i);
 				}
 				else
 				{
@@ -310,7 +311,7 @@ void Chunk::buildLight()
 					int neighborLocalY = ny & CHUNK_LOWER_BITS_MASK;
 					int neighborLocalZ = nz & CHUNK_LOWER_BITS_MASK;
 
-					neighbor->addNodeToLightQueue(neighborLocalX, neighborLocalY, neighborLocalZ, newLight, i);
+					neighbor->addNodeToLightQueue(neighborLocalX, neighborLocalY, neighborLocalZ, newBlockLight, i);
 				}
 			}
 		}
@@ -321,10 +322,6 @@ void Chunk::buildLight()
 
 void Chunk::buildMesh()
 {
-	Profiler::beginProfile("Build chunk mesh: wait", ProfileCategory::ChunkMesh);
-	ScopedProcessingFence scopedFence(processingFence);
-	Profiler::endProfile();
-
 	if (
 		!isLoadedInWorld.load(std::memory_order_acquire) ||
 		!areBlocksBuilt.load(std::memory_order_acquire) ||
@@ -333,6 +330,10 @@ void Chunk::buildMesh()
 	{
 		return;
 	}
+
+	Profiler::beginProfile("Build chunk mesh: wait", ProfileCategory::ChunkMesh);
+	ScopedProcessingFence scopedFence(processingFence);
+	Profiler::endProfile();
 
 	meshData.ready = false;
 
@@ -460,10 +461,6 @@ void Chunk::buildMesh()
 
 void Chunk::updateLight()
 {
-	Profiler::beginProfile("Update chunk light: wait", ProfileCategory::ChunkLight);
-	ScopedProcessingFence scopedFence(processingFence);
-	Profiler::endProfile();
-
 	if (
 		!isLoadedInWorld.load(std::memory_order_acquire) ||
 		!areBlocksBuilt.load(std::memory_order_acquire)
@@ -471,6 +468,10 @@ void Chunk::updateLight()
 	{
 		return;
 	}
+
+	Profiler::beginProfile("Update chunk light: wait", ProfileCategory::ChunkLight);
+	ScopedProcessingFence scopedFence(processingFence);
+	Profiler::endProfile();
 
 	PROFILE_SCOPE("Update chunk light", ProfileCategory::ChunkLight);
 
@@ -497,15 +498,12 @@ void Chunk::updateLight()
 		auto data = localLightQueue.front();
 		localLightQueue.pop();
 
+		// Get node data
 		int x = data.x;
 		int y = data.y;
 		int z = data.z;
-		uint8_t blockLight = data.lightLevel;
+		uint8_t blockLight = data.lightLevel & 15;
 		int8_t propagationSide = data.propagationSide;
-
-		assert(x >= 0 && x < CHUNK_SIZE);
-		assert(y >= 0 && y < CHUNK_SIZE);
-		assert(z >= 0 && z < CHUNK_SIZE);
 
 		// Get block data
 		size_t index = getIndex(x, y, z);
@@ -516,36 +514,37 @@ void Chunk::updateLight()
 		assert(lightAbsorption > 0);
 
 		// Calculate new light
-		uint8_t newLight;
+		uint8_t newBlockLight;
 		if (propagationSide == -1)
 		{
-			newLight = blockLight;
+			newBlockLight = blockLight;
 		}
 		else
 		{
-			newLight = blockLight > lightAbsorption ? blockLight - lightAbsorption : 0;
+			newBlockLight = blockLight > lightAbsorption ? blockLight - lightAbsorption : 0;
 		}
 
-		if (newLight == 0)
+		if (newBlockLight == 0)
 		{
 			continue;
 		}
 
 		// Get current light
 		uint8_t currentLight = light[index];
+		uint8_t currentBlockLight = currentLight & 15;
+		uint8_t currentSkyLight = currentLight << 4;
 
 		// Compare light values
-		if (newLight <= currentLight)
+		if (newBlockLight <= currentBlockLight)
 		{
 			continue;
 		}
 
 		// Store new value
-		light[index] = newLight;
-		lightChanged = true;
+		light[index] = currentSkyLight | newBlockLight;
 
-		// Early exit for light value of 1
-		if (newLight == 1)
+		// Early exit, because spreading light value of 1 will do nothing
+		if (newBlockLight == 1)
 		{
 			continue;
 		}
@@ -553,7 +552,6 @@ void Chunk::updateLight()
 		// Propagate to 6 neighbors
 		for (int i = 0; i < 6; i++)
 		{
-			// Don't propagate back to where it came from
 			if (i == (propagationSide ^ 1))
 			{
 				continue;
@@ -563,17 +561,14 @@ void Chunk::updateLight()
 			int ny = y + dy[i];
 			int nz = z + dz[i];
 
-			// Check if within current chunk
 			if ((nx & CHUNK_UPPER_BITS_MASK) == 0 &&
 				(ny & CHUNK_UPPER_BITS_MASK) == 0 &&
 				(nz & CHUNK_UPPER_BITS_MASK) == 0)
 			{
-				// Add to local queue for processing
-				localLightQueue.emplace(nx, ny, nz, newLight, i);
+				localLightQueue.emplace(nx, ny, nz, newBlockLight, i);
 			}
 			else
 			{
-				// Propagate to neighbor chunk
 				Chunk* neighbor = neighbors[i];
 				if (neighbor == nullptr)
 				{
@@ -584,7 +579,7 @@ void Chunk::updateLight()
 				int neighborLocalY = ny & CHUNK_LOWER_BITS_MASK;
 				int neighborLocalZ = nz & CHUNK_LOWER_BITS_MASK;
 
-				neighbor->addNodeToLightQueue(neighborLocalX, neighborLocalY, neighborLocalZ, newLight, i);
+				neighbor->addNodeToLightQueue(neighborLocalX, neighborLocalY, neighborLocalZ, newBlockLight, i);
 			}
 		}
 	}
@@ -881,50 +876,46 @@ void Chunk::addNodeToLightQueue(int x, int y, int z, uint8_t lightLevel, int8_t 
 
 void Chunk::calculateVertexAmbientOcclusionAndLight(int& ao, int& light, uint8_t centerLight, uint8_t side1Light, uint8_t side2Light, uint8_t cornerLight, bool side1Solid, bool side2Solid, bool cornerSolid) const
 {
-	int blockLightSum = centerLight & 0x0F;
-	int skyLightSum = (centerLight >> 4) & 0x0F;
+	int blockLightSum = centerLight & 15;
+	int skyLightSum = (centerLight >> 4) & 15;
 	int count = 1;
 
-	// If both sides are solid, only use center light
 	if (side1Solid && side2Solid)
 	{
-		// Pack: 4 bits block light, 4 bits sky light
 		ao = 0;
-		light = (blockLightSum & 0x0F) | ((skyLightSum & 0x0F) << 4);
+		light = (blockLightSum & 15) | ((skyLightSum & 15) << 4);
 		return;
 	}
 
-	// Add side1 if not solid
 	if (!side1Solid)
 	{
-		blockLightSum += side1Light & 0x0F;
-		skyLightSum += (side1Light >> 4) & 0x0F;
+		blockLightSum += side1Light & 15;
+		skyLightSum += (side1Light >> 4) & 15;
 		count++;
 	}
 
-	// Add side2 if not solid
 	if (!side2Solid)
 	{
-		blockLightSum += side2Light & 0x0F;
-		skyLightSum += (side2Light >> 4) & 0x0F;
+		blockLightSum += side2Light & 15;
+		skyLightSum += (side2Light >> 4) & 15;
 		count++;
 	}
 
-	// Add corner if neither adjacent side is solid
 	if (!side1Solid && !side2Solid && !cornerSolid)
 	{
-		blockLightSum += cornerLight & 0x0F;
-		skyLightSum += (cornerLight >> 4) & 0x0F;
+		blockLightSum += cornerLight & 15;
+		skyLightSum += (cornerLight >> 4) & 15;
 		count++;
 	}
 
-	// Average the light values
 	int avgBlockLight = blockLightSum / count;
 	int avgSkyLight = skyLightSum / count;
 
-	//
+	assert(avgBlockLight >= 0 && avgBlockLight <= 15);
+	assert(avgSkyLight >= 0 && avgSkyLight <= 15);
+
 	ao = 3 - (side1Solid + side2Solid + cornerSolid);
-	light = (avgBlockLight & 0x0F) | ((avgSkyLight & 0x0F) << 4);
+	light = (avgBlockLight & 15) | ((avgSkyLight & 15) << 4);
 }
 
 void Chunk::calculateFaceAmbientOcclusionAndLight(int& ao, int& light, int x, int y, int z, int normal, uint8_t centerFaceLight) const

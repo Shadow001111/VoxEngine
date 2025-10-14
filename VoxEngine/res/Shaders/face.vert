@@ -31,10 +31,14 @@ void main()
 
     textureID = (instanceData.x >> 23) & 511;
 
-    int light0 = instanceData.y & 255;
-    int light1 = (instanceData.y >> 8) & 255;
-    int light2 = (instanceData.y >> 16) & 255;
-    int light3 = instanceData.y >> 24;
+    int blockLight0 = (instanceData.y >> 0) & 15;
+    int skyLight0 = (instanceData.y >> 4) & 15;
+    int blockLight1 = (instanceData.y >> 8) & 15;
+    int skyLight1 = (instanceData.y >> 12) & 15;
+    int blockLight2 = (instanceData.y >> 16) & 15;
+    int skyLight2 = (instanceData.y >> 20) & 15;
+    int blockLight3 = (instanceData.y >> 24) & 15;
+    int skyLight3 = (instanceData.y >> 28) & 15;
     
     // AO
     ao[0] = float(ao0) / 3.0;
@@ -43,10 +47,10 @@ void main()
     ao[3] = float(ao3) / 3.0;
 
     // Light
-    light[0] = max(light0 & 15, light0 >> 4) / 15.0;
-    light[1] = max(light1 & 15, light1 >> 4) / 15.0;
-    light[2] = max(light2 & 15, light2 >> 4) / 15.0;
-    light[3] = max(light3 & 15, light3 >> 4) / 15.0;
+    light[0] = max(blockLight0, skyLight0) / 15.0;
+    light[1] = max(blockLight1, skyLight1) / 15.0;
+    light[2] = max(blockLight2, skyLight2) / 15.0;
+    light[3] = max(blockLight3, skyLight3) / 15.0;
 
     // Move quad to face
     vec3 vertexPos = vec3(0.0);
