@@ -6,19 +6,17 @@ Player::Player(const glm::vec3& position, float yaw, float pitch) :
 {
 }
 
-void Player::update(const WindowManager& wnd, float deltaTime, glm::vec2& lastMousePos)
+void Player::update(const PlayerInput& input, float deltaTime)
 {
 	previousTransform = transform;
 
     // Position
     {
-		bool sprint = wnd.isKeyPressed(GLFW_KEY_LEFT_SHIFT);
+		const float cameraSpeed = (input.sprint ? 4.0f : 1.0f) * (15.0f * deltaTime);
 
-        const float cameraSpeed = (sprint ? 4.0f : 1.0f) * (15.0f * deltaTime);
-
-        float leftRight = wnd.isKeyPressed(GLFW_KEY_D) - wnd.isKeyPressed(GLFW_KEY_A);
-        float forwardBackward = wnd.isKeyPressed(GLFW_KEY_W) - wnd.isKeyPressed(GLFW_KEY_S);
-        float worldUpDown = wnd.isKeyPressed(GLFW_KEY_SPACE) - wnd.isKeyPressed(GLFW_KEY_LEFT_CONTROL);
+        float leftRight = input.moveRight - input.moveLeft;
+        float forwardBackward = input.moveForward - input.moveBackward;
+        float worldUpDown = input.moveUp - input.moveDown;
 
         glm::vec3 movementVector = glm::vec3(0.0f);
 
@@ -34,18 +32,8 @@ void Player::update(const WindowManager& wnd, float deltaTime, glm::vec2& lastMo
     }
     // Rotation
     {
-        const float mouseSensitivity = 0.002f;
-
-        float mouseX, mouseY;
-        wnd.getMousePos(mouseX, mouseY);
-
-        float offsetX = mouseX - lastMousePos.x;
-        float offsetY = mouseY - lastMousePos.y;
-
-        lastMousePos.x = mouseX;
-        lastMousePos.y = mouseY;
-
-        rotate(-offsetX * mouseSensitivity, -offsetY * mouseSensitivity);
+		const float mouseSensitivity = 0.002f;
+        rotate(-input.mouseDelta.x * mouseSensitivity, -input.mouseDelta.y * mouseSensitivity);
     }
 }
 

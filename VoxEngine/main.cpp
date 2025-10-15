@@ -10,7 +10,7 @@
 
 int main()
 {
-    constexpr int CHUNK_LOAD_DISTANCE = 5;
+    constexpr int CHUNK_LOAD_DISTANCE = 12;
 
     constexpr float CAMERA_FAR_PLANE = (CHUNK_LOAD_DISTANCE + 0.5f) * (CHUNK_SIZE * 1.41f);
     constexpr float FOG_DISTANCE = (CHUNK_LOAD_DISTANCE + 0.5f)* CHUNK_SIZE;
@@ -97,7 +97,21 @@ int main()
 			// Player
 			while (playerUpdateTimer.shouldUpdate())
             {
-				player.update(wnd, playerUpdateTimer.getUpdateInterval(), previousMousePos);
+                PlayerInput playerInput;
+                playerInput.moveForward =  wnd.isKeyPressed(GLFW_KEY_W);
+                playerInput.moveBackward = wnd.isKeyPressed(GLFW_KEY_S);
+                playerInput.moveLeft =     wnd.isKeyPressed(GLFW_KEY_A);
+                playerInput.moveRight =    wnd.isKeyPressed(GLFW_KEY_D);
+                playerInput.moveUp =       wnd.isKeyPressed(GLFW_KEY_SPACE);
+                playerInput.moveDown =     wnd.isKeyPressed(GLFW_KEY_LEFT_CONTROL);
+                playerInput.sprint =       wnd.isKeyPressed(GLFW_KEY_LEFT_SHIFT);
+
+                float mouseX, mouseY;
+                wnd.getMousePos(mouseX, mouseY);
+                playerInput.mouseDelta = glm::vec2(mouseX - previousMousePos.x, mouseY - previousMousePos.y);
+                previousMousePos = glm::vec2(mouseX, mouseY);
+
+				player.update(playerInput, playerUpdateTimer.getUpdateInterval());
             }
 			player.interpolateCameraTransform(playerUpdateTimer.getAccumulatedTimeInPercent());
 

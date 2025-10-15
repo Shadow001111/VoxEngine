@@ -19,7 +19,6 @@ enum class ProfileCategory
     __COUNT__
 };
 
-// TODO: Maybe for each thread create a new instance of Profiler and then collect all of them. Idk if it is better than just mutex.
 class Profiler
 {
     struct ProfileData
