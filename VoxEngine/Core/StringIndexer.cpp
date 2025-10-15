@@ -7,11 +7,6 @@ size_t StringIndexer::getID(const char* textureName)
 
 size_t StringIndexer::getID(const std::string& textureName)
 {
-    if (textureName.empty())
-    {
-        return -1;
-    }
-
     auto it = nameToID.find(textureName);
     if (it == nameToID.end())
     {

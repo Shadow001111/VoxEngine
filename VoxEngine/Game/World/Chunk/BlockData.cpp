@@ -13,14 +13,16 @@ inline uint8_t clamp(uint8_t v, uint8_t min, uint8_t max)
 BlockData::BlockData(
 	uint8_t lightAbsorption,
 	uint8_t lightEmission,
-	bool hasTransparentFaces,
+	bool hasFaces,
+	bool areFacesTransparent,
 	const char* nxName, const char* pxName,
 	const char* nyName, const char* pyName,
 	const char* nzName, const char* pzName)
 	:
 	lightAbsorption(clamp(lightAbsorption, 1, 15)),
 	lightEmission(clamp(lightEmission, 0, 15)),
-	hasTransparentFaces(hasTransparentFaces),
+	hasFaces(hasFaces),
+	areFacesTransparent(areFacesTransparent || !hasFaces),
 	texName_negativeX(nxName), texName_positiveX(pxName),
 	texName_negativeY(nyName), texName_positiveY(pyName),
 	texName_negativeZ(nzName), texName_positiveZ(pzName)
@@ -38,11 +40,11 @@ void BlockDataBase::registerBlock(Block block, const BlockData& blockData)
 
 void BlockDataBase::loadBlockDataBase()
 {
-	registerBlock(Block::Air,        { 1,  0,  true,  "", "", "", "", "", "" });
-	registerBlock(Block::GrassBlock, { 15, 0,  false, "grass_block_side", "grass_block_side", "dirt", "grass_block_top", "grass_block_side", "grass_block_side" });
-	registerBlock(Block::Dirt,       { 15, 0,  false, "dirt", "dirt", "dirt", "dirt", "dirt", "dirt" });
-	registerBlock(Block::Stone,      { 15, 0,  false, "stone", "stone", "stone", "stone", "stone", "stone" });
-	registerBlock(Block::GlowStone,  { 15, 15, false, "glowstone", "glowstone", "glowstone", "glowstone", "glowstone", "glowstone" });
+	registerBlock(Block::Air,        { 1,  0,  false, true,  "", "", "", "", "", "" });
+	registerBlock(Block::GrassBlock, { 15, 0,  true,  false, "grass_block_side", "grass_block_side", "dirt", "grass_block_top", "grass_block_side", "grass_block_side" });
+	registerBlock(Block::Dirt,       { 15, 0,  true,  false, "dirt", "dirt", "dirt", "dirt", "dirt", "dirt" });
+	registerBlock(Block::Stone,      { 15, 0,  true,  false, "stone", "stone", "stone", "stone", "stone", "stone" });
+	registerBlock(Block::GlowStone,  { 15, 15, true,  false, "glowstone", "glowstone", "glowstone", "glowstone", "glowstone", "glowstone" });
 }
 
 const BlockData* BlockDataBase::getBlockData(Block block)
@@ -82,6 +84,11 @@ void BlockTextureIDDatabase::build(std::vector<std::string>& textureNames)
 	{
 		BlockTextureIDs& IDs = blockTexturesIDs[blockID];
 		const BlockData* blockData = BlockDataBase::getBlockData(blockID);
+
+		if (!blockData->hasFaces)
+		{
+			continue;
+		}
 
 		IDs.ids[0] = strInd.getID(blockData->texName_negativeX);
 		IDs.ids[1] = strInd.getID(blockData->texName_positiveX);
