@@ -38,6 +38,18 @@ World::World()
 		faceShader->use();
 		faceShader->setInt("blockTextures", blockTextureArray->getUnit());
 	}
+
+	// Terrain generator
+	{
+		auto futures = ParallelUtils::getGlobalThreadPool().broadcast([]()
+			{
+				TerrainGenerator::initThread();
+			});
+		for (auto& future : futures)
+		{
+			future.wait();
+		}
+	}
 }
 
 World::~World()

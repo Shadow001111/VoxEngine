@@ -10,6 +10,7 @@
 #include <memory>
 #include <mutex>
 #include <condition_variable>
+#include <vector>
 
 class ChunkColumnData
 {
@@ -62,6 +63,8 @@ class TerrainGenerator
 	
 	static int seed;
 	static thread_local FastNoise::SmartNode<FastNoise::Simplex> simplexNoise;
+	static thread_local std::vector<float> internalLayeredNoiseArray;
+	static thread_local std::vector<float> caveNoiseArray;
 public:
 	TerrainGenerator() = default;
 	~TerrainGenerator() = default;
@@ -73,20 +76,24 @@ public:
 
 	static TerrainGenerator& getInstance();
 
+	static void initThread();
+
 	const ChunkColumnData* loadChunkColumnData(int chunkX, int chunkZ);
 	const ChunkColumnData* getChunkColumnData(int chunkX, int chunkZ);
 	void unloadChunkColumnData(int chunkX, int chunkZ);
+
+	void computeCaveMask(bool* outArray, int chunkX, int chunkY, int chunkZ);
 
 	// Debug
 	size_t getChunkColumnDataCount() const;
 private:
 	void initChunkColumnData(ChunkColumnData* column, int X, int Z);
 
+	static float calculateHeight(float continentalNoise, float erosionNoise, float weirdnessNoise);
 	static void computeInitialHeightMap(int* heightMap, int chunkX, int chunkZ);
 
 	struct NoiseParams
 	{
-		float amplitude = 1.0f;
 		float frequency = 1.0f;
 
 		int layerCount = 1;
@@ -94,7 +101,10 @@ private:
 		float frequencyFactor = 2.0f;
 	};
 
-	static void computeNoise_2D(float* noiseArray, int chunkX, int chunkZ, float frequency);
-	static void computeLayeredNoise_2D(float* noiseArray, int chunkX, int chunkZ, const NoiseParams& params);
+	static void computeNoise_2D(float* outArray, int chunkX, int chunkZ, float frequency);
+	static void computeLayeredNoise_2D(float* outArray, int chunkX, int chunkZ, const NoiseParams& params);
+
+	static void computeNoise_3D(float* outArray, int chunkX, int chunkY, int chunkZ, float frequency);
+	static void computeLayeredNoise_3D(float* outArray, int chunkX, int chunkY, int chunkZ, const NoiseParams& params);
 };
 

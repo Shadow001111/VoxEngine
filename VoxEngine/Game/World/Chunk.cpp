@@ -108,41 +108,52 @@ void Chunk::buildBlocks()
 	ScopedProcessingFence scopedFence(processingFence);
 	Profiler::endProfile();
 
+	// Load chunk column data
 	const ChunkColumnData* chunkColumnData = TerrainGenerator::getInstance().loadChunkColumnData(position.x, position.z);
 	const int* heightMap = chunkColumnData->heightMapRead();
 	isLoadedChunkColumnData.store(true, std::memory_order_release);
 
+	// Cave mask
+	// TODO: Chunk masks shouldn't be computed for chunks above terrain.
+	bool caveMask[CHUNK_VOLUME];
+	TerrainGenerator::getInstance().computeCaveMask(caveMask, position.x, position.y, position.z);
+
 	{
 		PROFILE_SCOPE("Build chunk blocks", ProfileCategory::ChunkBlocks);
+
+		const int globalChunkY = position.y * CHUNK_SIZE;
+
 		for (int x = 0; x < CHUNK_SIZE; x++)
 		{
 			for (int z = 0; z < CHUNK_SIZE; z++)
 			{
-				const int globalHeight = heightMap[z + x * CHUNK_SIZE];
-
+				int globalHeight = heightMap[z + x * CHUNK_SIZE];
+				int localheight = std::min(CHUNK_SIZE - 1, globalHeight - globalChunkY);
 				for (int y = 0; y < CHUNK_SIZE; y++)
 				{
-					int worldY = position.y * CHUNK_SIZE + y;
-					Block block;
+					int globalY = globalChunkY + y;
 
-					if (worldY > globalHeight)
+					size_t index = getIndex(x, y, z);
+
+					Block block = Block::Air;
+					if (globalY > globalHeight)
 					{
 						block = Block::Air;
 					}
-					else if (worldY > globalHeight - 1)
+					else if (globalY == globalHeight)
 					{
 						block = Block::GrassBlock;
 					}
-					else if (worldY > globalHeight - 4)
+					else if (globalY > globalHeight - 4)
 					{
 						block = Block::Dirt;
 					}
 					else
 					{
-						block = Block::Stone;
+						block = caveMask[index] ? Block::Air : Block::Stone;
 					}
 
-					blocks[getIndex(x, y, z)] = block;
+					blocks[index] = block;
 				}
 			}
 		}
@@ -978,7 +989,7 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(int& ao, int& light, int x, in
 			n[i] = !BlockDataBase::getBlockData(data[i].first)->hasTransparentFaces;
 		}
 
-		calculateVertexAmbientOcclusionAndLight(ao0, light0, centerFaceLight, data[1].second, data[4].second, data[3].second, n[1], n[4], n[3]);
+		calculateVertexAmbientOcclusionAndLight(ao0, light0, centerFaceLight, data[1].second, data[4].second, data[2].second, n[1], n[4], n[2]);
 		calculateVertexAmbientOcclusionAndLight(ao1, light1, centerFaceLight, data[1].second, data[3].second, data[0].second, n[1], n[3], n[0]);
 		calculateVertexAmbientOcclusionAndLight(ao2, light2, centerFaceLight, data[6].second, data[3].second, data[5].second, n[6], n[3], n[5]);
 		calculateVertexAmbientOcclusionAndLight(ao3, light3, centerFaceLight, data[6].second, data[4].second, data[7].second, n[6], n[4], n[7]);
@@ -998,7 +1009,7 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(int& ao, int& light, int x, in
 			n[i] = !BlockDataBase::getBlockData(data[i].first)->hasTransparentFaces;
 		}
 
-		calculateVertexAmbientOcclusionAndLight(ao0, light0, centerFaceLight, data[1].second, data[4].second, data[3].second, n[1], n[4], n[3]);
+		calculateVertexAmbientOcclusionAndLight(ao0, light0, centerFaceLight, data[1].second, data[4].second, data[2].second, n[1], n[4], n[2]);
 		calculateVertexAmbientOcclusionAndLight(ao1, light1, centerFaceLight, data[1].second, data[3].second, data[0].second, n[1], n[3], n[0]);
 		calculateVertexAmbientOcclusionAndLight(ao2, light2, centerFaceLight, data[6].second, data[3].second, data[5].second, n[6], n[3], n[5]);
 		calculateVertexAmbientOcclusionAndLight(ao3, light3, centerFaceLight, data[6].second, data[4].second, data[7].second, n[6], n[4], n[7]);

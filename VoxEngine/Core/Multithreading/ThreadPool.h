@@ -24,6 +24,9 @@ public:
 	auto enqueue(F&& f, Args&&... args)
 		-> std::future<typename std::result_of<F(Args...)>::type>;
 
+    template<class F, class... Args>
+    auto broadcast(F&& f, Args&&... args);
+
 	void waitForCompletion();
     size_t getThreadCount() const;
 private:
@@ -54,6 +57,30 @@ inline auto ThreadPool::enqueue(F&& f, Args && ...args) -> std::future<typename 
     return res;
 }
 
+template<class F, class... Args>
+inline auto ThreadPool::broadcast(F&& f, Args&&... args)
+{
+    std::vector<std::future<void>> futures;
+    std::unique_lock<std::mutex> lock(queueMutex);
+
+    if (stop)
+        throw std::runtime_error("Broadcast on stopped ThreadPool");
+
+    for (size_t i = 0; i < workers.size(); ++i)
+    {
+        auto task = std::make_shared<std::packaged_task<void()>>(
+            std::bind(std::forward<F>(f), std::forward<Args>(args)...)
+        );
+
+        futures.emplace_back(task->get_future());
+        tasks.emplace([task]() { (*task)(); });
+    }
+
+    lock.unlock();
+    condition.notify_all(); // wake all threads to grab the tasks
+    return futures;
+}
+
 // Parallel execution utilities
 class ParallelUtils
 {
@@ -65,7 +92,6 @@ public:
 
     template<typename Container, typename Func>
     static void parallelForEach(Container& container, size_t minChunkSize, Func func);
-
 private:
     static size_t calculateOptimalChunkCount(size_t totalItems, size_t minChunkSize);
 };
