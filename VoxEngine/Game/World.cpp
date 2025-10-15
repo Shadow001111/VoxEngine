@@ -19,6 +19,11 @@ World::World()
 	faceShader = std::make_unique<Shader>(faceShaderSources);
 	faceShaderSources.clear();
 
+	// Block data base
+	{
+		BlockDataBase::loadBlockDataBase();
+	}
+
 	// Block textures
 	std::vector<std::string> blockTextureNames;
 	{

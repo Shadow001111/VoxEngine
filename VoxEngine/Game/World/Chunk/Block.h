@@ -5,6 +5,8 @@ enum class Block : uint8_t
 {
 	Air = 0,
 	GrassBlock,
+	Dirt,
+	Stone,
 	GlowStone,
 	__BlockCount__
 };

@@ -231,7 +231,7 @@ void TerrainGenerator::computeInitialHeightMap(int* heightMap, int chunkX, int c
 	float continentalNoiseArray[CHUNK_AREA];
 	{
 		NoiseParams params;
-		params.frequency = 0.00001f;
+		params.frequency = 0.0001f;
 		params.layerCount = 3;
 		computeLayeredNoise_2D(continentalNoiseArray, chunkX, chunkZ, params);
 	}

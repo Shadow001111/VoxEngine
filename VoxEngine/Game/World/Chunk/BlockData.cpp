@@ -29,17 +29,21 @@ BlockData::BlockData(
 }
 
 
-BlockData BlockDataBase::BLOCK_DATABASE[(size_t)Block::__BlockCount__] =
+BlockData BlockDataBase::BLOCK_DATABASE[(size_t)Block::__BlockCount__];
+
+void BlockDataBase::registerBlock(Block block, const BlockData& blockData)
 {
-	// Air 0
-	{1, 0, true, "", "", "", "", "", ""},
+	BLOCK_DATABASE[(size_t)block] = blockData;
+}
 
-	// GrassBlock 1
-	{15, 0, false, "grass_block_side", "grass_block_side", "dirt", "grass_block_top", "grass_block_side", "grass_block_side"},
-
-	// Glowstone 2
-	{15, 15, false, "glowstone", "glowstone", "glowstone", "glowstone", "glowstone", "glowstone"}
-};
+void BlockDataBase::loadBlockDataBase()
+{
+	registerBlock(Block::Air,        { 1,  0,  true,  "", "", "", "", "", "" });
+	registerBlock(Block::GrassBlock, { 15, 0,  false, "grass_block_side", "grass_block_side", "dirt", "grass_block_top", "grass_block_side", "grass_block_side" });
+	registerBlock(Block::Dirt,       { 15, 0,  false, "dirt", "dirt", "dirt", "dirt", "dirt", "dirt" });
+	registerBlock(Block::Stone,      { 15, 0,  false, "stone", "stone", "stone", "stone", "stone", "stone" });
+	registerBlock(Block::GlowStone,  { 15, 15, false, "glowstone", "glowstone", "glowstone", "glowstone", "glowstone", "glowstone" });
+}
 
 const BlockData* BlockDataBase::getBlockData(Block block)
 {

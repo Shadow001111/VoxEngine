@@ -123,14 +123,26 @@ void Chunk::buildBlocks()
 				for (int y = 0; y < CHUNK_SIZE; y++)
 				{
 					int worldY = position.y * CHUNK_SIZE + y;
-					if (worldY <= globalHeight)
+					Block block;
+
+					if (worldY > globalHeight)
 					{
-						blocks[getIndex(x, y, z)] = Block::GrassBlock;
+						block = Block::Air;
+					}
+					else if (worldY > globalHeight - 1)
+					{
+						block = Block::GrassBlock;
+					}
+					else if (worldY > globalHeight - 4)
+					{
+						block = Block::Dirt;
 					}
 					else
 					{
-						blocks[getIndex(x, y, z)] = Block::Air;
+						block = Block::Stone;
 					}
+
+					blocks[getIndex(x, y, z)] = block;
 				}
 			}
 		}

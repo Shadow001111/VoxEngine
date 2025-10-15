@@ -17,6 +17,7 @@ struct BlockData
 	const char* texName_negativeZ = nullptr;
 	const char* texName_positiveZ = nullptr;
 
+	BlockData() = default;
 	BlockData(uint8_t lightAbsorption, uint8_t lightEmission, bool hasTransparentFaces, const char* nxName, const char* pxName, const char* nyName, const char* pyName, const char* nzName, const char* pzName);
 };
 
@@ -26,7 +27,11 @@ class BlockDataBase
 	~BlockDataBase() = delete;
 
 	static BlockData BLOCK_DATABASE[(size_t)Block::__BlockCount__];
+
+	static void registerBlock(Block block, const BlockData& blockData);
 public:
+	static void loadBlockDataBase();
+
 	static const BlockData* getBlockData(Block block);
 	static const BlockData* getBlockData(size_t index);
 };

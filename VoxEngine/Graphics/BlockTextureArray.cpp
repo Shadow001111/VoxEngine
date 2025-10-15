@@ -5,11 +5,69 @@
 
 #include <iostream>
 
+void addImageToTextureArray(unsigned char* data, int layer, int textureSize)
+{
+    glTexSubImage3D(
+        GL_TEXTURE_2D_ARRAY,
+        0,
+        0, 0, static_cast<GLint>(layer),
+        textureSize, textureSize, 1,
+        GL_RGB,
+        GL_UNSIGNED_BYTE,
+        data
+    );
+}
+
 BlockTextureArray::BlockTextureArray(const std::string& texturesFolderPath, const std::vector<std::string>& textureNames, GLuint slot, int textureSize) :
 	ID(0), unit(slot)
 {
     const bool createMipmaps = true;
     const int mipmapLevels = 1 + (createMipmaps ? ceilf(log2f(textureSize)) : 0);
+    const int desiredChannels = 3;
+
+    // Create fallback "undefined" texture (solid magenta)
+    std::vector<unsigned char> undefinedTexture(textureSize * textureSize * desiredChannels);
+    
+    if (desiredChannels == 2)
+    {
+        for (int y = 0; y < textureSize; y++)
+        {
+            for (int x = 0; x < textureSize; x++)
+            {
+                unsigned char r, g, b;
+
+                //
+                bool hx = x > (textureSize >> 1);
+                bool hy = y > (textureSize >> 1);
+                bool hxy = hx ^ hy;
+
+                if (hxy)
+                {
+                    // Magenta
+                    r = 255;
+                    g = 0;
+                    b = 255;
+                }
+                else
+                {
+                    // Black
+                    r = 0;
+                    g = 0;
+                    b = 0;
+                }
+
+                //
+                int index = (x + y * textureSize) * 3;
+                undefinedTexture[index    ] = r;
+                undefinedTexture[index + 1] = g;
+                undefinedTexture[index + 2] = b;
+            }
+        }
+    }
+    else
+    {
+
+    }
 
     // Generate texture
 	glGenTextures(1, &ID);
@@ -21,8 +79,6 @@ BlockTextureArray::BlockTextureArray(const std::string& texturesFolderPath, cons
     // Load
 	stbi_set_flip_vertically_on_load(true);
 
-    const int desiredChannels = 3;
-
     for (size_t i = 0; i < textureNames.size(); ++i)
     {
         std::string fullPath = texturesFolderPath + "/" + textureNames[i] + ".png";
@@ -32,25 +88,20 @@ BlockTextureArray::BlockTextureArray(const std::string& texturesFolderPath, cons
         if (!data)
         {
             std::cerr << "Failed to load texture: " << fullPath << std::endl;
-            glDeleteTextures(1, &ID);
-            throw std::runtime_error("Texture loading failed");
+            addImageToTextureArray(undefinedTexture.data(), i, textureSize);
+            continue;
         }
 
         if (width != textureSize || height != textureSize)
         {
             std::cerr << "Warning: Texture " << textureNames[i]
                 << " is not " << textureSize << "x" << textureSize << "(" << width << "x" << height << ")" << std::endl;
+            stbi_image_free(data);
+            addImageToTextureArray(undefinedTexture.data(), i, textureSize);
+            continue;
         }
 
-        glTexSubImage3D(
-            GL_TEXTURE_2D_ARRAY,
-            0,
-            0, 0, static_cast<GLint>(i),
-            textureSize, textureSize, 1,
-            GL_RGB,
-            GL_UNSIGNED_BYTE,
-            data
-        );
+        addImageToTextureArray(data, i, textureSize);
 
         stbi_image_free(data);
     }
