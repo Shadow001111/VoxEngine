@@ -92,7 +92,7 @@ void TerrainGenerator::initThread()
 	simplexNoise = FastNoise::New<FastNoise::Simplex>();
 	internalLayeredNoiseArray.resize(CHUNK_VOLUME);
 	caveNoiseArray.resize(CHUNK_VOLUME);
-	std::this_thread::sleep_for(std::chrono::milliseconds(10));
+	std::this_thread::sleep_for(std::chrono::milliseconds(10)); // his sleep makes sure values will initialize
 }
 
 const ChunkColumnData* TerrainGenerator::loadChunkColumnData(int chunkX, int chunkZ)
@@ -189,29 +189,31 @@ void TerrainGenerator::unloadChunkColumnData(int chunkX, int chunkZ)
 	PROFILE_SCOPE("Unload ChunkColumnData", ProfileCategory::ChunkColumnData);
 
 	// TODO: Try to use mutex only when reading map and erasing from the map, not when loading referenceCount. Though, maybe it will produce bugs.
-	std::lock_guard<std::mutex> lock(dataMutex);
-
-	Int2 pos(chunkX, chunkZ);
-	auto it = chunkColumnData.find(pos);
-	if (it == chunkColumnData.end())
+	std::unique_ptr<ChunkColumnData> columnToRelease;
 	{
-		return;
+		std::lock_guard<std::mutex> lock(dataMutex);
+
+		Int2 pos(chunkX, chunkZ);
+		auto it = chunkColumnData.find(pos);
+		if (it == chunkColumnData.end())
+		{
+			return;
+		}
+
+		// Decrement reference count
+		auto oldReferenceCount = it->second->referenceCount.fetch_sub(1, std::memory_order_acq_rel);
+		// 'oldReferenceCount' has value of referenceCount before decrement operation.
+
+		// If no more references, unload the column
+		if (oldReferenceCount - 1 <= 0)
+		{
+			columnToRelease = std::move(it->second);
+			chunkColumnData.erase(it);
+		}
 	}
-
-	// Decrement reference count
-	auto oldReferenceCount = it->second->referenceCount.fetch_sub(1, std::memory_order_acq_rel);
-	// 'oldReferenceCount' has value of referenceCount before decrement operation.
-
-	// If no more references, unload the column
-	if (oldReferenceCount - 1 <= 0)
+	if (columnToRelease)
 	{
-		std::unique_ptr<ChunkColumnData> columnToRelease = std::move(it->second);
-		chunkColumnData.erase(it);
-
-		// Release to pool without holding the data mutex
-		dataMutex.unlock();
 		chunkColumnDataPool.release(std::move(columnToRelease));
-		dataMutex.lock();
 	}
 }
 
@@ -349,7 +351,6 @@ void TerrainGenerator::computeLayeredNoise_2D(float* outArray, int chunkX, int c
 
 	float layerAmplitude = 1.0f;
 	float layerFrequency = params.frequency;
-
 	float amplitudeSum = 0.0f;
 
 	for (int i = 0; i < params.layerCount; i++)
@@ -357,8 +358,7 @@ void TerrainGenerator::computeLayeredNoise_2D(float* outArray, int chunkX, int c
 		computeNoise_2D(internalLayeredNoiseArray.data(), chunkX, chunkZ, layerFrequency);
 		for (int index = 0; index < CHUNK_AREA; index++)
 		{
-			float value = internalLayeredNoiseArray[index] * layerAmplitude;
-			outArray[index] += value;
+			outArray[index] += internalLayeredNoiseArray[index] * layerAmplitude;
 		}
 		amplitudeSum += layerAmplitude;
 		layerAmplitude *= params.amplitudeFactor;
@@ -397,8 +397,7 @@ void TerrainGenerator::computeLayeredNoise_3D(float* outArray, int chunkX, int c
 		computeNoise_3D(internalLayeredNoiseArray.data(), chunkX, chunkY, chunkZ, layerFrequency);
 		for (int index = 0; index < CHUNK_VOLUME; index++)
 		{
-			float value = internalLayeredNoiseArray[index] * layerAmplitude;
-			outArray[index] += value;
+			outArray[index] += internalLayeredNoiseArray[index] * layerAmplitude;
 		}
 		amplitudeSum += layerAmplitude;
 		layerAmplitude *= params.amplitudeFactor;
