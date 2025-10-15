@@ -113,16 +113,12 @@ void Chunk::buildBlocks()
 	const int* heightMap = chunkColumnData->heightMapRead();
 	isLoadedChunkColumnData.store(true, std::memory_order_release);
 
-	// Cave mask
-	// TODO: Chunk masks shouldn't be computed for chunks above terrain.
-	bool caveMask[CHUNK_VOLUME];
-	TerrainGenerator::getInstance().computeCaveMask(caveMask, position.x, position.y, position.z);
-
+	// Terrain
+	bool computeCaveMask = false;
 	{
 		PROFILE_SCOPE("Build chunk blocks", ProfileCategory::ChunkBlocks);
 
 		const int globalChunkY = position.y * CHUNK_SIZE;
-
 		for (int x = 0; x < CHUNK_SIZE; x++)
 		{
 			for (int z = 0; z < CHUNK_SIZE; z++)
@@ -150,11 +146,29 @@ void Chunk::buildBlocks()
 					}
 					else
 					{
-						block = caveMask[index] ? Block::Air : Block::Stone;
+						block = Block::Stone;
+						computeCaveMask = true;
 					}
 
 					blocks[index] = block;
 				}
+			}
+		}
+	}
+
+	// Caves
+	if (computeCaveMask)
+	{
+		bool caveMask[CHUNK_VOLUME];
+		TerrainGenerator::getInstance().computeCaveMask(caveMask, position.x, position.y, position.z);
+
+		PROFILE_SCOPE("Build chunk blocks: caves", ProfileCategory::ChunkBlocks);
+
+		for (int i = 0; i < CHUNK_VOLUME; i++)
+		{
+			if (blocks[i] == Block::Stone && caveMask[i])
+			{
+				blocks[i] = Block::Air;
 			}
 		}
 	}
@@ -378,7 +392,6 @@ void Chunk::buildMesh()
 						continue;
 					}
 
-					// TODO: Maybe should copy?
 					const auto& textureIDs = blockTextureDatabase.getBlockTextureIDs(block);
 
 					// I tried to do a loop, but it doubles the execution time
@@ -622,7 +635,6 @@ bool Chunk::hasLightUpdates() const
 
 void Chunk::render() const
 {
-	// TODO: Old mesh data can be seen when loading!
 	// Checking twice to be sure
 	if (!canBeRendered())
 	{
