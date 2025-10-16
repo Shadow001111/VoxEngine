@@ -12,10 +12,48 @@
 #include <sstream>
 #include <iomanip>
 
+std::string formatSize(size_t value)
+{
+    static const char* suffixes[] = { "", "k", "M", "G", "T", "P", "E" };
+    constexpr size_t sufffixCount = sizeof(suffixes) / sizeof(suffixes[0]);
+    double scaled = static_cast<double>(value);
+    size_t suffixIndex = 0;
+
+    while (scaled >= 1000.0 && suffixIndex < sufffixCount - 1)
+    {
+        scaled /= 1000.0;
+        ++suffixIndex;
+    }
+
+    std::ostringstream oss;
+    oss << std::fixed << std::setprecision((scaled < 10.0 && suffixIndex > 0) ? 1 : 0);
+    oss << scaled << suffixes[suffixIndex];
+    return oss.str();
+}
+
+std::string formatSizeBinary(size_t value)
+{
+    static const char* suffixes[] = { "", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB" };
+    constexpr size_t sufffixCount = sizeof(suffixes) / sizeof(suffixes[0]);
+    double scaled = static_cast<double>(value);
+    size_t suffixIndex = 0;
+
+    while (scaled >= 1024.0 && suffixIndex < sufffixCount - 1)
+    {
+        scaled /= 1024.0;
+        ++suffixIndex;
+    }
+
+    std::ostringstream oss;
+    oss << std::fixed << std::setprecision((scaled < 10.0 && suffixIndex > 0) ? 1 : 0);
+    oss << scaled << suffixes[suffixIndex];
+    return oss.str();
+}
+
 // TODO: Modern OpenGl
 int main()
 {
-    constexpr int CHUNK_LOAD_DISTANCE = 4;
+    constexpr int CHUNK_LOAD_DISTANCE = 12;
 
     constexpr float CAMERA_FAR_PLANE = (CHUNK_LOAD_DISTANCE + 0.5f) * (CHUNK_SIZE * 1.41f);
     constexpr float FOG_DISTANCE = (CHUNK_LOAD_DISTANCE + 0.5f)* CHUNK_SIZE;
@@ -149,23 +187,53 @@ int main()
             {
                 const auto& debug = world.getDebugData();
 
-                float rowHeight = 32.0f;
+                float rowHeight = 24.0f;
                 std::ostringstream ss;
+                ss << std::fixed << std::setprecision(1);
 
                 // TODO: Display VSYNC and MAX-FPS
-                ss << "FPS: " << std::to_string(int(1.0f / deltaTime)) << "\n";
+                ss << "FPS: " << std::to_string(int(1.0f / deltaTime));
 
                 // Chunks
-                ss << "Chunks: Loaded: " << std::to_string(debug.loadedChunksCount)
-                   << ",  Rendered: " <<     std::to_string(debug.renderedChunks);
+                ss << "\nChunks: Loaded: " << formatSize(debug.loadedChunksCount)
+                   << ", Rendered: " << formatSize(debug.renderedChunks);
+
+                // Faces
+                ss << "\nFaces: " << formatSize(debug.totalFaces)
+                    << "/ " << formatSize(debug.totalFaceCapacity)
+                    << ", Rendered: " << formatSize(debug.renderedFaceCount);
+
+                ss << "\nChunk meshes size: " << formatSizeBinary(debug.totalFaceCapacity * sizeof(BlockFaceInstance));
+
+                // TODO: Add textures size in bytes
 
                 // Player orientation
-                const auto& playerPos = player.getCamera().getPosition();
-                ss << std::fixed << std::setprecision(1);
-                ss << "X:" << playerPos.x << "  Y:" << playerPos.y << "  Z:" << playerPos.z;
+                const Camera& camera = player.getCamera();
+                const auto& cameraPos = camera.getPosition();
+                const auto& cameraViewDirection = camera.getForward();
+
+                ss << "\nX:v" << cameraPos.x << " Y:v" << cameraPos.y << " Z:v" << cameraPos.z;
+                
+                std::string facingDir;
+                float absX = std::abs(cameraViewDirection.x);
+                float absY = std::abs(cameraViewDirection.y);
+                float absZ = std::abs(cameraViewDirection.z);
+                if (absX > absY && absX > absZ)
+                {
+                    facingDir = (cameraViewDirection.x > 0.0f) ? "+X" : "-X";
+                }
+                else if (absY > absX && absY > absZ)
+                {
+                    facingDir = (cameraViewDirection.y > 0.0f) ? "+Y" : "-Y";
+                }
+                else
+                {
+                    facingDir = (cameraViewDirection.z > 0.0f) ? "+Z" : "-Z";
+                }
+                ss << "\nView direction: " << facingDir;
 
                 std::string text = ss.str();
-                TextRenderer::renderText(text, 10.0f, wnd.getHeight() - 40.0f, rowHeight, glm::vec3(1.0f, 0.0f, 0.0f));
+                TextRenderer::renderText(text, 10.0f, wnd.getHeight() - 10.0f - rowHeight, rowHeight, glm::vec3(1.0f, 0.0f, 0.0f));
             }
 
             // Swap buffers

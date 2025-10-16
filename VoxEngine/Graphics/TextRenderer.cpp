@@ -7,7 +7,6 @@
 // TODO: Make text renderer instanced. Put textures either in texture array or texture atlas.
 // TODO: Support UNICODE
 // TODO: Don't render spaces. Don't generate texture for it.
-// TODO: Add newlines. Add param from newline spacing.
 
 Character::Character(GLuint textureID, const glm::ivec2& size, const glm::ivec2& bearing, GLuint advance) :
     textureID(textureID), size(size), bearing(bearing), advance(advance)
@@ -144,25 +143,28 @@ bool TextRenderer::loadFont(const std::string& fontName, GLuint fontSize)
             continue;
         }
 
-        GLuint texture;
-        glGenTextures(1, &texture);
-        glBindTexture(GL_TEXTURE_2D, texture);
-        glTexImage2D(
-            GL_TEXTURE_2D,
-            0,
-            GL_RED,
-            face->glyph->bitmap.width,
-            face->glyph->bitmap.rows,
-            0,
-            GL_RED,
-            GL_UNSIGNED_BYTE,
-            face->glyph->bitmap.buffer
-        );
+        GLuint texture = 0;
+        if (c != ' ')
+        {
+            glGenTextures(1, &texture);
+            glBindTexture(GL_TEXTURE_2D, texture);
+            glTexImage2D(
+                GL_TEXTURE_2D,
+                0,
+                GL_RED,
+                face->glyph->bitmap.width,
+                face->glyph->bitmap.rows,
+                0,
+                GL_RED,
+                GL_UNSIGNED_BYTE,
+                face->glyph->bitmap.buffer
+            );
 
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        }
 
         Character character = {
             texture,
@@ -229,28 +231,41 @@ void TextRenderer::renderText(const std::string& text, float x, float y, float r
 
     glActiveTexture(GL_TEXTURE1);
 
-    for (const char& c : text)
+    //
+    const float startX = x;
+
+    for (const unsigned char c : text)
     {
+        if (c == '\n')
+        {
+            y -= rowHeight;
+            x = startX;
+            continue;
+        }
+
         auto it = characters.find(c);
         if (it == characters.end()) continue;
         const Character& ch = it->second;
 
-        GLfloat xpos = x + ch.bearing.x * scale;
-        GLfloat ypos = y - (ch.size.y - ch.bearing.y) * scale;
-        GLfloat w = ch.size.x * scale;
-        GLfloat h = ch.size.y * scale;
+        if (ch.textureID)
+        {
+            GLfloat xpos = x + ch.bearing.x * scale;
+            GLfloat ypos = y - (ch.size.y - ch.bearing.y) * scale;
+            GLfloat w = ch.size.x * scale;
+            GLfloat h = ch.size.y * scale;
 
-        const float vertices[4][4] = {
-            { xpos,     ypos + h,   0.0f, 0.0f },
-            { xpos,     ypos,       0.0f, 1.0f },
-            { xpos + w, ypos,       1.0f, 1.0f },
-            { xpos + w, ypos + h,   1.0f, 0.0f }
-        };
+            const float vertices[4][4] = {
+                { xpos,     ypos + h,   0.0f, 0.0f },
+                { xpos,     ypos,       0.0f, 1.0f },
+                { xpos + w, ypos,       1.0f, 1.0f },
+                { xpos + w, ypos + h,   1.0f, 0.0f }
+            };
 
-        glBindTexture(GL_TEXTURE_2D, ch.textureID);
-        glBindBuffer(GL_ARRAY_BUFFER, textVBO);
-        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
-        glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+            glBindTexture(GL_TEXTURE_2D, ch.textureID);
+            glBindBuffer(GL_ARRAY_BUFFER, textVBO);
+            glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+            glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+        }
 
         x += (ch.advance >> 6) * scale;
     }

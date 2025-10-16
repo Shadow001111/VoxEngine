@@ -218,7 +218,7 @@ void World::renderChunks(const Camera& camera) const
 	{
 		//PROFILE_SCOPE("Render", ProfileCategory::Render);
 
-		//renderedFaceCount = 0;
+		debugData.renderedFaceCount = 0;
 		debugData.renderedChunks = chunksToRender.size();
 		for (const auto& info : chunksToRender)
 		{
@@ -227,7 +227,7 @@ void World::renderChunks(const Camera& camera) const
 			faceShader->setVec3("chunkPosition", chunkWorldPosition.x, chunkWorldPosition.y, chunkWorldPosition.z);
 
 			info.chunk->render(); // Takes most of the time
-			//renderedFaceCount += info.chunk->getFaceCount();
+			debugData.renderedFaceCount += info.chunk->getFaceCount();
 		}
 	}
 }
@@ -444,18 +444,15 @@ void World::debugMethod()
 
 const World::DebugData& World::getDebugData() const
 {
-	/*totalFaces = 0;
-	totalFaceCapacity = 0;
+	debugData.totalFaces = 0;
+	debugData.totalFaceCapacity = 0;
 	for (const auto& pair : chunks)
 	{
 		const Chunk* chunk = pair.second.get();
 
-		totalFaces += chunk->getFaceCount();
-		totalFaceCapacity += chunk->getFaceCapacity();
+		debugData.totalFaces += chunk->getFaceCount();
+		debugData.totalFaceCapacity += chunk->getFaceCapacity();
 	}
-
-	potentialMaximumCapacity = chunks.size() * CHUNK_VOLUME / 2 * 6;
-	renderedFaceCount = this->renderedFaceCount;*/
 
 	debugData.loadedChunksCount = chunks.size();
 	return debugData;
