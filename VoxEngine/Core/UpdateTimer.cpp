@@ -25,6 +25,11 @@ bool UpdateTimer::shouldUpdate()
 	return false;
 }
 
+bool UpdateTimer::peek() const
+{
+	return accumulatedTime >= updateInterval;
+}
+
 float UpdateTimer::getAccumulatedTime() const
 {
 	return accumulatedTime;

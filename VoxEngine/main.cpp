@@ -10,7 +10,7 @@
 
 int main()
 {
-    constexpr int CHUNK_LOAD_DISTANCE = 12;
+    constexpr int CHUNK_LOAD_DISTANCE = 4;
 
     constexpr float CAMERA_FAR_PLANE = (CHUNK_LOAD_DISTANCE + 0.5f) * (CHUNK_SIZE * 1.41f);
     constexpr float FOG_DISTANCE = (CHUNK_LOAD_DISTANCE + 0.5f)* CHUNK_SIZE;
@@ -25,11 +25,8 @@ int main()
         glCullFace(GL_BACK);
         glFrontFace(GL_CCW);
 
-        glEnable(GL_DEPTH_TEST);
-        glDepthFunc(GL_LESS);
-
         // Player
-        Player player({ 0.0f, 2.0f, 0.0f }, glm::radians(180.0f), 0.0f);
+        Player player({ 0.0f, 20.0f, 0.0f }, glm::radians(180.0f), 0.0f);
         player.getCamera().setAspectRatio(wnd.getAspectRatio());
         player.getCamera().setFarPlane(CAMERA_FAR_PLANE);
 
@@ -69,6 +66,38 @@ int main()
 			profilerUpdateTimer.addTime(deltaTime);
             debugUpdateTimer.addTime(deltaTime);
 
+            // Player
+            PlayerInput playerInput;
+            if (playerUpdateTimer.peek())
+            {
+                playerInput.moveForward = wnd.isKeyPressed(GLFW_KEY_W);
+                playerInput.moveBackward = wnd.isKeyPressed(GLFW_KEY_S);
+                playerInput.moveLeft = wnd.isKeyPressed(GLFW_KEY_A);
+                playerInput.moveRight = wnd.isKeyPressed(GLFW_KEY_D);
+                playerInput.moveUp = wnd.isKeyPressed(GLFW_KEY_SPACE);
+                playerInput.moveDown = wnd.isKeyPressed(GLFW_KEY_LEFT_CONTROL);
+                playerInput.sprint = wnd.isKeyPressed(GLFW_KEY_LEFT_SHIFT);
+
+                float mouseX, mouseY;
+                wnd.getMousePos(mouseX, mouseY);
+                playerInput.mouseDelta = glm::vec2(mouseX - previousMousePos.x, mouseY - previousMousePos.y);
+                previousMousePos = glm::vec2(mouseX, mouseY);
+            }
+            
+            while (playerUpdateTimer.shouldUpdate())
+            {
+                player.update(playerInput, playerUpdateTimer.getUpdateInterval());
+                playerInput.mouseDelta = glm::vec2(0.0f, 0.0f);
+            }
+            player.interpolateCameraTransform(playerUpdateTimer.getAccumulatedTimeInPercent());
+            
+            World::RaycastResult playerRaycastResult;
+            {
+                const Camera& camera = player.getCamera();
+                const Transform& transform = camera.getTransform();
+                playerRaycastResult = world.raycast(transform.position, camera.getForward(), 16.0f);
+            }
+
             // World
             while (worldUpdateTimer.shouldUpdate())
             {
@@ -94,27 +123,6 @@ int main()
                 }
             }
 
-			// Player
-			while (playerUpdateTimer.shouldUpdate())
-            {
-                PlayerInput playerInput;
-                playerInput.moveForward =  wnd.isKeyPressed(GLFW_KEY_W);
-                playerInput.moveBackward = wnd.isKeyPressed(GLFW_KEY_S);
-                playerInput.moveLeft =     wnd.isKeyPressed(GLFW_KEY_A);
-                playerInput.moveRight =    wnd.isKeyPressed(GLFW_KEY_D);
-                playerInput.moveUp =       wnd.isKeyPressed(GLFW_KEY_SPACE);
-                playerInput.moveDown =     wnd.isKeyPressed(GLFW_KEY_LEFT_CONTROL);
-                playerInput.sprint =       wnd.isKeyPressed(GLFW_KEY_LEFT_SHIFT);
-
-                float mouseX, mouseY;
-                wnd.getMousePos(mouseX, mouseY);
-                playerInput.mouseDelta = glm::vec2(mouseX - previousMousePos.x, mouseY - previousMousePos.y);
-                previousMousePos = glm::vec2(mouseX, mouseY);
-
-				player.update(playerInput, playerUpdateTimer.getUpdateInterval());
-            }
-			player.interpolateCameraTransform(playerUpdateTimer.getAccumulatedTimeInPercent());
-
             // Rendering
             {
                 const auto& color = world.visuals.backgroundColor;
@@ -122,7 +130,8 @@ int main()
             }
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-			world.render(player.getCamera());
+			world.renderChunks(player.getCamera());
+            world.renderVoxelMarker(player.getCamera(), playerRaycastResult);
 
             // Swap buffers
             wnd.swapBuffers();;

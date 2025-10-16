@@ -10,14 +10,21 @@
 World::World()
 {
 	// Shaders
-	std::vector<Shader::ShaderSource> faceShaderSources =
 	{
-		{GL_VERTEX_SHADER, "res/Shaders/face.vert"},
-		{GL_FRAGMENT_SHADER, "res/Shaders/face.frag"}
-	};
+		std::vector<Shader::ShaderSource> faceShaderSources =
+		{
+			{GL_VERTEX_SHADER, "res/Shaders/face.vert"},
+			{GL_FRAGMENT_SHADER, "res/Shaders/face.frag"}
+		};
+		faceShader = std::make_unique<Shader>(faceShaderSources);
 
-	faceShader = std::make_unique<Shader>(faceShaderSources);
-	faceShaderSources.clear();
+		std::vector<Shader::ShaderSource> voxelMarkerShaderSources =
+		{
+			{GL_VERTEX_SHADER, "res/Shaders/voxelMarker.vert"},
+			{GL_FRAGMENT_SHADER, "res/Shaders/voxelMarker.frag"}
+		};
+		voxelMarkerShader = std::make_unique<Shader>(voxelMarkerShaderSources);
+	}
 
 	// Block data base
 	{
@@ -177,8 +184,11 @@ void World::update()
 	Chunk::sendMeshesToGPU();
 }
 
-void World::render(const Camera& camera) const
+void World::renderChunks(const Camera& camera) const
 {
+	glEnable(GL_DEPTH_TEST);
+	glDepthFunc(GL_LESS);
+
 	faceShader->use();
 	{
 		// Matrices
@@ -218,6 +228,192 @@ void World::render(const Camera& camera) const
 			renderedFaceCount += info.chunk->getFaceCount();
 		}
 	}
+}
+
+void World::renderVoxelMarker(const Camera& camera, const RaycastResult& raycast) const
+{
+	if (!raycast.hit)
+	{
+		return;
+	}
+
+	voxelMarkerShader->use();
+	{
+		// Matrices
+		voxelMarkerShader->setMat4("view", camera.getViewMatrix());
+		voxelMarkerShader->setMat4("projection", camera.getProjectionMatrix());
+	}
+
+	auto placePos = raycast.hitBlockPosition;
+	
+	switch (raycast.hitNormal)
+	{
+	case 0:
+		placePos.x--;
+		break;
+	case 1:
+		placePos.x++;
+		break;
+	case 2:
+		placePos.y--;
+		break;
+	case 3:
+		placePos.y++;
+		break;
+	case 4:
+		placePos.z--;
+		break;
+	case 5:
+		placePos.z++;
+		break;
+	}
+
+	glEnable(GL_DEPTH_TEST);
+	glDepthFunc(GL_LEQUAL);
+
+	{
+		const auto& pos = placePos;
+		voxelMarkerShader->setVec3("position", pos.x + 0.5f, pos.y + 0.5f, pos.z + 0.5f);
+		voxelMarkerShader->setFloat("scale", 1.0f);
+		voxelMarkerShader->setVec3("color", 1.0f, 0.0f, 1.0f);
+		voxelMarkerMesh.draw();
+	}
+	{
+		const auto& pos = raycast.hitPosition;
+		voxelMarkerShader->setVec3("position", pos.x, pos.y, pos.z);
+		voxelMarkerShader->setFloat("scale", 0.2f);
+		voxelMarkerShader->setVec3("color", 1.0f, 0.0f, 0.0f);
+		voxelMarkerMesh.draw();
+	}
+}
+
+World::RaycastResult World::raycast(const glm::vec3& origin, const glm::vec3& direction, float maxDistance) const
+{
+	PROFILE_SCOPE("Raycast", ProfileCategory::General);
+
+	RaycastResult result;
+
+	const glm::vec3 dir = glm::normalize(direction);
+
+	// DDA algorithm for voxel traversal
+	glm::vec3 currentPos = origin;
+	glm::ivec3 blockPos = glm::ivec3(glm::floor(currentPos));
+
+	// Step direction for each axis
+	const glm::ivec3 step = glm::sign(dir);
+
+	// tMax: distance to next voxel boundary along each axis
+	// tDelta: distance to move along ray to cross one voxel on each axis
+	glm::vec3 tDelta, tMax;
+
+	for (int i = 0; i < 3; i++)
+	{
+		if (std::abs(dir[i]) < 0.0001f)
+		{
+			tDelta[i] = std::numeric_limits<float>::max();
+			tMax[i] = std::numeric_limits<float>::max();
+		}
+		else
+		{
+			float invDir = 1.0f / dir[i];
+			float delta = fabsf(invDir);
+			tDelta[i] = delta;
+			if (step[i] > 0)
+			{
+				tMax[i] = (1.0f - glm::fract(currentPos[i])) * delta;
+			}
+			else
+			{
+				tMax[i] = glm::fract(currentPos[i]) * delta;
+			}
+		}
+	}
+
+	float distanceTraveled = 0.0f;
+	int lastAxis = -1;
+
+	// Cache chunk
+	const Chunk* chunk = nullptr;
+	glm::ivec3 cachedChunkPos = glm::ivec3(std::numeric_limits<int>::max());
+
+	// Traverse voxels
+	while (distanceTraveled < maxDistance)
+	{
+		// Get and cache current chunk
+		glm::ivec3 chunkPos = blockPos >> CHUNK_SIZE_LOG2;
+
+		if (chunkPos != cachedChunkPos)
+		{
+			cachedChunkPos = chunkPos;
+			chunk = getChunkAt(cachedChunkPos.x, cachedChunkPos.y, cachedChunkPos.z);
+		}
+
+		// Check current block
+		if (chunk && chunk->getState() > Chunk::State::BuildingBlocks)
+		{
+			// Local block position within chunk
+			glm::ivec3 localBlockPos = blockPos & CHUNK_LOWER_BITS_MASK;
+
+			Block block = chunk->getBlock_inBoundaries(localBlockPos.x, localBlockPos.y, localBlockPos.z);
+			const BlockData* blockData = BlockDataBase::getBlockData(block);
+
+			if (blockData->properties.raycastable)
+			{
+				result.hit = true;
+				result.hitBlock = block;
+				result.hitPosition = origin + dir * distanceTraveled;
+				result.hitBlockPosition = blockPos;
+				if (lastAxis == -1)
+				{
+					result.hitNormal = -1;
+				}
+				else
+				{
+					result.hitNormal = lastAxis * 2 + (step[lastAxis] > 0 ? 0 : 1);
+				}
+				result.distance = distanceTraveled;
+				return result;
+			}
+		}
+
+		// Find which axis boundary we hit first
+		if (tMax.x < tMax.y)
+		{
+			if (tMax.x < tMax.z)
+			{
+				distanceTraveled = tMax.x;
+				tMax.x += tDelta.x;
+				blockPos.x += step.x;
+				lastAxis = 0;
+			}
+			else
+			{
+				distanceTraveled = tMax.z;
+				tMax.z += tDelta.z;
+				blockPos.z += step.z;
+				lastAxis = 2;
+			}
+		}
+		else
+		{
+			if (tMax.y < tMax.z)
+			{
+				distanceTraveled = tMax.y;
+				tMax.y += tDelta.y;
+				blockPos.y += step.y;
+				lastAxis = 1;
+			}
+			else
+			{
+				distanceTraveled = tMax.z;
+				tMax.z += tDelta.z;
+				blockPos.z += step.z;
+				lastAxis = 2;
+			}
+		}
+	}
+
+	return result; // No hit
 }
 
 void World::rebuildAllChunkMeshes()

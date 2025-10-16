@@ -1,6 +1,7 @@
 #pragma once
 #include "World/ChunkPool.h"
 #include "World/WorldVisualSettings.h"
+#include "World/VoxelMarkerMesh.h"
 
 #include "Graphics/Shader.h"
 #include "Graphics/Camera.h"
@@ -22,7 +23,17 @@ class World
 
 		ChunkRenderInfo(const Chunk* chunk, const glm::vec3& chunkWorldPosition, float distanceSquared);
 	};
-
+public:
+	struct RaycastResult
+	{
+		bool hit = false;
+		Block hitBlock = Block::Air;
+		glm::vec3 hitPosition;
+		glm::ivec3 hitBlockPosition;
+		int hitNormal = -1;
+		float distance = 0.0f;
+	};
+private:
 	ChunkPool chunkPool;
 	std::unordered_map<Int3, std::unique_ptr<Chunk>, Int3Hasher> chunks;
 	
@@ -42,7 +53,11 @@ class World
 
 	// Resources
 	std::unique_ptr<Shader> faceShader;
-	std::unique_ptr <BlockTextureArray> blockTextureArray;
+
+	std::unique_ptr<Shader> voxelMarkerShader;
+	VoxelMarkerMesh voxelMarkerMesh;
+
+	std::unique_ptr<BlockTextureArray> blockTextureArray;
 
 	// Debug
 	mutable size_t renderedFaceCount;
@@ -60,7 +75,11 @@ public:
 	void preparation(int renderDistance);
 	void loadChunksAroundPlayer(const Int3& chunkLoaderPos, int renderDistance);
 	void update();
-	void render(const Camera& camera) const;
+
+	void renderChunks(const Camera& camera) const;
+	void renderVoxelMarker(const Camera& camera, const RaycastResult& raycast) const;
+
+	RaycastResult raycast(const glm::vec3& origin, const glm::vec3& direction, float maxDistance = 100.0f) const;
 
 	// Debug
 	void rebuildAllChunkMeshes();

@@ -10,6 +10,7 @@ public:
 	void setUpdateToTrue();
 
 	bool shouldUpdate();
+	bool peek() const;
 
 	float getAccumulatedTime() const;
 	float getAccumulatedTimeInPercent() const;

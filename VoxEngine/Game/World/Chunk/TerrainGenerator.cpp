@@ -219,6 +219,7 @@ void TerrainGenerator::unloadChunkColumnData(int chunkX, int chunkZ)
 
 void TerrainGenerator::computeCaveMask(bool* outArray, int chunkX, int chunkY, int chunkZ)
 {
+	// TODO: Try computing low-resolution noise array and interpolate it
 	PROFILE_SCOPE("Compute cave mask", ProfileCategory::TerrainGeneration);
 
 	{

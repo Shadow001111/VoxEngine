@@ -215,13 +215,13 @@ void Chunk::buildLight()
 					Block currentBlock = blocks[index];
 					const BlockData* currentBlockData = BlockDataBase::getBlockData(currentBlock);
 
-					uint8_t emission = currentBlockData->lightEmission;
+					uint8_t emission = currentBlockData->properties.lightEmission;
 					if (emission == 0)
 					{
 						continue;
 					}
 
-					if (currentBlockData->areFacesTransparent)
+					if (currentBlockData->properties.areFacesTransparent)
 					{
 						localLightQueue.emplace(x, y, z, emission, -1);
 					}
@@ -279,7 +279,7 @@ void Chunk::buildLight()
 			Block block = blocks[index];
 			const BlockData* blockData = BlockDataBase::getBlockData(block);
 
-			uint8_t lightAbsorption = blockData->lightAbsorption;
+			uint8_t lightAbsorption = blockData->properties.lightAbsorption;
 			assert(lightAbsorption > 0);
 
 			// Calculate new light
@@ -387,7 +387,7 @@ void Chunk::buildMesh()
 				{
 					Block block = getBlock_inBoundaries(x, y, z);
 					const BlockData* blockData = BlockDataBase::getBlockData(block);
-					if (!blockData->hasFaces)
+					if (!blockData->properties.hasFaces)
 					{
 						continue;
 					}
@@ -399,7 +399,7 @@ void Chunk::buildMesh()
 					// -X
 					std::pair<Block, uint8_t> blockAndLight = getBlockAndLight_checkSideNeighbor(x - 1, y, z, 0);
 					blockData = BlockDataBase::getBlockData(blockAndLight.first);
-					if (blockData->areFacesTransparent && block != blockAndLight.first)
+					if (blockData->properties.areFacesTransparent && block != blockAndLight.first)
 					{
 						int ao, light;
 						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 0, blockAndLight.second);
@@ -409,7 +409,7 @@ void Chunk::buildMesh()
 					// +X
 					blockAndLight = getBlockAndLight_checkSideNeighbor(x + 1, y, z, 1);
 					blockData = BlockDataBase::getBlockData(blockAndLight.first);
-					if (blockData->areFacesTransparent && block != blockAndLight.first)
+					if (blockData->properties.areFacesTransparent && block != blockAndLight.first)
 					{
 						int ao, light;
 						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 1, blockAndLight.second);
@@ -419,7 +419,7 @@ void Chunk::buildMesh()
 					// -Y
 					blockAndLight = getBlockAndLight_checkSideNeighbor(x, y - 1, z, 2);
 					blockData = BlockDataBase::getBlockData(blockAndLight.first);
-					if (blockData->areFacesTransparent && block != blockAndLight.first)
+					if (blockData->properties.areFacesTransparent && block != blockAndLight.first)
 					{
 						int ao, light;
 						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 2, blockAndLight.second);
@@ -429,7 +429,7 @@ void Chunk::buildMesh()
 					// +Y
 					blockAndLight = getBlockAndLight_checkSideNeighbor(x, y + 1, z, 3);
 					blockData = BlockDataBase::getBlockData(blockAndLight.first);
-					if (blockData->areFacesTransparent && block != blockAndLight.first)
+					if (blockData->properties.areFacesTransparent && block != blockAndLight.first)
 					{
 						int ao, light;
 						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 3, blockAndLight.second);
@@ -439,7 +439,7 @@ void Chunk::buildMesh()
 					// -Z
 					blockAndLight = getBlockAndLight_checkSideNeighbor(x, y, z - 1, 4);
 					blockData = BlockDataBase::getBlockData(blockAndLight.first);
-					if (blockData->areFacesTransparent && block != blockAndLight.first)
+					if (blockData->properties.areFacesTransparent && block != blockAndLight.first)
 					{
 						int ao, light;
 						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 4, blockAndLight.second);
@@ -449,7 +449,7 @@ void Chunk::buildMesh()
 					// +Z
 					blockAndLight = getBlockAndLight_checkSideNeighbor(x, y, z + 1, 5);
 					blockData = BlockDataBase::getBlockData(blockAndLight.first);
-					if (blockData->areFacesTransparent && block != blockAndLight.first)
+					if (blockData->properties.areFacesTransparent && block != blockAndLight.first)
 					{
 						int ao, light;
 						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 5, blockAndLight.second);
@@ -546,7 +546,7 @@ void Chunk::updateLight()
 		Block block = blocks[index];
 		const BlockData* blockData = BlockDataBase::getBlockData(block);
 
-		uint8_t lightAbsorption = blockData->lightAbsorption;
+		uint8_t lightAbsorption = blockData->properties.lightAbsorption;
 		assert(lightAbsorption > 0);
 
 		// Calculate new light
@@ -978,7 +978,7 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(int& ao, int& light, int x, in
 
 		for (int i = 0; i < 8; i++)
 		{
-			n[i] = !BlockDataBase::getBlockData(data[i].first)->areFacesTransparent;
+			n[i] = !BlockDataBase::getBlockData(data[i].first)->properties.areFacesTransparent;
 		}
 
 		calculateVertexAmbientOcclusionAndLight(ao0, light0, centerFaceLight, data[1].second, data[3].second, data[0].second, n[1], n[3], n[0]);
@@ -998,7 +998,7 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(int& ao, int& light, int x, in
 
 		for (int i = 0; i < 8; i++)
 		{
-			n[i] = !BlockDataBase::getBlockData(data[i].first)->areFacesTransparent;
+			n[i] = !BlockDataBase::getBlockData(data[i].first)->properties.areFacesTransparent;
 		}
 
 		calculateVertexAmbientOcclusionAndLight(ao0, light0, centerFaceLight, data[1].second, data[4].second, data[2].second, n[1], n[4], n[2]);
@@ -1018,7 +1018,7 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(int& ao, int& light, int x, in
 
 		for (int i = 0; i < 8; i++)
 		{
-			n[i] = !BlockDataBase::getBlockData(data[i].first)->areFacesTransparent;
+			n[i] = !BlockDataBase::getBlockData(data[i].first)->properties.areFacesTransparent;
 		}
 
 		calculateVertexAmbientOcclusionAndLight(ao0, light0, centerFaceLight, data[1].second, data[4].second, data[2].second, n[1], n[4], n[2]);
@@ -1038,7 +1038,7 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(int& ao, int& light, int x, in
 
 		for (int i = 0; i < 8; i++)
 		{
-			n[i] = !BlockDataBase::getBlockData(data[i].first)->areFacesTransparent;
+			n[i] = !BlockDataBase::getBlockData(data[i].first)->properties.areFacesTransparent;
 		}
 
 		calculateVertexAmbientOcclusionAndLight(ao0, light0, centerFaceLight, data[4].second, data[1].second, data[2].second, n[4], n[1], n[2]);
@@ -1058,7 +1058,7 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(int& ao, int& light, int x, in
 
 		for (int i = 0; i < 8; i++)
 		{
-			n[i] = !BlockDataBase::getBlockData(data[i].first)->areFacesTransparent;
+			n[i] = !BlockDataBase::getBlockData(data[i].first)->properties.areFacesTransparent;
 		}
 
 		calculateVertexAmbientOcclusionAndLight(ao0, light0, centerFaceLight, data[1].second, data[4].second, data[2].second, n[1], n[4], n[2]);
@@ -1078,7 +1078,7 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(int& ao, int& light, int x, in
 
 		for (int i = 0; i < 8; i++)
 		{
-			n[i] = !BlockDataBase::getBlockData(data[i].first)->areFacesTransparent;
+			n[i] = !BlockDataBase::getBlockData(data[i].first)->properties.areFacesTransparent;
 		}
 
 		calculateVertexAmbientOcclusionAndLight(ao0, light0, centerFaceLight, data[1].second, data[3].second, data[0].second, n[1], n[3], n[0]);
