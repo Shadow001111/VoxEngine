@@ -27,7 +27,7 @@ struct Character
 
 struct Font
 {
-    std::unordered_map<unsigned char, Character> characters;
+    std::unordered_map<uint32_t, Character> characters;
     float fontSize;
 
     Font() = default;
@@ -57,6 +57,8 @@ class TextRenderer
     TextRenderer& operator=(TextRenderer&& other) = delete;
 
     static TextRenderer& getInstance();
+
+    static uint32_t decodeUTF8(const std::string& text, size_t& index);
 public:
     static void init();
 

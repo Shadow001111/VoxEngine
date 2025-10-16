@@ -1,4 +1,4 @@
-#include "WindowManager.h"
+﻿#include "WindowManager.h"
 
 #include "Core/UpdateTimer.h"
 #include "Core/Profiler.h"
@@ -70,7 +70,7 @@ int main()
 
         // Text renderer
         TextRenderer::init();
-        TextRenderer::loadFont("RusEngMinecraft", 64);
+        TextRenderer::loadFont("RusEngMinecraft", 8);
         TextRenderer::setCurrentFont("RusEngMinecraft");
 
         // Player
@@ -184,6 +184,7 @@ int main()
             world.renderVoxelMarker(player.getCamera(), playerRaycastResult);
 
             // Text rendering
+            if (true)
             {
                 const auto& debug = world.getDebugData();
 

@@ -2,10 +2,11 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 
+#include "Core/Profiler.h"
+
 #include <iostream>
 
 // TODO: Make text renderer instanced. Put textures either in texture array or texture atlas.
-// TODO: Support UNICODE
 
 Character::Character(GLuint textureID, const glm::ivec2& size, const glm::ivec2& bearing, GLuint advance) :
     textureID(textureID), size(size), bearing(bearing), advance(advance)
@@ -59,6 +60,50 @@ TextRenderer& TextRenderer::getInstance()
 	return textRenderer;
 }
 
+uint32_t TextRenderer::decodeUTF8(const std::string& text, size_t& index)
+{
+    unsigned char c = text[index++];
+
+    // 1-byte sequence (ASCII)
+    if ((c & 0x80) == 0)
+    {
+        return c;
+    }
+    // 2-byte sequence
+    else if ((c & 0xE0) == 0xC0)
+    {
+        uint32_t codepoint = (c & 0x1F) << 6;
+        if (index < text.length())
+            codepoint |= (text[index++] & 0x3F);
+        return codepoint;
+    }
+    // 3-byte sequence
+    else if ((c & 0xF0) == 0xE0)
+    {
+        uint32_t codepoint = (c & 0x0F) << 12;
+        if (index < text.length())
+            codepoint |= (text[index++] & 0x3F) << 6;
+        if (index < text.length())
+            codepoint |= (text[index++] & 0x3F);
+        return codepoint;
+    }
+    // 4-byte sequence
+    else if ((c & 0xF8) == 0xF0)
+    {
+        uint32_t codepoint = (c & 0x07) << 18;
+        if (index < text.length())
+            codepoint |= (text[index++] & 0x3F) << 12;
+        if (index < text.length())
+            codepoint |= (text[index++] & 0x3F) << 6;
+        if (index < text.length())
+            codepoint |= (text[index++] & 0x3F);
+        return codepoint;
+    }
+
+    // Invalid UTF-8 sequence
+    return 0;
+}
+
 TextRenderer::TextRenderer()
 {
     // Shaders
@@ -100,6 +145,9 @@ void TextRenderer::init()
 
 bool TextRenderer::loadFont(const std::string& fontName, GLuint fontSize)
 {
+    auto scopeName = std::string("Load font: ") + fontName;
+    PROFILE_SCOPE(scopeName.c_str(), ProfileCategory::General);
+
 	TextRenderer& inst = getInstance();
 	auto& fonts = inst.fonts;
 
@@ -130,20 +178,36 @@ bool TextRenderer::loadFont(const std::string& fontName, GLuint fontSize)
     }
 
     FT_Set_Pixel_Sizes(face, 0, fontSize);
+
+    //
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
     Font font;
-    font.characters.reserve(128);
-    for (unsigned char c = 0; c < 128; c++)
+
+    //
+    if (!face->charmap)
     {
-        if (FT_Load_Char(face, c, FT_LOAD_RENDER))
+        std::cerr << "[TextRenderer]: Font '" << fontName << "' does not has charmap." << std::endl;
+        FT_Done_Face(face);
+        FT_Done_FreeType(ft);
+        return false;
+    }
+
+    FT_ULong charcode = FT_Get_First_Char(face, nullptr);
+    static_assert(sizeof(FT_ULong) == sizeof(uint32_t), "FT_Ulong != uint32_t");
+    FT_UInt gindex = FT_Get_Char_Index(face, charcode);
+
+    // Load characters
+    while (gindex != 0)
+    {
+        if (FT_Load_Char(face, charcode, FT_LOAD_RENDER))
         {
-            std::cerr << "[TextRenderer]: Failed to load Glyph: '" << c << "'." << std::endl;
+            std::cerr << "[TextRenderer]: Failed to load Glyph: '" << charcode << "'." << std::endl;
             continue;
         }
 
         GLuint texture = 0;
-        if (c != ' ')
+        if (charcode != ' ')
         {
             glGenTextures(1, &texture);
             glBindTexture(GL_TEXTURE_2D, texture);
@@ -172,16 +236,19 @@ bool TextRenderer::loadFont(const std::string& fontName, GLuint fontSize)
             (GLuint)face->glyph->advance.x
         };
 
-        font.characters.emplace(c, std::move(character));
+        font.characters.emplace(charcode, std::move(character));
+        charcode = FT_Get_Next_Char(face, charcode, &gindex);
     }
+
+    //
     font.fontSize = fontSize;
+    std::cout << "[TextRenderer]: Loaded font: '" << fontName << "' (" << fontPath << "). Character count: " << font.characters.size() << "." << std::endl;
 
     FT_Done_Face(face);
     FT_Done_FreeType(ft);
 
     fonts.emplace(fontName, std::move(font));
 
-    std::cout << "[TextRenderer]: Loaded font: '" << fontName << "' (" << fontPath << ")." << std::endl;
     return true;
 }
 
@@ -202,6 +269,8 @@ void TextRenderer::setCurrentFont(const std::string& fontName)
 
 void TextRenderer::renderText(const std::string& text, float x, float y, float rowHeight, const glm::vec3& color)
 {
+    PROFILE_SCOPE("Render: text", ProfileCategory::Render);
+
     TextRenderer& inst = getInstance();
     
     // Font
@@ -233,17 +302,28 @@ void TextRenderer::renderText(const std::string& text, float x, float y, float r
     //
     const float startX = x;
 
-    for (const unsigned char c : text)
+    size_t index = 0;
+    while (index < text.length())
     {
-        if (c == '\n')
+        uint32_t codepoint = decodeUTF8(text, index);
+
+        if (codepoint == '\n')
         {
             y -= rowHeight;
             x = startX;
             continue;
         }
 
-        auto it = characters.find(c);
-        if (it == characters.end()) continue;
+        auto it = characters.find(codepoint);
+        if (it == characters.end())
+        {
+            codepoint = '?';
+            it = characters.find(codepoint);
+            if (it == characters.end())
+            {
+                continue;
+            }
+        }
         const Character& ch = it->second;
 
         if (ch.textureID)
