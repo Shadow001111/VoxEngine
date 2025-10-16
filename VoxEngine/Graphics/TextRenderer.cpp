@@ -6,7 +6,6 @@
 
 // TODO: Make text renderer instanced. Put textures either in texture array or texture atlas.
 // TODO: Support UNICODE
-// TODO: Don't render spaces. Don't generate texture for it.
 
 Character::Character(GLuint textureID, const glm::ivec2& size, const glm::ivec2& bearing, GLuint advance) :
     textureID(textureID), size(size), bearing(bearing), advance(advance)

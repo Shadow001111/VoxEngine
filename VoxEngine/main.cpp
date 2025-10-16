@@ -205,30 +205,32 @@ int main()
 
                 ss << "\nChunk meshes size: " << formatSizeBinary(debug.totalFaceCapacity * sizeof(BlockFaceInstance));
 
-                // TODO: Add textures size in bytes
+                // TODO: Add textures and font size in bytes
 
                 // Player orientation
                 const Camera& camera = player.getCamera();
                 const auto& cameraPos = camera.getPosition();
                 const auto& cameraViewDirection = camera.getForward();
 
-                ss << "\nX:v" << cameraPos.x << " Y:v" << cameraPos.y << " Z:v" << cameraPos.z;
+                ss << "\nX: " << cameraPos.x << " Y: " << cameraPos.y << " Z: " << cameraPos.z;
                 
                 std::string facingDir;
-                float absX = std::abs(cameraViewDirection.x);
-                float absY = std::abs(cameraViewDirection.y);
-                float absZ = std::abs(cameraViewDirection.z);
-                if (absX > absY && absX > absZ)
                 {
-                    facingDir = (cameraViewDirection.x > 0.0f) ? "+X" : "-X";
-                }
-                else if (absY > absX && absY > absZ)
-                {
-                    facingDir = (cameraViewDirection.y > 0.0f) ? "+Y" : "-Y";
-                }
-                else
-                {
-                    facingDir = (cameraViewDirection.z > 0.0f) ? "+Z" : "-Z";
+                    float absX = std::abs(cameraViewDirection.x);
+                    float absY = std::abs(cameraViewDirection.y);
+                    float absZ = std::abs(cameraViewDirection.z);
+                    if (absX > absY && absX > absZ)
+                    {
+                        facingDir = (cameraViewDirection.x > 0.0f) ? "+X" : "-X";
+                    }
+                    else if (absY > absX && absY > absZ)
+                    {
+                        facingDir = (cameraViewDirection.y > 0.0f) ? "+Y" : "-Y";
+                    }
+                    else
+                    {
+                        facingDir = (cameraViewDirection.z > 0.0f) ? "+Z" : "-Z";
+                    }
                 }
                 ss << "\nView direction: " << facingDir;
 
