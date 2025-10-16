@@ -1,9 +1,9 @@
 #pragma once
-#include "Core/RGB.h"
+#include <glm/vec3.hpp>
 
 struct WorldVisualSettings
 {
-	RGB backgroundColor = {}; // Also fog color
+	glm::vec3 backgroundColor = {}; // Also fog color
 	float fogMaxDistance = 0.0f; // Should be set as render distance
 	float fogDensity = 0.0f;
 	float fogGradient = 0.0f;

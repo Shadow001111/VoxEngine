@@ -97,7 +97,7 @@ std::string Shader::loadShaderSource(const std::string& filePath) const
     }
     else
     {
-        std::cerr << "Error: failed to open shader file: " << filePath << std::endl;
+        std::cerr << "[Shader]: Failed to open shader file: '" << filePath << "'." << std::endl;
     }
     return buffer.str();
 }
@@ -133,7 +133,7 @@ void Shader::checkCompileErrors(GLuint shader, const std::string& type) const
         if (!success)
         {
             glGetShaderInfoLog(shader, 1024, nullptr, infoLog);
-            std::cerr << "Shader compilation error (" << type << "):\n" << infoLog << std::endl;
+            std::cerr << "[Shader]: Shader compilation error (" << type << "):\n" << infoLog << std::endl;
         }
     }
     else
@@ -142,7 +142,7 @@ void Shader::checkCompileErrors(GLuint shader, const std::string& type) const
         if (!success)
         {
             glGetProgramInfoLog(shader, 1024, nullptr, infoLog);
-            std::cerr << "Program linking error:\n" << infoLog << std::endl;
+            std::cerr << "[Shader]: Program linking error:\n" << infoLog << std::endl;
         }
     }
 }

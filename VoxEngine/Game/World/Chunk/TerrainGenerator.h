@@ -65,10 +65,10 @@ class TerrainGenerator
 	static thread_local FastNoise::SmartNode<FastNoise::Simplex> simplexNoise;
 	static thread_local std::vector<float> internalLayeredNoiseArray;
 	static thread_local std::vector<float> caveNoiseArray;
-public:
+
 	TerrainGenerator() = default;
 	~TerrainGenerator() = default;
-
+public:
 	TerrainGenerator(const TerrainGenerator& other) = delete;
 	TerrainGenerator& operator=(const TerrainGenerator& other) = delete;
 	TerrainGenerator(TerrainGenerator&& other) = delete;

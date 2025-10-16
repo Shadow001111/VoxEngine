@@ -6,8 +6,13 @@
 #include "Game/World.h"
 #include "Game/Player.h"
 
-#include <iostream>
+#include "Graphics/TextRenderer.h"
 
+#include <iostream>
+#include <sstream>
+#include <iomanip>
+
+// TODO: Modern OpenGl
 int main()
 {
     constexpr int CHUNK_LOAD_DISTANCE = 4;
@@ -24,6 +29,11 @@ int main()
         glEnable(GL_CULL_FACE);
         glCullFace(GL_BACK);
         glFrontFace(GL_CCW);
+
+        // Text renderer
+        TextRenderer::init();
+        TextRenderer::loadFont("RusEngMinecraft", 64);
+        TextRenderer::setCurrentFont("RusEngMinecraft");
 
         // Player
         Player player({ 0.0f, 20.0f, 0.0f }, glm::radians(180.0f), 0.0f);
@@ -48,7 +58,7 @@ int main()
 		UpdateTimer playerUpdateTimer(20.0f);
 		UpdateTimer worldUpdateTimer(20.0f); worldUpdateTimer.setUpdateToTrue();
 		UpdateTimer profilerUpdateTimer(1.0f / 3.0f);
-        UpdateTimer debugUpdateTimer(10.0f);
+        //UpdateTimer debugUpdateTimer(10.0f);
 
         // Main loop
         while (!wnd.shouldClose())
@@ -64,7 +74,7 @@ int main()
 			playerUpdateTimer.addTime(deltaTime);
 			worldUpdateTimer.addTime(deltaTime);
 			profilerUpdateTimer.addTime(deltaTime);
-            debugUpdateTimer.addTime(deltaTime);
+            //debugUpdateTimer.addTime(deltaTime);
 
             // Player
             PlayerInput playerInput;
@@ -130,26 +140,36 @@ int main()
             }
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+            TextRenderer::updateProjectionMatrix(wnd.getWidth(), wnd.getHeight());
+
 			world.renderChunks(player.getCamera());
             world.renderVoxelMarker(player.getCamera(), playerRaycastResult);
 
-            // Swap buffers
-            wnd.swapBuffers();;
-
-            // Debug
-            if (debugUpdateTimer.shouldUpdate())
+            // Text rendering
             {
-                size_t totalFaces, totalFaceCapacity, potentialMaximumCapacity, renderedFaceCount;
-                world.getChunkMeshesInfo(totalFaces, totalFaceCapacity, potentialMaximumCapacity, renderedFaceCount);
+                const auto& debug = world.getDebugData();
 
-                std::string title = "Faces/Capacity/Maximum/Rendered: "
-                    + std::to_string(totalFaces / 1000) + "k/"
-                    + std::to_string(totalFaceCapacity / 1000) + "k/"
-                    + std::to_string(potentialMaximumCapacity / 1000) + "k/"
-                    + std::to_string(renderedFaceCount / 1000) + "k";
+                float rowHeight = 32.0f;
+                std::ostringstream ss;
 
-                wnd.setTitle(title);
+                // TODO: Display VSYNC and MAX-FPS
+                ss << "FPS: " << std::to_string(int(1.0f / deltaTime)) << "\n";
+
+                // Chunks
+                ss << "Chunks: Loaded: " << std::to_string(debug.loadedChunksCount)
+                   << ",  Rendered: " <<     std::to_string(debug.renderedChunks);
+
+                // Player orientation
+                const auto& playerPos = player.getCamera().getPosition();
+                ss << std::fixed << std::setprecision(1);
+                ss << "X:" << playerPos.x << "  Y:" << playerPos.y << "  Z:" << playerPos.z;
+
+                std::string text = ss.str();
+                TextRenderer::renderText(text, 10.0f, wnd.getHeight() - 40.0f, rowHeight, glm::vec3(1.0f, 0.0f, 0.0f));
             }
+
+            // Swap buffers
+            wnd.swapBuffers();
 
             if (profilerUpdateTimer.shouldUpdate())
             {

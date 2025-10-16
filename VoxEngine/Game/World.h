@@ -34,6 +34,17 @@ public:
 		float distance = 0.0f;
 	};
 private:
+	struct DebugData
+	{
+		size_t loadedChunksCount = 0;
+		size_t renderedChunks = 0;
+
+		size_t totalFaces = 0;
+		size_t totalFaceCapacity = 0;
+		size_t potentialMaximumCapacity = 0;
+		size_t renderedFaceCount = 0;
+	};
+private:
 	ChunkPool chunkPool;
 	std::unordered_map<Int3, std::unique_ptr<Chunk>, Int3Hasher> chunks;
 	
@@ -60,7 +71,7 @@ private:
 	std::unique_ptr<BlockTextureArray> blockTextureArray;
 
 	// Debug
-	mutable size_t renderedFaceCount;
+	mutable DebugData debugData;
 public:
 	WorldVisualSettings visuals;
 
@@ -85,7 +96,7 @@ public:
 	void rebuildAllChunkMeshes();
 	void debugMethod();
 
-	void getChunkMeshesInfo(size_t& totalFaces, size_t& totalFaceCapacity, size_t& potentialMaximumCapacity, size_t& renderedFaceCount);
+	const DebugData& getDebugData() const;
 private:
 	Chunk* getChunkAt(const Int3& position) const;
 	Chunk* getChunkAt(int x, int y, int z) const;

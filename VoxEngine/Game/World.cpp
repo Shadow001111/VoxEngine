@@ -187,6 +187,7 @@ void World::update()
 void World::renderChunks(const Camera& camera) const
 {
 	glEnable(GL_DEPTH_TEST);
+	glDisable(GL_BLEND);
 	glDepthFunc(GL_LESS);
 
 	faceShader->use();
@@ -217,7 +218,8 @@ void World::renderChunks(const Camera& camera) const
 	{
 		//PROFILE_SCOPE("Render", ProfileCategory::Render);
 
-		renderedFaceCount = 0;
+		//renderedFaceCount = 0;
+		debugData.renderedChunks = chunksToRender.size();
 		for (const auto& info : chunksToRender)
 		{
 			// Set chunk position
@@ -225,7 +227,7 @@ void World::renderChunks(const Camera& camera) const
 			faceShader->setVec3("chunkPosition", chunkWorldPosition.x, chunkWorldPosition.y, chunkWorldPosition.z);
 
 			info.chunk->render(); // Takes most of the time
-			renderedFaceCount += info.chunk->getFaceCount();
+			//renderedFaceCount += info.chunk->getFaceCount();
 		}
 	}
 }
@@ -269,6 +271,7 @@ void World::renderVoxelMarker(const Camera& camera, const RaycastResult& raycast
 	}
 
 	glEnable(GL_DEPTH_TEST);
+	glDisable(GL_BLEND);
 	glDepthFunc(GL_LEQUAL);
 
 	{
@@ -439,9 +442,9 @@ void World::debugMethod()
 	
 }
 
-void World::getChunkMeshesInfo(size_t& totalFaces, size_t& totalFaceCapacity, size_t& potentialMaximumCapacity, size_t& renderedFaceCount)
+const World::DebugData& World::getDebugData() const
 {
-	totalFaces = 0;
+	/*totalFaces = 0;
 	totalFaceCapacity = 0;
 	for (const auto& pair : chunks)
 	{
@@ -452,7 +455,10 @@ void World::getChunkMeshesInfo(size_t& totalFaces, size_t& totalFaceCapacity, si
 	}
 
 	potentialMaximumCapacity = chunks.size() * CHUNK_VOLUME / 2 * 6;
-	renderedFaceCount = this->renderedFaceCount;
+	renderedFaceCount = this->renderedFaceCount;*/
+
+	debugData.loadedChunksCount = chunks.size();
+	return debugData;
 }
 
 Chunk* World::getChunkAt(const Int3& position) const

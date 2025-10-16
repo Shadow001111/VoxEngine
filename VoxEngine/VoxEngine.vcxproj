@@ -109,7 +109,7 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(SolutionDir)Libraries\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>glfw3.lib;opengl32.lib;FastNoiseD.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>glfw3.lib;opengl32.lib;freetype.lib;FastNoiseD.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PreBuildEvent>
       <Command>taskkill /f /fi "imagename eq $(TargetFileName)"</Command>
@@ -133,7 +133,7 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(SolutionDir)Libraries\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>glfw3.lib;opengl32.lib;FastNoise.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>glfw3.lib;opengl32.lib;freetype.lib;FastNoise.lib;%(AdditionalDependencies);freetype.lib</AdditionalDependencies>
     </Link>
     <PreBuildEvent>
       <Command>taskkill /f /fi "imagename eq $(TargetFileName)"</Command>
@@ -167,8 +167,8 @@
     <ClCompile Include="Core\Shapes\Plane.cpp" />
     <ClCompile Include="Game\Player.cpp" />
     <ClCompile Include="Game\World\Chunk\TerrainGenerator.cpp" />
-    <ClCompile Include="Core\RGB.cpp" />
     <ClCompile Include="Game\World\VoxelMarkerMesh.cpp" />
+    <ClCompile Include="Graphics\TextRenderer.cpp" />
     <ClCompile Include="WindowManager.cpp" />
     <ClCompile Include="Game\World.cpp" />
     <ClCompile Include="Game\World\WorldVisualSettings.cpp" />
@@ -199,8 +199,8 @@
     <ClInclude Include="Core\Shapes\Plane.h" />
     <ClInclude Include="Game\Player.h" />
     <ClInclude Include="Game\World\Chunk\TerrainGenerator.h" />
-    <ClInclude Include="Core\RGB.h" />
     <ClInclude Include="Game\World\VoxelMarkerMesh.h" />
+    <ClInclude Include="Graphics\TextRenderer.h" />
     <ClInclude Include="WindowManager.h" />
     <ClInclude Include="Game\World.h" />
     <ClInclude Include="Game\World\WorldVisualSettings.h" />

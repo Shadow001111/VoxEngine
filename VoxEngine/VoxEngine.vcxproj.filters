@@ -96,10 +96,10 @@
     <ClCompile Include="Game\World\WorldVisualSettings.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="Core\RGB.cpp">
+    <ClCompile Include="Game\World\VoxelMarkerMesh.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="Game\World\VoxelMarkerMesh.cpp">
+    <ClCompile Include="Graphics\TextRenderer.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
   </ItemGroup>
@@ -188,10 +188,10 @@
     <ClInclude Include="Game\World\WorldVisualSettings.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="Core\RGB.h">
+    <ClInclude Include="Game\World\VoxelMarkerMesh.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="Game\World\VoxelMarkerMesh.h">
+    <ClInclude Include="Graphics\TextRenderer.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
   </ItemGroup>
