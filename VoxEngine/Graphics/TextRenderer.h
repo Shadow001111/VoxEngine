@@ -49,7 +49,7 @@ struct GlyphInstance
     uint32_t textureID;
 };
 
-constexpr size_t GLYPH_INSTANCE_BATCH_SIZE = 128;
+constexpr size_t GLYPH_INSTANCE_BATCH_SIZE = 1024;
 
 class TextRenderer
 {

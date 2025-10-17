@@ -411,7 +411,6 @@ void TextRenderer::renderText(const std::string& text, float x, float y, float r
     const float startX = x;
 
     size_t index = 0;
-    std::cout << invMaxGlyphSize.x << std::endl;
     while (index < text.length())
     {
         uint32_t codepoint = decodeUTF8(text, index);
