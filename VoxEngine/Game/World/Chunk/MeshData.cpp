@@ -59,7 +59,8 @@ void MeshData::resetFaceCount()
 {
 	for (int i = 0; i < 6; i++)
 	{
-		faceCount[i] = 0;
+		opaqueFaceCount[i] = 0;
+		transparentFaceCount[i] = 0;
 	}
 }
 
@@ -82,12 +83,22 @@ void MeshData::bindInstanceVBO() const
 	glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
 }
 
-size_t MeshData::getFaceCountSum() const
+size_t MeshData::getOpaqueFaceCountSum() const
 {
 	size_t sum = 0;
 	for (int i = 0; i < 6; i++)
 	{
-		sum += faceCount[i];
+		sum += opaqueFaceCount[i];
+	}
+	return sum;
+}
+
+size_t MeshData::getTransparentFaceCountSum() const
+{
+	size_t sum = 0;
+	for (int i = 0; i < 6; i++)
+	{
+		sum += transparentFaceCount[i];
 	}
 	return sum;
 }

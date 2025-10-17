@@ -186,11 +186,6 @@ void World::update()
 
 void World::renderChunks(const Camera& camera) const
 {
-	glEnable(GL_DEPTH_TEST);
-	glDisable(GL_BLEND);
-	glDepthFunc(GL_LESS);
-	glEnable(GL_CULL_FACE);
-
 	faceShader->use();
 	{
 		// Matrices
@@ -204,9 +199,10 @@ void World::renderChunks(const Camera& camera) const
 		faceShader->setFloat("fogGradient", visuals.fogGradient);
 	}
 
+	// Collect chunks to render
 	std::vector<ChunkRenderInfo> chunksToRender;
 	{
-		//PROFILE_SCOPE("Render: collect chunks", ProfileCategory::Render);
+		PROFILE_SCOPE("Render: collect chunks", ProfileCategory::Render);
 
 		collectChunksToRender(chunksToRender, camera);
 
@@ -216,19 +212,49 @@ void World::renderChunks(const Camera& camera) const
 				return a.distanceSquared < b.distanceSquared;
 			});
 	}
+	const size_t chunksToRenderCount = chunksToRender.size();
+
 	{
-		//PROFILE_SCOPE("Render", ProfileCategory::Render);
+		PROFILE_SCOPE("Render: chunks", ProfileCategory::Render);
 
 		debugData.renderedFaceCount = 0;
-		debugData.renderedChunks = chunksToRender.size();
-		for (const auto& info : chunksToRender)
+		debugData.renderedChunks = chunksToRenderCount;
+
+		// Render opaque
+		glEnable(GL_DEPTH_TEST);
+		glDepthFunc(GL_LESS);
+		glDisable(GL_BLEND);
+		glEnable(GL_CULL_FACE);
+
+		for (size_t i = 0; i < chunksToRender.size(); ++i)
 		{
+			const auto& info = chunksToRender[i];
+
 			// Set chunk position
 			glm::vec3 chunkWorldPosition = info.chunkWorldPosition;
 			faceShader->setVec3("chunkPosition", chunkWorldPosition.x, chunkWorldPosition.y, chunkWorldPosition.z);
 
-			info.chunk->render(); // Takes most of the time
+			info.chunk->render(false); // Takes most of the time
 			debugData.renderedFaceCount += info.chunk->getFaceCount();
+		}
+
+		// Render transparent (in reverse order, from farthest to closest)
+		//glEnable(GL_DEPTH_TEST);
+		//glDepthMask(GL_FALSE);
+		//glDepthFunc(GL_LESS);
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		//glDisable(GL_CULL_FACE);
+
+		for (size_t i = chunksToRender.size(); i-- > 0; )
+		{
+			const auto& info = chunksToRender[i];
+
+			// Set chunk position
+			glm::vec3 chunkWorldPosition = info.chunkWorldPosition;
+			faceShader->setVec3("chunkPosition", chunkWorldPosition.x, chunkWorldPosition.y, chunkWorldPosition.z);
+
+			info.chunk->render(true); // Takes most of the time
 		}
 	}
 }
@@ -249,7 +275,7 @@ void World::renderVoxelMarker(const Camera& camera, const RaycastResult& raycast
 
 	auto placePos = raycast.hitBlockPosition;
 	
-	switch (raycast.hitNormal)
+	/*switch (raycast.hitNormal)
 	{
 	case 0:
 		placePos.x--;
@@ -269,7 +295,7 @@ void World::renderVoxelMarker(const Camera& camera, const RaycastResult& raycast
 	case 5:
 		placePos.z++;
 		break;
-	}
+	}*/
 
 	glEnable(GL_DEPTH_TEST);
 	glDisable(GL_BLEND);
@@ -279,7 +305,7 @@ void World::renderVoxelMarker(const Camera& camera, const RaycastResult& raycast
 	{
 		const auto& pos = placePos;
 		voxelMarkerShader->setVec3("position", pos.x + 0.5f, pos.y + 0.5f, pos.z + 0.5f);
-		voxelMarkerShader->setFloat("scale", 1.0f);
+		voxelMarkerShader->setFloat("scale", 1.01f);
 		voxelMarkerShader->setVec3("color", 1.0f, 0.0f, 1.0f);
 		voxelMarkerMesh.draw();
 	}

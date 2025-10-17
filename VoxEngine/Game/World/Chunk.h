@@ -85,7 +85,8 @@ public:
 	void updateLight();
 	bool hasLightUpdates() const;
 
-	void render() const;
+	void render(bool transparent) const;
+	bool canBeRendered(bool transparent) const;
 	bool canBeRendered() const;
 
 	Block getBlock_inBoundaries(int x, int y, int z) const;
