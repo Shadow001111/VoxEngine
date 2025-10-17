@@ -43,6 +43,7 @@ void BlockDataBase::registerBlock(Block block, const BlockProperties& properties
 // TODO: Import block data from some file. Store 'compiled' file in binary for fast loading. Check if file was updates by hashing.
 void BlockDataBase::loadBlockDataBase()
 {
+	// TODO: Maybe rotate noise-like textures
 	registerBlock(Block::Air, { 1,  0,  false, true, false }, { "", "", "", "", "", "" });
 	registerBlock(Block::GrassBlock, { 15, 0,  true,  false, true}, {"grass_block_side", "grass_block_side", "dirt", "grass_block_top", "grass_block_side", "grass_block_side"});
 	registerBlock(Block::Dirt, { 15, 0,  true,  false, true }, {"dirt", "dirt", "dirt", "dirt", "dirt", "dirt"});

@@ -21,6 +21,7 @@ void addImageToTextureArray(unsigned char* data, int layer, int textureSize)
 BlockTextureArray::BlockTextureArray(const std::string& texturesFolderPath, const std::vector<std::string>& textureNames, GLuint slot, int textureSize) :
 	ID(0), unit(slot)
 {
+    // TODO: Try anisothrophic filtering
     const bool createMipmaps = true;
     const int mipmapLevels = 1 + (createMipmaps ? ceilf(log2f(textureSize)) : 0);
     const int desiredChannels = 3;
@@ -28,33 +29,21 @@ BlockTextureArray::BlockTextureArray(const std::string& texturesFolderPath, cons
     // Create fallback "undefined" texture (solid magenta)
     std::vector<unsigned char> undefinedTexture(textureSize * textureSize * desiredChannels);
     
-    if (desiredChannels == 2)
+    if (desiredChannels == 3)
     {
         for (int y = 0; y < textureSize; y++)
         {
+            bool hy = y > (textureSize >> 1);
             for (int x = 0; x < textureSize; x++)
             {
-                unsigned char r, g, b;
-
-                //
                 bool hx = x > (textureSize >> 1);
-                bool hy = y > (textureSize >> 1);
+                
                 bool hxy = hx ^ hy;
 
-                if (hxy)
-                {
-                    // Magenta
-                    r = 255;
-                    g = 0;
-                    b = 255;
-                }
-                else
-                {
-                    // Black
-                    r = 0;
-                    g = 0;
-                    b = 0;
-                }
+                unsigned char r, g, b;
+                r = hxy ? 255 : 0;
+                g = 0;
+                b = r;
 
                 //
                 int index = (x + y * textureSize) * 3;
@@ -66,7 +55,7 @@ BlockTextureArray::BlockTextureArray(const std::string& texturesFolderPath, cons
     }
     else
     {
-
+        std::cerr << "[BlockTextureArray]: Textures with " << desiredChannels << " are not supported." << std::endl;
     }
 
     // Generate texture
@@ -107,7 +96,7 @@ BlockTextureArray::BlockTextureArray(const std::string& texturesFolderPath, cons
     }
 
     // Set texture parameters
-    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_REPEAT);
