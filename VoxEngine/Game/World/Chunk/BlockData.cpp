@@ -40,7 +40,7 @@ void BlockDataBase::registerBlock(Block block, const BlockProperties& properties
 	BLOCK_DATABASE[(size_t)block] = { properties, textureNames};
 }
 
-// TODO: Import block data from some file
+// TODO: Import block data from some file. Store 'compiled' file in binary for fast loading. Check if file was updates by hashing.
 void BlockDataBase::loadBlockDataBase()
 {
 	registerBlock(Block::Air, { 1,  0,  false, true, false }, { "", "", "", "", "", "" });

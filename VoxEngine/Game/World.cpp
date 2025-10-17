@@ -189,6 +189,7 @@ void World::renderChunks(const Camera& camera) const
 	glEnable(GL_DEPTH_TEST);
 	glDisable(GL_BLEND);
 	glDepthFunc(GL_LESS);
+	glEnable(GL_CULL_FACE);
 
 	faceShader->use();
 	{
@@ -273,6 +274,7 @@ void World::renderVoxelMarker(const Camera& camera, const RaycastResult& raycast
 	glEnable(GL_DEPTH_TEST);
 	glDisable(GL_BLEND);
 	glDepthFunc(GL_LEQUAL);
+	glEnable(GL_CULL_FACE);
 
 	{
 		const auto& pos = placePos;
