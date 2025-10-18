@@ -8,11 +8,24 @@ uniform mat4 projection;
 uniform vec3 chunkPosition;
 
 out vec2 uv;
+out vec2 texCoords;
 flat out float ao[4];
 flat out float light[4];
 flat out uint textureID;
 
 out float depth;
+
+uint hash3(ivec3 sv)
+{
+    uvec3 v = sv;
+    uint x = v.x * 0x27d4eb2du + v.y * 0x165667b1u + v.z * 0x1b873593u;
+    x ^= x >> 15u;
+    x *= 0x85ebca6bu;
+    x ^= x >> 13u;
+    x *= 0xc2b2ae35u;
+    x ^= x >> 16u;
+    return x;
+}
 
 void main()
 {
@@ -29,7 +42,9 @@ void main()
     int ao2 = (faceAO >> 4) & 3;
     int ao3 = faceAO >> 6;
 
-    textureID = (instanceData.x >> 23) & 511;
+    textureID = (instanceData.x >> 23) & 127;
+    
+    int textureTransformation = (instanceData.x >> 30) & 3;
 
     int blockLight0 = (instanceData.y >> 0) & 15;
     int skyLight0 = (instanceData.y >> 4) & 15;
@@ -85,6 +100,45 @@ void main()
     {
         vertexPos = vec3(aPos.x, aPos.y, 1.0);
         uv = vec2(aPos.x, aPos.y);
+    }
+
+    // Transform texCoords
+    texCoords = uv;
+    if (textureTransformation > 0)
+    {
+        uint hash = hash3(ivec3(x + chunkPosition.x, y + chunkPosition.y, z + chunkPosition.z));
+
+        // Flip
+        uint flip = (hash >> 3u) & 3u;
+        if ((flip & 1u) == 0u)
+        {
+            texCoords.x = 1.0 - texCoords.x;
+        }
+        if ((flip & 2u) == 0u)
+        {
+            texCoords.y = 1.0 - texCoords.y;
+        }
+
+        if (textureTransformation > 1)
+        {
+            uint rotation = hash & 3u;
+            if (rotation == 0u)
+            {
+                texCoords = texCoords;
+            }
+            else if (rotation == 1u)
+            {
+                texCoords = vec2(1.0 - texCoords.y, texCoords.x);
+            }
+            else if (rotation == 2u)
+            {
+                texCoords = vec2(1.0 - texCoords.x, 1.0 - texCoords.y);
+            }
+            else
+            {
+                texCoords = vec2(texCoords.y, 1.0 - texCoords.x);
+            }
+        }
     }
 
     //

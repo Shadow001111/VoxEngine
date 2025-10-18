@@ -16,7 +16,14 @@ struct BlockProperties
 	BlockProperties(uint8_t lightAbsorption, uint8_t lightEmission, bool hasFaces, bool areFacesTransparent, bool raycastable);
 };
 
-struct BlockTextureNames
+enum class TextureTransformation : uint8_t
+{
+	None = 0,
+	Flip = 1,
+	RotateAndFlip = 2
+};
+
+struct BlockTextures
 {
 	const char* texName_negativeX = nullptr;
 	const char* texName_positiveX = nullptr;
@@ -25,17 +32,27 @@ struct BlockTextureNames
 	const char* texName_negativeZ = nullptr;
 	const char* texName_positiveZ = nullptr;
 
-	BlockTextureNames() = default;
-	BlockTextureNames(const char* nxName, const char* pxName, const char* nyName, const char* pyName, const char* nzName, const char* pzName);
+	uint16_t texturesTransformation = 0;
+
+	BlockTextures() = default;
+	BlockTextures(
+		const char* nxName, const char* pxName,
+		const char* nyName, const char* pyName,
+		const char* nzName, const char* pzName,
+		TextureTransformation nxTransform, TextureTransformation pxTransform,
+		TextureTransformation nyTransform, TextureTransformation pyTransform,
+		TextureTransformation nzTransform, TextureTransformation pzTransform
+	);
 };
 
+// TODO: Add block texture IDs there
 struct BlockData
 {
 	BlockProperties properties;
-	BlockTextureNames textureNames;
+	BlockTextures textures;
 
 	BlockData() = default;
-	BlockData(const BlockProperties& properties, const BlockTextureNames& textureNames);
+	BlockData(const BlockProperties& properties, const BlockTextures& texturs);
 };
 
 class BlockDataBase
@@ -45,7 +62,7 @@ class BlockDataBase
 
 	static BlockData BLOCK_DATABASE[(size_t)Block::__BlockCount__];
 
-	static void registerBlock(Block block, const BlockProperties& properties, const BlockTextureNames& textureNames);
+	static void registerBlock(Block block, const BlockProperties& properties, const BlockTextures& textures);
 public:
 	static void loadBlockDataBase();
 

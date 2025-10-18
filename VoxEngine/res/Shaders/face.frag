@@ -7,6 +7,7 @@ uniform float fogGradient;
 uniform sampler2DArray blockTextures;
 
 in vec2 uv;
+in vec2 texCoords;
 flat in float ao[4];
 flat in float light[4];
 flat in uint textureID;
@@ -57,7 +58,7 @@ float interpolateLight_Quad()
 
 void main()
 {
-    vec4 textureColor = texture(blockTextures, vec3(uv, textureID));
+    vec4 textureColor = texture(blockTextures, vec3(texCoords, textureID));
     vec3 baseColor = textureColor.xyz;
     vec3 shadedColor = baseColor * interpolateAO_Triang() * interpolateLight_Quad();
 

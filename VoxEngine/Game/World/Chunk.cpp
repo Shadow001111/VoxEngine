@@ -157,24 +157,6 @@ void Chunk::buildBlocks()
 				}
 			}
 		}
-
-		if (position.y <= 1)
-		{
-			int border = 4;
-			for (int x = border; x < CHUNK_SIZE - border; x++)
-			{
-				for (int y = border; y < CHUNK_SIZE - border; y++)
-				{
-					for (int z = border; z < CHUNK_SIZE - border; z++)
-					{
-						if ((x + y + z) & 1)
-						{
-							blocks[getIndex(x, y, z)] = Block::ColoredGlass;
-						}
-					}
-				}
-			}
-		}
 	}
 
 	// Caves
@@ -420,66 +402,104 @@ void Chunk::buildMesh()
 					const auto& textureIDs = blockTextureDatabase.getBlockTextureIDs(block);
 					int instanceArrayOffset = blockData->properties.areFacesTransparent ? 6 : 0;
 
-					// I tried to do a loop, but it doubles the execution time
-
 					// -X
 					std::pair<Block, uint8_t> blockAndLight = getBlockAndLight_checkSideNeighbor(x - 1, y, z, 0);
-					blockData = BlockDataBase::getBlockData(blockAndLight.first);
-					if (blockData->properties.areFacesTransparent && block != blockAndLight.first)
+					const BlockData* neighborBlockData = BlockDataBase::getBlockData(blockAndLight.first);
+					if (neighborBlockData->properties.areFacesTransparent && block != blockAndLight.first)
 					{
 						unsigned int ao, light;
 						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 0, blockAndLight.second);
-						instances[instanceArrayOffset].emplace_back(x, y, z, 0, ao, textureIDs.ids[0], light);
+						instances[instanceArrayOffset].emplace_back(
+							x, y, z,
+							0,
+							ao,
+							textureIDs.ids[0],
+							blockData->textures.texturesTransformation & 3,
+							light
+						);
 					}
 
 					// +X
 					blockAndLight = getBlockAndLight_checkSideNeighbor(x + 1, y, z, 1);
-					blockData = BlockDataBase::getBlockData(blockAndLight.first);
-					if (blockData->properties.areFacesTransparent && block != blockAndLight.first)
+					neighborBlockData = BlockDataBase::getBlockData(blockAndLight.first);
+					if (neighborBlockData->properties.areFacesTransparent && block != blockAndLight.first)
 					{
 						unsigned int ao, light;
 						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 1, blockAndLight.second);
-						instances[1 + instanceArrayOffset].emplace_back(x, y, z, 1, ao, textureIDs.ids[1], light);
+						instances[1 + instanceArrayOffset].emplace_back(
+							x, y, z,
+							1,
+							ao,
+							textureIDs.ids[1],
+							(blockData->textures.texturesTransformation >> 2) & 3,
+							light);
 					}
 
 					// -Y
 					blockAndLight = getBlockAndLight_checkSideNeighbor(x, y - 1, z, 2);
-					blockData = BlockDataBase::getBlockData(blockAndLight.first);
-					if (blockData->properties.areFacesTransparent && block != blockAndLight.first)
+					neighborBlockData = BlockDataBase::getBlockData(blockAndLight.first);
+					if (neighborBlockData->properties.areFacesTransparent && block != blockAndLight.first)
 					{
 						unsigned int ao, light;
 						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 2, blockAndLight.second);
-						instances[2 + instanceArrayOffset].emplace_back(x, y, z, 2, ao, textureIDs.ids[2], light);
+						instances[2 + instanceArrayOffset].emplace_back(
+							x, y, z,
+							2,
+							ao,
+							textureIDs.ids[2],
+							(blockData->textures.texturesTransformation >> 4) & 3,
+							light
+						);
 					}
 
 					// +Y
 					blockAndLight = getBlockAndLight_checkSideNeighbor(x, y + 1, z, 3);
-					blockData = BlockDataBase::getBlockData(blockAndLight.first);
-					if (blockData->properties.areFacesTransparent && block != blockAndLight.first)
+					neighborBlockData = BlockDataBase::getBlockData(blockAndLight.first);
+					if (neighborBlockData->properties.areFacesTransparent && block != blockAndLight.first)
 					{
 						unsigned int ao, light;
 						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 3, blockAndLight.second);
-						instances[3 + instanceArrayOffset].emplace_back(x, y, z, 3, ao, textureIDs.ids[3], light);
+						instances[3 + instanceArrayOffset].emplace_back(
+							x, y, z,
+							3,
+							ao,
+							textureIDs.ids[3],
+							(blockData->textures.texturesTransformation >> 6) & 3,
+							light
+						);
 					}
 
 					// -Z
 					blockAndLight = getBlockAndLight_checkSideNeighbor(x, y, z - 1, 4);
-					blockData = BlockDataBase::getBlockData(blockAndLight.first);
-					if (blockData->properties.areFacesTransparent && block != blockAndLight.first)
+					neighborBlockData = BlockDataBase::getBlockData(blockAndLight.first);
+					if (neighborBlockData->properties.areFacesTransparent && block != blockAndLight.first)
 					{
 						unsigned int ao, light;
 						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 4, blockAndLight.second);
-						instances[4 + instanceArrayOffset].emplace_back(x, y, z, 4, ao, textureIDs.ids[4], light);
+						instances[4 + instanceArrayOffset].emplace_back(
+							x, y, z,
+							4,
+							ao,
+							textureIDs.ids[4],
+							(blockData->textures.texturesTransformation >> 8) & 3,
+							light
+						);
 					}
 
 					// +Z
 					blockAndLight = getBlockAndLight_checkSideNeighbor(x, y, z + 1, 5);
-					blockData = BlockDataBase::getBlockData(blockAndLight.first);
-					if (blockData->properties.areFacesTransparent && block != blockAndLight.first)
+					neighborBlockData = BlockDataBase::getBlockData(blockAndLight.first);
+					if (neighborBlockData->properties.areFacesTransparent && block != blockAndLight.first)
 					{
 						unsigned int ao, light;
 						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 5, blockAndLight.second);
-						instances[5 + instanceArrayOffset].emplace_back(x, y, z, 5, ao, textureIDs.ids[5], light);
+						instances[5 + instanceArrayOffset].emplace_back(
+							x, y, z,
+							5,
+							ao,
+							textureIDs.ids[5],
+							(blockData->textures.texturesTransformation >> 10) & 3,
+							light);
 					}
 				}
 			}

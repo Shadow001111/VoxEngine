@@ -10,14 +10,17 @@ struct WindowParams
     int height = 600;
     std::string title = "OpenGL Window";
     bool resizable = true;
+    bool vsync = false;
 };
 
 class WindowManager
 {
     GLFWwindow* window = nullptr;
+    //GLFWmonitor* monitor = nullptr;
 
     int width, height;
 	float aspectRatio;
+    bool vsync;
 public:
     WindowManager(const WindowParams& params);
 	~WindowManager();
@@ -34,6 +37,7 @@ public:
     int getWidth() const;
     int getHeight() const;
     float getAspectRatio() const;
+    bool getVSYNC() const;
 
     //
 	bool isKeyPressed(int key) const;

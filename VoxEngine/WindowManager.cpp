@@ -1,6 +1,7 @@
 #include "WindowManager.h"
 
 #include <stdexcept>
+#include <iostream>
 
 WindowManager::WindowManager(const WindowParams& params)
 {
@@ -39,12 +40,15 @@ WindowManager::WindowManager(const WindowParams& params)
     glfwSetKeyCallback(window, keyCallback);
 
     // vsync
-    glfwSwapInterval(1);
+    glfwSwapInterval(params.vsync);
 
     //
 	this->width = params.width;
 	this->height = params.height;
 	this->aspectRatio = static_cast<float>(width) / static_cast<float>(height);
+    this->vsync = params.vsync;
+
+    //this->monitor = glfwGetPrimaryMonitor();
 }
 
 WindowManager::~WindowManager()
@@ -94,6 +98,11 @@ int WindowManager::getHeight() const
 float WindowManager::getAspectRatio() const
 {
     return aspectRatio;
+}
+
+bool WindowManager::getVSYNC() const
+{
+    return vsync;
 }
 
 bool WindowManager::isKeyPressed(int key) const

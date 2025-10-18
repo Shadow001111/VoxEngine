@@ -1,6 +1,6 @@
 #include "BlockFaceInstance.h"
 
-BlockFaceInstance::BlockFaceInstance(uint32_t x, uint32_t y, uint32_t z, uint32_t normal, uint32_t ao, uint32_t textureID, uint32_t light) :
+BlockFaceInstance::BlockFaceInstance(uint32_t x, uint32_t y, uint32_t z, uint32_t normal, uint32_t ao, uint32_t textureID, uint32_t textureTransformation, uint32_t light) :
 	data1(0), data2(light)
 {
 	{
@@ -15,8 +15,11 @@ BlockFaceInstance::BlockFaceInstance(uint32_t x, uint32_t y, uint32_t z, uint32_
 		// (17 bits left) Ambient occlusion 8 bits
 		data1 |= (ao & 255) << 15;
 
-		// (9 bits left) Texture ID
-		data1 |= (textureID & 511) << 23;
+		// (9 bits left) Texture ID 7 bits
+		data1 |= (textureID & 127) << 23;
+
+		// (2 bits left) Texture transformation
+		data1 |= (textureTransformation & 3) << 30;
 
 		// (0 bits left)
 	}

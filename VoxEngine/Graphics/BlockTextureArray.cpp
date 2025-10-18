@@ -25,7 +25,7 @@ BlockTextureArray::BlockTextureArray(const std::string& texturesFolderPath, cons
     const int mipmapLevels = 1 + (createMipmaps ? ceilf(log2f(textureSize)) : 0);
     const int desiredChannels = 4;
 
-    // TODO: Mipmaps for glass makes it looks darker the further I go from it.
+    // TODO: Mipmaps for glass makes it look darker the further I go from it.
 
     // Create fallback "undefined" texture (solid magenta)
     std::vector<unsigned char> undefinedTexture(textureSize * textureSize * desiredChannels);

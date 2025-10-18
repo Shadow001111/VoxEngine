@@ -13,6 +13,7 @@
 
 #include <mutex>
 
+// TODO: Maybe threads shouldn't send chunks to containers. Maybe they should just set chunk's state, then in main thread Worl will iterate though all chunks and send them to threads.
 class World
 {
 	struct ChunkRenderInfo

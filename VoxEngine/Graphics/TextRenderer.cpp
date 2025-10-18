@@ -292,7 +292,6 @@ bool TextRenderer::loadFont(const std::string& fontName, GLuint fontSize)
 	auto& fonts = inst.fonts;
 
 	// Test if font exists
-    // TODO: Check for font size, maybe overwrite old font
 	if (fonts.find(fontName) != fonts.end())
 	{
 		std::cerr << "[TextRenderer]: Font '" << fontName << "' already exists." << std::endl;

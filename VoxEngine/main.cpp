@@ -53,7 +53,7 @@ std::string formatSizeBinary(size_t value)
 // TODO: Modern OpenGl
 int main()
 {
-    constexpr int CHUNK_LOAD_DISTANCE = 5;
+    constexpr int CHUNK_LOAD_DISTANCE = 4;
 
     constexpr float CAMERA_FAR_PLANE = (CHUNK_LOAD_DISTANCE + 0.5f) * (CHUNK_SIZE * 1.41f);
     constexpr float FOG_DISTANCE = (CHUNK_LOAD_DISTANCE + 0.5f)* CHUNK_SIZE;
@@ -61,7 +61,7 @@ int main()
     try
     {
         // Window
-        WindowManager wnd({ 1280, 720, "My OpenGL 4.6 Window", true });
+        WindowManager wnd({ 1280, 720, "My OpenGL 4.6 Window", true, true });
 
         // OpenGL states
         glEnable(GL_CULL_FACE);
@@ -96,7 +96,12 @@ int main()
 		UpdateTimer playerUpdateTimer(40.0f);
 		UpdateTimer worldUpdateTimer(20.0f); worldUpdateTimer.setUpdateToTrue();
 		UpdateTimer profilerUpdateTimer(1.0f / 3.0f);
-        //UpdateTimer debugUpdateTimer(10.0f);
+        UpdateTimer frequentUIDataUpdateTimer(2.0f);
+
+        // Frequent UI data
+        float UI_FPS = 0.0f;
+        float accumulatedFPS = 0.0f;
+        int accumulatedFrames = 0;
 
         // Main loop
         while (!wnd.shouldClose())
@@ -109,10 +114,14 @@ int main()
 			float deltaTime = time - lastTime;
 			lastTime = time;
 
+            const float FPS = 1.0f / deltaTime;
+            accumulatedFPS += FPS;
+            accumulatedFrames++;
+
 			playerUpdateTimer.addTime(deltaTime);
 			worldUpdateTimer.addTime(deltaTime);
 			profilerUpdateTimer.addTime(deltaTime);
-            //debugUpdateTimer.addTime(deltaTime);
+            frequentUIDataUpdateTimer.addTime(deltaTime);
 
             // Player
             PlayerInput playerInput;
@@ -183,14 +192,19 @@ int main()
             // Text rendering
             if (true)
             {
+                // TODO: Average FPS
                 const auto& debug = world.getDebugData();
 
                 float rowHeight = 24.0f;
                 std::ostringstream ss;
                 ss << std::fixed << std::setprecision(1);
 
-                // TODO: Display VSYNC and MAX-FPS
-                ss << "FPS: " << std::to_string(int(1.0f / deltaTime));
+                ss << "FPS: " << UI_FPS;
+
+                if (wnd.getVSYNC())
+                {
+                    ss << " VSYNC";
+                }
 
                 // Chunks
                 ss << "\nChunks: Loaded: " << formatSize(debug.loadedChunksCount)
@@ -198,7 +212,7 @@ int main()
 
                 // Faces
                 ss << "\nFaces: " << formatSize(debug.totalFaces)
-                    << "/ " << formatSize(debug.totalFaceCapacity)
+                    << "/" << formatSize(debug.totalFaceCapacity)
                     << ", Rendered: " << formatSize(debug.renderedFaceCount);
 
                 ss << "\nChunk meshes size: " << formatSizeBinary(debug.totalFaceCapacity * sizeof(BlockFaceInstance));
@@ -238,6 +252,14 @@ int main()
 
             // Swap buffers
             wnd.swapBuffers();
+
+            //
+            if (frequentUIDataUpdateTimer.shouldUpdate())
+            {
+                UI_FPS = accumulatedFPS / accumulatedFrames;
+                accumulatedFPS = 0.0f;
+                accumulatedFrames = 0;
+            }
 
             if (profilerUpdateTimer.shouldUpdate())
             {
