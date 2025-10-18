@@ -12,6 +12,8 @@
 #include <condition_variable>
 #include <vector>
 
+// TODO: Delete Int2 struct
+
 class ChunkColumnData
 {
 	int X, Z; // Coordinates in chunk space

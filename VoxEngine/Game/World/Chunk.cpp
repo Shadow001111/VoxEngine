@@ -7,8 +7,6 @@
 #include <vector>
 #include <iostream>
 
-std::mutex Chunk::meshUploadMutex;
-std::vector<MeshData*> Chunk::pendingMeshUploads;
 BlockTextureIDDatabase Chunk::blockTextureDatabase;
 
 inline size_t Chunk::getIndex(int x, int y, int z)
@@ -34,7 +32,7 @@ inline bool Chunk::operator==(const Chunk& other) const
 void Chunk::init(int x, int y, int z, Chunk** neighbors)
 {
 	// Set position
-	position = Int3(x, y, z);
+	position = { x, y, z };
 
 	// Set neighbours
 	for (int i = 0; i < 6; i++)
@@ -56,6 +54,7 @@ void Chunk::init(int x, int y, int z, Chunk** neighbors)
 
 	assert(!meshData.processingFence.isProcessing());
 	meshData.ready = false;
+	meshData.dirty = false;
 }
 
 // Cleans up resources
@@ -157,7 +156,7 @@ void Chunk::buildBlocks()
 
 		if (position.y <= 1)
 		{
-			int border = 5;
+			int border = 7;
 			for (int x = border; x < CHUNK_SIZE - border; x++)
 			{
 				for (int y = border; y < CHUNK_SIZE - border; y++)
@@ -391,6 +390,7 @@ void Chunk::buildMesh()
 	Profiler::endProfile();
 
 	meshData.ready = false;
+	meshData.dirty = false;
 
 	{
 		PROFILE_SCOPE("Build chunk mesh", ProfileCategory::ChunkMesh);
@@ -420,7 +420,7 @@ void Chunk::buildMesh()
 					blockData = BlockDataBase::getBlockData(blockAndLight.first);
 					if (blockData->properties.areFacesTransparent && block != blockAndLight.first)
 					{
-						int ao, light;
+						unsigned int ao, light;
 						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 0, blockAndLight.second);
 						instances[instanceArrayOffset].emplace_back(x, y, z, 0, ao, textureIDs.ids[0], light);
 					}
@@ -430,7 +430,7 @@ void Chunk::buildMesh()
 					blockData = BlockDataBase::getBlockData(blockAndLight.first);
 					if (blockData->properties.areFacesTransparent && block != blockAndLight.first)
 					{
-						int ao, light;
+						unsigned int ao, light;
 						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 1, blockAndLight.second);
 						instances[1 + instanceArrayOffset].emplace_back(x, y, z, 1, ao, textureIDs.ids[1], light);
 					}
@@ -440,7 +440,7 @@ void Chunk::buildMesh()
 					blockData = BlockDataBase::getBlockData(blockAndLight.first);
 					if (blockData->properties.areFacesTransparent && block != blockAndLight.first)
 					{
-						int ao, light;
+						unsigned int ao, light;
 						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 2, blockAndLight.second);
 						instances[2 + instanceArrayOffset].emplace_back(x, y, z, 2, ao, textureIDs.ids[2], light);
 					}
@@ -450,7 +450,7 @@ void Chunk::buildMesh()
 					blockData = BlockDataBase::getBlockData(blockAndLight.first);
 					if (blockData->properties.areFacesTransparent && block != blockAndLight.first)
 					{
-						int ao, light;
+						unsigned int ao, light;
 						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 3, blockAndLight.second);
 						instances[3 + instanceArrayOffset].emplace_back(x, y, z, 3, ao, textureIDs.ids[3], light);
 					}
@@ -460,7 +460,7 @@ void Chunk::buildMesh()
 					blockData = BlockDataBase::getBlockData(blockAndLight.first);
 					if (blockData->properties.areFacesTransparent && block != blockAndLight.first)
 					{
-						int ao, light;
+						unsigned int ao, light;
 						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 4, blockAndLight.second);
 						instances[4 + instanceArrayOffset].emplace_back(x, y, z, 4, ao, textureIDs.ids[4], light);
 					}
@@ -470,7 +470,7 @@ void Chunk::buildMesh()
 					blockData = BlockDataBase::getBlockData(blockAndLight.first);
 					if (blockData->properties.areFacesTransparent && block != blockAndLight.first)
 					{
-						int ao, light;
+						unsigned int ao, light;
 						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 5, blockAndLight.second);
 						instances[5 + instanceArrayOffset].emplace_back(x, y, z, 5, ao, textureIDs.ids[5], light);
 					}
@@ -509,14 +509,9 @@ void Chunk::buildMesh()
 		return;
 	}
 
+	if (meshData.getOpaqueFaceCountSum() + meshData.getTransparentFaceCountSum() > 0)
 	{
-		// TODO: Since we are gonna keep mesh in chunk all time in the future anyway, why not collecting meshes in main thread instead of sending them?
-		// Possibly will take less time, since no mutex locks
-		PROFILE_SCOPE("Send chunk meshes to main thread", ProfileCategory::ChunkMesh);
-
-		// Queue mesh for GPU upload on main thread
-		std::lock_guard<std::mutex> lock(meshUploadMutex);
-		pendingMeshUploads.push_back( &meshData );
+		meshData.dirty = true;
 	}
 }
 
@@ -656,6 +651,124 @@ bool Chunk::hasLightUpdates() const
 {
 	std::lock_guard<std::mutex> lock(lightMutex);
 	return !lightQueue.empty();
+}
+
+void Chunk::sortMesh(const glm::ivec3& cameraPos)
+{
+	// Sorting only transparent faces for now
+	// If GL_CULL_FACE is disabled, sorting must be adjusted. If faces have same position, they should be sorted by prioritized normal(something opposite to camera direction).
+	// TODO: Consider sorting opaque faces to reduce overdraw
+	// TODO: Consider using bucket sort, because there alot repeating distances
+
+	const glm::ivec3 chunkGlobalPosMinusCameraPos = position * CHUNK_SIZE - cameraPos;
+
+	struct FaceSortStruct
+	{
+		const BlockFaceInstance* instance = nullptr;
+		unsigned int manhattanDistance = 0;
+
+		FaceSortStruct(const BlockFaceInstance* instance, unsigned int manhattanDistance) :
+			instance(instance), manhattanDistance(manhattanDistance)
+		{}
+
+		FaceSortStruct& operator=(const FaceSortStruct& other)
+		{
+			if (this != &other)
+			{
+				instance = other.instance;
+				manhattanDistance = other.manhattanDistance;
+			}
+			return *this;
+		}
+	};
+
+	// Collect
+	std::vector<FaceSortStruct> faceSortVector;
+	faceSortVector.reserve(meshData.transparentInstances.size());
+	for (const auto& instance : meshData.transparentInstances)
+	{
+		glm::ivec3 pos;
+		instance.decodePosition(pos.x, pos.y, pos.z);
+
+		glm::ivec3 delta = glm::abs(pos + chunkGlobalPosMinusCameraPos);
+
+		unsigned int manhattanDistance = delta.x + delta.y + delta.z;
+
+		faceSortVector.emplace_back(&instance, manhattanDistance);
+	}
+
+	// Sorting faces in descending order, so furthest transparent faces will be rendered first, for blending
+	std::sort(faceSortVector.begin(), faceSortVector.end(),
+		[](const FaceSortStruct& a, const FaceSortStruct& b)
+		{
+			return a.manhattanDistance > b.manhattanDistance;
+		});
+
+	// Reordering instances
+	std::vector<BlockFaceInstance> reordered;
+	reordered.reserve(meshData.transparentInstances.capacity());
+
+	for (const auto& face : faceSortVector)
+	{
+		reordered.push_back(*face.instance);
+	}
+
+	meshData.transparentInstances = std::move(reordered);
+	
+	// Done
+	// TODO: It sends whole chunks mesh instead of only transparent faces. Add separate dirty flags for opaque and transparent faces.
+	meshData.dirty = true;
+}
+
+void Chunk::sendMeshToGPU()
+{
+	// Commented out some conditions, because this method runs on main thread
+	if (
+		//!isLoadedInWorld.load(std::memory_order_acquire) ||
+		!areBlocksBuilt.load(std::memory_order_acquire) ||
+		!isLightBuilt.load(std::memory_order_acquire) // ||
+		//!meshData.dirty
+		)
+	{
+		return;
+	}
+
+	Profiler::beginProfile("Send chunk mesh to GPU: wait", ProfileCategory::ChunkMesh);
+	ScopedProcessingFence scopedFence(processingFence);
+	Profiler::endProfile();
+
+	{
+		PROFILE_SCOPE("Send chunk mesh to GPU", ProfileCategory::ChunkMesh);
+
+		// Bind instance VBO
+		meshData.bindInstanceVBO();
+
+		// Allocating data for buffer
+		size_t opaqueFaceCount = meshData.getOpaqueFaceCountSum();
+		size_t transparentFaceCount = meshData.getTransparentFaceCountSum();
+		meshData.allocateMemoryForBuffer(opaqueFaceCount + transparentFaceCount);
+
+		// Write to buffer
+		glBufferSubData(GL_ARRAY_BUFFER,
+			0,
+			opaqueFaceCount * sizeof(BlockFaceInstance),
+			meshData.opaqueInstances.data()
+		);
+
+		glBufferSubData(GL_ARRAY_BUFFER,
+			opaqueFaceCount * sizeof(BlockFaceInstance),
+			transparentFaceCount * sizeof(BlockFaceInstance),
+			meshData.transparentInstances.data()
+		);
+
+		// Done
+		meshData.ready = true;
+		meshData.dirty = false;
+
+		// Don't clear instaces data, because it is needed for mesh sorting.
+		//meshData->opaqueInstances.clear();
+		//meshData->transparentInstances.clear();
+	}
 }
 
 void Chunk::render(bool transparent) const
@@ -951,11 +1064,11 @@ void Chunk::addNodeToLightQueue(int x, int y, int z, uint8_t lightLevel, int8_t 
 	lightQueue.emplace(x, y, z, lightLevel, propagationSide);
 }
 
-void Chunk::calculateVertexAmbientOcclusionAndLight(int& ao, int& light, uint8_t centerLight, uint8_t side1Light, uint8_t side2Light, uint8_t cornerLight, bool side1Solid, bool side2Solid, bool cornerSolid) const
+void Chunk::calculateVertexAmbientOcclusionAndLight(unsigned int& ao, unsigned int& light, uint8_t centerLight, uint8_t side1Light, uint8_t side2Light, uint8_t cornerLight, bool side1Solid, bool side2Solid, bool cornerSolid) const
 {
-	int blockLightSum = centerLight & 15;
-	int skyLightSum = (centerLight >> 4) & 15;
-	int count = 1;
+	unsigned int blockLightSum = centerLight & 15;
+	unsigned int skyLightSum = (centerLight >> 4) & 15;
+	unsigned int count = 1;
 
 	if (side1Solid && side2Solid)
 	{
@@ -985,8 +1098,8 @@ void Chunk::calculateVertexAmbientOcclusionAndLight(int& ao, int& light, uint8_t
 		count++;
 	}
 
-	int avgBlockLight = blockLightSum / count;
-	int avgSkyLight = skyLightSum / count;
+	unsigned int avgBlockLight = blockLightSum / count;
+	unsigned int avgSkyLight = skyLightSum / count;
 
 	assert(avgBlockLight >= 0 && avgBlockLight <= 15);
 	assert(avgSkyLight >= 0 && avgSkyLight <= 15);
@@ -995,7 +1108,7 @@ void Chunk::calculateVertexAmbientOcclusionAndLight(int& ao, int& light, uint8_t
 	light = (avgBlockLight & 15) | ((avgSkyLight & 15) << 4);
 }
 
-void Chunk::calculateFaceAmbientOcclusionAndLight(int& ao, int& light, int x, int y, int z, int normal, uint8_t centerFaceLight) const
+void Chunk::calculateFaceAmbientOcclusionAndLight(unsigned int& ao, unsigned int& light, int x, int y, int z, int normal, uint8_t centerFaceLight) const
 {
 	// For each face normal, we need to check 8 neighbors around the face
 	// The AO calculation depends on which direction the face is facing
@@ -1003,8 +1116,8 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(int& ao, int& light, int x, in
 	std::pair<Block, uint8_t> data[8];
 	bool n[8]; // 8 neighbors around the face
 
-	int ao0, ao1, ao2, ao3;
-	int light0, light1, light2, light3;
+	unsigned int ao0, ao1, ao2, ao3;
+	unsigned int light0, light1, light2, light3;
 
 	switch (normal)
 	{
@@ -1150,7 +1263,7 @@ int Chunk::getZ() const
 	return position.z;
 }
 
-Int3 Chunk::getPosition() const
+glm::ivec3 Chunk::getPosition() const
 {
 	return position;
 }
@@ -1163,6 +1276,11 @@ size_t Chunk::getFaceCount() const
 size_t Chunk::getFaceCapacity() const
 {
 	return meshData.getFaceCapacity();
+}
+
+bool Chunk::isMeshDirty() const
+{
+	return meshData.dirty;
 }
 
 Chunk::State Chunk::getState() const
@@ -1185,58 +1303,24 @@ bool Chunk::getIsLoadedInWorld() const
 	return isLoadedInWorld.load(std::memory_order_acquire);
 }
 
-void Chunk::sendMeshesToGPU()
-{
-	PROFILE_SCOPE("Send meshes to GPU", ProfileCategory::ChunkMesh);
-
-	// Get all pending uploads
-	std::vector<MeshData*> uploads;
-	{
-		std::lock_guard<std::mutex> lock(meshUploadMutex);
-
-		if (pendingMeshUploads.empty())
-		{
-			return;
-		}
-
-		uploads.swap(pendingMeshUploads);
-	}
-
-	// Process each upload
-	for (auto& meshData : uploads)
-	{
-		ScopedProcessingFence scopedFence(meshData->processingFence);
-
-		meshData->bindInstanceVBO();
-
-		// Allocating data for buffer
-		size_t opaqueFaceCount = meshData->getOpaqueFaceCountSum();
-		size_t transparentFaceCount = meshData->getTransparentFaceCountSum();
-		meshData->allocateMemoryForBuffer(opaqueFaceCount + transparentFaceCount);
-
-		// Write to buffer
-		glBufferSubData(GL_ARRAY_BUFFER,
-			0,
-			opaqueFaceCount * sizeof(BlockFaceInstance),
-			meshData->opaqueInstances.data()
-		);
-
-		glBufferSubData(GL_ARRAY_BUFFER,
-			opaqueFaceCount * sizeof(BlockFaceInstance),
-			transparentFaceCount * sizeof(BlockFaceInstance),
-			meshData->transparentInstances.data()
-		);
-
-		meshData->ready = true;
-
-		meshData->opaqueInstances.clear();
-		meshData->transparentInstances.clear();
-	}
-}
-
 //============================================================================
+//LightNode
 
 LightNode::LightNode(int x, int y, int z, uint8_t lightLevel, int8_t propagationSide) :
 	x(x), y(y), z(z), lightLevel(lightLevel), propagationSide(propagationSide)
 {
 }
+
+//============================================================================
+//Int3Hasher
+
+size_t Int3Hasher::operator()(const glm::ivec3& other) const
+{
+	constexpr size_t addConst = 0x9e3779b97f4a7c15;
+	size_t h = (size_t)other.x + addConst;
+	h ^= (size_t)other.y + addConst + (h << 6) + (h >> 2);
+	h ^= (size_t)other.z + addConst + (h << 6) + (h >> 2);
+	return h;
+}
+
+//============================================================================

@@ -44,7 +44,7 @@ private:
 	};
 private:
 	ChunkPool chunkPool;
-	std::unordered_map<Int3, std::unique_ptr<Chunk>, Int3Hasher> chunks;
+	std::unordered_map<glm::ivec3, std::unique_ptr<Chunk>, Int3Hasher> chunks;
 	
 	std::unordered_set<Chunk*> buildBlocksContainer;
 	std::mutex buildBlocksMutex;
@@ -57,8 +57,8 @@ private:
 
 	std::unordered_set<Chunk*> lightUpdateContainer;
 
-	Int3 lastChunkLoaderPos;
-	bool firstLoad = true;
+	glm::ivec3 lastChunkLoaderPos = { INT_MAX, INT_MAX, INT_MAX };
+	glm::ivec3 lastChunkMeshSortPos = { INT_MAX, INT_MAX, INT_MAX };
 
 	// Resources
 	std::unique_ptr<Shader> faceShader;
@@ -82,9 +82,10 @@ public:
 	World& operator=(World&&) = delete;
 
 	void preparation(int renderDistance);
-	void loadChunksAroundPlayer(const Int3& chunkLoaderPos, int renderDistance);
+	void loadChunksAroundPlayer(const glm::vec3& loaderPos, int renderDistance);
 	void update();
-	void sortChunkMeshes();
+	void sortChunkMeshes(const glm::vec3& cameraPos);
+	void sendChunkMeshesToGPU();
 
 	void renderChunks(const Camera& camera) const;
 	void renderVoxelMarker(const Camera& camera, const RaycastResult& raycast) const;
@@ -97,11 +98,9 @@ public:
 
 	const DebugData& getDebugData() const;
 private:
-	Chunk* getChunkAt(const Int3& position) const;
-	Chunk* getChunkAt(int x, int y, int z) const;
+	Chunk* getChunkAt(const glm::ivec3& position) const;
 
-	bool chunkExistsAt(const Int3& position) const;
-	bool chunkExistsAt(int x, int y, int z) const;
+	bool chunkExistsAt(const glm::ivec3& position) const;
 
 	void unloadChunksOutsideRange(int renderDistance);
 	void loadChunk(int chunkX, int chunkY, int chunkZ, std::vector<Chunk*>& chunksToSend);

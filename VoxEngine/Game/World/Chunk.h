@@ -3,7 +3,6 @@
 #include "Chunk/BlockData.h"
 #include "Chunk/Metrics.h"
 
-#include "Core/Int3.h"
 #include "Core/Multithreading/ProcessingFence.h"
 
 #include <vector>
@@ -11,6 +10,7 @@
 #include <atomic>
 #include <cstdint>
 #include <queue>
+#include <glm/glm.hpp>
 
 struct LightNode
 {
@@ -39,10 +39,7 @@ public:
 		Ready
 	};
 private:
-	static std::mutex meshUploadMutex;
-	static std::vector<MeshData*> pendingMeshUploads;
-private:
-	Int3 position; // Chunk coordinates in chunk space
+	glm::ivec3 position; // Chunk coordinates in chunk space
 
 	std::atomic<State> state;
 	std::atomic<bool> isLoadedInWorld{ false };
@@ -85,6 +82,9 @@ public:
 	void updateLight();
 	bool hasLightUpdates() const;
 
+	void sortMesh(const glm::ivec3& cameraPos);
+	void sendMeshToGPU();
+
 	void render(bool transparent) const;
 	bool canBeRendered(bool transparent) const;
 	bool canBeRendered() const;
@@ -107,15 +107,16 @@ public:
 
 	void addNodeToLightQueue(int x, int y, int z, uint8_t lightLevel, int8_t propagationSide);
 private:
-	void calculateVertexAmbientOcclusionAndLight(int& ao, int& light, uint8_t centerLight, uint8_t side1Light, uint8_t side2Light, uint8_t cornerLight, bool side1Solid, bool side2Solid, bool cornerSolid) const;
-	void calculateFaceAmbientOcclusionAndLight(int& ao, int& light, int x, int y, int z, int normal, uint8_t centerFaceLight) const;
+	void calculateVertexAmbientOcclusionAndLight(unsigned int& ao, unsigned int& light, uint8_t centerLight, uint8_t side1Light, uint8_t side2Light, uint8_t cornerLight, bool side1Solid, bool side2Solid, bool cornerSolid) const;
+	void calculateFaceAmbientOcclusionAndLight(unsigned int& ao, unsigned int& light, int x, int y, int z, int normal, uint8_t centerFaceLight) const;
 public:
 	int getX() const;
 	int getY() const;
 	int getZ() const;
-	Int3 getPosition() const;
+	glm::ivec3 getPosition() const;
 	size_t getFaceCount() const;
 	size_t getFaceCapacity() const;
+	bool isMeshDirty() const;
 
 	// Atomic getters and setters
 	State getState() const;
@@ -124,8 +125,11 @@ public:
 	bool getIsProcessing() const;
 
 	bool getIsLoadedInWorld() const;
-public:
+};
 
-	// Static method to process all pending mesh uploads on main thread
-	static void sendMeshesToGPU();
+
+struct Int3Hasher
+{
+public:
+	size_t operator()(const glm::ivec3& other) const;
 };

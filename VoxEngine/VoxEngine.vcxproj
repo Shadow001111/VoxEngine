@@ -151,7 +151,6 @@
     <ClCompile Include="Core\Multithreading\ProcessingFence.cpp" />
     <ClCompile Include="Game\World\Chunk\BlockData.cpp" />
     <ClCompile Include="Game\World\Chunk.cpp" />
-    <ClCompile Include="Core\Int3.cpp" />
     <ClCompile Include="Core\Profiler.cpp" />
     <ClCompile Include="Core\Shapes.cpp" />
     <ClCompile Include="Core\Multithreading\ThreadPool.cpp" />
@@ -185,7 +184,6 @@
     <ClInclude Include="Game\World\Chunk\BlockData.h" />
     <ClInclude Include="Game\World\Chunk.h" />
     <ClInclude Include="Core\CoreMath.h" />
-    <ClInclude Include="Core\Int3.h" />
     <ClInclude Include="Core\Profiler.h" />
     <ClInclude Include="Core\Shapes.h" />
     <ClInclude Include="Core\Multithreading\ThreadPool.h" />

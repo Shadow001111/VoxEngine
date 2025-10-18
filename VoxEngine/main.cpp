@@ -93,7 +93,7 @@ int main()
 
         // Timers
 		float lastTime = static_cast<float>(glfwGetTime());
-		UpdateTimer playerUpdateTimer(20.0f);
+		UpdateTimer playerUpdateTimer(40.0f);
 		UpdateTimer worldUpdateTimer(20.0f); worldUpdateTimer.setUpdateToTrue();
 		UpdateTimer profilerUpdateTimer(1.0f / 3.0f);
         //UpdateTimer debugUpdateTimer(10.0f);
@@ -150,13 +150,8 @@ int main()
             while (worldUpdateTimer.shouldUpdate())
             {
 				glm::vec3 playerPos = player.getPosition();
-                Int3 playerChunkPos(
-                    static_cast<int>(floorf(playerPos.x / CHUNK_SIZE)),
-                    static_cast<int>(floorf(playerPos.y / CHUNK_SIZE)),
-                    static_cast<int>(floorf(playerPos.z / CHUNK_SIZE))
-                );
+				world.loadChunksAroundPlayer(playerPos, CHUNK_LOAD_DISTANCE);
 
-				world.loadChunksAroundPlayer(playerChunkPos, CHUNK_LOAD_DISTANCE);
 				world.update();
 
                 if (wnd.isKeyPressed(GLFW_KEY_P))
@@ -170,7 +165,8 @@ int main()
                     world.debugMethod();
                 }
             }
-            world.sortChunkMeshes();
+            world.sortChunkMeshes(player.getCamera().getPosition());
+            world.sendChunkMeshesToGPU();
 
             // Rendering
             {

@@ -5,7 +5,7 @@
 MeshData::MeshData() :
 	vao(0), vbo(0), instanceVBO(0),
 	faceCapacity(0),
-	ready(false)
+	ready(false), dirty(false)
 {
 	resetFaceCount();
 
@@ -106,9 +106,4 @@ size_t MeshData::getTransparentFaceCountSum() const
 size_t MeshData::getFaceCapacity() const
 {
 	return faceCapacity;
-}
-
-bool MeshData::isReady() const
-{
-	return ready;
 }

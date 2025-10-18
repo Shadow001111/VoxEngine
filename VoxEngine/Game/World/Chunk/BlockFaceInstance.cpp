@@ -1,6 +1,6 @@
 #include "BlockFaceInstance.h"
 
-BlockFaceInstance::BlockFaceInstance(int32_t x, int32_t y, int32_t z, int32_t normal, int32_t ao, int32_t textureID, int32_t light) :
+BlockFaceInstance::BlockFaceInstance(uint32_t x, uint32_t y, uint32_t z, uint32_t normal, uint32_t ao, uint32_t textureID, uint32_t light) :
 	data1(0), data2(light)
 {
 	{
@@ -20,4 +20,11 @@ BlockFaceInstance::BlockFaceInstance(int32_t x, int32_t y, int32_t z, int32_t no
 
 		// (0 bits left)
 	}
+}
+
+void BlockFaceInstance::decodePosition(int& outX, int& outY, int& outZ) const
+{
+	outX = data1 & 15;
+	outY = (data1 >> 4) & 15;
+	outZ = (data1 >> 8) & 15;
 }

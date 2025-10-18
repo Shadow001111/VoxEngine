@@ -1,8 +1,6 @@
 #pragma once
 #include "BlockFaceInstance.h"
 
-#include "Core/Multithreading/ProcessingFence.h"
-
 #include <glad/glad.h>
 #include <cstdint>
 #include <vector>
@@ -17,11 +15,10 @@ private:
 	uint16_t faceCapacity;
 public:
 	bool ready;
+	bool dirty;
 
 	std::vector<BlockFaceInstance> opaqueInstances;
 	std::vector<BlockFaceInstance> transparentInstances;
-
-	ProcessingFence processingFence;
 
 	MeshData();
 	~MeshData();
@@ -34,5 +31,4 @@ public:
 	size_t getOpaqueFaceCountSum() const;
 	size_t getTransparentFaceCountSum() const;
 	size_t getFaceCapacity() const;
-	bool isReady() const;
 };

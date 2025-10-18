@@ -100,13 +100,13 @@ void World::preparation(int renderDistance)
 	chunks.reserve(chunkCount + 10);
 }
 
-void World::loadChunksAroundPlayer(const Int3& chunkLoaderPos, int renderDistance)
+void World::loadChunksAroundPlayer(const glm::vec3& loaderPos, int renderDistance)
 {
-	if (!firstLoad && lastChunkLoaderPos == chunkLoaderPos)
+	glm::ivec3 chunkLoaderPos = glm::ivec3(glm::floor(loaderPos)) >> CHUNK_SIZE_LOG2;
+	if (lastChunkLoaderPos == chunkLoaderPos)
     {
         return;
     }
-	firstLoad = false;
 	lastChunkLoaderPos = chunkLoaderPos;
 
 	// Unload chunks that are out of range
@@ -179,13 +179,38 @@ void World::update()
 	{
 		startBuildingChunkMeshes();
 	}
-
-	// Process all pending mesh uploads on main thread
-	Chunk::sendMeshesToGPU();
 }
 
-void World::sortChunkMeshes()
+void World::sortChunkMeshes(const glm::vec3& cameraPos)
 {
+	// No multithreading for now
+	const glm::ivec3 cameraBlockPos = glm::floor(cameraPos);
+	if (cameraBlockPos == lastChunkMeshSortPos)
+	{
+		return;
+	}
+	lastChunkMeshSortPos = cameraBlockPos;
+
+	PROFILE_SCOPE("Sort chunk meshes", ProfileCategory::ChunkMesh);
+
+	for (auto& pair : chunks)
+	{
+		Chunk* chunk = pair.second.get();
+		chunk->sortMesh(lastChunkMeshSortPos);
+	}
+}
+
+void World::sendChunkMeshesToGPU()
+{
+	// Collect dirty meshes
+	for (auto& pair : chunks)
+	{
+		Chunk* chunk = pair.second.get();
+		if (chunk->isMeshDirty())
+		{
+			chunk->sendMeshToGPU();
+		}
+	}
 }
 
 void World::renderChunks(const Camera& camera) const
@@ -235,8 +260,8 @@ void World::renderChunks(const Camera& camera) const
 			const auto& info = chunksToRender[i];
 
 			// Set chunk position
-			Int3 chunkPosition = info.chunk->getPosition();
-			glm::vec3 chunkWorldPosition = glm::ivec3(chunkPosition.x, chunkPosition.y, chunkPosition.z) * CHUNK_SIZE;
+			glm::ivec3 chunkPosition = info.chunk->getPosition();
+			glm::vec3 chunkWorldPosition = chunkPosition * CHUNK_SIZE;
 			faceShader->setVec3("chunkPosition", chunkWorldPosition.x, chunkWorldPosition.y, chunkWorldPosition.z);
 
 			info.chunk->render(false); // Takes most of the time
@@ -256,12 +281,14 @@ void World::renderChunks(const Camera& camera) const
 			const auto& info = chunksToRender[i];
 
 			// Set chunk position
-			Int3 chunkPosition = info.chunk->getPosition();
-			glm::vec3 chunkWorldPosition = glm::ivec3(chunkPosition.x, chunkPosition.y, chunkPosition.z) * CHUNK_SIZE;
+			glm::ivec3 chunkPosition = info.chunk->getPosition();
+			glm::vec3 chunkWorldPosition = chunkPosition * CHUNK_SIZE;
 			faceShader->setVec3("chunkPosition", chunkWorldPosition.x, chunkWorldPosition.y, chunkWorldPosition.z);
 
 			info.chunk->render(true); // Takes most of the time
 		}
+
+		//glDepthMask(GL_TRUE);
 	}
 }
 
@@ -382,7 +409,7 @@ World::RaycastResult World::raycast(const glm::vec3& origin, const glm::vec3& di
 		if (chunkPos != cachedChunkPos)
 		{
 			cachedChunkPos = chunkPos;
-			chunk = getChunkAt(cachedChunkPos.x, cachedChunkPos.y, cachedChunkPos.z);
+			chunk = getChunkAt(cachedChunkPos);
 		}
 
 		// Check current block
@@ -492,7 +519,7 @@ const World::DebugData& World::getDebugData() const
 	return debugData;
 }
 
-Chunk* World::getChunkAt(const Int3& position) const
+Chunk* World::getChunkAt(const glm::ivec3& position) const
 {
 	auto it = chunks.find(position);
 	if (it == chunks.end())
@@ -502,29 +529,14 @@ Chunk* World::getChunkAt(const Int3& position) const
 	return it->second.get();
 }
 
-Chunk* World::getChunkAt(int x, int y, int z) const
-{
-	auto it = chunks.find(Int3(x, y, z));
-	if (it == chunks.end())
-	{
-		return nullptr;
-	}
-	return it->second.get();
-}
-
-bool World::chunkExistsAt(const Int3& position) const
+bool World::chunkExistsAt(const glm::ivec3& position) const
 {
 	return chunks.find(position) != chunks.end();
 }
 
-bool World::chunkExistsAt(int x, int y, int z) const
-{
-	return chunks.find(Int3(x, y, z)) != chunks.end();
-}
-
 void World::unloadChunksOutsideRange(int renderDistance)
 {
-	std::vector<Int3> chunksToUnload;
+	std::vector<glm::ivec3> chunksToUnload;
 	{
 		PROFILE_SCOPE("Unload chunks: collect", ProfileCategory::ChunkLoadUnload);
 
@@ -536,7 +548,7 @@ void World::unloadChunksOutsideRange(int renderDistance)
 
 		for (const auto& pair : chunks)
 		{
-			const Int3& pos = pair.first;
+			const glm::ivec3& pos = pair.first;
 			
 			// Calculate squared distance from chunk loader position
 			int dx = pos.x - x;
@@ -553,7 +565,7 @@ void World::unloadChunksOutsideRange(int renderDistance)
 	}
 	{
 		PROFILE_SCOPE("Unload chunks: unload", ProfileCategory::ChunkLoadUnload);
-		for (const Int3& pos : chunksToUnload)
+		for (const glm::ivec3& pos : chunksToUnload)
 		{
 			auto it = chunks.find(pos);
 
@@ -567,7 +579,7 @@ void World::unloadChunksOutsideRange(int renderDistance)
 void World::loadChunk(int chunkX, int chunkY, int chunkZ, std::vector<Chunk*>& chunksToSend)
 {
 	// Check if chunk already exists
-	Int3 chunkPosition = { chunkX, chunkY, chunkZ };
+	glm::ivec3 chunkPosition = { chunkX, chunkY, chunkZ };
 	if (chunkExistsAt(chunkPosition))
 	{
 		return;
@@ -575,12 +587,12 @@ void World::loadChunk(int chunkX, int chunkY, int chunkZ, std::vector<Chunk*>& c
 
 	// Find existing neighbors
 	Chunk* neighbors[6] = {
-		getChunkAt(chunkX - 1, chunkY, chunkZ),
-		getChunkAt(chunkX + 1, chunkY, chunkZ),
-		getChunkAt(chunkX, chunkY - 1, chunkZ),
-		getChunkAt(chunkX, chunkY + 1, chunkZ),
-		getChunkAt(chunkX, chunkY, chunkZ - 1),
-		getChunkAt(chunkX, chunkY, chunkZ + 1)
+		getChunkAt({ chunkX - 1, chunkY, chunkZ }),
+		getChunkAt({ chunkX + 1, chunkY, chunkZ }),
+		getChunkAt({ chunkX, chunkY - 1, chunkZ }),
+		getChunkAt({ chunkX, chunkY + 1, chunkZ }),
+		getChunkAt({ chunkX, chunkY, chunkZ - 1 }),
+		getChunkAt({ chunkX, chunkY, chunkZ + 1 })
 	};
 
 	// Create and initialize chunk
@@ -900,10 +912,8 @@ void World::collectChunksToRender(std::vector<ChunkRenderInfo>& chunksToRender, 
 		}
 
 		// Check is chunk is on frustum
-		// TODO: Delete Int3 and Int2 structs. Replace them with glm analogs.
-		Int3 chunkPosition = chunk->getPosition();
-		glm::ivec3 chunkPositionGlm = glm::ivec3(chunkPosition.x, chunkPosition.y, chunkPosition.z);
-		glm::vec3 chunkWorldPosition = glm::vec3(chunkPositionGlm * CHUNK_SIZE);
+		glm::ivec3 chunkPosition = chunk->getPosition();
+		glm::vec3 chunkWorldPosition = glm::vec3(chunkPosition * CHUNK_SIZE);
 
 		chunkShape.center = chunkWorldPosition + chunkShape.halfExtents;
 		if (!frustum.checkBox(chunkShape))
@@ -911,7 +921,7 @@ void World::collectChunksToRender(std::vector<ChunkRenderInfo>& chunksToRender, 
 			continue;
 		}
 
-		glm::ivec3 delta = glm::abs(chunkPositionGlm - cameraChunkPosition);
+		glm::ivec3 delta = glm::abs(chunkPosition - cameraChunkPosition);
 
 		unsigned int manhattanDistance = delta.x + delta.y + delta.z;
 		chunksToRender.emplace_back(chunk, manhattanDistance);
