@@ -185,16 +185,16 @@ void World::sortChunkMeshes(const glm::vec3& cameraPos)
 {
 	// No multithreading for now
 	const glm::ivec3 cameraBlockPos = glm::floor(cameraPos);
-	if (cameraBlockPos == lastChunkMeshSortPos)
-	{
-		return;
-	}
+	const bool forceToSort = cameraBlockPos != lastChunkMeshSortPos;
 	lastChunkMeshSortPos = cameraBlockPos;
 
 	for (auto& pair : chunks)
 	{
 		Chunk* chunk = pair.second.get();
-		chunk->sortMesh(lastChunkMeshSortPos);
+		if (forceToSort || chunk->shouldMeshBeSorted())
+		{
+			chunk->sortMesh(lastChunkMeshSortPos);
+		}
 	}
 }
 

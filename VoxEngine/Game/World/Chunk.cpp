@@ -56,6 +56,8 @@ void Chunk::init(int x, int y, int z, Chunk** neighbors)
 	meshData.ready = false;
 	meshData.opaqueDirty = false;
 	meshData.transparentDirty = false;
+
+	shouldSortMeshAfterBuild = false;
 }
 
 // Cleans up resources
@@ -387,8 +389,6 @@ void Chunk::buildMesh()
 		return;
 	}
 
-	// TODO: Mesh should be sorted after first build.
-
 	Profiler::beginProfile("Build chunk mesh: wait", ProfileCategory::ChunkMesh);
 	ScopedProcessingFence scopedFence(processingFence);
 	Profiler::endProfile();
@@ -397,6 +397,8 @@ void Chunk::buildMesh()
 	meshData.opaqueDirty = false;
 	meshData.transparentDirty = false;
 
+	size_t opaqueInstancesCount = 0;
+	size_t transparentInstancesCount = 0;
 	{
 		PROFILE_SCOPE("Build chunk mesh", ProfileCategory::ChunkMesh);
 
@@ -484,14 +486,14 @@ void Chunk::buildMesh()
 		}
 
 		// Combine instances vectors
-		size_t opaqueInstancesCount = 0;
-		size_t transparentInstancesCount = 0;
 		for (int i = 0; i < 6; i++)
 		{
 			size_t opaque = instances[i].size();
 			size_t transparent = instances[i + 6].size();
 			meshData.opaqueFaceCount[i] = opaque;
 			meshData.transparentFaceCount[i] = transparent;
+			opaqueInstancesCount += opaque;
+			transparentInstancesCount += transparent;
 		}
 
 		meshData.opaqueInstances.clear();
@@ -516,13 +518,14 @@ void Chunk::buildMesh()
 		return;
 	}
 
-	if (meshData.getOpaqueFaceCountSum() > 0)
+	if (opaqueInstancesCount > 0)
 	{
 		meshData.opaqueDirty = true;
 	}
-	if (meshData.getTransparentFaceCountSum() > 0)
+	if (transparentInstancesCount > 0)
 	{
 		meshData.transparentDirty = true;
+		shouldSortMeshAfterBuild = true;
 	}
 }
 
@@ -666,6 +669,7 @@ bool Chunk::hasLightUpdates() const
 
 void Chunk::sortMesh(const glm::ivec3& cameraBlockPos)
 {
+	shouldSortMeshAfterBuild = false;
 	if (meshData.transparentInstances.empty())
 	{
 		return;
@@ -753,6 +757,11 @@ void Chunk::sortMesh(const glm::ivec3& cameraBlockPos)
 	
 	// Done
 	meshData.transparentDirty = true;
+}
+
+bool Chunk::shouldMeshBeSorted() const
+{
+	return shouldSortMeshAfterBuild;
 }
 
 void Chunk::sendMeshToGPU()

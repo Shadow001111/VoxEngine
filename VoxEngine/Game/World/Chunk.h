@@ -49,6 +49,8 @@ private:
 	std::atomic<bool> areBlocksBuilt{ false };
 	std::atomic<bool> isLightBuilt{ false };
 
+	bool shouldSortMeshAfterBuild;
+
 	Block blocks[CHUNK_VOLUME];
 	uint8_t light[CHUNK_VOLUME];
 
@@ -83,8 +85,10 @@ public:
 
 	void updateLight();
 	bool hasLightUpdates() const;
-
+private:
+public:
 	void sortMesh(const glm::ivec3& cameraBlockPos);
+	bool shouldMeshBeSorted() const;
 	void sendMeshToGPU();
 
 	void render(bool transparent) const;
