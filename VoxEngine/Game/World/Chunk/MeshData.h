@@ -1,6 +1,8 @@
 #pragma once
 #include "BlockFaceInstance.h"
 
+//#include "Core/Multithreading/ProcessingFence.h"
+
 #include <glad/glad.h>
 #include <cstdint>
 #include <vector>
@@ -20,6 +22,8 @@ public:
 
 	std::vector<BlockFaceInstance> opaqueInstances;
 	std::vector<BlockFaceInstance> transparentInstances;
+
+	//ProcessingFence meshUploadingFence;
 
 	MeshData();
 	~MeshData();

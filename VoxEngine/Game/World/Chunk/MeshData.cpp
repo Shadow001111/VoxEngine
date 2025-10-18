@@ -1,6 +1,7 @@
 #include "MeshData.h"
 
 #include <glm/vec2.hpp>
+#include <iostream>
 
 MeshData::MeshData()
 {

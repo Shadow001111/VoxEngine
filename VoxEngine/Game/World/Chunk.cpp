@@ -52,7 +52,7 @@ void Chunk::init(int x, int y, int z, Chunk** neighbors)
 	areBlocksBuilt.store(false, std::memory_order_release);
 	isLightBuilt.store(false, std::memory_order_release);
 
-	assert(!meshData.processingFence.isProcessing());
+	meshData.resetFaceCount();
 	meshData.ready = false;
 	meshData.opaqueDirty = false;
 	meshData.transparentDirty = false;
@@ -75,6 +75,7 @@ void Chunk::destroy()
 	//
 	isLoadedInWorld.store(false, std::memory_order_release);
 	meshData.opaqueInstances.clear();
+	meshData.transparentInstances.clear();
 
 	// Release chunk column data
 	if (isLoadedChunkColumnData.load(std::memory_order_acquire))
@@ -483,16 +484,18 @@ void Chunk::buildMesh()
 		}
 
 		// Combine instances vectors
+		size_t opaqueInstancesCount = 0;
+		size_t transparentInstancesCount = 0;
 		for (int i = 0; i < 6; i++)
 		{
-			meshData.opaqueFaceCount[i] = instances[i].size();
-			meshData.transparentFaceCount[i] = instances[i + 6].size();
+			size_t opaque = instances[i].size();
+			size_t transparent = instances[i + 6].size();
+			meshData.opaqueFaceCount[i] = opaque;
+			meshData.transparentFaceCount[i] = transparent;
 		}
 
-		assert(!meshData.processingFence.isProcessing());
-
 		meshData.opaqueInstances.clear();
-		meshData.opaqueInstances.reserve(meshData.getOpaqueFaceCountSum());
+		meshData.opaqueInstances.reserve(opaqueInstancesCount);
 		for (int i = 0; i < 6; i++)
 		{
 			const auto& vectorToInsert = instances[i];
@@ -500,7 +503,7 @@ void Chunk::buildMesh()
 		}
 
 		meshData.transparentInstances.clear();
-		meshData.transparentInstances.reserve(meshData.getTransparentFaceCountSum());
+		meshData.transparentInstances.reserve(transparentInstancesCount);
 		for (int i = 0; i < 6; i++)
 		{
 			const auto& vectorToInsert = instances[6 + i];
@@ -680,6 +683,11 @@ void Chunk::sortMesh(const glm::ivec3& cameraBlockPos)
 
 	const glm::ivec3 chunkGlobalPosMinusCameraPos = chunkGlobalPos - cameraBlockPos;
 
+	// TODO: Let chunk update light when sorting mesh.
+	Profiler::beginProfile("Sort chunk mesh: wait", ProfileCategory::ChunkMesh);
+	ScopedProcessingFence scopedFence(processingFence);
+	Profiler::endProfile();
+
 	PROFILE_SCOPE("Sort chunk mesh", ProfileCategory::ChunkMesh);
 
 	// Sorting only transparent faces for now
@@ -798,10 +806,6 @@ void Chunk::sendMeshToGPU()
 		meshData.ready = true;
 		meshData.opaqueDirty = false;
 		meshData.transparentDirty = false;
-
-		// Don't clear instaces data, because it's needed for mesh sorting.
-		//meshData->opaqueInstances.clear();
-		//meshData->transparentInstances.clear();
 	}
 }
 
