@@ -191,8 +191,6 @@ void World::sortChunkMeshes(const glm::vec3& cameraPos)
 	}
 	lastChunkMeshSortPos = cameraBlockPos;
 
-	PROFILE_SCOPE("Sort chunk meshes", ProfileCategory::ChunkMesh);
-
 	for (auto& pair : chunks)
 	{
 		Chunk* chunk = pair.second.get();

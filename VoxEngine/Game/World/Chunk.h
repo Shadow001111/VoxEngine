@@ -41,6 +41,8 @@ public:
 private:
 	glm::ivec3 position; // Chunk coordinates in chunk space
 
+	glm::ivec3 cameraClosestBlockPosForSortingMesh = { INT_MAX, INT_MAX , INT_MAX };
+
 	std::atomic<State> state;
 	std::atomic<bool> isLoadedInWorld{ false };
 	std::atomic<bool> isLoadedChunkColumnData { false };

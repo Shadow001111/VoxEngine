@@ -386,6 +386,8 @@ void Chunk::buildMesh()
 		return;
 	}
 
+	// TODO: Mesh should be sorted after first build.
+
 	Profiler::beginProfile("Build chunk mesh: wait", ProfileCategory::ChunkMesh);
 	ScopedProcessingFence scopedFence(processingFence);
 	Profiler::endProfile();
@@ -661,16 +663,32 @@ bool Chunk::hasLightUpdates() const
 
 void Chunk::sortMesh(const glm::ivec3& cameraBlockPos)
 {
+	if (meshData.transparentInstances.empty())
+	{
+		return;
+	}
+
+	const glm::ivec3 chunkGlobalPos = position * CHUNK_SIZE;
+	const glm::ivec3 chunkGlobalPosBlockMax = chunkGlobalPos + (CHUNK_SIZE - 1);
+
+	glm::ivec3 newCameraClosestBlockPosForSortingMesh = glm::clamp(cameraBlockPos, chunkGlobalPos, chunkGlobalPosBlockMax);
+	if (newCameraClosestBlockPosForSortingMesh == cameraClosestBlockPosForSortingMesh)
+	{
+		return;
+	}
+	cameraClosestBlockPosForSortingMesh = newCameraClosestBlockPosForSortingMesh;
+
+	const glm::ivec3 chunkGlobalPosMinusCameraPos = chunkGlobalPos - cameraBlockPos;
+
+	PROFILE_SCOPE("Sort chunk mesh", ProfileCategory::ChunkMesh);
+
 	// Sorting only transparent faces for now
 	// If GL_CULL_FACE is disabled, sorting must be adjusted. If faces have same position, they should be sorted by prioritized normal(something opposite to camera direction).
 	// TODO: Consider sorting opaque faces to reduce overdraw
 	// TODO: Consider using bucket sort, because there alot repeating distances
-	// TODO: Store closest block position to cameraBlockPos and compare it to new one. If they are different, then sort mesh. Chunks, that are on diagonals to camera, will load less meshes. Compare profiler calls.
 
 	// Shouldn't be set, because it's barely noticeable when order of faces changes.
 	// meshData.ready = false;
-
-	const glm::ivec3 chunkGlobalPosMinusCameraPos = position * CHUNK_SIZE - cameraBlockPos;
 
 	struct FaceSortStruct
 	{
@@ -781,7 +799,7 @@ void Chunk::sendMeshToGPU()
 		meshData.opaqueDirty = false;
 		meshData.transparentDirty = false;
 
-		// Don't clear instaces data, because it is needed for mesh sorting.
+		// Don't clear instaces data, because it's needed for mesh sorting.
 		//meshData->opaqueInstances.clear();
 		//meshData->transparentInstances.clear();
 	}
