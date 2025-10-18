@@ -54,7 +54,8 @@ void Chunk::init(int x, int y, int z, Chunk** neighbors)
 
 	assert(!meshData.processingFence.isProcessing());
 	meshData.ready = false;
-	meshData.dirty = false;
+	meshData.opaqueDirty = false;
+	meshData.transparentDirty = false;
 }
 
 // Cleans up resources
@@ -390,7 +391,8 @@ void Chunk::buildMesh()
 	Profiler::endProfile();
 
 	meshData.ready = false;
-	meshData.dirty = false;
+	meshData.opaqueDirty = false;
+	meshData.transparentDirty = false;
 
 	{
 		PROFILE_SCOPE("Build chunk mesh", ProfileCategory::ChunkMesh);
@@ -509,9 +511,13 @@ void Chunk::buildMesh()
 		return;
 	}
 
-	if (meshData.getOpaqueFaceCountSum() + meshData.getTransparentFaceCountSum() > 0)
+	if (meshData.getOpaqueFaceCountSum() > 0)
 	{
-		meshData.dirty = true;
+		meshData.opaqueDirty = true;
+	}
+	if (meshData.getTransparentFaceCountSum() > 0)
+	{
+		meshData.transparentDirty = true;
 	}
 }
 
@@ -653,14 +659,18 @@ bool Chunk::hasLightUpdates() const
 	return !lightQueue.empty();
 }
 
-void Chunk::sortMesh(const glm::ivec3& cameraPos)
+void Chunk::sortMesh(const glm::ivec3& cameraBlockPos)
 {
 	// Sorting only transparent faces for now
 	// If GL_CULL_FACE is disabled, sorting must be adjusted. If faces have same position, they should be sorted by prioritized normal(something opposite to camera direction).
 	// TODO: Consider sorting opaque faces to reduce overdraw
 	// TODO: Consider using bucket sort, because there alot repeating distances
+	// TODO: Store closest block position to cameraBlockPos and compare it to new one. If they are different, then sort mesh. Chunks, that are on diagonals to camera, will load less meshes. Compare profiler calls.
 
-	const glm::ivec3 chunkGlobalPosMinusCameraPos = position * CHUNK_SIZE - cameraPos;
+	// Shouldn't be set, because it's barely noticeable when order of faces changes.
+	// meshData.ready = false;
+
+	const glm::ivec3 chunkGlobalPosMinusCameraPos = position * CHUNK_SIZE - cameraBlockPos;
 
 	struct FaceSortStruct
 	{
@@ -716,8 +726,7 @@ void Chunk::sortMesh(const glm::ivec3& cameraPos)
 	meshData.transparentInstances = std::move(reordered);
 	
 	// Done
-	// TODO: It sends whole chunks mesh instead of only transparent faces. Add separate dirty flags for opaque and transparent faces.
-	meshData.dirty = true;
+	meshData.transparentDirty = true;
 }
 
 void Chunk::sendMeshToGPU()
@@ -726,8 +735,8 @@ void Chunk::sendMeshToGPU()
 	if (
 		//!isLoadedInWorld.load(std::memory_order_acquire) ||
 		!areBlocksBuilt.load(std::memory_order_acquire) ||
-		!isLightBuilt.load(std::memory_order_acquire) // ||
-		//!meshData.dirty
+		!isLightBuilt.load(std::memory_order_acquire) ||
+		!(meshData.opaqueDirty || meshData.transparentDirty)
 		)
 	{
 		return;
@@ -749,21 +758,28 @@ void Chunk::sendMeshToGPU()
 		meshData.allocateMemoryForBuffer(opaqueFaceCount + transparentFaceCount);
 
 		// Write to buffer
-		glBufferSubData(GL_ARRAY_BUFFER,
-			0,
-			opaqueFaceCount * sizeof(BlockFaceInstance),
-			meshData.opaqueInstances.data()
-		);
+		if (meshData.opaqueDirty)
+		{
+			glBufferSubData(GL_ARRAY_BUFFER,
+				0,
+				opaqueFaceCount * sizeof(BlockFaceInstance),
+				meshData.opaqueInstances.data()
+			);
+		}
 
-		glBufferSubData(GL_ARRAY_BUFFER,
-			opaqueFaceCount * sizeof(BlockFaceInstance),
-			transparentFaceCount * sizeof(BlockFaceInstance),
-			meshData.transparentInstances.data()
-		);
+		if (meshData.transparentDirty)
+		{
+			glBufferSubData(GL_ARRAY_BUFFER,
+				opaqueFaceCount * sizeof(BlockFaceInstance),
+				transparentFaceCount * sizeof(BlockFaceInstance),
+				meshData.transparentInstances.data()
+			);
+		}
 
 		// Done
 		meshData.ready = true;
-		meshData.dirty = false;
+		meshData.opaqueDirty = false;
+		meshData.transparentDirty = false;
 
 		// Don't clear instaces data, because it is needed for mesh sorting.
 		//meshData->opaqueInstances.clear();
@@ -1276,11 +1292,6 @@ size_t Chunk::getFaceCount() const
 size_t Chunk::getFaceCapacity() const
 {
 	return meshData.getFaceCapacity();
-}
-
-bool Chunk::isMeshDirty() const
-{
-	return meshData.dirty;
 }
 
 Chunk::State Chunk::getState() const

@@ -2,10 +2,7 @@
 
 #include <glm/vec2.hpp>
 
-MeshData::MeshData() :
-	vao(0), vbo(0), instanceVBO(0),
-	faceCapacity(0),
-	ready(false), dirty(false)
+MeshData::MeshData()
 {
 	resetFaceCount();
 

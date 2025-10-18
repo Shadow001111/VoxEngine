@@ -202,14 +202,11 @@ void World::sortChunkMeshes(const glm::vec3& cameraPos)
 
 void World::sendChunkMeshesToGPU()
 {
-	// Collect dirty meshes
+	// Sends only dirty meshes
 	for (auto& pair : chunks)
 	{
 		Chunk* chunk = pair.second.get();
-		if (chunk->isMeshDirty())
-		{
-			chunk->sendMeshToGPU();
-		}
+		chunk->sendMeshToGPU();
 	}
 }
 

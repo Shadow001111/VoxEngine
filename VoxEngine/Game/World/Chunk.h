@@ -82,7 +82,7 @@ public:
 	void updateLight();
 	bool hasLightUpdates() const;
 
-	void sortMesh(const glm::ivec3& cameraPos);
+	void sortMesh(const glm::ivec3& cameraBlockPos);
 	void sendMeshToGPU();
 
 	void render(bool transparent) const;
@@ -116,7 +116,6 @@ public:
 	glm::ivec3 getPosition() const;
 	size_t getFaceCount() const;
 	size_t getFaceCapacity() const;
-	bool isMeshDirty() const;
 
 	// Atomic getters and setters
 	State getState() const;
