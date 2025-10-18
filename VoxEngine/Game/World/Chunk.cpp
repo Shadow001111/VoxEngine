@@ -160,7 +160,7 @@ void Chunk::buildBlocks()
 
 		if (position.y <= 1)
 		{
-			int border = 7;
+			int border = 4;
 			for (int x = border; x < CHUNK_SIZE - border; x++)
 			{
 				for (int y = border; y < CHUNK_SIZE - border; y++)

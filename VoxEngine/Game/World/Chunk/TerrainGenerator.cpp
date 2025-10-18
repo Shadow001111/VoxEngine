@@ -99,7 +99,7 @@ const ChunkColumnData* TerrainGenerator::loadChunkColumnData(int chunkX, int chu
 {
 	Profiler::beginProfile("Load ChunkColumnData", ProfileCategory::ChunkColumnData);
 
-	Int2 pos(chunkX, chunkZ);
+	glm::ivec2 pos(chunkX, chunkZ);
 
 	// Check if column already exists
 	{
@@ -167,7 +167,7 @@ const ChunkColumnData* TerrainGenerator::getChunkColumnData(int chunkX, int chun
 {
 	PROFILE_SCOPE("Get ChunkColumnData", ProfileCategory::ChunkColumnData);
 
-	Int2 pos(chunkX, chunkZ);
+	glm::ivec2 pos(chunkX, chunkZ);
 
 	ChunkColumnData* foundColumn = nullptr;
 	{
@@ -193,7 +193,7 @@ void TerrainGenerator::unloadChunkColumnData(int chunkX, int chunkZ)
 	{
 		std::lock_guard<std::mutex> lock(dataMutex);
 
-		Int2 pos(chunkX, chunkZ);
+		glm::ivec2 pos(chunkX, chunkZ);
 		auto it = chunkColumnData.find(pos);
 		if (it == chunkColumnData.end())
 		{
@@ -416,3 +416,11 @@ void TerrainGenerator::computeLayeredNoise_3D(float* outArray, int chunkX, int c
 }
 
 //============================================================================
+
+size_t Int2Hasher::operator()(const glm::ivec2& other) const
+{
+	constexpr size_t addConst = 0x9e3779b97f4a7c15;
+	size_t h = (size_t)other.x + addConst;
+	h ^= (size_t)other.y + addConst + (h << 6) + (h >> 2);
+	return h;
+}

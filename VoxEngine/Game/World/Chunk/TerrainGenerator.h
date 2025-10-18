@@ -4,15 +4,18 @@
 #define FASTNOISE_STATIC_LIB
 #include "FastNoise/FastNoise.h"
 
-#include "Core/Int2.h"
-
 #include <unordered_map>
 #include <memory>
 #include <mutex>
 #include <condition_variable>
 #include <vector>
+#include <glm/vec2.hpp>
 
-// TODO: Delete Int2 struct
+struct Int2Hasher
+{
+public:
+	size_t operator()(const glm::ivec2& other) const;
+};
 
 class ChunkColumnData
 {
@@ -60,7 +63,7 @@ class TerrainGenerator
 	};
 
 	ChunkColumnDataPool chunkColumnDataPool;
-	std::unordered_map<Int2, std::unique_ptr<ChunkColumnData>, Int2Hasher> chunkColumnData;
+	std::unordered_map<glm::ivec2, std::unique_ptr<ChunkColumnData>, Int2Hasher> chunkColumnData;
 	mutable std::mutex dataMutex; // Protects chunkColumnData map
 	
 	static int seed;

@@ -51,9 +51,6 @@
     <ClCompile Include="Game\World\Chunk\TerrainGenerator.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="Core\Int2.cpp">
-      <Filter>Исходные файлы</Filter>
-    </ClCompile>
     <ClCompile Include="Core\Multithreading\ThreadPool.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
@@ -135,9 +132,6 @@
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Game\World\Chunk\TerrainGenerator.h">
-      <Filter>Файлы заголовков</Filter>
-    </ClInclude>
-    <ClInclude Include="Core\Int2.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Core\Multithreading\ThreadPool.h">

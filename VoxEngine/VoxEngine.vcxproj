@@ -159,7 +159,6 @@
     <ClCompile Include="Graphics\Camera.cpp" />
     <ClCompile Include="glad.c" />
     <ClCompile Include="Graphics\Shader.cpp" />
-    <ClCompile Include="Core\Int2.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Core\UpdateTimer.cpp" />
     <ClCompile Include="Core\Transform.cpp" />
@@ -191,7 +190,6 @@
     <ClInclude Include="Graphics\Frustum.h" />
     <ClInclude Include="Graphics\Camera.h" />
     <ClInclude Include="Graphics\Shader.h" />
-    <ClInclude Include="Core\Int2.h" />
     <ClInclude Include="Core\UpdateTimer.h" />
     <ClInclude Include="Core\Transform.h" />
     <ClInclude Include="Core\Shapes\Plane.h" />
