@@ -184,6 +184,10 @@ void World::update()
 	Chunk::sendMeshesToGPU();
 }
 
+void World::sortChunkMeshes()
+{
+}
+
 void World::renderChunks(const Camera& camera) const
 {
 	faceShader->use();
@@ -209,7 +213,7 @@ void World::renderChunks(const Camera& camera) const
 		std::sort(chunksToRender.begin(), chunksToRender.end(),
 			[](const ChunkRenderInfo& a, const ChunkRenderInfo& b)
 			{
-				return a.distanceSquared < b.distanceSquared;
+				return a.manhattanDistance < b.manhattanDistance;
 			});
 	}
 	const size_t chunksToRenderCount = chunksToRender.size();
@@ -231,7 +235,8 @@ void World::renderChunks(const Camera& camera) const
 			const auto& info = chunksToRender[i];
 
 			// Set chunk position
-			glm::vec3 chunkWorldPosition = info.chunkWorldPosition;
+			Int3 chunkPosition = info.chunk->getPosition();
+			glm::vec3 chunkWorldPosition = glm::ivec3(chunkPosition.x, chunkPosition.y, chunkPosition.z) * CHUNK_SIZE;
 			faceShader->setVec3("chunkPosition", chunkWorldPosition.x, chunkWorldPosition.y, chunkWorldPosition.z);
 
 			info.chunk->render(false); // Takes most of the time
@@ -251,7 +256,8 @@ void World::renderChunks(const Camera& camera) const
 			const auto& info = chunksToRender[i];
 
 			// Set chunk position
-			glm::vec3 chunkWorldPosition = info.chunkWorldPosition;
+			Int3 chunkPosition = info.chunk->getPosition();
+			glm::vec3 chunkWorldPosition = glm::ivec3(chunkPosition.x, chunkPosition.y, chunkPosition.z) * CHUNK_SIZE;
 			faceShader->setVec3("chunkPosition", chunkWorldPosition.x, chunkWorldPosition.y, chunkWorldPosition.z);
 
 			info.chunk->render(true); // Takes most of the time
@@ -876,12 +882,11 @@ void World::collectChunksNeedingLightUpdate()
 
 void World::collectChunksToRender(std::vector<ChunkRenderInfo>& chunksToRender, const Camera& camera) const
 {
-	const float CHUNK_SIZE_FLOAT = static_cast<float>(CHUNK_SIZE);
-
 	const Frustum& frustum = camera.getFrustum();
-	Box chunkShape(glm::vec3(0.0f), glm::vec3(CHUNK_SIZE_FLOAT * 0.5f));
+	Box chunkShape(glm::vec3(0.0f), glm::vec3(CHUNK_SIZE * 0.5f));
 
-	glm::vec3 cameraPosition = camera.getPosition();
+	const glm::vec3 cameraPosition = camera.getPosition();
+	const glm::ivec3 cameraChunkPosition = glm::ivec3(cameraPosition) >> CHUNK_SIZE_LOG2;
 
 	chunksToRender.reserve(chunks.size());
 
@@ -895,9 +900,10 @@ void World::collectChunksToRender(std::vector<ChunkRenderInfo>& chunksToRender, 
 		}
 
 		// Check is chunk is on frustum
+		// TODO: Delete Int3 and Int2 structs. Replace them with glm analogs.
 		Int3 chunkPosition = chunk->getPosition();
-		glm::vec3 chunkPositionGlm = glm::vec3(chunkPosition.x, chunkPosition.y, chunkPosition.z);
-		glm::vec3 chunkWorldPosition = chunkPositionGlm * CHUNK_SIZE_FLOAT;
+		glm::ivec3 chunkPositionGlm = glm::ivec3(chunkPosition.x, chunkPosition.y, chunkPosition.z);
+		glm::vec3 chunkWorldPosition = glm::vec3(chunkPositionGlm * CHUNK_SIZE);
 
 		chunkShape.center = chunkWorldPosition + chunkShape.halfExtents;
 		if (!frustum.checkBox(chunkShape))
@@ -905,19 +911,18 @@ void World::collectChunksToRender(std::vector<ChunkRenderInfo>& chunksToRender, 
 			continue;
 		}
 
-		glm::vec3 chunkCenter = chunkWorldPosition + chunkShape.halfExtents;
-		glm::vec3 diff = chunkCenter - cameraPosition;
+		glm::ivec3 delta = glm::abs(chunkPositionGlm - cameraChunkPosition);
 
-		float distanceSquared = glm::dot(diff, diff);
-		chunksToRender.emplace_back(chunk, chunkWorldPosition, distanceSquared);
+		unsigned int manhattanDistance = delta.x + delta.y + delta.z;
+		chunksToRender.emplace_back(chunk, manhattanDistance);
 	}
 }
 
 //============================================================================
 // ChunkRenderInfo
 
-World::ChunkRenderInfo::ChunkRenderInfo(const Chunk* chunk, const glm::vec3& chunkWorldPosition, float distanceSquared) :
-	chunk(chunk), chunkWorldPosition(chunkWorldPosition), distanceSquared(distanceSquared)
+World::ChunkRenderInfo::ChunkRenderInfo(const Chunk* chunk, unsigned int manhattanDistance) :
+	chunk(chunk), manhattanDistance(manhattanDistance)
 {
 }
 

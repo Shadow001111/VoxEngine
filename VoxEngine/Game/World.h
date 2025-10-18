@@ -18,10 +18,9 @@ class World
 	struct ChunkRenderInfo
 	{
 		const Chunk* chunk;
-		glm::vec3 chunkWorldPosition;
-		float distanceSquared;
+		unsigned int manhattanDistance;
 
-		ChunkRenderInfo(const Chunk* chunk, const glm::vec3& chunkWorldPosition, float distanceSquared);
+		ChunkRenderInfo(const Chunk* chunk, unsigned int manhattanDistance);
 	};
 public:
 	struct RaycastResult
@@ -85,6 +84,7 @@ public:
 	void preparation(int renderDistance);
 	void loadChunksAroundPlayer(const Int3& chunkLoaderPos, int renderDistance);
 	void update();
+	void sortChunkMeshes();
 
 	void renderChunks(const Camera& camera) const;
 	void renderVoxelMarker(const Camera& camera, const RaycastResult& raycast) const;

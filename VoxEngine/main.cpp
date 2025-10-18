@@ -170,6 +170,7 @@ int main()
                     world.debugMethod();
                 }
             }
+            world.sortChunkMeshes();
 
             // Rendering
             {

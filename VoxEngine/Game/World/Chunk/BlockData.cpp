@@ -50,6 +50,7 @@ void BlockDataBase::loadBlockDataBase()
 	registerBlock(Block::Stone, { 15, 0,  true,  false, true }, {"stone", "stone", "stone", "stone", "stone", "stone"});
 	registerBlock(Block::GlowStone, { 15, 15, true,  false, true }, {"glowstone", "glowstone", "glowstone", "glowstone", "glowstone", "glowstone"});
 	registerBlock(Block::Glass, { 1, 0, true,  true, true }, { "glass", "glass", "glass", "glass", "glass", "glass" });
+	registerBlock(Block::ColoredGlass, { 1, 0, true,  true, true }, { "glass_red", "glass_green", "glass_blue", "glass_cyan", "glass_pink", "glass_yellow" });
 }
 
 const BlockData* BlockDataBase::getBlockData(Block block)

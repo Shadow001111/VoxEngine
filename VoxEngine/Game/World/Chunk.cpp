@@ -157,14 +157,17 @@ void Chunk::buildBlocks()
 
 		if (position.y <= 1)
 		{
-			int border = 4;
+			int border = 5;
 			for (int x = border; x < CHUNK_SIZE - border; x++)
 			{
 				for (int y = border; y < CHUNK_SIZE - border; y++)
 				{
 					for (int z = border; z < CHUNK_SIZE - border; z++)
 					{
-						blocks[getIndex(x, y, z)] = Block::Glass;
+						if ((x + y + z) & 1)
+						{
+							blocks[getIndex(x, y, z)] = Block::ColoredGlass;
+						}
 					}
 				}
 			}
