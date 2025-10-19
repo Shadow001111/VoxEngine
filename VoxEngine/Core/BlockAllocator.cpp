@@ -121,16 +121,6 @@ void BlockAllocator::organizeAllocations()
     }
 }
 
-size_t BlockAllocator::getUsed() const
-{
-    return size_t();
-}
-
-size_t BlockAllocator::getAvailable() const
-{
-    return size_t();
-}
-
 size_t BlockAllocator::getCapacity() const
 {
     return capacity;
@@ -144,6 +134,18 @@ size_t BlockAllocator::getLastBlockEnd() const
     }
     const auto& lastBlock = blocks.back();
     return lastBlock.offset + lastBlock.size;
+}
+
+size_t BlockAllocator::getGapSizesSum() const
+{
+    size_t gaps = 0;
+    size_t lastEnd = 0;
+    for (const auto& block : blocks)
+    {
+        gaps += block.offset - lastEnd;
+        lastEnd = block.offset + block.size;
+    }
+    return gaps;
 }
 
 const std::vector<BlockAllocator::Block>& BlockAllocator::getAllAllocations() const

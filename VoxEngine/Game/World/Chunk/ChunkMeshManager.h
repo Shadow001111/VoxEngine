@@ -14,6 +14,8 @@ class ChunkMeshManager
 	OpenGL_Buffer instanceVBO;
 
 	BlockAllocator chunkBlockAllocator;
+
+	// Exists only for REORGANIZATION
 	std::unordered_map<size_t, MeshData*> allocatedMeshes;
 
 	ChunkMeshManager();
@@ -30,4 +32,7 @@ public:
 	OpenGL_Buffer& getInstanceVBO();
 
 	void bindVAO() const;
+
+	// Debug
+	size_t getGaps() const;
 };

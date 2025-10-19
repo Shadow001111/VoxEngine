@@ -53,7 +53,7 @@ std::string formatSizeBinary(size_t value)
 // TODO: Modern OpenGl
 int main()
 {
-    constexpr int CHUNK_LOAD_DISTANCE = 4;
+    constexpr int CHUNK_LOAD_DISTANCE = 12;
 
     constexpr float CAMERA_FAR_PLANE = (CHUNK_LOAD_DISTANCE + 0.5f) * (CHUNK_SIZE * 1.41f);
     constexpr float FOG_DISTANCE = (CHUNK_LOAD_DISTANCE + 0.5f)* CHUNK_SIZE;
@@ -215,7 +215,9 @@ int main()
                     << "/" << formatSize(debug.totalFaceCapacity)
                     << ", Rendered: " << formatSize(debug.renderedFaceCount);
 
-                ss << "\nChunk meshes capacity: " << formatSizeBinary(debug.totalFaceCapacity * sizeof(BlockFaceInstance));
+                // Meshes
+                ss << "\nChunk meshes: Capacity: " << formatSizeBinary(debug.totalFaceCapacity * sizeof(BlockFaceInstance))
+                    << ", Gaps: " << formatSizeBinary(debug.chunkMeshesGaps * sizeof(BlockFaceInstance));
 
                 // TODO: Add textures and font size in bytes
 

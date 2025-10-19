@@ -526,6 +526,8 @@ const World::DebugData& World::getDebugData() const
 	debugData.totalFaceCapacity = ChunkMeshManager::getInstance().getInstanceVBO().getCapacity() / sizeof(BlockFaceInstance);
 
 	debugData.loadedChunksCount = chunks.size();
+
+	debugData.chunkMeshesGaps = ChunkMeshManager::getInstance().getGaps();
 	return debugData;
 }
 

@@ -36,10 +36,9 @@ public:
 	void organizeAllocations();
 
 	// Debug
-	size_t getUsed() const;
-	size_t getAvailable() const;
 	size_t getCapacity() const;
 	size_t getLastBlockEnd() const;
+	size_t getGapSizesSum() const;
 	const std::vector<Block>& getAllAllocations() const;
 };
 

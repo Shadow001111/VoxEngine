@@ -42,6 +42,8 @@ private:
 		size_t totalFaces = 0;
 		size_t totalFaceCapacity = 0;
 		size_t renderedFaceCount = 0;
+
+		size_t chunkMeshesGaps = 0;
 	};
 private:
 	ChunkPool chunkPool;
