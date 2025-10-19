@@ -143,9 +143,10 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Game\World\Chunk\ChunkMeshManager.cpp" />
     <ClCompile Include="Core\BlockAllocator.cpp" />
-    <ClCompile Include="Core\OpenGL_Buffer.cpp" />
-    <ClCompile Include="Core\OpenGL_SSBO.cpp" />
+    <ClCompile Include="Graphics\OpenGL_Buffer.cpp" />
+    <ClCompile Include="Graphics\OpenGL_SSBO.cpp" />
     <ClCompile Include="Game\World\ChunkPool.cpp" />
     <ClCompile Include="Game\World\Chunk\MeshData.cpp" />
     <ClCompile Include="Game\World\Chunk\BlockFaceInstance.cpp" />
@@ -175,9 +176,10 @@
     <ClCompile Include="Game\World\WorldVisualSettings.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Game\World\Chunk\ChunkMeshManager.h" />
     <ClInclude Include="Core\BlockAllocator.h" />
-    <ClInclude Include="Core\OpenGL_Buffer.h" />
-    <ClInclude Include="Core\OpenGL_SSBO.h" />
+    <ClInclude Include="Graphics\OpenGL_Buffer.h" />
+    <ClInclude Include="Graphics\OpenGL_SSBO.h" />
     <ClInclude Include="Game\World\ChunkPool.h" />
     <ClInclude Include="Game\World\Chunk\MeshData.h" />
     <ClInclude Include="Game\World\Chunk\BlockFaceInstance.h" />

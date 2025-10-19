@@ -1,6 +1,7 @@
 #include "World.h"
 
 #include "World/Chunk/TerrainGenerator.h"
+#include "World/Chunk/ChunkMeshManager.h"
 
 #include "Core/Profiler.h"
 #include "Core/Multithreading/ThreadPool.h"
@@ -98,6 +99,11 @@ void World::preparation(int renderDistance)
 
 	chunkPool.allocate(chunkCount + 10);
 	chunks.reserve(chunkCount + 10);
+	{
+		// TODO: Enable allocating, when you will fix issues with mesh breaking when re-allocating.
+		size_t maxMemory = (size_t)chunkCount * (CHUNK_VOLUME + CHUNK_AREA) * 3;
+		//ChunkMeshManager::getInstance().preallocateMemory(maxMemory);
+	}
 }
 
 void World::loadChunksAroundPlayer(const glm::vec3& loaderPos, int renderDistance)
@@ -204,8 +210,9 @@ void World::sendChunkMeshesToGPU()
 	for (auto& pair : chunks)
 	{
 		Chunk* chunk = pair.second.get();
-		chunk->sendMeshToGPU();
+		chunk->askForMeshUpload();
 	}
+	Chunk::sendMeshesToGPU();
 }
 
 void World::renderChunks(const Camera& camera) const
@@ -236,13 +243,21 @@ void World::renderChunks(const Camera& camera) const
 				return a.manhattanDistance < b.manhattanDistance;
 			});
 	}
+
 	const size_t chunksToRenderCount = chunksToRender.size();
+	if (chunksToRenderCount == 0)
+	{
+		return;
+	}
 
 	{
 		PROFILE_SCOPE("Render: chunks", ProfileCategory::Render);
 
 		debugData.renderedFaceCount = 0;
 		debugData.renderedChunks = chunksToRenderCount;
+
+		//
+		ChunkMeshManager::getInstance().bindVAO();
 
 		// Render opaque
 		glEnable(GL_DEPTH_TEST);
@@ -500,15 +515,15 @@ void World::debugMethod()
 
 const World::DebugData& World::getDebugData() const
 {
+	// TODO: totalFaceCapacity should be equal to ChunkMeshManager instanceVBO capacity
 	debugData.totalFaces = 0;
-	debugData.totalFaceCapacity = 0;
 	for (const auto& pair : chunks)
 	{
 		const Chunk* chunk = pair.second.get();
 
 		debugData.totalFaces += chunk->getFaceCount();
-		debugData.totalFaceCapacity += chunk->getFaceCapacity();
 	}
+	debugData.totalFaceCapacity = ChunkMeshManager::getInstance().getInstanceVBO().getCapacity() / sizeof(BlockFaceInstance);
 
 	debugData.loadedChunksCount = chunks.size();
 	return debugData;

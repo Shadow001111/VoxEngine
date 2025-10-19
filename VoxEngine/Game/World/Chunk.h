@@ -6,6 +6,7 @@
 #include "Core/Multithreading/ProcessingFence.h"
 
 #include <vector>
+#include <unordered_set>
 #include <mutex>
 #include <atomic>
 #include <cstdint>
@@ -60,6 +61,8 @@ private:
 	MeshData meshData;
 	ProcessingFence processingFence;
 
+	static std::vector<MeshData*> pendingMeshUploads;
+
 	static size_t getIndex(int x, int y, int z);
 public:
 	static BlockTextureIDDatabase blockTextureDatabase;
@@ -85,11 +88,10 @@ public:
 
 	void updateLight();
 	bool hasLightUpdates() const;
-private:
-public:
+
 	void sortMesh(const glm::ivec3& cameraBlockPos);
 	bool shouldMeshBeSorted() const;
-	void sendMeshToGPU();
+	void askForMeshUpload();
 
 	void render(bool transparent) const;
 	bool canBeRendered(bool transparent) const;
@@ -130,6 +132,9 @@ public:
 	bool getIsProcessing() const;
 
 	bool getIsLoadedInWorld() const;
+
+	//
+	static void sendMeshesToGPU();
 };
 
 

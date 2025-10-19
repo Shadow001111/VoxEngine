@@ -1,5 +1,6 @@
 #include "Chunk.h"
 #include "Chunk/TerrainGenerator.h"
+#include "Chunk/ChunkMeshManager.h"
 
 #include "Core/Profiler.h"
 
@@ -8,6 +9,7 @@
 #include <iostream>
 
 BlockTextureIDDatabase Chunk::blockTextureDatabase;
+std::vector<MeshData*> Chunk::pendingMeshUploads;
 
 inline size_t Chunk::getIndex(int x, int y, int z)
 {
@@ -53,7 +55,7 @@ void Chunk::init(int x, int y, int z, Chunk** neighbors)
 	isLightBuilt.store(false, std::memory_order_release);
 
 	meshData.resetFaceCount();
-	meshData.ready = false;
+	//meshData.readyToBeRendered = false;
 	meshData.opaqueDirty = false;
 	meshData.transparentDirty = false;
 
@@ -375,12 +377,6 @@ void Chunk::buildMesh()
 	ScopedProcessingFence scopedFence(processingFence);
 	Profiler::endProfile();
 
-	meshData.ready = false;
-	meshData.opaqueDirty = false;
-	meshData.transparentDirty = false;
-
-	size_t opaqueInstancesCount = 0;
-	size_t transparentInstancesCount = 0;
 	{
 		PROFILE_SCOPE("Build chunk mesh", ProfileCategory::ChunkMesh);
 
@@ -505,7 +501,15 @@ void Chunk::buildMesh()
 			}
 		}
 
+		//
+		ScopedProcessingFence scopedFence(meshData.processingFence);
+
+		meshData.opaqueDirty = false;
+		meshData.transparentDirty = false;
+
 		// Combine instances vectors
+		size_t opaqueInstancesCount = 0;
+		size_t transparentInstancesCount = 0;
 		for (int i = 0; i < 6; i++)
 		{
 			size_t opaque = instances[i].size();
@@ -531,21 +535,22 @@ void Chunk::buildMesh()
 			const auto& vectorToInsert = instances[6 + i];
 			meshData.transparentInstances.insert(meshData.transparentInstances.end(), vectorToInsert.begin(), vectorToInsert.end());
 		}
-	}
 
-	if (!isLoadedInWorld.load(std::memory_order_acquire))
-	{
-		return;
-	}
+		//
+		if (!isLoadedInWorld.load(std::memory_order_acquire))
+		{
+			return;
+		}
 
-	if (opaqueInstancesCount > 0)
-	{
-		meshData.opaqueDirty = true;
-	}
-	if (transparentInstancesCount > 0)
-	{
-		meshData.transparentDirty = true;
-		shouldSortMeshAfterBuild = true;
+		if (opaqueInstancesCount > 0)
+		{
+			meshData.opaqueDirty = true;
+		}
+		if (transparentInstancesCount > 0)
+		{
+			meshData.transparentDirty = true;
+			shouldSortMeshAfterBuild = true;
+		}
 	}
 }
 
@@ -784,7 +789,7 @@ bool Chunk::shouldMeshBeSorted() const
 	return shouldSortMeshAfterBuild;
 }
 
-void Chunk::sendMeshToGPU()
+void Chunk::askForMeshUpload()
 {
 	// Commented out some conditions, because this method runs on main thread
 	if (
@@ -797,69 +802,34 @@ void Chunk::sendMeshToGPU()
 		return;
 	}
 
-	Profiler::beginProfile("Send chunk mesh to GPU: wait", ProfileCategory::ChunkMesh);
-	ScopedProcessingFence scopedFence(processingFence);
-	Profiler::endProfile();
-
-	{
-		PROFILE_SCOPE("Send chunk mesh to GPU", ProfileCategory::ChunkMesh);
-
-		// Bind instance VBO
-		meshData.bindInstanceVBO();
-
-		// Allocating data for buffer
-		size_t opaqueFaceCount = meshData.getOpaqueFaceCountSum();
-		size_t transparentFaceCount = meshData.getTransparentFaceCountSum();
-		meshData.allocateMemoryForBuffer(opaqueFaceCount + transparentFaceCount);
-
-		// Write to buffer
-		if (meshData.opaqueDirty)
-		{
-			glBufferSubData(GL_ARRAY_BUFFER,
-				0,
-				opaqueFaceCount * sizeof(BlockFaceInstance),
-				meshData.opaqueInstances.data()
-			);
-		}
-
-		if (meshData.transparentDirty)
-		{
-			glBufferSubData(GL_ARRAY_BUFFER,
-				opaqueFaceCount * sizeof(BlockFaceInstance),
-				transparentFaceCount * sizeof(BlockFaceInstance),
-				meshData.transparentInstances.data()
-			);
-		}
-
-		// Done
-		meshData.ready = true;
-		meshData.opaqueDirty = false;
-		meshData.transparentDirty = false;
-	}
+	pendingMeshUploads.push_back(&meshData);
 }
 
 void Chunk::render(bool transparent) const
 {
 	if (canBeRendered(transparent))
 	{
-		size_t opaqueFaceCount = meshData.getOpaqueFaceCountSum();
+		size_t opaqueFaceCount = meshData.getOpaqueFaceCount();
+
 		size_t baseInstance = transparent ? opaqueFaceCount : 0;
-		size_t instanceCount = transparent ? meshData.getTransparentFaceCountSum() : opaqueFaceCount;
-		meshData.bindVAO();
+		baseInstance += meshData.allocatedBlock.offset;
+
+		size_t instanceCount = transparent ? meshData.getTransparentFaceCount() : opaqueFaceCount;
+		
 		glDrawArraysInstancedBaseInstance(GL_TRIANGLE_FAN, 0, 4, instanceCount, baseInstance);
 	}
 }
 
 bool Chunk::canBeRendered(bool transparent) const
 {
-	size_t opaqueFaceCount = meshData.getOpaqueFaceCountSum();
+	size_t opaqueFaceCount = meshData.getOpaqueFaceCount();
 	size_t faceCapacity = meshData.getFaceCapacity();
 
-	size_t faceCount = transparent ? meshData.getTransparentFaceCountSum() : opaqueFaceCount;
+	size_t faceCount = transparent ? meshData.getTransparentFaceCount() : opaqueFaceCount;
 	size_t faceOffset = transparent ? opaqueFaceCount : 0;
 	return
 		getState() == State::Ready &&
-		meshData.ready &&
+		meshData.created &&
 		faceCount > 0 &&
 		(faceCount + faceOffset) <= faceCapacity &&
 		!processingFence.isProcessing();// &&
@@ -868,12 +838,12 @@ bool Chunk::canBeRendered(bool transparent) const
 
 bool Chunk::canBeRendered() const
 {
-	size_t opaqueFaceCount = meshData.getOpaqueFaceCountSum();
-	size_t transparentFaceCount = meshData.getTransparentFaceCountSum();
+	size_t opaqueFaceCount = meshData.getOpaqueFaceCount();
+	size_t transparentFaceCount = meshData.getTransparentFaceCount();
 	size_t faceCapacity = meshData.getFaceCapacity();
 	return
 		getState() == State::Ready &&
-		meshData.ready &&
+		meshData.created &&
 		(opaqueFaceCount > 0 || transparentFaceCount > 0) &&
 		(opaqueFaceCount + transparentFaceCount) <= faceCapacity &&
 		!processingFence.isProcessing();// &&
@@ -1337,7 +1307,7 @@ glm::ivec3 Chunk::getPosition() const
 
 size_t Chunk::getFaceCount() const
 {
-	return meshData.getOpaqueFaceCountSum() + meshData.getTransparentFaceCountSum();
+	return meshData.getOpaqueFaceCount() + meshData.getTransparentFaceCount();
 }
 
 size_t Chunk::getFaceCapacity() const
@@ -1363,6 +1333,86 @@ bool Chunk::getIsProcessing() const
 bool Chunk::getIsLoadedInWorld() const
 {
 	return isLoadedInWorld.load(std::memory_order_acquire);
+}
+
+void Chunk::sendMeshesToGPU()
+{
+	if (pendingMeshUploads.empty())
+	{
+		return;
+	}
+
+	for (MeshData* chunkMesh : pendingMeshUploads)
+	{
+		chunkMesh->processingFence.startProcessing();
+	}
+
+	PROFILE_SCOPE("Send chunk meshes to GPU", ProfileCategory::ChunkMesh);
+
+	// Allocate memory for meshes
+	std::vector<MeshData*> allocateMemoryMeshRequests;
+	for (MeshData* chunkMesh : pendingMeshUploads)
+	{
+		if (!chunkMesh->created)
+		{
+			// No mesh
+			allocateMemoryMeshRequests.push_back(chunkMesh);
+		}
+		else if (chunkMesh->getFaceCount() > chunkMesh->getFaceCapacity())
+		{
+			// Asking for more place
+			allocateMemoryMeshRequests.push_back(chunkMesh);
+		}
+
+		assert(chunkMesh->getFaceCount() > 0);
+	}
+
+	auto& inst = ChunkMeshManager::getInstance();
+	inst.processMeshRequests(allocateMemoryMeshRequests);
+	
+	// Write meshes data
+	auto& instanceVBO = inst.getInstanceVBO();
+	instanceVBO.bind();
+
+	for (MeshData* chunkMesh : pendingMeshUploads)
+	{
+		if (!chunkMesh->created)
+		{
+			continue;
+		}
+
+		size_t opaqueFaceCount = chunkMesh->getOpaqueFaceCount();
+		size_t transparentFaceCount = chunkMesh->getTransparentFaceCount();
+
+		size_t offset = chunkMesh->allocatedBlock.offset * sizeof(BlockFaceInstance);
+
+		if (chunkMesh->opaqueDirty)
+		{
+			instanceVBO.write(
+				chunkMesh->opaqueInstances.data(),
+				opaqueFaceCount * sizeof(BlockFaceInstance),
+				offset
+			);
+			chunkMesh->opaqueDirty = false;
+		}
+
+		if (chunkMesh->transparentDirty)
+		{
+			instanceVBO.write(
+				chunkMesh->transparentInstances.data(),
+				transparentFaceCount * sizeof(BlockFaceInstance),
+				offset + opaqueFaceCount * sizeof(BlockFaceInstance)
+			);
+			chunkMesh->transparentDirty = false;
+		}
+	}
+
+	//
+	for (MeshData* chunkMesh : pendingMeshUploads)
+	{
+		chunkMesh->processingFence.stopProcessing();
+	}
+	pendingMeshUploads.clear();
 }
 
 //============================================================================

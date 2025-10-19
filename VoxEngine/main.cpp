@@ -215,7 +215,7 @@ int main()
                     << "/" << formatSize(debug.totalFaceCapacity)
                     << ", Rendered: " << formatSize(debug.renderedFaceCount);
 
-                ss << "\nChunk meshes size: " << formatSizeBinary(debug.totalFaceCapacity * sizeof(BlockFaceInstance));
+                ss << "\nChunk meshes capacity: " << formatSizeBinary(debug.totalFaceCapacity * sizeof(BlockFaceInstance));
 
                 // TODO: Add textures and font size in bytes
 
