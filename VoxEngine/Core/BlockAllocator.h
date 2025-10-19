@@ -10,6 +10,8 @@ public:
 		size_t offset;
 		size_t size;
 		size_t id;
+
+		bool operator==(const Block& other) const { return id == other.id && offset == other.offset && size == other.size; }
 	};
 private:
 	size_t capacity;

@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <vector>
 #include <memory>
+#include <unordered_map>
 
 class ChunkMeshManager
 {
@@ -13,6 +14,7 @@ class ChunkMeshManager
 	OpenGL_Buffer instanceVBO;
 
 	BlockAllocator chunkBlockAllocator;
+	std::unordered_map<size_t, MeshData*> allocatedMeshes;
 
 	ChunkMeshManager();
 	~ChunkMeshManager();

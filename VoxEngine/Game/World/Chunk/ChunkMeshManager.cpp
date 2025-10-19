@@ -1,7 +1,5 @@
 #include "ChunkMeshManager.h"
 
-#include "Core/Profiler.h"
-
 #include <iostream>
 #include <cassert>
 
@@ -73,7 +71,7 @@ void ChunkMeshManager::preallocateMemory(size_t instanceCount)
 
 void ChunkMeshManager::processMeshRequests(std::vector<MeshData*>& meshRequests)
 {
-	PROFILE_SCOPE("Process mesh requests", ProfileCategory::General);
+	constexpr bool ENABLE_REORGANIZATION = false; // If enabled, code breaks
 
 	//
 	size_t oldCapacity = chunkBlockAllocator.getCapacity();
@@ -91,6 +89,10 @@ void ChunkMeshManager::processMeshRequests(std::vector<MeshData*>& meshRequests)
 		{
 			std::cerr << "[ChunkMeshManager] Block was already freed." << std::endl;
 		}
+		else
+		{
+			allocatedMeshes.erase(chunkMesh->allocatedBlock.id);
+		}
 	}
 
 	// Allocate blocks
@@ -105,6 +107,7 @@ void ChunkMeshManager::processMeshRequests(std::vector<MeshData*>& meshRequests)
 
 		chunkMesh->created = true;
 		chunkMesh->allocatedBlock = result.value();
+		allocatedMeshes.emplace(chunkMesh->allocatedBlock.id, chunkMesh);
 		stopIndex++;
 	}
 
@@ -115,10 +118,27 @@ void ChunkMeshManager::processMeshRequests(std::vector<MeshData*>& meshRequests)
 
 	// Organize allocations
 	const std::vector<BlockAllocator::Block> oldBlocks = chunkBlockAllocator.getAllAllocations();
-	chunkBlockAllocator.organizeAllocations();
+	if (ENABLE_REORGANIZATION)
+	{
+		chunkBlockAllocator.organizeAllocations();
+	}
 	const std::vector<BlockAllocator::Block>& newBlocks = chunkBlockAllocator.getAllAllocations();
 
-	// Allocate new memory
+	// Update all registered meshes with new offsets
+	if (ENABLE_REORGANIZATION)
+	{
+		for (size_t i = 0; i < newBlocks.size(); i++)
+		{
+			const auto& newBlock = newBlocks[i];
+			auto it = allocatedMeshes.find(newBlock.id);
+			if (it != allocatedMeshes.end())
+			{
+				it->second->allocatedBlock = newBlock;
+			}
+		}
+	}
+
+	// Allocate more memory
 	size_t newCapacity = chunkBlockAllocator.getLastBlockEnd();
 	for (size_t i = stopIndex; i < meshRequests.size(); i++)
 	{
@@ -136,11 +156,12 @@ void ChunkMeshManager::processMeshRequests(std::vector<MeshData*>& meshRequests)
 
 	if (oldCapacity > 0 && needNewBuffer)
 	{
+		// Create new buffer
 		OpenGL_Buffer newBuffer(GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW);
 		newBuffer.allocateMemory(newCapacity * sizeof(BlockFaceInstance));
 
 		// Copy data to a new buffer
-		for (size_t i = 0; i < stopIndex; i++)
+		for (size_t i = 0; i < newBlocks.size(); i++)
 		{
 			const auto& oldBlock = oldBlocks[i];
 			const auto& newBlock = newBlocks[i];
@@ -148,9 +169,11 @@ void ChunkMeshManager::processMeshRequests(std::vector<MeshData*>& meshRequests)
 			newBuffer.copyRangeFrom(instanceVBO,
 				oldBlock.offset * sizeof(BlockFaceInstance),
 				newBlock.offset * sizeof(BlockFaceInstance),
-				newBlock.size * sizeof(BlockFaceInstance)
+				oldBlock.size   * sizeof(BlockFaceInstance)
 			);
 		}
+
+		// Replace old with new buffer
 		instanceVBO = std::move(newBuffer);
 		configureInstanceVBO();
 	}
@@ -163,7 +186,6 @@ void ChunkMeshManager::processMeshRequests(std::vector<MeshData*>& meshRequests)
 	for (size_t i = stopIndex; i < meshRequests.size(); i++)
 	{
 		MeshData* chunkMesh = meshRequests[i];
-		assert(chunkMesh->getFaceCount() > 0);
 
 		auto result = chunkBlockAllocator.allocate(chunkMesh->getFaceCount());
 		if (!result.has_value())
@@ -174,6 +196,7 @@ void ChunkMeshManager::processMeshRequests(std::vector<MeshData*>& meshRequests)
 
 		chunkMesh->created = true;
 		chunkMesh->allocatedBlock = result.value();
+		allocatedMeshes.emplace(chunkMesh->allocatedBlock.id, chunkMesh);
 	}
 }
 

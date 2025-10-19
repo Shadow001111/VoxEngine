@@ -263,7 +263,7 @@ int main()
 
             if (profilerUpdateTimer.shouldUpdate())
             {
-                Profiler::printProfileReport();
+                //Profiler::printProfileReport();
             }
         }
 

@@ -1363,8 +1363,6 @@ void Chunk::sendMeshesToGPU()
 			// Asking for more place
 			allocateMemoryMeshRequests.push_back(chunkMesh);
 		}
-
-		assert(chunkMesh->getFaceCount() > 0);
 	}
 
 	auto& inst = ChunkMeshManager::getInstance();
