@@ -22,7 +22,7 @@ public:
 
 	template<class F, class... Args>
 	auto enqueue(F&& f, Args&&... args)
-		-> std::future<typename std::result_of<F(Args...)>::type>;
+		-> std::future<typename std::invoke_result<F, Args...>::type>;
 
     template<class F, class... Args>
     auto broadcast(F&& f, Args&&... args);
@@ -34,9 +34,9 @@ private:
 };
 
 template<class F, class ...Args>
-inline auto ThreadPool::enqueue(F&& f, Args && ...args) -> std::future<typename std::result_of<F(Args ...)>::type>
+inline auto ThreadPool::enqueue(F&& f, Args && ...args) -> std::future<typename std::invoke_result<F, Args...>::type>
 {
-    using return_type = typename std::result_of<F(Args...)>::type;
+    using return_type = typename std::invoke_result<F, Args...>::type;
 
     auto task = std::make_shared<std::packaged_task<return_type()>>(
         std::bind(std::forward<F>(f), std::forward<Args>(args)...)
