@@ -61,7 +61,7 @@ int main()
     try
     {
         // Window
-        WindowManager wnd({ 1280, 720, "My OpenGL 4.6 Window", true, true });
+        WindowManager wnd({ 1280, 720, "VoxEngine", true, false });
 
         // OpenGL states
         glEnable(GL_CULL_FACE);
@@ -96,7 +96,7 @@ int main()
 		UpdateTimer playerUpdateTimer(40.0f);
 		UpdateTimer worldUpdateTimer(20.0f); worldUpdateTimer.setUpdateToTrue();
 		UpdateTimer profilerUpdateTimer(1.0f / 3.0f);
-        UpdateTimer frequentUIDataUpdateTimer(2.0f);
+        UpdateTimer frequentUIDataUpdateTimer(1.0f);
 
         // Frequent UI data
         float UI_FPS = 0.0f;
@@ -114,8 +114,7 @@ int main()
 			float deltaTime = time - lastTime;
 			lastTime = time;
 
-            const float FPS = 1.0f / deltaTime;
-            accumulatedFPS += FPS;
+            accumulatedFPS += 1.0f / deltaTime;
             accumulatedFrames++;
 
 			playerUpdateTimer.addTime(deltaTime);
@@ -192,7 +191,6 @@ int main()
             // Text rendering
             if (true)
             {
-                // TODO: Average FPS
                 const auto& debug = world.getDebugData();
 
                 float rowHeight = 24.0f;
@@ -265,7 +263,7 @@ int main()
 
             if (profilerUpdateTimer.shouldUpdate())
             {
-                //Profiler::printProfileReport();
+                Profiler::printProfileReport();
             }
         }
 

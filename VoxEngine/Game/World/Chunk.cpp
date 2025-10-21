@@ -159,6 +159,22 @@ void Chunk::buildBlocks()
 				}
 			}
 		}
+
+		computeCaveMask = false;
+		constexpr int border = 4;
+		for (int x = border; x < CHUNK_SIZE - border; x++)
+		{
+			for (int y = border; y < CHUNK_SIZE - border; y++)
+			{
+				for (int z = border; z < CHUNK_SIZE - border; z++)
+				{
+					if ((x + y + z) & 1)
+					{
+						blocks[getIndex(x, y, z)] = Block::ColoredGlass;
+					}
+				}
+			}
+		}
 	}
 
 	// Caves
@@ -204,6 +220,7 @@ void Chunk::buildLight()
 	std::fill(std::begin(light), std::end(light), 0);
 
 	// Step 1: Collect light sources
+	// TODO: Use vector, because queue has bad cash locality
 	std::queue<LightNode> localLightQueue;
 	{
 		PROFILE_SCOPE("Build chunk light: collect light sources", ProfileCategory::ChunkLight);
@@ -724,9 +741,6 @@ void Chunk::sortMesh(const glm::ivec3& cameraBlockPos)
 	// TODO: Consider sorting opaque faces to reduce overdraw
 	// TODO: Consider using bucket sort, because there alot repeating distances
 
-	// Shouldn't be set, because it's barely noticeable when order of faces changes.
-	// meshData.ready = false;
-
 	struct FaceSortStruct
 	{
 		const BlockFaceInstance* instance = nullptr;
@@ -791,13 +805,7 @@ bool Chunk::shouldMeshBeSorted() const
 
 void Chunk::askForMeshUpload()
 {
-	// Commented out some conditions, because this method runs on main thread
-	if (
-		//!isLoadedInWorld.load(std::memory_order_acquire) ||
-		!areBlocksBuilt.load(std::memory_order_acquire) ||
-		!isLightBuilt.load(std::memory_order_acquire) ||
-		!(meshData.opaqueDirty || meshData.transparentDirty)
-		)
+	if (!(meshData.opaqueDirty || meshData.transparentDirty))
 	{
 		return;
 	}
@@ -805,19 +813,26 @@ void Chunk::askForMeshUpload()
 	pendingMeshUploads.push_back(&meshData);
 }
 
-void Chunk::render(bool transparent) const
+void Chunk::collectOpaqueRenderData(std::vector<DrawArraysIndirectCommand>& drawCommands, std::vector<glm::ivec3>& positions) const
 {
-	if (canBeRendered(transparent))
+	size_t faceCount = meshData.getOpaqueFaceCount();
+	if (faceCount == 0)
 	{
-		size_t opaqueFaceCount = meshData.getOpaqueFaceCount();
-
-		size_t baseInstance = transparent ? opaqueFaceCount : 0;
-		baseInstance += meshData.allocatedBlock.offset;
-
-		size_t instanceCount = transparent ? meshData.getTransparentFaceCount() : opaqueFaceCount;
-		
-		glDrawArraysInstancedBaseInstance(GL_TRIANGLE_FAN, 0, 4, instanceCount, baseInstance);
+		return;
 	}
+	drawCommands.emplace_back(4, faceCount, 0, meshData.allocatedBlock.offset);
+	positions.push_back(position);
+}
+
+void Chunk::collectTransparentRenderData(std::vector<DrawArraysIndirectCommand>& drawCommands, std::vector<glm::ivec3>& positions) const
+{
+	size_t faceCount = meshData.getTransparentFaceCount();
+	if (faceCount == 0)
+	{
+		return;
+	}
+	drawCommands.emplace_back(4, faceCount, 0, meshData.allocatedBlock.offset + meshData.getOpaqueFaceCount());
+	positions.push_back(position);
 }
 
 bool Chunk::canBeRendered(bool transparent) const
@@ -828,26 +843,19 @@ bool Chunk::canBeRendered(bool transparent) const
 	size_t faceCount = transparent ? meshData.getTransparentFaceCount() : opaqueFaceCount;
 	size_t faceOffset = transparent ? opaqueFaceCount : 0;
 	return
-		getState() == State::Ready &&
 		meshData.created &&
 		faceCount > 0 &&
-		(faceCount + faceOffset) <= faceCapacity &&
-		!processingFence.isProcessing();// &&
-		//!meshData.processingFence.isProcessing();
+		(faceCount + faceOffset) <= faceCapacity;
 }
 
 bool Chunk::canBeRendered() const
 {
-	size_t opaqueFaceCount = meshData.getOpaqueFaceCount();
-	size_t transparentFaceCount = meshData.getTransparentFaceCount();
+	size_t faceCount = meshData.getFaceCount();
 	size_t faceCapacity = meshData.getFaceCapacity();
 	return
-		getState() == State::Ready &&
 		meshData.created &&
-		(opaqueFaceCount > 0 || transparentFaceCount > 0) &&
-		(opaqueFaceCount + transparentFaceCount) <= faceCapacity &&
-		!processingFence.isProcessing();// &&
-	//!meshData.processingFence.isProcessing();
+		faceCount > 0 &&
+		faceCount <= faceCapacity;
 }
 
 // Function doesn't check for boundaries, it trusts the caller. On debug mode, it asserts.
@@ -1431,6 +1439,14 @@ size_t Int3Hasher::operator()(const glm::ivec3& other) const
 	h ^= (size_t)other.y + addConst + (h << 6) + (h >> 2);
 	h ^= (size_t)other.z + addConst + (h << 6) + (h >> 2);
 	return h;
+}
+
+//============================================================================
+//DrawArraysIndirectCommand
+
+DrawArraysIndirectCommand::DrawArraysIndirectCommand(GLuint count, GLuint instanceCount, GLuint first, GLuint baseInstance) :
+	count(count), instanceCount(instanceCount), first(first), baseInstance(baseInstance)
+{
 }
 
 //============================================================================

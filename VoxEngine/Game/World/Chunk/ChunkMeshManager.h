@@ -15,9 +15,6 @@ class ChunkMeshManager
 
 	BlockAllocator chunkBlockAllocator;
 
-	// Exists only for REORGANIZATION
-	std::unordered_map<size_t, MeshData*> allocatedMeshes;
-
 	ChunkMeshManager();
 	~ChunkMeshManager();
 

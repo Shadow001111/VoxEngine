@@ -6,6 +6,7 @@
 #include "Graphics/Shader.h"
 #include "Graphics/Camera.h"
 #include "Graphics/BlockTextureArray.h"
+#include "Graphics/OpenGL_SSBO.h"
 
 #include <unordered_map>
 #include <unordered_set>
@@ -13,7 +14,6 @@
 
 #include <mutex>
 
-// TODO: Maybe threads shouldn't send chunks to containers. Maybe they should just set chunk's state, then in main thread Worl will iterate though all chunks and send them to threads.
 class World
 {
 	struct ChunkRenderInfo
@@ -30,6 +30,7 @@ public:
 		Block hitBlock = Block::Air;
 		glm::vec3 hitPosition;
 		glm::ivec3 hitBlockPosition;
+		Chunk* hitChunk = nullptr;
 		int hitNormal = -1;
 		float distance = 0.0f;
 	};
@@ -70,6 +71,9 @@ private:
 	VoxelMarkerMesh voxelMarkerMesh;
 
 	std::unique_ptr<BlockTextureArray> blockTextureArray;
+
+	std::unique_ptr<OpenGL_Buffer> chunkDrawCommandBuffer;
+	std::unique_ptr<OpenGL_SSBO> chunkPositionSSBO;
 
 	// Debug
 	mutable DebugData debugData;

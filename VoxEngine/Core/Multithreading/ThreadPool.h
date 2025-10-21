@@ -135,8 +135,6 @@ void ParallelUtils::parallelFor(size_t start, size_t end, size_t minChunkSize, F
     {
         future.wait();
     }
-
-    std::cout << futures.size() << std::endl;
 }
 
 template<typename Container, typename Func>

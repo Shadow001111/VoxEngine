@@ -97,7 +97,7 @@ std::string Shader::loadShaderSource(const std::string& filePath) const
     }
     else
     {
-        std::cerr << "[Shader]: Failed to open shader file: '" << filePath << "'." << std::endl;
+        throw std::runtime_error("[Shader]: Failed to open shader file: '" + filePath + "'.");
     }
     return buffer.str();
 }

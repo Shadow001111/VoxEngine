@@ -126,13 +126,11 @@ const BlockData* BlockDataBase::getBlockData(size_t index)
 BlockTextureIDDatabase::BlockTextureIDDatabase()
 {
 	// Create array
-	const size_t blockCount = (size_t)Block::__BlockCount__;
-	blockTexturesIDs = new BlockTextureIDs[blockCount];
+	blockTexturesIDs = std::vector<BlockTextureIDs>((size_t)Block::__BlockCount__);
 }
 
 BlockTextureIDDatabase::~BlockTextureIDDatabase()
 {
-	delete[] blockTexturesIDs;
 }
 
 void BlockTextureIDDatabase::build(std::vector<std::string>& textureNames)

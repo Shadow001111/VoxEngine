@@ -1,6 +1,7 @@
 #include "BlockAllocator.h"
 
 #include <algorithm>
+#include <iostream>
 
 std::optional<size_t> BlockAllocator::findFreeBlock(size_t requestedSize) const
 {
@@ -15,15 +16,11 @@ std::optional<size_t> BlockAllocator::findFreeBlock(size_t requestedSize) const
         return 0;
     }
 
-    if (blocks[0].offset >= requestedSize)
-    {
-        return 0;
-    }
-
     // Check gaps between blocks
     for (size_t i = 0; i < blocks.size() - 1; i++)
     {
-        size_t gapStart = blocks[i].offset + blocks[i].size;
+        const auto& block1 = blocks[i];
+        size_t gapStart = block1.offset + block1.size;
         size_t gapEnd = blocks[i + 1].offset;
         size_t gapSize = gapEnd - gapStart;
 
@@ -34,7 +31,8 @@ std::optional<size_t> BlockAllocator::findFreeBlock(size_t requestedSize) const
     }
 
     // Check space at the end
-    size_t lastEnd = blocks.back().offset + blocks.back().size;
+    const auto& lastBlock = blocks.back();
+    size_t lastEnd = lastBlock.offset + lastBlock.size;
     if (lastEnd + requestedSize <= capacity)
     {
         return lastEnd;

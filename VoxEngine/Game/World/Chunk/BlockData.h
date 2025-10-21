@@ -76,7 +76,7 @@ class BlockTextureIDDatabase
 	{
 		uint16_t ids[6];
 	};
-	BlockTextureIDs* blockTexturesIDs;
+	std::vector<BlockTextureIDs> blockTexturesIDs;
 public:
 	BlockTextureIDDatabase();
 	~BlockTextureIDDatabase();

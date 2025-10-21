@@ -18,6 +18,8 @@ World::World()
 			{GL_FRAGMENT_SHADER, "res/Shaders/face.frag"}
 		};
 		faceShader = std::make_unique<Shader>(faceShaderSources);
+		faceShader->use();
+		faceShader->setFloat("CHUNK_SIZE", CHUNK_SIZE);
 
 		std::vector<Shader::ShaderSource> voxelMarkerShaderSources =
 		{
@@ -28,9 +30,7 @@ World::World()
 	}
 
 	// Block data base
-	{
-		BlockDataBase::loadBlockDataBase();
-	}
+	BlockDataBase::loadBlockDataBase();
 
 	// Block textures
 	std::vector<std::string> blockTextureNames;
@@ -41,11 +41,10 @@ World::World()
 	{
 		PROFILE_SCOPE("Block texture array creation", ProfileCategory::General);
 		blockTextureArray = std::make_unique<BlockTextureArray>("res/Textures", blockTextureNames, 0, 16);
-		blockTextureArray->bind();
-
-		faceShader->use();
-		faceShader->setInt("blockTextures", blockTextureArray->getUnit());
 	}
+	blockTextureArray->bind();
+	faceShader->use();
+	faceShader->setInt("blockTextures", blockTextureArray->getUnit());
 
 	// Terrain generator
 	{
@@ -58,6 +57,13 @@ World::World()
 			future.wait();
 		}
 	}
+
+	// Chunk draw command buffer
+	chunkDrawCommandBuffer = std::make_unique<OpenGL_Buffer>(GL_DRAW_INDIRECT_BUFFER, GL_DYNAMIC_DRAW);
+
+	// Chunk position SSBO
+	chunkPositionSSBO = std::make_unique<OpenGL_SSBO>(0);
+	chunkPositionSSBO->bindBase();
 }
 
 World::~World()
@@ -81,7 +87,7 @@ void World::preparation(int renderDistance)
 		}
 		area = (P + renderDistance) * 4 + 1;
 	}
-	int chunkCount = 0;
+	size_t chunkCount = 0;
 	{
 		int P = 0;
 		int rsq = renderDistance * renderDistance;
@@ -99,11 +105,12 @@ void World::preparation(int renderDistance)
 
 	chunkPool.allocate(chunkCount + 10);
 	chunks.reserve(chunkCount + 10);
-	{
-		// TODO: Enable allocating, when you will fix issues with mesh breaking when re-allocating.
-		size_t maxMemory = (size_t)chunkCount * (CHUNK_VOLUME + CHUNK_AREA) * 3;
-		//ChunkMeshManager::getInstance().preallocateMemory(maxMemory);
-	}
+
+	size_t maxFacesCount = (size_t)chunkCount * (CHUNK_VOLUME + CHUNK_AREA) * 3;
+	ChunkMeshManager::getInstance().preallocateMemory(maxFacesCount);
+
+	chunkDrawCommandBuffer->allocateMemory(chunkCount * sizeof(DrawArraysIndirectCommand));
+	chunkPositionSSBO->allocateMemory(chunkCount * sizeof(glm::vec3));
 }
 
 void World::loadChunksAroundPlayer(const glm::vec3& loaderPos, int renderDistance)
@@ -234,9 +241,12 @@ void World::renderChunks(const Camera& camera) const
 	std::vector<ChunkRenderInfo> chunksToRender;
 	{
 		PROFILE_SCOPE("Render: collect chunks", ProfileCategory::Render);
-
 		collectChunksToRender(chunksToRender, camera);
+	}
 
+	// Sort chunks by distance
+	{
+		PROFILE_SCOPE("Render: sort chunks", ProfileCategory::Render);
 		std::sort(chunksToRender.begin(), chunksToRender.end(),
 			[](const ChunkRenderInfo& a, const ChunkRenderInfo& b)
 			{
@@ -244,61 +254,74 @@ void World::renderChunks(const Camera& camera) const
 			});
 	}
 
-	const size_t chunksToRenderCount = chunksToRender.size();
-	if (chunksToRenderCount == 0)
+	// Bind resources
+	ChunkMeshManager::getInstance().bindVAO();
+	blockTextureArray->bind();
+	chunkDrawCommandBuffer->bind();
+	chunkPositionSSBO->bind();
+
+	// Set shared opengl states
+	glEnable(GL_DEPTH_TEST);
+	glDepthFunc(GL_LESS);
+	glEnable(GL_CULL_FACE);
+
+	// Opaque
+	std::vector<DrawArraysIndirectCommand> chunkDrawCommands;
+	std::vector<glm::ivec3> chunkPositions;
 	{
-		return;
+		{
+			PROFILE_SCOPE("Render: collect draw commands", ProfileCategory::Render);
+
+			for (const auto& info : chunksToRender)
+			{
+				info.chunk->collectOpaqueRenderData(chunkDrawCommands, chunkPositions);
+			}
+		}
+
+		const size_t drawCount = chunkDrawCommands.size();
+		if (drawCount > 0)
+		{
+			glDisable(GL_BLEND);
+
+			chunkDrawCommandBuffer->allocateMemory(drawCount * sizeof(DrawArraysIndirectCommand));
+			chunkDrawCommandBuffer->write(chunkDrawCommands.data(), drawCount * sizeof(DrawArraysIndirectCommand));
+
+			chunkPositionSSBO->allocateMemory(drawCount * sizeof(glm::ivec3));
+			chunkPositionSSBO->write(chunkPositions.data(), drawCount * sizeof(glm::ivec3));
+		
+			glMultiDrawArraysIndirect(GL_TRIANGLE_FAN, NULL, drawCount, 0);
+		}
 	}
 
+	// Transparent
+	std::reverse(chunksToRender.begin(), chunksToRender.end());
+	chunkDrawCommands.clear();
+	chunkPositions.clear();
+
 	{
-		PROFILE_SCOPE("Render: chunks", ProfileCategory::Render);
-
-		debugData.renderedFaceCount = 0;
-		debugData.renderedChunks = chunksToRenderCount;
-
-		//
-		ChunkMeshManager::getInstance().bindVAO();
-
-		// Render opaque
-		glEnable(GL_DEPTH_TEST);
-		glDepthFunc(GL_LESS);
-		glDisable(GL_BLEND);
-		glEnable(GL_CULL_FACE);
-
-		for (size_t i = 0; i < chunksToRender.size(); ++i)
 		{
-			const auto& info = chunksToRender[i];
+			PROFILE_SCOPE("Render: collect draw commands", ProfileCategory::Render);
 
-			// Set chunk position
-			glm::ivec3 chunkPosition = info.chunk->getPosition();
-			glm::vec3 chunkWorldPosition = chunkPosition * CHUNK_SIZE;
-			faceShader->setVec3("chunkPosition", chunkWorldPosition.x, chunkWorldPosition.y, chunkWorldPosition.z);
-
-			info.chunk->render(false); // Takes most of the time
-			debugData.renderedFaceCount += info.chunk->getFaceCount();
+			for (const auto& info : chunksToRender)
+			{
+				info.chunk->collectTransparentRenderData(chunkDrawCommands, chunkPositions);
+			}
 		}
 
-		// Render transparent (in reverse order, from farthest to closest)
-		//glEnable(GL_DEPTH_TEST);
-		//glDepthMask(GL_FALSE);
-		//glDepthFunc(GL_LESS);
-		glEnable(GL_BLEND);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-		//glDisable(GL_CULL_FACE);
-
-		for (size_t i = chunksToRender.size(); i-- > 0; )
+		const size_t drawCount = chunkDrawCommands.size();
+		if (drawCount > 0)
 		{
-			const auto& info = chunksToRender[i];
+			glEnable(GL_BLEND);
+			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-			// Set chunk position
-			glm::ivec3 chunkPosition = info.chunk->getPosition();
-			glm::vec3 chunkWorldPosition = chunkPosition * CHUNK_SIZE;
-			faceShader->setVec3("chunkPosition", chunkWorldPosition.x, chunkWorldPosition.y, chunkWorldPosition.z);
+			chunkDrawCommandBuffer->allocateMemory(drawCount * sizeof(DrawArraysIndirectCommand));
+			chunkDrawCommandBuffer->write(chunkDrawCommands.data(), drawCount * sizeof(DrawArraysIndirectCommand));
 
-			info.chunk->render(true); // Takes most of the time
+			chunkPositionSSBO->allocateMemory(drawCount * sizeof(glm::ivec3));
+			chunkPositionSSBO->write(chunkPositions.data(), drawCount * sizeof(glm::ivec3));
+
+			glMultiDrawArraysIndirect(GL_TRIANGLE_FAN, NULL, drawCount, 0);
 		}
-
-		//glDepthMask(GL_TRUE);
 	}
 }
 
@@ -407,7 +430,7 @@ World::RaycastResult World::raycast(const glm::vec3& origin, const glm::vec3& di
 	int lastAxis = -1;
 
 	// Cache chunk
-	const Chunk* chunk = nullptr;
+	Chunk* chunk = nullptr;
 	glm::ivec3 cachedChunkPos = glm::ivec3(std::numeric_limits<int>::max());
 
 	// Traverse voxels
@@ -437,6 +460,7 @@ World::RaycastResult World::raycast(const glm::vec3& origin, const glm::vec3& di
 				result.hitBlock = block;
 				result.hitPosition = origin + dir * distanceTraveled;
 				result.hitBlockPosition = blockPos;
+				result.hitChunk = chunk;
 				if (lastAxis == -1)
 				{
 					result.hitNormal = -1;
@@ -515,7 +539,6 @@ void World::debugMethod()
 
 const World::DebugData& World::getDebugData() const
 {
-	// TODO: totalFaceCapacity should be equal to ChunkMeshManager instanceVBO capacity
 	debugData.totalFaces = 0;
 	for (const auto& pair : chunks)
 	{
@@ -817,10 +840,6 @@ void World::startBuildingChunkMeshes()
 					}
 
 					chunk->setState(Chunk::State::Ready);
-
-					// TODO: Issue: Chunk's mesh is flickering.
-					// Settings Ready state should be done in Chunk::sendMedhesToGPU
-					// Even if yes, mesh is flickering even more. It takes more time to send mesh to GPU, but we set Ready state immediately.
 				});
 		}
 	}
@@ -906,13 +925,13 @@ void World::collectChunksNeedingLightUpdate()
 
 void World::collectChunksToRender(std::vector<ChunkRenderInfo>& chunksToRender, const Camera& camera) const
 {
+	chunksToRender.reserve(chunks.size());
+
 	const Frustum& frustum = camera.getFrustum();
 	Box chunkShape(glm::vec3(0.0f), glm::vec3(CHUNK_SIZE * 0.5f));
 
 	const glm::vec3 cameraPosition = camera.getPosition();
 	const glm::ivec3 cameraChunkPosition = glm::ivec3(cameraPosition) >> CHUNK_SIZE_LOG2;
-
-	chunksToRender.reserve(chunks.size());
 
 	for (const auto& pair : chunks)
 	{

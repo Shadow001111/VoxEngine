@@ -3,9 +3,14 @@
 layout(location = 0) in vec2 aPos;
 layout(location = 1) in ivec2 instanceData;
 
+layout(binding = 0) restrict readonly buffer chunkPositionSSBO
+{
+	int chunkPositions[];
+};
+
 uniform mat4 view;
 uniform mat4 projection;
-uniform vec3 chunkPosition;
+uniform float CHUNK_SIZE;
 
 out vec2 uv;
 out vec2 texCoords;
@@ -101,6 +106,15 @@ void main()
         vertexPos = vec3(aPos.x, aPos.y, 1.0);
         uv = vec2(aPos.x, aPos.y);
     }
+
+    // Chunk position
+    const uint posIndex = gl_DrawID * 3;
+    const vec3 chunkPosition = CHUNK_SIZE * vec3
+	(
+		chunkPositions[posIndex],
+		chunkPositions[posIndex + 1],
+		chunkPositions[posIndex + 2]
+	);
 
     // Transform texCoords
     texCoords = uv;

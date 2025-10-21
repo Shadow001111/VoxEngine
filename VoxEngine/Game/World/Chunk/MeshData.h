@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <vector>
 
+// TODO: Don't have 6 arrays for data, I will render whole mesh.
 struct MeshData
 {
 	BlockAllocator::Block allocatedBlock;

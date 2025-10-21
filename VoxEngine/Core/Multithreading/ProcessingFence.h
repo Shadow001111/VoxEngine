@@ -5,7 +5,7 @@
 
 class ProcessingFence
 {
-    std::atomic<bool> processing{ false };
+    bool processing = false;;
     std::mutex mtx;
     std::condition_variable cv;
 public:

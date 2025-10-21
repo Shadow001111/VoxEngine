@@ -22,6 +22,15 @@ struct LightNode
 	LightNode(int x, int y, int z, uint8_t lightLevel, int8_t propagationSide);
 };
 
+struct DrawArraysIndirectCommand
+{
+	GLuint count;        // Number of vertices per instance
+	GLuint instanceCount;// Number of instances to draw
+	GLuint first;        // Starting vertex index in the vertex array
+	GLuint baseInstance; // Base instance ID
+
+	DrawArraysIndirectCommand(GLuint count, GLuint instanceCount, GLuint first, GLuint baseInstance);
+};
 
 class Chunk
 {
@@ -93,7 +102,8 @@ public:
 	bool shouldMeshBeSorted() const;
 	void askForMeshUpload();
 
-	void render(bool transparent) const;
+	void collectOpaqueRenderData(std::vector<DrawArraysIndirectCommand>& drawCommands, std::vector<glm::ivec3>& positions) const;
+	void collectTransparentRenderData(std::vector<DrawArraysIndirectCommand>& drawCommands, std::vector<glm::ivec3>& positions) const;
 	bool canBeRendered(bool transparent) const;
 	bool canBeRendered() const;
 
