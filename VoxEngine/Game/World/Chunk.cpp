@@ -805,27 +805,12 @@ void Chunk::collectOpaqueRenderData(std::vector<DrawArraysIndirectCommand>& draw
 void Chunk::collectTransparentRenderData(std::vector<DrawArraysIndirectCommand>& drawCommands, std::vector<glm::ivec3>& positions) const
 {
 	size_t faceCount = meshData.transparentFaceCount;
-	if (faceCount == 0)
+	if (meshData.transparentFaceCount == 0)
 	{
 		return;
 	}
 	drawCommands.emplace_back(4, faceCount, 0, meshData.allocatedBlock.offset + meshData.opaqueFaceCount);
 	positions.push_back(position);
-}
-
-bool Chunk::canBeRendered(bool transparent) const
-{
-	if (!meshData.created)
-	{
-		return false;
-	}
-
-	size_t opaqueFaceCount = meshData.opaqueFaceCount;
-	size_t faceCount = transparent ? meshData.transparentFaceCount : opaqueFaceCount;
-	size_t faceOffset = transparent ? opaqueFaceCount : 0;
-	return
-		faceCount > 0 &&
-		(faceCount + faceOffset) <= meshData.getFaceCapacity();
 }
 
 bool Chunk::canBeRendered() const

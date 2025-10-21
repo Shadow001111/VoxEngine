@@ -103,7 +103,6 @@ public:
 
 	void collectOpaqueRenderData(std::vector<DrawArraysIndirectCommand>& drawCommands, std::vector<glm::ivec3>& positions) const;
 	void collectTransparentRenderData(std::vector<DrawArraysIndirectCommand>& drawCommands, std::vector<glm::ivec3>& positions) const;
-	bool canBeRendered(bool transparent) const;
 	bool canBeRendered() const;
 
 	Block getBlock_inBoundaries(int x, int y, int z) const;

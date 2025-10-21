@@ -558,6 +558,10 @@ const World::DebugData& World::getDebugData() const
 	debugData.loadedChunksCount = chunks.size();
 
 	debugData.chunkMeshesGaps = ChunkMeshManager::getInstance().getGaps();
+
+	debugData.chunkDrawCommandBufferSizeInBytes = chunkDrawCommandBuffer->getCapacity();
+	debugData.chunkPositionBufferSizeInBytes = chunkPositionSSBO->getCapacity();
+
 	return debugData;
 }
 

@@ -189,7 +189,6 @@ int main()
             world.renderVoxelMarker(player.getCamera(), playerRaycastResult);
 
             // Text rendering
-            if (true)
             {
                 const auto& debug = world.getDebugData();
 
@@ -216,6 +215,10 @@ int main()
                 // Meshes
                 ss << "\nChunk meshes: Capacity: " << formatSizeBinary(debug.totalFaceCapacity * sizeof(BlockFaceInstance))
                     << ", Gaps: " << formatSizeBinary(debug.chunkMeshesGaps * sizeof(BlockFaceInstance));
+
+                // Buffer sizes
+                ss << "\nChunk draw command buffer: " << formatSizeBinary(debug.chunkDrawCommandBufferSizeInBytes);
+                ss << "\nChunk position buffer: " << formatSizeBinary(debug.chunkPositionBufferSizeInBytes);
 
                 // TODO: Add textures and font size in bytes
 

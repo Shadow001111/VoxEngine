@@ -17,8 +17,61 @@ out vec2 texCoords;
 flat out float ao[4];
 flat out float light[4];
 flat out uint textureID;
-
 out float depth;
+
+const mat3 vertexRotations[6] = mat3[6](
+    mat3(0, 1, 0,
+         0, 0, -1,
+         0, 0, 0),
+    mat3(0, 1, 0,
+         0, 0, 1,
+         0, 0, 0),
+    mat3(1, 0, 0,
+         0, 0, 1,
+         0, 0, 0),
+    mat3(-1, 0, 0,
+         0, 0, 1,
+         0, 0, 0),
+    mat3(-1, 0, 0,
+         0, 1, 0,
+         0, 0, 0),
+    mat3(1, 0, 0,
+         0, 1, 0,
+         0, 0, 0)
+);
+
+const vec3 vertexOffsets[6] = vec3[6](
+    vec3(0, 0, 1),
+    vec3(1, 0, 0),
+    vec3(0, 0, 0),
+    vec3(1, 1, 0),
+    vec3(1, 0, 0),
+    vec3(0, 0, 1)
+);
+
+const mat2 uvRotations[6] = mat2[6](
+    mat2(0, 1,
+         -1, 0),
+    mat2(0, 1,
+         -1, 0),
+    mat2(-1, 0,
+         0, 1),
+    mat2(1, 0,
+         0, 1),
+    mat2(1, 0,
+         0, 1),
+    mat2(1, 0,
+         0, 1)
+);
+
+const vec2 uvOffsets[6] = vec2[6](
+    vec2(1, 0),
+    vec2(1, 0),
+    vec2(1, 0),
+    vec2(0, 0),
+    vec2(0, 0),
+    vec2(0, 0)
+);
 
 uint hash3(ivec3 sv)
 {
@@ -72,40 +125,9 @@ void main()
     light[2] = max(blockLight2, skyLight2) / 15.0;
     light[3] = max(blockLight3, skyLight3) / 15.0;
 
-    // Move quad to face
-    vec3 vertexPos = vec3(0.0);
-
-    // TODO: Maybe remove branching
-    if (normal == 0) //  -x
-    {
-        vertexPos = vec3(0.0, aPos.x, 1.0 - aPos.y);
-        uv = vec2(1.0 - aPos.y, aPos.x);
-    }
-    else if (normal == 1) // +x
-    {
-        vertexPos = vec3(1.0, aPos.x, aPos.y);
-        uv = vec2(1.0 - aPos.y, aPos.x);
-    }
-    else if (normal == 2) // -y
-    {
-        vertexPos = vec3(aPos.x, 0.0, aPos.y);
-        uv = vec2(1.0 - aPos.x, aPos.y);
-    }
-    else if (normal == 3) // +y
-    {
-        vertexPos = vec3(1.0f - aPos.x, 1.0f, aPos.y);
-        uv = vec2(aPos.x, aPos.y);
-    }
-    else if (normal == 4) // -z
-    {
-        vertexPos = vec3(1.0 - aPos.x, aPos.y, 0.0);
-        uv = vec2(aPos.x, aPos.y);
-    }
-    else // +z
-    {
-        vertexPos = vec3(aPos.x, aPos.y, 1.0);
-        uv = vec2(aPos.x, aPos.y);
-    }
+    // Transform vertex and uv
+    vec3 vertexPos = vertexRotations[normal] * vec3(aPos, 0.0) + vertexOffsets[normal];
+    uv = uvRotations[normal] * aPos + uvOffsets[normal];
 
     // Chunk position
     const uint posIndex = gl_DrawID * 3;

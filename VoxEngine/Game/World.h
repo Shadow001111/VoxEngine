@@ -45,6 +45,9 @@ private:
 		size_t renderedFaceCount = 0;
 
 		size_t chunkMeshesGaps = 0;
+
+		size_t chunkDrawCommandBufferSizeInBytes = 0;
+		size_t chunkPositionBufferSizeInBytes = 0;
 	};
 private:
 	ChunkPool chunkPool;
