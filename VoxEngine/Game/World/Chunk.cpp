@@ -398,7 +398,8 @@ void Chunk::buildMesh()
 		PROFILE_SCOPE("Build chunk mesh", ProfileCategory::ChunkMesh);
 
 		// Collect visible faces
-		std::vector<BlockFaceInstance> instances[12];
+		std::vector<BlockFaceInstance> opaqueInstances;
+		std::vector<BlockFaceInstance> transparentInstances;
 		for (int x = 0; x < CHUNK_SIZE; x++)
 		{
 			for (int y = 0; y < CHUNK_SIZE; y++)
@@ -413,7 +414,7 @@ void Chunk::buildMesh()
 					}
 
 					const auto& textureIDs = blockTextureDatabase.getBlockTextureIDs(block);
-					int instanceArrayOffset = blockData->properties.areFacesTransparent ? 6 : 0;
+					auto& instances = blockData->properties.areFacesTransparent ? transparentInstances : opaqueInstances;
 
 					// -X
 					std::pair<Block, uint8_t> blockAndLight = getBlockAndLight_checkSideNeighbor(x - 1, y, z, 0);
@@ -422,7 +423,7 @@ void Chunk::buildMesh()
 					{
 						unsigned int ao, light;
 						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 0, blockAndLight.second);
-						instances[instanceArrayOffset].emplace_back(
+						instances.emplace_back(
 							x, y, z,
 							0,
 							ao,
@@ -439,7 +440,7 @@ void Chunk::buildMesh()
 					{
 						unsigned int ao, light;
 						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 1, blockAndLight.second);
-						instances[1 + instanceArrayOffset].emplace_back(
+						instances.emplace_back(
 							x, y, z,
 							1,
 							ao,
@@ -455,7 +456,7 @@ void Chunk::buildMesh()
 					{
 						unsigned int ao, light;
 						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 2, blockAndLight.second);
-						instances[2 + instanceArrayOffset].emplace_back(
+						instances.emplace_back(
 							x, y, z,
 							2,
 							ao,
@@ -472,7 +473,7 @@ void Chunk::buildMesh()
 					{
 						unsigned int ao, light;
 						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 3, blockAndLight.second);
-						instances[3 + instanceArrayOffset].emplace_back(
+						instances.emplace_back(
 							x, y, z,
 							3,
 							ao,
@@ -489,7 +490,7 @@ void Chunk::buildMesh()
 					{
 						unsigned int ao, light;
 						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 4, blockAndLight.second);
-						instances[4 + instanceArrayOffset].emplace_back(
+						instances.emplace_back(
 							x, y, z,
 							4,
 							ao,
@@ -506,7 +507,7 @@ void Chunk::buildMesh()
 					{
 						unsigned int ao, light;
 						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 5, blockAndLight.second);
-						instances[5 + instanceArrayOffset].emplace_back(
+						instances.emplace_back(
 							x, y, z,
 							5,
 							ao,
@@ -518,52 +519,29 @@ void Chunk::buildMesh()
 			}
 		}
 
-		//
-		ScopedProcessingFence scopedFence(meshData.processingFence);
-
-		meshData.opaqueDirty = false;
-		meshData.transparentDirty = false;
-
-		// Combine instances vectors
-		size_t opaqueInstancesCount = 0;
-		size_t transparentInstancesCount = 0;
-		for (int i = 0; i < 6; i++)
-		{
-			size_t opaque = instances[i].size();
-			size_t transparent = instances[i + 6].size();
-			meshData.opaqueFaceCount[i] = opaque;
-			meshData.transparentFaceCount[i] = transparent;
-			opaqueInstancesCount += opaque;
-			transparentInstancesCount += transparent;
-		}
-
-		meshData.opaqueInstances.clear();
-		meshData.opaqueInstances.reserve(opaqueInstancesCount);
-		for (int i = 0; i < 6; i++)
-		{
-			const auto& vectorToInsert = instances[i];
-			meshData.opaqueInstances.insert(meshData.opaqueInstances.end(), vectorToInsert.begin(), vectorToInsert.end());
-		}
-
-		meshData.transparentInstances.clear();
-		meshData.transparentInstances.reserve(transparentInstancesCount);
-		for (int i = 0; i < 6; i++)
-		{
-			const auto& vectorToInsert = instances[6 + i];
-			meshData.transparentInstances.insert(meshData.transparentInstances.end(), vectorToInsert.begin(), vectorToInsert.end());
-		}
-
-		//
+		// Check if chunk got unloaded by the time we were building mesh
 		if (!isLoadedInWorld.load(std::memory_order_acquire))
 		{
 			return;
 		}
 
-		if (opaqueInstancesCount > 0)
+		// Set mesh data
+		ScopedProcessingFence scopedFence(meshData.processingFence);
+
+		meshData.opaqueDirty = false;
+		meshData.transparentDirty = false;
+
+		meshData.opaqueInstances = std::move(opaqueInstances);
+		meshData.opaqueFaceCount = meshData.opaqueInstances.size();
+
+		meshData.transparentInstances = std::move(transparentInstances);
+		meshData.transparentFaceCount = meshData.transparentInstances.size();
+
+		if (meshData.opaqueFaceCount > 0)
 		{
 			meshData.opaqueDirty = true;
 		}
-		if (transparentInstancesCount > 0)
+		if (meshData.transparentFaceCount > 0)
 		{
 			meshData.transparentDirty = true;
 			shouldSortMeshAfterBuild = true;
@@ -815,7 +793,7 @@ void Chunk::askForMeshUpload()
 
 void Chunk::collectOpaqueRenderData(std::vector<DrawArraysIndirectCommand>& drawCommands, std::vector<glm::ivec3>& positions) const
 {
-	size_t faceCount = meshData.getOpaqueFaceCount();
+	size_t faceCount = meshData.opaqueFaceCount;
 	if (faceCount == 0)
 	{
 		return;
@@ -826,36 +804,41 @@ void Chunk::collectOpaqueRenderData(std::vector<DrawArraysIndirectCommand>& draw
 
 void Chunk::collectTransparentRenderData(std::vector<DrawArraysIndirectCommand>& drawCommands, std::vector<glm::ivec3>& positions) const
 {
-	size_t faceCount = meshData.getTransparentFaceCount();
+	size_t faceCount = meshData.transparentFaceCount;
 	if (faceCount == 0)
 	{
 		return;
 	}
-	drawCommands.emplace_back(4, faceCount, 0, meshData.allocatedBlock.offset + meshData.getOpaqueFaceCount());
+	drawCommands.emplace_back(4, faceCount, 0, meshData.allocatedBlock.offset + meshData.opaqueFaceCount);
 	positions.push_back(position);
 }
 
 bool Chunk::canBeRendered(bool transparent) const
 {
-	size_t opaqueFaceCount = meshData.getOpaqueFaceCount();
-	size_t faceCapacity = meshData.getFaceCapacity();
+	if (!meshData.created)
+	{
+		return false;
+	}
 
-	size_t faceCount = transparent ? meshData.getTransparentFaceCount() : opaqueFaceCount;
+	size_t opaqueFaceCount = meshData.opaqueFaceCount;
+	size_t faceCount = transparent ? meshData.transparentFaceCount : opaqueFaceCount;
 	size_t faceOffset = transparent ? opaqueFaceCount : 0;
 	return
-		meshData.created &&
 		faceCount > 0 &&
-		(faceCount + faceOffset) <= faceCapacity;
+		(faceCount + faceOffset) <= meshData.getFaceCapacity();
 }
 
 bool Chunk::canBeRendered() const
 {
+	if (!meshData.created)
+	{
+		return false;
+	}
+
 	size_t faceCount = meshData.getFaceCount();
-	size_t faceCapacity = meshData.getFaceCapacity();
 	return
-		meshData.created &&
 		faceCount > 0 &&
-		faceCount <= faceCapacity;
+		faceCount <= meshData.getFaceCapacity();
 }
 
 // Function doesn't check for boundaries, it trusts the caller. On debug mode, it asserts.
@@ -1315,7 +1298,7 @@ glm::ivec3 Chunk::getPosition() const
 
 size_t Chunk::getFaceCount() const
 {
-	return meshData.getOpaqueFaceCount() + meshData.getTransparentFaceCount();
+	return meshData.getFaceCount();
 }
 
 size_t Chunk::getFaceCapacity() const
@@ -1387,8 +1370,8 @@ void Chunk::sendMeshesToGPU()
 			continue;
 		}
 
-		size_t opaqueFaceCount = chunkMesh->getOpaqueFaceCount();
-		size_t transparentFaceCount = chunkMesh->getTransparentFaceCount();
+		size_t opaqueFaceCount = chunkMesh->opaqueFaceCount;
+		size_t transparentFaceCount = chunkMesh->transparentFaceCount;
 
 		size_t offset = chunkMesh->allocatedBlock.offset * sizeof(BlockFaceInstance);
 
@@ -1444,7 +1427,7 @@ size_t Int3Hasher::operator()(const glm::ivec3& other) const
 //============================================================================
 //DrawArraysIndirectCommand
 
-DrawArraysIndirectCommand::DrawArraysIndirectCommand(GLuint count, GLuint instanceCount, GLuint first, GLuint baseInstance) :
+DrawArraysIndirectCommand::DrawArraysIndirectCommand(unsigned int count, unsigned int instanceCount, unsigned int first, unsigned int baseInstance) :
 	count(count), instanceCount(instanceCount), first(first), baseInstance(baseInstance)
 {
 }

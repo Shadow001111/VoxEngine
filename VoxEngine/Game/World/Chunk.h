@@ -6,7 +6,6 @@
 #include "Core/Multithreading/ProcessingFence.h"
 
 #include <vector>
-#include <unordered_set>
 #include <mutex>
 #include <atomic>
 #include <cstdint>
@@ -24,12 +23,12 @@ struct LightNode
 
 struct DrawArraysIndirectCommand
 {
-	GLuint count;        // Number of vertices per instance
-	GLuint instanceCount;// Number of instances to draw
-	GLuint first;        // Starting vertex index in the vertex array
-	GLuint baseInstance; // Base instance ID
+	unsigned int count;        // Number of vertices per instance
+	unsigned int instanceCount;// Number of instances to draw
+	unsigned int first;        // Starting vertex index in the vertex array
+	unsigned int baseInstance; // Base instance ID
 
-	DrawArraysIndirectCommand(GLuint count, GLuint instanceCount, GLuint first, GLuint baseInstance);
+	DrawArraysIndirectCommand(unsigned int count, unsigned int instanceCount, unsigned int first, unsigned int baseInstance);
 };
 
 class Chunk

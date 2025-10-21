@@ -4,20 +4,17 @@
 #include "Core/BlockAllocator.h"
 #include "Core/Multithreading/ProcessingFence.h"
 
-#include <glad/glad.h>
 #include <cstdint>
 #include <vector>
 
-// TODO: Don't have 6 arrays for data, I will render whole mesh.
 struct MeshData
 {
 	BlockAllocator::Block allocatedBlock;
 
-	uint16_t opaqueFaceCount[6]; // Count for each side
-	uint16_t transparentFaceCount[6];
+	uint16_t opaqueFaceCount = 0;
+	uint16_t transparentFaceCount = 0;
 
 	bool created = false;
-	//bool readyToBeRendered = false;
 	bool opaqueDirty = false;
 	bool transparentDirty = false;
 
@@ -31,8 +28,6 @@ struct MeshData
 
 	void resetFaceCount();
 
-	size_t getOpaqueFaceCount() const;
-	size_t getTransparentFaceCount() const;
-	size_t getFaceCount() const;
-	size_t getFaceCapacity() const;
+	size_t getFaceCount() const { return opaqueFaceCount + transparentFaceCount; };
+	size_t getFaceCapacity() const { return allocatedBlock.size; };
 };

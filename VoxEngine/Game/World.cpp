@@ -265,6 +265,10 @@ void World::renderChunks(const Camera& camera) const
 	glDepthFunc(GL_LESS);
 	glEnable(GL_CULL_FACE);
 
+	// Debug data
+	debugData.renderedChunks = chunksToRender.size();
+	debugData.renderedFaceCount = 0;
+
 	// Opaque
 	std::vector<DrawArraysIndirectCommand> chunkDrawCommands;
 	std::vector<glm::ivec3> chunkPositions;
@@ -281,6 +285,8 @@ void World::renderChunks(const Camera& camera) const
 		const size_t drawCount = chunkDrawCommands.size();
 		if (drawCount > 0)
 		{
+			debugData.renderedFaceCount += drawCount;
+
 			glDisable(GL_BLEND);
 
 			chunkDrawCommandBuffer->allocateMemory(drawCount * sizeof(DrawArraysIndirectCommand));
@@ -297,7 +303,6 @@ void World::renderChunks(const Camera& camera) const
 	std::reverse(chunksToRender.begin(), chunksToRender.end());
 	chunkDrawCommands.clear();
 	chunkPositions.clear();
-
 	{
 		{
 			PROFILE_SCOPE("Render: collect draw commands", ProfileCategory::Render);
@@ -311,6 +316,8 @@ void World::renderChunks(const Camera& camera) const
 		const size_t drawCount = chunkDrawCommands.size();
 		if (drawCount > 0)
 		{
+			debugData.renderedFaceCount += drawCount;
+
 			glEnable(GL_BLEND);
 			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
