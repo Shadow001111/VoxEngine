@@ -2,6 +2,9 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <string>
+#include <memory>
+
+#include "Graphics/OpenGL_FBO.h"
 
 // Struct to hold window initialization parameters
 struct WindowParams
@@ -17,6 +20,8 @@ class WindowManager
 {
     GLFWwindow* window = nullptr;
     //GLFWmonitor* monitor = nullptr;
+
+    std::unique_ptr<OpenGL_FBO> framebuffer;
 
     int width, height;
 	float aspectRatio;
@@ -38,6 +43,7 @@ public:
     int getHeight() const;
     float getAspectRatio() const;
     bool getVSYNC() const;
+    OpenGL_FBO* getFBO() const;
 
     //
 	bool isKeyPressed(int key) const;

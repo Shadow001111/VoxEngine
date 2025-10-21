@@ -17,7 +17,7 @@ out vec2 texCoords;
 flat out float ao[4];
 flat out float light[4];
 flat out uint textureID;
-out float depth;
+flat out float depth;
 
 const mat3 vertexRotations[6] = mat3[6](
     mat3(0, 1, 0,
@@ -104,14 +104,14 @@ void main()
     
     int textureTransformation = (instanceData.x >> 30) & 3;
 
-    int blockLight0 = (instanceData.y >> 0) & 15;
-    int skyLight0 = (instanceData.y >> 4) & 15;
-    int blockLight1 = (instanceData.y >> 8) & 15;
-    int skyLight1 = (instanceData.y >> 12) & 15;
+    int blockLight0 = (instanceData.y >> 0)  & 15;
+    int skyLight0   = (instanceData.y >> 4)  & 15;
+    int blockLight1 = (instanceData.y >> 8)  & 15;
+    int skyLight1   = (instanceData.y >> 12) & 15;
     int blockLight2 = (instanceData.y >> 16) & 15;
-    int skyLight2 = (instanceData.y >> 20) & 15;
+    int skyLight2   = (instanceData.y >> 20) & 15;
     int blockLight3 = (instanceData.y >> 24) & 15;
-    int skyLight3 = (instanceData.y >> 28) & 15;
+    int skyLight3   = (instanceData.y >> 28) & 15;
     
     // AO
     ao[0] = float(ao0) / 3.0;
@@ -138,7 +138,7 @@ void main()
 		chunkPositions[posIndex + 2]
 	);
 
-    // Transform texCoords
+    // Transform texCoords. TODO: Remove branching. Idk, maybe it won't change a thing.
     texCoords = uv;
     if (textureTransformation > 0)
     {
@@ -180,8 +180,8 @@ void main()
     //
     vec3 worldPos = chunkPosition + vertexPos + vec3(x, y, z);
     vec4 viewPos = view * vec4(worldPos, 1.0);
-    
-    depth = length(viewPos.xyz);
+
+    depth = length(viewPos);
     
     gl_Position = projection * viewPos;
 }

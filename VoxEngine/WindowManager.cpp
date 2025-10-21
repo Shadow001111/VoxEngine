@@ -43,12 +43,15 @@ WindowManager::WindowManager(const WindowParams& params)
     glfwSwapInterval(params.vsync);
 
     //
-	this->width = params.width;
-	this->height = params.height;
-	this->aspectRatio = static_cast<float>(width) / static_cast<float>(height);
-    this->vsync = params.vsync;
+	width = params.width;
+	height = params.height;
+	aspectRatio = static_cast<float>(width) / static_cast<float>(height);
+    vsync = params.vsync;
 
     //this->monitor = glfwGetPrimaryMonitor();
+
+    //
+    framebuffer = std::make_unique<OpenGL_FBO>(width, height);
 }
 
 WindowManager::~WindowManager()
@@ -105,6 +108,11 @@ bool WindowManager::getVSYNC() const
     return vsync;
 }
 
+OpenGL_FBO* WindowManager::getFBO() const
+{
+    return framebuffer.get();
+}
+
 bool WindowManager::isKeyPressed(int key) const
 {
 	return glfwGetKey(window, key) == GLFW_PRESS;
@@ -137,6 +145,8 @@ void WindowManager::onResize(int width, int height)
     this->width = width;
     this->height = height;
     this->aspectRatio = static_cast<float>(width) / static_cast<float>(height);
+
+    framebuffer->resize(width, height);
 }
 
 void WindowManager::onKey(int key, int scancode, int action, int mods)

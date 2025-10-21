@@ -230,7 +230,6 @@ void World::renderChunks(const Camera& camera) const
 		faceShader->setMat4("view", camera.getViewMatrix());
 		faceShader->setMat4("projection", camera.getProjectionMatrix());
 
-		// Fog
 		const auto& fogColor = visuals.backgroundColor;
 		faceShader->setVec3("fogColor", fogColor.r, fogColor.g, fogColor.b);
 		faceShader->setFloat("fogDensity", visuals.fogDensity);

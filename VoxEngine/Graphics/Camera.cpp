@@ -176,3 +176,13 @@ const Frustum& Camera::getFrustum() const
 	updateFrustum();
 	return frustum;
 }
+
+float Camera::getNear() const
+{
+	return nearPlane;
+}
+
+float Camera::getFar() const
+{
+	return farPlane;
+}

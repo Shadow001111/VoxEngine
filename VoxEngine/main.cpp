@@ -12,6 +12,13 @@
 #include <sstream>
 #include <iomanip>
 
+const float rectangleVertices[] = {
+    -1, -1,  0, 0,
+     1, -1,  1, 0,
+     1,  1,  1, 1,
+    -1,  1,  0, 1
+};
+
 std::string formatSize(size_t value)
 {
     static const char* suffixes[] = { "", "k", "M", "G", "T", "P", "E" };
@@ -53,15 +60,42 @@ std::string formatSizeBinary(size_t value)
 // TODO: Modern OpenGl
 int main()
 {
-    constexpr int CHUNK_LOAD_DISTANCE = 12;
+    constexpr int CHUNK_LOAD_DISTANCE = 6;
 
     constexpr float CAMERA_FAR_PLANE = (CHUNK_LOAD_DISTANCE + 0.5f) * (CHUNK_SIZE * 1.41f);
-    constexpr float FOG_DISTANCE = (CHUNK_LOAD_DISTANCE + 0.5f)* CHUNK_SIZE;
+    constexpr float FOG_DISTANCE = (CHUNK_LOAD_DISTANCE - 0.5f) * CHUNK_SIZE;
 
     try
     {
         // Window
-        WindowManager wnd({ 1280, 720, "VoxEngine", true, false });
+        WindowManager wnd({ 1280, 720, "VoxEngine", true, true });
+
+        // Framebuffer
+        auto* FBO = wnd.getFBO();
+        GLuint rectVAO, rectVBO;
+        glGenVertexArrays(1, &rectVAO);
+        glGenBuffers(1, &rectVBO);
+
+        glBindVertexArray(rectVAO);
+
+        glBindBuffer(GL_ARRAY_BUFFER, rectVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(rectangleVertices), rectangleVertices, GL_STATIC_DRAW);
+
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+        
+        std::unique_ptr<Shader> fboShader;
+        {
+            std::vector<Shader::ShaderSource> fboShaderSources =
+            {
+                {GL_VERTEX_SHADER, "res/Shaders/fbo.vert"},
+                {GL_FRAGMENT_SHADER, "res/Shaders/fbo.frag"}
+            };
+            fboShader = std::make_unique<Shader>(fboShaderSources);
+            fboShader->use();
+            fboShader->setInt("colorTexture", 0);
+            fboShader->setInt("depthTexture", 1);
+        }
 
         // OpenGL states
         glEnable(GL_CULL_FACE);
@@ -176,7 +210,9 @@ int main()
             world.sortChunkMeshes(player.getCamera().getPosition());
             world.sendChunkMeshesToGPU();
 
-            // Rendering
+            // Rendering to FBO
+            FBO->bind();
+
             {
                 const auto& color = world.visuals.backgroundColor;
                 glClearColor(color.r, color.g, color.b, 1.0f);
@@ -187,6 +223,26 @@ int main()
 
 			world.renderChunks(player.getCamera());
             world.renderVoxelMarker(player.getCamera(), playerRaycastResult);
+
+            // Rendering to screen
+            if (true)
+            {
+                FBO->unbind();
+                glBindVertexArray(rectVAO);
+                glDisable(GL_DEPTH_TEST);
+                glDisable(GL_BLEND);
+
+                FBO->bindTextures();
+
+                const Camera& camera = player.getCamera();
+                float near = camera.getNear();
+                float far = camera.getFar();
+
+                fboShader->use();
+                fboShader->setVec2("nearFarPlanes", near, far);
+
+                glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+            }
 
             // Text rendering
             {
@@ -205,7 +261,7 @@ int main()
 
                 // Chunks
                 ss << "\nChunks: Loaded: " << formatSize(debug.loadedChunksCount)
-                   << ", Rendered: " << formatSize(debug.renderedChunks);
+                    << ", Rendered: " << formatSize(debug.renderedChunks);
 
                 // Faces
                 ss << "\nFaces: " << formatSize(debug.totalFaces)
@@ -228,7 +284,7 @@ int main()
                 const auto& cameraViewDirection = camera.getForward();
 
                 ss << "\nX: " << cameraPos.x << " Y: " << cameraPos.y << " Z: " << cameraPos.z;
-                
+
                 std::string facingDir;
                 {
                     float absX = std::abs(cameraViewDirection.x);
@@ -272,6 +328,11 @@ int main()
 
         //
         Profiler::printProfileReport();
+
+        while (GLenum err = glGetError() != GL_NO_ERROR)
+        {
+            std::cerr << err;
+        }
     }
     catch (const std::exception& e)
     {

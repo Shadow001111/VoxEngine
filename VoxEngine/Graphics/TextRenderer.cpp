@@ -125,7 +125,7 @@ TextRenderer::TextRenderer()
 	};
 	textShader = std::make_unique<Shader>(textShaderSources);
     textShader->use();
-    textShader->setInt("glyphTextureArray", 1);
+    textShader->setInt("glyphTextureArray", 0);
     textShader->setMat4("projection", projectionMatrix);
 
     // Buffers
@@ -403,7 +403,7 @@ void TextRenderer::renderText(const std::string& text, float x, float y, float r
     glDisable(GL_CULL_FACE);
 
     glBindVertexArray(inst.textVAO);
-    glActiveTexture(GL_TEXTURE1);
+    glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D_ARRAY, font->textureArrayID);
 
     //

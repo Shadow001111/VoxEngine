@@ -171,6 +171,7 @@
     <ClCompile Include="Game\World\Chunk\TerrainGenerator.cpp" />
     <ClCompile Include="Game\World\VoxelMarkerMesh.cpp" />
     <ClCompile Include="Graphics\TextRenderer.cpp" />
+    <ClCompile Include="Graphics\OpenGL_FBO.cpp" />
     <ClCompile Include="WindowManager.cpp" />
     <ClCompile Include="Game\World.cpp" />
     <ClCompile Include="Game\World\WorldVisualSettings.cpp" />
@@ -205,6 +206,7 @@
     <ClInclude Include="Game\World\Chunk\TerrainGenerator.h" />
     <ClInclude Include="Game\World\VoxelMarkerMesh.h" />
     <ClInclude Include="Graphics\TextRenderer.h" />
+    <ClInclude Include="Graphics\OpenGL_FBO.h" />
     <ClInclude Include="WindowManager.h" />
     <ClInclude Include="Game\World.h" />
     <ClInclude Include="Game\World\WorldVisualSettings.h" />

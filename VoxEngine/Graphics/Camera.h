@@ -50,5 +50,7 @@ public:
 	glm::vec3 getUp() const;
 	glm::vec3 getRight() const;
 	const Frustum& getFrustum() const;
+	float getNear() const;
+	float getFar() const;
 };
 
