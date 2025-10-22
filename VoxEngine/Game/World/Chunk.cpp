@@ -709,10 +709,9 @@ void Chunk::sortMesh(const glm::ivec3& cameraBlockPos)
 	// Sorting only transparent faces for now
 	// If GL_CULL_FACE is disabled, sorting must be adjusted. If faces have same position, they should be sorted by prioritized normal(something opposite to camera direction).
 	// TODO: Consider sorting opaque faces to reduce overdraw
-	// TODO: Consider using bucket sort, because there alot repeating distances
 
 	const size_t instanceCount = meshData.transparentInstances.size();
-	std::vector<std::pair<uint8_t, uint16_t>> distanceIndexPairs; // TODO: Decrease byte size
+	std::vector<std::pair<uint8_t, uint16_t>> distanceIndexPairs;
 	distanceIndexPairs.reserve(instanceCount);
 
 	// Collect

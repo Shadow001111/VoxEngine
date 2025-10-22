@@ -62,7 +62,7 @@ void main()
     vec3 shadedColor = baseColor * interpolateAO_Triang() * interpolateLight_Quad();
 
     float inverseFogEffect = clamp(exp(-pow(depth * fogDensity, fogGradient)), 0.0, 1.0);
-	vec3 fogProcessedColor = mix(fogColor, baseColor, inverseFogEffect);
+	vec3 fogProcessedColor = mix(fogColor, shadedColor, inverseFogEffect);
 
     FragColor = vec4(fogProcessedColor, textureColor.w);
 }
