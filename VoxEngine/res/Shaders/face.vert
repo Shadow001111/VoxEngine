@@ -73,6 +73,24 @@ const vec2 uvOffsets[6] = vec2[6](
     vec2(0, 0)
 );
 
+const mat2 texCoordsRotations[4] = mat2[4](
+    mat2(1, 0,
+         0, 1),
+    mat2(0, 1,
+         -1, 0),
+    mat2(-1, 0,
+         0, -1),
+    mat2(0, -1,
+         1, 0)
+);
+
+const vec2 texCoordsOffsets[4] = vec2[4](
+    vec2(0, 0),
+    vec2(1, 0),
+    vec2(1, 1),
+    vec2(0, 1)
+);
+
 uint hash3(ivec3 sv)
 {
     uvec3 v = sv;
@@ -145,36 +163,13 @@ void main()
         uint hash = hash3(ivec3(x + chunkPosition.x, y + chunkPosition.y, z + chunkPosition.z));
 
         // Flip
-        uint flip = (hash >> 3u) & 3u;
-        if ((flip & 1u) == 0u)
-        {
-            texCoords.x = 1.0 - texCoords.x;
-        }
-        if ((flip & 2u) == 0u)
-        {
-            texCoords.y = 1.0 - texCoords.y;
-        }
+        uint rotation = uint(textureTransformation > 1) * (hash & 3);
+        uint flip = (hash >> 3) & 3;
 
-        if (textureTransformation > 1)
-        {
-            uint rotation = hash & 3u;
-            if (rotation == 0u)
-            {
-                texCoords = texCoords;
-            }
-            else if (rotation == 1u)
-            {
-                texCoords = vec2(1.0 - texCoords.y, texCoords.x);
-            }
-            else if (rotation == 2u)
-            {
-                texCoords = vec2(1.0 - texCoords.x, 1.0 - texCoords.y);
-            }
-            else
-            {
-                texCoords = vec2(texCoords.y, 1.0 - texCoords.x);
-            }
-        }
+        vec2 flipMask = vec2(float((flip & 1) == 0), float((flip & 2) == 0));
+
+        texCoords = mix(texCoords, vec2(1.0) - texCoords, flipMask);
+        texCoords = texCoordsRotations[rotation] * texCoords + texCoordsOffsets[rotation];
     }
 
     //

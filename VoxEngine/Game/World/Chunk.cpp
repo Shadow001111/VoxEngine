@@ -91,9 +91,9 @@ void Chunk::destroy()
 	//
 	{
 		std::lock_guard<std::mutex> lock(lightMutex);
-		while (!lightQueue.empty())
+		while (!lightNodeContainer.empty())
 		{
-			lightQueue.pop();
+			lightNodeContainer.pop_back();
 		}
 	}
 }
@@ -219,8 +219,7 @@ void Chunk::buildLight()
 	std::fill(std::begin(light), std::end(light), 0);
 
 	// Step 1: Collect light sources
-	// TODO: Use vector, because queue has bad cash locality
-	std::queue<LightNode> localLightQueue;
+	std::vector<LightNode> localLightNodeContainer;
 	{
 		PROFILE_SCOPE("Build chunk light: collect light sources", ProfileCategory::ChunkLight);
 
@@ -244,7 +243,7 @@ void Chunk::buildLight()
 
 					if (currentBlockData->properties.areFacesTransparent)
 					{
-						localLightQueue.emplace(x, y, z, emission, -1);
+						localLightNodeContainer.emplace_back(x, y, z, emission, -1);
 					}
 
 					for (int i = 0; i < 6; i++)
@@ -257,7 +256,7 @@ void Chunk::buildLight()
 							(ny & CHUNK_UPPER_BITS_MASK) == 0 &&
 							(nz & CHUNK_UPPER_BITS_MASK) == 0)
 						{
-							localLightQueue.emplace(nx, ny, nz, emission, i);
+							localLightNodeContainer.emplace_back(nx, ny, nz, emission, i);
 						}
 						else
 						{
@@ -283,10 +282,10 @@ void Chunk::buildLight()
 	{
 		PROFILE_SCOPE("Build chunk light: flood-fill", ProfileCategory::ChunkLight);
 
-		while (!localLightQueue.empty())
+		while (!localLightNodeContainer.empty())
 		{
-			auto data = localLightQueue.front();
-			localLightQueue.pop();
+			auto data = localLightNodeContainer.front();
+			localLightNodeContainer.pop_back();
 
 			// Get node data
 			int x = data.x;
@@ -355,7 +354,7 @@ void Chunk::buildLight()
 					(ny & CHUNK_UPPER_BITS_MASK) == 0 &&
 					(nz & CHUNK_UPPER_BITS_MASK) == 0)
 				{
-					localLightQueue.emplace(nx, ny, nz, newBlockLight, i);
+					localLightNodeContainer.emplace_back(nx, ny, nz, newBlockLight, i);
 				}
 				else
 				{
@@ -565,14 +564,14 @@ void Chunk::updateLight()
 	PROFILE_SCOPE("Update chunk light", ProfileCategory::ChunkLight);
 
 	// Get pending light updates
-	std::queue<LightNode> localLightQueue;
+	std::vector<LightNode> localLightQueue;
 	{
 		std::lock_guard<std::mutex> lock(lightMutex);
-		if (lightQueue.empty())
+		if (lightNodeContainer.empty())
 		{
 			return;
 		}
-		localLightQueue.swap(lightQueue);
+		localLightQueue.swap(lightNodeContainer);
 	}
 
 	const int dx[] = { -1, 1, 0, 0, 0, 0 };
@@ -585,7 +584,7 @@ void Chunk::updateLight()
 	while (!localLightQueue.empty())
 	{
 		auto data = localLightQueue.front();
-		localLightQueue.pop();
+		localLightQueue.pop_back();
 
 		// Get node data
 		int x = data.x;
@@ -654,7 +653,7 @@ void Chunk::updateLight()
 				(ny & CHUNK_UPPER_BITS_MASK) == 0 &&
 				(nz & CHUNK_UPPER_BITS_MASK) == 0)
 			{
-				localLightQueue.emplace(nx, ny, nz, newBlockLight, i);
+				localLightQueue.emplace_back(nx, ny, nz, newBlockLight, i);
 			}
 			else
 			{
@@ -683,7 +682,7 @@ void Chunk::updateLight()
 bool Chunk::hasLightUpdates() const
 {
 	std::lock_guard<std::mutex> lock(lightMutex);
-	return !lightQueue.empty();
+	return !lightNodeContainer.empty();
 }
 
 void Chunk::sortMesh(const glm::ivec3& cameraBlockPos)
@@ -1046,7 +1045,7 @@ std::pair<Block, uint8_t> Chunk::getBlockAndLight_checkNeighborsTraverse(int x, 
 void Chunk::addNodeToLightQueue(int x, int y, int z, uint8_t lightLevel, int8_t propagationSide)
 {
 	std::lock_guard<std::mutex> lock(lightMutex);
-	lightQueue.emplace(x, y, z, lightLevel, propagationSide);
+	lightNodeContainer.emplace_back(x, y, z, lightLevel, propagationSide);
 }
 
 void Chunk::calculateVertexAmbientOcclusionAndLight(unsigned int& ao, unsigned int& light, uint8_t centerLight, uint8_t side1Light, uint8_t side2Light, uint8_t cornerLight, bool side1Solid, bool side2Solid, bool cornerSolid) const

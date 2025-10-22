@@ -9,7 +9,6 @@
 #include <mutex>
 #include <atomic>
 #include <cstdint>
-#include <queue>
 #include <glm/glm.hpp>
 
 struct LightNode
@@ -64,7 +63,7 @@ private:
 	Block blocks[CHUNK_VOLUME];
 	uint8_t light[CHUNK_VOLUME];
 
-	std::queue<LightNode> lightQueue;
+	std::vector<LightNode> lightNodeContainer;
 	mutable std::mutex lightMutex;
 
 	MeshData meshData;

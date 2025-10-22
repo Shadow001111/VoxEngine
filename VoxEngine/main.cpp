@@ -60,8 +60,6 @@ std::string formatSizeBinary(size_t value)
 }
 
 // TODO: Modern OpenGl
-// TODO: Optimize things that work each frame
-// TODO: Fix AO
 int main()
 {
     constexpr int CHUNK_LOAD_DISTANCE = 12;
