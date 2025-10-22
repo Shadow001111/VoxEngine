@@ -12,6 +12,8 @@
 #include <sstream>
 #include <iomanip>
 
+constexpr bool USE_FBO = false;
+
 const float rectangleVertices[] = {
     -1, -1,  0, 0,
      1, -1,  1, 0,
@@ -58,9 +60,11 @@ std::string formatSizeBinary(size_t value)
 }
 
 // TODO: Modern OpenGl
+// TODO: Optimize things that work each frame
+// TODO: Fix AO
 int main()
 {
-    constexpr int CHUNK_LOAD_DISTANCE = 6;
+    constexpr int CHUNK_LOAD_DISTANCE = 12;
 
     constexpr float CAMERA_FAR_PLANE = (CHUNK_LOAD_DISTANCE + 0.5f) * (CHUNK_SIZE * 1.41f);
     constexpr float FOG_DISTANCE = (CHUNK_LOAD_DISTANCE - 0.5f) * CHUNK_SIZE;
@@ -85,6 +89,7 @@ int main()
         glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
         
         std::unique_ptr<Shader> fboShader;
+        if (USE_FBO)
         {
             std::vector<Shader::ShaderSource> fboShaderSources =
             {
@@ -211,7 +216,10 @@ int main()
             world.sendChunkMeshesToGPU();
 
             // Rendering to FBO
-            FBO->bind();
+            if (USE_FBO)
+            {
+                FBO->bind();
+            }
 
             {
                 const auto& color = world.visuals.backgroundColor;
@@ -225,7 +233,7 @@ int main()
             world.renderVoxelMarker(player.getCamera(), playerRaycastResult);
 
             // Rendering to screen
-            if (true)
+            if (USE_FBO)
             {
                 FBO->unbind();
                 glBindVertexArray(rectVAO);

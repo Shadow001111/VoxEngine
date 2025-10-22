@@ -31,6 +31,7 @@ struct DrawArraysIndirectCommand
 	DrawArraysIndirectCommand(unsigned int count, unsigned int instanceCount, unsigned int first, unsigned int baseInstance);
 };
 
+// TODO: Fix chunk mesh sorting
 class Chunk
 {
 public:
@@ -50,7 +51,7 @@ public:
 private:
 	glm::ivec3 position; // Chunk coordinates in chunk space
 
-	glm::ivec3 cameraClosestBlockPosForSortingMesh = { INT_MAX, INT_MAX , INT_MAX };
+	glm::ivec3 cameraClosestBlockPosForSortingMesh; // TODO: Maybe code it and use 4 bits per axis
 
 	std::atomic<State> state;
 	std::atomic<bool> isLoadedInWorld{ false };
@@ -98,7 +99,7 @@ public:
 	bool hasLightUpdates() const;
 
 	void sortMesh(const glm::ivec3& cameraBlockPos);
-	bool shouldMeshBeSorted() const;
+	bool shouldMeshBeSorted(bool cameraMoved) const;
 	void askForMeshUpload();
 
 	void collectOpaqueRenderData(std::vector<DrawArraysIndirectCommand>& drawCommands, std::vector<glm::ivec3>& positions) const;

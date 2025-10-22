@@ -55,10 +55,10 @@ void Chunk::init(int x, int y, int z, Chunk** neighbors)
 	isLightBuilt.store(false, std::memory_order_release);
 
 	meshData.resetFaceCount();
-	//meshData.readyToBeRendered = false;
 	meshData.opaqueDirty = false;
 	meshData.transparentDirty = false;
 
+	cameraClosestBlockPosForSortingMesh = { INT_MAX, INT_MAX , INT_MAX };
 	shouldSortMeshAfterBuild = false;
 }
 
@@ -160,7 +160,6 @@ void Chunk::buildBlocks()
 			}
 		}
 
-		computeCaveMask = false;
 		constexpr int border = 4;
 		for (int x = border; x < CHUNK_SIZE - border; x++)
 		{
@@ -544,7 +543,7 @@ void Chunk::buildMesh()
 		if (meshData.transparentFaceCount > 0)
 		{
 			meshData.transparentDirty = true;
-			shouldSortMeshAfterBuild = true;
+			shouldSortMeshAfterBuild = meshData.transparentFaceCount > 1;
 		}
 	}
 }
@@ -690,22 +689,15 @@ bool Chunk::hasLightUpdates() const
 void Chunk::sortMesh(const glm::ivec3& cameraBlockPos)
 {
 	shouldSortMeshAfterBuild = false;
-	if (meshData.transparentInstances.empty())
-	{
-		return;
-	}
 
 	const glm::ivec3 chunkGlobalPos = position * CHUNK_SIZE;
-	const glm::ivec3 chunkGlobalPosBlockMax = chunkGlobalPos + (CHUNK_SIZE - 1);
 
-	glm::ivec3 newCameraClosestBlockPosForSortingMesh = glm::clamp(cameraBlockPos, chunkGlobalPos, chunkGlobalPosBlockMax);
-	if (newCameraClosestBlockPosForSortingMesh == cameraClosestBlockPosForSortingMesh)
+	const glm::ivec3 calculateDistanceFrom = glm::clamp(cameraBlockPos - chunkGlobalPos, glm::ivec3(0), glm::ivec3(CHUNK_SIZE - 1));
+	if (calculateDistanceFrom == cameraClosestBlockPosForSortingMesh)
 	{
 		return;
 	}
-	cameraClosestBlockPosForSortingMesh = newCameraClosestBlockPosForSortingMesh;
-
-	const glm::ivec3 chunkGlobalPosMinusCameraPos = chunkGlobalPos - cameraBlockPos;
+	cameraClosestBlockPosForSortingMesh = calculateDistanceFrom;
 
 	// TODO: Let chunk update light when sorting mesh.
 	Profiler::beginProfile("Sort chunk mesh: wait", ProfileCategory::ChunkMesh);
@@ -719,66 +711,47 @@ void Chunk::sortMesh(const glm::ivec3& cameraBlockPos)
 	// TODO: Consider sorting opaque faces to reduce overdraw
 	// TODO: Consider using bucket sort, because there alot repeating distances
 
-	struct FaceSortStruct
-	{
-		const BlockFaceInstance* instance = nullptr;
-		unsigned int manhattanDistance = 0;
-
-		FaceSortStruct(const BlockFaceInstance* instance, unsigned int manhattanDistance) :
-			instance(instance), manhattanDistance(manhattanDistance)
-		{}
-
-		FaceSortStruct& operator=(const FaceSortStruct& other)
-		{
-			if (this != &other)
-			{
-				instance = other.instance;
-				manhattanDistance = other.manhattanDistance;
-			}
-			return *this;
-		}
-	};
+	const size_t instanceCount = meshData.transparentInstances.size();
+	std::vector<std::pair<uint8_t, uint16_t>> distanceIndexPairs; // TODO: Decrease byte size
+	distanceIndexPairs.reserve(instanceCount);
 
 	// Collect
-	std::vector<FaceSortStruct> faceSortVector;
-	faceSortVector.reserve(meshData.transparentInstances.size());
-	for (const auto& instance : meshData.transparentInstances)
+	for (size_t i = 0; i < instanceCount; ++i)
 	{
+		const auto& instance = meshData.transparentInstances[i];
+
 		glm::ivec3 pos;
 		instance.decodePosition(pos.x, pos.y, pos.z);
 
-		glm::ivec3 delta = glm::abs(pos + chunkGlobalPosMinusCameraPos);
-
+		glm::ivec3 delta = glm::abs(pos - calculateDistanceFrom);
 		unsigned int manhattanDistance = delta.x + delta.y + delta.z;
 
-		faceSortVector.emplace_back(&instance, manhattanDistance);
+		distanceIndexPairs.emplace_back(manhattanDistance, i);
 	}
 
 	// Sorting faces in descending order, so furthest transparent faces will be rendered first, for blending
-	std::sort(faceSortVector.begin(), faceSortVector.end(),
-		[](const FaceSortStruct& a, const FaceSortStruct& b)
+	std::sort(distanceIndexPairs.begin(), distanceIndexPairs.end(),
+		[](const auto& a, const auto& b)
 		{
-			return a.manhattanDistance > b.manhattanDistance;
+			return a.first > b.first;
 		});
 
 	// Reordering instances
 	std::vector<BlockFaceInstance> reordered;
-	reordered.reserve(meshData.transparentInstances.capacity());
+	reordered.reserve(instanceCount);
 
-	for (const auto& face : faceSortVector)
+	for (const auto& pair : distanceIndexPairs)
 	{
-		reordered.push_back(*face.instance);
+		reordered.push_back(std::move(meshData.transparentInstances[pair.second]));
 	}
 
 	meshData.transparentInstances = std::move(reordered);
-	
-	// Done
 	meshData.transparentDirty = true;
 }
 
-bool Chunk::shouldMeshBeSorted() const
+bool Chunk::shouldMeshBeSorted(bool cameraMoved) const
 {
-	return shouldSortMeshAfterBuild;
+	return meshData.transparentFaceCount > 1 && (cameraMoved || shouldSortMeshAfterBuild);
 }
 
 void Chunk::askForMeshUpload()
