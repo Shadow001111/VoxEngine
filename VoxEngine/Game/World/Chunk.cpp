@@ -58,7 +58,7 @@ void Chunk::init(int x, int y, int z, Chunk** neighbors)
 	meshData.opaqueDirty = false;
 	meshData.transparentDirty = false;
 
-	cameraClosestBlockPosForSortingMesh = { INT_MAX, INT_MAX , INT_MAX };
+	cameraClosestBlockPosForSortingMesh = -1;
 	shouldSortMeshAfterBuild = false;
 }
 
@@ -692,11 +692,14 @@ void Chunk::sortMesh(const glm::ivec3& cameraBlockPos)
 	const glm::ivec3 chunkGlobalPos = position * CHUNK_SIZE;
 
 	const glm::ivec3 calculateDistanceFrom = glm::clamp(cameraBlockPos - chunkGlobalPos, glm::ivec3(0), glm::ivec3(CHUNK_SIZE - 1));
-	if (calculateDistanceFrom == cameraClosestBlockPosForSortingMesh)
+	const uint16_t compare = calculateDistanceFrom.x |
+							 (calculateDistanceFrom.y << CHUNK_SIZE_LOG2) |
+							 (calculateDistanceFrom.z << (CHUNK_SIZE_LOG2 << 1));
+	if (compare == cameraClosestBlockPosForSortingMesh)
 	{
 		return;
 	}
-	cameraClosestBlockPosForSortingMesh = calculateDistanceFrom;
+	cameraClosestBlockPosForSortingMesh = compare;
 
 	// TODO: Let chunk update light when sorting mesh.
 	Profiler::beginProfile("Sort chunk mesh: wait", ProfileCategory::ChunkMesh);
