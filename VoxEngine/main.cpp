@@ -65,7 +65,7 @@ int main()
     constexpr int CHUNK_LOAD_DISTANCE = 12;
 
     constexpr float CAMERA_FAR_PLANE = (CHUNK_LOAD_DISTANCE + 0.5f) * (CHUNK_SIZE * 1.41f);
-    constexpr float FOG_DISTANCE = 999.0f;// (CHUNK_LOAD_DISTANCE - 0.5f)* CHUNK_SIZE;
+    constexpr float FOG_DISTANCE = (CHUNK_LOAD_DISTANCE - 0.5f)* CHUNK_SIZE;
 
     try
     {

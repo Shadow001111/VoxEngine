@@ -921,11 +921,11 @@ void Chunk::collectOpaqueRenderData(std::vector<DrawArraysIndirectCommand>& draw
 void Chunk::collectTransparentRenderData(std::vector<DrawArraysIndirectCommand>& drawCommands, std::vector<glm::ivec3>& positions) const
 {
 	size_t faceCount = meshData.renderTransparentFaceCount;
-	if (faceCount)
+	if (faceCount == 0)
 	{
 		return;
 	}
-	drawCommands.emplace_back(4, faceCount, 0, meshData.allocatedBlock.offset + meshData.opaqueFaceCount);
+	drawCommands.emplace_back(4, faceCount, 0, meshData.allocatedBlock.offset + meshData.renderOpaqueFaceCount);
 	positions.push_back(position);
 }
 
