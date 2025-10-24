@@ -212,6 +212,9 @@
     <ClInclude Include="Graphics\OpenGL_FBO.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
+    <ClInclude Include="Core\SymmetricBitMatrix.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CopyFileToFolders Include="..\Libraries\bin\FastNoise.dll">

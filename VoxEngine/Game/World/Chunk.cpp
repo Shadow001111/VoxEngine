@@ -3,6 +3,7 @@
 #include "Chunk/ChunkMeshManager.h"
 
 #include "Core/Profiler.h"
+#include "Core/SymmetricBitMatrix.h"
 
 #include <cassert>
 #include <vector>
@@ -14,6 +15,15 @@ std::vector<MeshData*> Chunk::pendingMeshUploads;
 inline size_t Chunk::getIndex(int x, int y, int z)
 {
 	return (x << 8) | (y << 4) | z;
+}
+
+glm::ivec3 Chunk::getPositionFromIndex(size_t index)
+{
+	return {
+		(index >> 8) & 15,
+		(index >> 4) & 15,
+		index & 15
+	};
 }
 
 Chunk::Chunk()
@@ -194,6 +204,134 @@ void Chunk::buildBlocks()
 	}
 
 	areBlocksBuilt.store(true, std::memory_order_release);
+
+	//computeConnectivity();
+}
+
+bool Chunk::findFloodFillStartIndex(uint16_t& startIndex, const bool* floodFillMask) const
+{
+	for (uint16_t i = startIndex; i < CHUNK_VOLUME; i++)
+	{
+		if (floodFillMask[i])
+		{
+			// Already visited
+			continue;
+		}
+
+		Block block = blocks[i];
+		const BlockData* blockData = BlockDataBase::getBlockData(block);
+		if (!blockData->properties.areFacesTransparent)
+		{
+			// Block isn't transparent
+			continue;
+		}
+
+		startIndex = i;
+		return true;
+	}
+	return false;
+}
+
+void Chunk::computeConnectivity()
+{
+	PROFILE_SCOPE("Compute chunk connectivity", ProfileCategory::General);
+
+	constexpr glm::ivec3 dirs[6] =
+	{
+		{-1, 0, 0}, {1, 0, 0},
+		{0, -1, 0}, {0, 1, 0},
+		{0, 0, -1}, {0, 0, 1}
+	};
+
+	// Reset regions
+	bool visitedCells[CHUNK_VOLUME]; // TODO: Can be a bitset
+	std::fill(visitedCells, visitedCells + CHUNK_VOLUME, false);
+
+	SymmetricBitMatrix<6> chunkConnectivity; // 6x6 matrix
+	chunkConnectivity.fill(false);
+
+	uint16_t startIndex = 0;
+
+	std::vector<glm::ivec3> cellsToVisit;
+
+	//static std::mutex mtx;
+	//std::lock_guard<std::mutex> lock(mtx);
+
+	while (true)
+	{
+		// Find start index
+		if (!findFloodFillStartIndex(startIndex, visitedCells))
+		{
+			break;
+		}
+
+		glm::ivec3 startPos = getPositionFromIndex(startIndex);
+		visitedCells[startIndex] = true; // Mark as visited
+		startIndex++; // Increment, so 'findFloodFillStartIndex' will look immediately at next block
+
+		bool regionConnectivity[6]; // TODO: Can be a bitset
+		for (int i = 0; i < 6; i++)
+		{
+			regionConnectivity[i] = false;
+		}
+
+		cellsToVisit.push_back(startPos);
+		while (!cellsToVisit.empty())
+		{
+			// Get cell
+			auto cell = cellsToVisit.back();
+			cellsToVisit.pop_back();
+
+			// Check if cell is on chunk border
+			regionConnectivity[0] |= cell.x == 0;
+			regionConnectivity[1] |= cell.x == (CHUNK_SIZE - 1);
+			regionConnectivity[2] |= cell.y == 0;
+			regionConnectivity[3] |= cell.y == (CHUNK_SIZE - 1);
+			regionConnectivity[4] |= cell.z == 0;
+			regionConnectivity[5] |= cell.z == (CHUNK_SIZE - 1);
+		
+			// Spread neighbors
+			for (int i = 0; i < 6; i++)
+			{
+				glm::ivec3 neighborPos = cell + dirs[i];
+				
+				// Check if neighbor is in boundaries
+				glm::ivec3 truncated = neighborPos & CHUNK_UPPER_BITS_MASK;
+				if (!(truncated.x == 0 && truncated.y == 0 && truncated.z == 0))
+				{
+					continue;
+				}
+				size_t neighborIndex = getIndex(neighborPos.x, neighborPos.y, neighborPos.z);
+
+				// Check if neighbor is visited
+				if (visitedCells[neighborIndex])
+				{
+					continue;
+				}
+				visitedCells[neighborIndex] = true;
+
+				// Check if neighbor is in opaque block
+				Block block = blocks[neighborIndex];
+				if (!BlockDataBase::getBlockData(block)->properties.areFacesTransparent)
+				{
+					continue;
+				}
+
+				cellsToVisit.push_back(neighborPos);
+			}
+		}
+
+		// Region is filled
+		for (int i = 0; i < 5; i++)
+		{
+			for (int j = i + 1; j < 6; j++)
+			{
+				chunkConnectivity.set(i, j, true);
+			}
+		}
+	}
+
+	// TODO: Check flood fill mask if it filled all the space
 }
 
 void Chunk::buildLight()

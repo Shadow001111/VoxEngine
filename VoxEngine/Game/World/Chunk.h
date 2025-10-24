@@ -71,6 +71,7 @@ private:
 	static std::vector<MeshData*> pendingMeshUploads;
 
 	static size_t getIndex(int x, int y, int z);
+	static glm::ivec3 getPositionFromIndex(size_t index);
 public:
 	static BlockTextureIDDatabase blockTextureDatabase;
 
@@ -90,6 +91,10 @@ public:
 	void destroy();
 
 	void buildBlocks();
+private:
+	bool findFloodFillStartIndex(uint16_t& startIndex, const bool* floodFillMask) const;
+	void computeConnectivity();
+public:
 	void buildLight();
 	void buildMesh();
 

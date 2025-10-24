@@ -177,6 +177,7 @@
     <ClCompile Include="Game\World\WorldVisualSettings.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Core\SymmetricBitMatrix.h" />
     <ClInclude Include="Game\World\Chunk\ChunkMeshManager.h" />
     <ClInclude Include="Core\BlockAllocator.h" />
     <ClInclude Include="Graphics\OpenGL_Buffer.h" />
