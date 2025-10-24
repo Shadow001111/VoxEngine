@@ -118,6 +118,11 @@ bool WindowManager::isKeyPressed(int key) const
 	return glfwGetKey(window, key) == GLFW_PRESS;
 }
 
+bool WindowManager::isMouseButtonPressed(int button) const
+{
+    return glfwGetMouseButton(window, button) == GLFW_PRESS;
+}
+
 void WindowManager::getMousePos(float& xpos, float& ypos) const
 {
     double xpos_,  ypos_;

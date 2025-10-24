@@ -3,10 +3,7 @@
 
 #include "MeshData.h"
 
-#include <cstdint>
 #include <vector>
-#include <memory>
-#include <unordered_map>
 
 class ChunkMeshManager
 {

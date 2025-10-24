@@ -123,5 +123,9 @@ private:
 	void collectChunksNeedingLightUpdate();
 
 	void collectChunksToRender(std::vector<ChunkRenderInfo>& chunksToRender, const Camera& camera) const;
+public:
+	bool placeBlock(const RaycastResult& raycast, Block block);
+	bool breakBlock(const RaycastResult& raycast);
+	void updateBlockAt(const glm::ivec3& worldPos, Block block);
 };
 

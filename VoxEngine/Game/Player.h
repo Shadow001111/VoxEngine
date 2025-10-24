@@ -11,6 +11,9 @@ struct PlayerInput
 	bool moveDown = false;
 	bool sprint = false;
 
+	bool leftMousePressed = false;
+	bool rightMousePressed = false;
+
 	glm::vec2 mouseDelta = glm::vec2(0.0f);
 };
 

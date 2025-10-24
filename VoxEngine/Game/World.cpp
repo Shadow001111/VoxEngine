@@ -969,6 +969,94 @@ void World::collectChunksToRender(std::vector<ChunkRenderInfo>& chunksToRender, 
 	}
 }
 
+bool World::placeBlock(const RaycastResult& raycast, Block block)
+{
+	if (!raycast.hit)
+	{
+		return false;
+	}
+
+	// Calculate placement position based on hit normal
+	glm::ivec3 placePos = raycast.hitBlockPosition;
+
+	switch (raycast.hitNormal)
+	{
+	case 0: placePos.x--; break; // -X
+	case 1: placePos.x++; break; // +X
+	case 2: placePos.y--; break; // -Y
+	case 3: placePos.y++; break; // +Y
+	case 4: placePos.z--; break; // -Z
+	case 5: placePos.z++; break; // +Z
+	}
+
+	updateBlockAt(placePos, block);
+	return true;
+}
+
+bool World::breakBlock(const RaycastResult& raycast)
+{
+	if (!raycast.hit)
+	{
+		return false;
+	}
+
+	updateBlockAt(raycast.hitBlockPosition, Block::Air);
+	return true;
+}
+
+void World::updateBlockAt(const glm::ivec3& worldPos, Block block)
+{
+	// Convert world position to chunk position and local position
+	glm::ivec3 chunkPos = worldPos >> CHUNK_SIZE_LOG2;
+	glm::ivec3 localPos = worldPos & CHUNK_LOWER_BITS_MASK;
+
+	// Get the chunk
+	Chunk* chunk = getChunkAt(chunkPos);
+	if (!chunk)
+	{
+		return;
+	}
+
+	// Update the block
+	chunk->setBlock_inBoundaries(localPos.x, localPos.y, localPos.z, block);
+
+	// Collect neighbor chunks to build mesh
+	bool onBorder[6] =
+	{
+		localPos.x == 0,
+		localPos.x == (CHUNK_SIZE - 1),
+		localPos.y == 0,
+		localPos.y == (CHUNK_SIZE - 1),
+		localPos.z == 0,
+		localPos.z == (CHUNK_SIZE - 1),
+	};
+
+	std::vector<Chunk*> collectedChunks;
+	collectedChunks.reserve(7);
+	collectedChunks.push_back(chunk);
+
+	for (int i = 0; i < 6; i++)
+	{
+		if (!onBorder[i])
+		{
+			continue;
+		}
+
+		Chunk* neighbor = chunk->neighbors[i];
+		if (neighbor)
+		{
+			collectedChunks.push_back(neighbor);
+		}
+	}
+
+	// Also mark neighboring chunks if the block is on the edge
+	std::lock_guard<std::mutex> lock(buildMeshMutex);
+	for (Chunk* chunk : collectedChunks)
+	{
+		buildMeshContainer.insert(chunk);
+	}
+}
+
 //============================================================================
 // ChunkRenderInfo
 

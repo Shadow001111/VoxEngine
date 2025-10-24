@@ -14,4 +14,13 @@ void MeshData::resetFaceCount()
 {
 	opaqueFaceCount = 0;
 	transparentFaceCount = 0;
+
+	renderOpaqueFaceCount = 0;
+	renderTransparentFaceCount = 0;
+}
+
+void MeshData::updateRenderFaceCount()
+{
+	renderOpaqueFaceCount = opaqueFaceCount;
+	renderTransparentFaceCount = transparentFaceCount;
 }

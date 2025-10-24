@@ -47,6 +47,7 @@ public:
 
     //
 	bool isKeyPressed(int key) const;
+    bool isMouseButtonPressed(int button) const;
 	void getMousePos(float& xpos, float& ypos) const;
 
     // Static forwarding callbacks

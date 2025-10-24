@@ -680,7 +680,11 @@ void Chunk::buildMesh()
 		if (meshData.transparentFaceCount > 0)
 		{
 			meshData.transparentDirty = true;
-			shouldSortMeshAfterBuild = meshData.transparentFaceCount > 1;
+			if (meshData.transparentFaceCount > 1)
+			{
+				shouldSortMeshAfterBuild = true;
+				cameraClosestBlockPosForSortingMesh = -1;
+			}
 		}
 	}
 }
@@ -905,7 +909,7 @@ void Chunk::askForMeshUpload()
 
 void Chunk::collectOpaqueRenderData(std::vector<DrawArraysIndirectCommand>& drawCommands, std::vector<glm::ivec3>& positions) const
 {
-	size_t faceCount = meshData.opaqueFaceCount;
+	size_t faceCount = meshData.renderOpaqueFaceCount;
 	if (faceCount == 0)
 	{
 		return;
@@ -916,8 +920,8 @@ void Chunk::collectOpaqueRenderData(std::vector<DrawArraysIndirectCommand>& draw
 
 void Chunk::collectTransparentRenderData(std::vector<DrawArraysIndirectCommand>& drawCommands, std::vector<glm::ivec3>& positions) const
 {
-	size_t faceCount = meshData.transparentFaceCount;
-	if (meshData.transparentFaceCount == 0)
+	size_t faceCount = meshData.renderTransparentFaceCount;
+	if (faceCount)
 	{
 		return;
 	}
@@ -932,7 +936,7 @@ bool Chunk::canBeRendered() const
 		return false;
 	}
 
-	size_t faceCount = meshData.getFaceCount();
+	const size_t faceCount = meshData.getRenderFaceCount();
 	return
 		faceCount > 0 &&
 		faceCount <= meshData.getFaceCapacity();
@@ -1491,6 +1495,8 @@ void Chunk::sendMeshesToGPU()
 			);
 			chunkMesh->transparentDirty = false;
 		}
+
+		chunkMesh->updateRenderFaceCount();
 	}
 
 	//

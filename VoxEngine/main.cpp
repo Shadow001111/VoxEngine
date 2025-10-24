@@ -65,7 +65,7 @@ int main()
     constexpr int CHUNK_LOAD_DISTANCE = 12;
 
     constexpr float CAMERA_FAR_PLANE = (CHUNK_LOAD_DISTANCE + 0.5f) * (CHUNK_SIZE * 1.41f);
-    constexpr float FOG_DISTANCE = (CHUNK_LOAD_DISTANCE - 0.5f) * CHUNK_SIZE;
+    constexpr float FOG_DISTANCE = 999.0f;// (CHUNK_LOAD_DISTANCE - 0.5f)* CHUNK_SIZE;
 
     try
     {
@@ -171,6 +171,9 @@ int main()
                 playerInput.moveDown = wnd.isKeyPressed(GLFW_KEY_LEFT_CONTROL);
                 playerInput.sprint = wnd.isKeyPressed(GLFW_KEY_LEFT_SHIFT);
 
+                playerInput.leftMousePressed = wnd.isMouseButtonPressed(GLFW_MOUSE_BUTTON_LEFT);
+                playerInput.rightMousePressed = wnd.isMouseButtonPressed(GLFW_MOUSE_BUTTON_RIGHT);
+
                 float mouseX, mouseY;
                 wnd.getMousePos(mouseX, mouseY);
                 playerInput.mouseDelta = glm::vec2(mouseX - previousMousePos.x, mouseY - previousMousePos.y);
@@ -198,6 +201,17 @@ int main()
 				world.loadChunksAroundPlayer(playerPos, CHUNK_LOAD_DISTANCE);
 
 				world.update();
+
+                // Handle block placement and breaking
+                if (playerInput.leftMousePressed)
+                {
+                    world.placeBlock(playerRaycastResult, Block::Stone);
+                }
+
+                if (playerInput.rightMousePressed)
+                {
+                    world.breakBlock(playerRaycastResult);
+                }
 
                 if (wnd.isKeyPressed(GLFW_KEY_P))
                 {
