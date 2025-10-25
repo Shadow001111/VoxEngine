@@ -25,6 +25,17 @@ bool UpdateTimer::shouldUpdate()
 	return false;
 }
 
+int UpdateTimer::howManyTimesShouldUpdate()
+{
+	int count = 0;
+	if (accumulatedTime >= updateInterval)
+	{
+		accumulatedTime -= updateInterval;
+		count++;
+	}
+	return count;
+}
+
 bool UpdateTimer::peek() const
 {
 	return accumulatedTime >= updateInterval;

@@ -6,10 +6,12 @@
 #include "Core/Profiler.h"
 #include "Core/Multithreading/ThreadPool.h"
 
-#include <iostream>
-
 World::World()
 {
+	// Visual settings
+	visualSettings.backgroundColor = { 0.52f, 0.8f, 0.92f }; // Sky color
+	visualSettings.fogGradient = 5.0f;
+
 	// Shaders
 	{
 		std::vector<Shader::ShaderSource> faceShaderSources =
@@ -70,28 +72,23 @@ World::~World()
 {
 }
 
-void World::preparation(int renderDistance)
+void World::preparation()
 {
-	if (renderDistance <= 0)
-	{
-		return;
-	}
-
 	int area = 0;
 	{
 		int P = 0;
-		int rsq = renderDistance * renderDistance;
-		for (int x = 1; x < renderDistance; x++)
+		int rsq = chunkLoadingDistance * chunkLoadingDistance;
+		for (int x = 1; x < chunkLoadingDistance; x++)
 		{
 			P += (int)sqrtf(rsq - x * x);
 		}
-		area = (P + renderDistance) * 4 + 1;
+		area = (P + chunkLoadingDistance) * 4 + 1;
 	}
 	size_t chunkCount = 0;
 	{
 		int P = 0;
-		int rsq = renderDistance * renderDistance;
-		for (int x = 1; x < renderDistance; x++)
+		int rsq = chunkLoadingDistance * chunkLoadingDistance;
+		for (int x = 1; x < chunkLoadingDistance; x++)
 		{
 			int D1 = rsq - x * x;
 			int maxY = (int)sqrt(D1);
@@ -100,7 +97,7 @@ void World::preparation(int renderDistance)
 				P += (int)sqrtf(D1 - y * y);
 			}
 		}
-		chunkCount = P * 8 + (area - renderDistance * 2) * 3 - 2;
+		chunkCount = P * 8 + (area - chunkLoadingDistance * 2) * 3 - 2;
 	}
 
 	chunkPool.allocate(chunkCount + 10);
@@ -113,7 +110,7 @@ void World::preparation(int renderDistance)
 	chunkPositionSSBO->allocateMemory(chunkCount * sizeof(glm::vec3));
 }
 
-void World::loadChunksAroundPlayer(const glm::vec3& loaderPos, int renderDistance)
+void World::loadChunksAroundPlayer(const glm::vec3& loaderPos)
 {
 	glm::ivec3 chunkLoaderPos = glm::ivec3(glm::floor(loaderPos)) >> CHUNK_SIZE_LOG2;
 	if (lastChunkLoaderPos == chunkLoaderPos)
@@ -123,7 +120,7 @@ void World::loadChunksAroundPlayer(const glm::vec3& loaderPos, int renderDistanc
 	lastChunkLoaderPos = chunkLoaderPos;
 
 	// Unload chunks that are out of range
-	unloadChunksOutsideRange(renderDistance);
+	unloadChunksOutsideRange();
 
 	// Load chunks in a spherical area around the lastChunkLoaderPos
 
@@ -133,8 +130,8 @@ void World::loadChunksAroundPlayer(const glm::vec3& loaderPos, int renderDistanc
 	{
 		PROFILE_SCOPE("Load chunks", ProfileCategory::ChunkLoadUnload);
 
-		int renderDistanceSquared = renderDistance * renderDistance;
-		for (int x = -renderDistance; x <= renderDistance; x++)
+		int renderDistanceSquared = chunkLoadingDistance * chunkLoadingDistance;
+		for (int x = -chunkLoadingDistance; x <= chunkLoadingDistance; x++)
 		{
 			int chunkX = chunkLoaderPos.x + x;
 
@@ -222,6 +219,13 @@ void World::sendChunkMeshesToGPU()
 	Chunk::sendMeshesToGPU();
 }
 
+void World::clearFrambuffer() const
+{
+	const auto& bg = visualSettings.backgroundColor;
+	glClearColor(bg.r, bg.g, bg.b, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
+
 void World::renderChunks(const Camera& camera) const
 {
 	faceShader->use();
@@ -230,10 +234,10 @@ void World::renderChunks(const Camera& camera) const
 		faceShader->setMat4("view", camera.getViewMatrix());
 		faceShader->setMat4("projection", camera.getProjectionMatrix());
 
-		const auto& fogColor = visuals.backgroundColor;
+		const auto& fogColor = visualSettings.backgroundColor;
 		faceShader->setVec3("fogColor", fogColor.r, fogColor.g, fogColor.b);
-		faceShader->setFloat("fogDensity", visuals.fogDensity);
-		faceShader->setFloat("fogGradient", visuals.fogGradient);
+		faceShader->setFloat("fogDensity", visualSettings.fogDensity);
+		faceShader->setFloat("fogGradient", visualSettings.fogGradient);
 	}
 
 	// Collect chunks to render
@@ -578,7 +582,7 @@ bool World::chunkExistsAt(const glm::ivec3& position) const
 	return chunks.find(position) != chunks.end();
 }
 
-void World::unloadChunksOutsideRange(int renderDistance)
+void World::unloadChunksOutsideRange()
 {
 	std::vector<glm::ivec3> chunksToUnload;
 	{
@@ -588,7 +592,7 @@ void World::unloadChunksOutsideRange(int renderDistance)
 		const int y = lastChunkLoaderPos.y;
 		const int z = lastChunkLoaderPos.z;
 
-		int renderDistanceSquared = renderDistance * renderDistance;
+		int renderDistanceSquared = chunkLoadingDistance * chunkLoadingDistance;
 
 		for (const auto& pair : chunks)
 		{
@@ -1054,6 +1058,14 @@ void World::updateBlockAt(const glm::ivec3& worldPos, Block block)
 	{
 		buildMeshContainer.insert(chunk);
 	}
+}
+
+void World::setChunkLoadingDistance(int renderDistance)
+{
+	chunkLoadingDistance = renderDistance;
+
+	float fogDistance = (chunkLoadingDistance - 0.5f) * CHUNK_SIZE;
+	visualSettings.fogDensity = visualSettings.calculateFogDensity(fogDistance, visualSettings.fogGradient);
 }
 
 //============================================================================

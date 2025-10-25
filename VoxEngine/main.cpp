@@ -13,13 +13,8 @@
 #include <iomanip>
 
 constexpr bool USE_FBO = false;
+constexpr int CHUNK_LOAD_DISTANCE = 12;
 
-const float rectangleVertices[] = {
-    -1, -1,  0, 0,
-     1, -1,  1, 0,
-     1,  1,  1, 1,
-    -1,  1,  0, 1
-};
 
 std::string formatSize(size_t value)
 {
@@ -59,13 +54,163 @@ std::string formatSizeBinary(size_t value)
     return oss.str();
 }
 
+
+void setupFramebuffer(GLuint& rectVAO, std::unique_ptr<Shader>& shader)
+{
+    // Mesh
+    const float rectangleVertices[] = {
+        -1, -1,  0, 0,
+         1, -1,  1, 0,
+         1,  1,  1, 1,
+        -1,  1,  0, 1
+    };
+
+    GLuint rectVBO;
+    glGenVertexArrays(1, &rectVAO);
+    glGenBuffers(1, &rectVBO);
+
+    glBindVertexArray(rectVAO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, rectVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(rectangleVertices), rectangleVertices, GL_STATIC_DRAW);
+
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+
+    // Shader
+    std::vector<Shader::ShaderSource> fboShaderSources =
+    {
+        {GL_VERTEX_SHADER, "res/Shaders/fbo.vert"},
+        {GL_FRAGMENT_SHADER, "res/Shaders/fbo.frag"}
+    };
+    shader = std::make_unique<Shader>(fboShaderSources);
+    shader->use();
+    shader->setInt("colorTexture", 0);
+    shader->setInt("depthTexture", 1);
+}
+
+void setupOpenGLStates()
+{
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+    glFrontFace(GL_CCW);
+}
+
+
+void collectPlayerInput(PlayerInput& input, const WindowManager& wnd, glm::vec2& previousMousePos)
+{
+    input.moveForward |= wnd.isKeyPressed(GLFW_KEY_W);
+    input.moveBackward |= wnd.isKeyPressed(GLFW_KEY_S);
+    input.moveLeft |= wnd.isKeyPressed(GLFW_KEY_A);
+    input.moveRight |= wnd.isKeyPressed(GLFW_KEY_D);
+    input.moveUp |= wnd.isKeyPressed(GLFW_KEY_SPACE);
+    input.moveDown |= wnd.isKeyPressed(GLFW_KEY_LEFT_CONTROL);
+    input.sprint |= wnd.isKeyPressed(GLFW_KEY_LEFT_SHIFT);
+
+    for (int i = 0; i <= 9; i++)
+    {
+        input.numbers[i] |= wnd.isKeyPressed(GLFW_KEY_0 + i);
+    }
+
+    input.leftMousePressed |= wnd.isMouseButtonPressed(GLFW_MOUSE_BUTTON_LEFT);
+    input.rightMousePressed |= wnd.isMouseButtonPressed(GLFW_MOUSE_BUTTON_RIGHT);
+
+    float mouseX, mouseY;
+    wnd.getMousePos(mouseX, mouseY);
+    input.mouseDelta += glm::vec2(mouseX - previousMousePos.x, mouseY - previousMousePos.y);
+    previousMousePos = glm::vec2(mouseX, mouseY);
+}
+
+void resetPlayerInput(PlayerInput& input)
+{
+    input.moveForward = false;
+    input.moveBackward = false;
+    input.moveLeft = false;
+    input.moveRight = false;
+    input.moveUp = false;
+    input.moveDown = false;
+    input.sprint = false;
+
+    for (int i = 0; i <= 9; i++)
+    {
+        input.numbers[i] = false;
+    }
+
+    input.leftMousePressed = false;
+    input.rightMousePressed = false;
+
+    input.mouseDelta = glm::vec2(0.0f);
+}
+
+
+void renderDebugData(const World::DebugData& debug, const WindowManager& wnd, Player& player, float FPS)
+{
+    float rowHeight = 24.0f;
+    std::ostringstream ss;
+    ss << std::fixed << std::setprecision(1);
+
+    ss << "FPS: " << FPS;
+
+    if (wnd.getVSYNC())
+    {
+        ss << " VSYNC";
+    }
+
+    // Chunks
+    ss << "\nChunks: Loaded: " << formatSize(debug.loadedChunksCount)
+        << ", Rendered: " << formatSize(debug.renderedChunks);
+
+    // Faces
+    ss << "\nFaces: " << formatSize(debug.totalFaces)
+        << "/" << formatSize(debug.totalFaceCapacity)
+        << ", Rendered: " << formatSize(debug.renderedFaceCount);
+
+    // Meshes
+    ss << "\nChunk meshes: Capacity: " << formatSizeBinary(debug.totalFaceCapacity * sizeof(BlockFaceInstance))
+        << ", Gaps: " << formatSizeBinary(debug.chunkMeshesGaps * sizeof(BlockFaceInstance));
+
+    // Buffer sizes
+    ss << "\nChunk draw command buffer: " << formatSizeBinary(debug.chunkDrawCommandBufferSizeInBytes);
+    ss << "\nChunk position buffer: " << formatSizeBinary(debug.chunkPositionBufferSizeInBytes);
+
+    // TODO: Add textures and font size in bytes
+
+    // Player orientation
+    const Camera& camera = player.getCamera();
+    const auto& cameraPos = camera.getPosition();
+    const auto& cameraViewDirection = camera.getForward();
+
+    ss << "\nX: " << cameraPos.x << " Y: " << cameraPos.y << " Z: " << cameraPos.z;
+
+    std::string facingDir;
+    {
+        float absX = std::abs(cameraViewDirection.x);
+        float absY = std::abs(cameraViewDirection.y);
+        float absZ = std::abs(cameraViewDirection.z);
+        if (absX > absY && absX > absZ)
+        {
+            facingDir = (cameraViewDirection.x > 0.0f) ? "+X" : "-X";
+        }
+        else if (absY > absX && absY > absZ)
+        {
+            facingDir = (cameraViewDirection.y > 0.0f) ? "+Y" : "-Y";
+        }
+        else
+        {
+            facingDir = (cameraViewDirection.z > 0.0f) ? "+Z" : "-Z";
+        }
+    }
+    ss << "\nView direction: " << facingDir;
+
+    std::string text = ss.str();
+    TextRenderer::renderText(text, 10.0f, wnd.getHeight() - 10.0f - rowHeight, rowHeight, glm::vec3(1.0f, 0.0f, 0.0f));
+}
+
+
 // TODO: Modern OpenGl
 int main()
 {
-    constexpr int CHUNK_LOAD_DISTANCE = 12;
-
     constexpr float CAMERA_FAR_PLANE = (CHUNK_LOAD_DISTANCE + 0.5f) * (CHUNK_SIZE * 1.41f);
-    constexpr float FOG_DISTANCE = (CHUNK_LOAD_DISTANCE - 0.5f)* CHUNK_SIZE;
 
     try
     {
@@ -74,36 +219,15 @@ int main()
 
         // Framebuffer
         auto* FBO = wnd.getFBO();
-        GLuint rectVAO, rectVBO;
-        glGenVertexArrays(1, &rectVAO);
-        glGenBuffers(1, &rectVBO);
-
-        glBindVertexArray(rectVAO);
-
-        glBindBuffer(GL_ARRAY_BUFFER, rectVBO);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(rectangleVertices), rectangleVertices, GL_STATIC_DRAW);
-
-        glEnableVertexAttribArray(0);
-        glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
-        
+        GLuint rectVAO;
         std::unique_ptr<Shader> fboShader;
         if (USE_FBO)
         {
-            std::vector<Shader::ShaderSource> fboShaderSources =
-            {
-                {GL_VERTEX_SHADER, "res/Shaders/fbo.vert"},
-                {GL_FRAGMENT_SHADER, "res/Shaders/fbo.frag"}
-            };
-            fboShader = std::make_unique<Shader>(fboShaderSources);
-            fboShader->use();
-            fboShader->setInt("colorTexture", 0);
-            fboShader->setInt("depthTexture", 1);
+            setupFramebuffer(rectVAO, fboShader);
         }
 
         // OpenGL states
-        glEnable(GL_CULL_FACE);
-        glCullFace(GL_BACK);
-        glFrontFace(GL_CCW);
+        setupOpenGLStates();
 
         // Text renderer
         TextRenderer::init();
@@ -115,23 +239,12 @@ int main()
         player.getCamera().setAspectRatio(wnd.getAspectRatio());
         player.getCamera().setFarPlane(CAMERA_FAR_PLANE);
 
-        const std::vector<Block> playerHotbar = {
-            Block::GrassBlock,
-            Block::Dirt,
-            Block::Stone,
-            Block::GlowStone,
-            Block::Glass,
-            Block::ColoredGlass
-        };
-        int selectedBlockIndex = 0;
+        PlayerInput playerInput;
 
         // World
         World world;
-        world.preparation(CHUNK_LOAD_DISTANCE);
-
-        world.visuals.backgroundColor = { 0.52f, 0.8f, 0.92f }; // Sky color
-        world.visuals.fogGradient = 5.0f;
-        world.visuals.fogDensity = world.visuals.calculateFogDensity(FOG_DISTANCE, world.visuals.fogGradient);
+        world.setChunkLoadingDistance(CHUNK_LOAD_DISTANCE);
+        world.preparation();
 
         // Input
         glm::vec2 previousMousePos;
@@ -169,43 +282,7 @@ int main()
 			profilerUpdateTimer.addTime(deltaTime);
             frequentUIDataUpdateTimer.addTime(deltaTime);
 
-            // Block selection with number keys
-            for (int i = 0; i < static_cast<int>(playerHotbar.size()); ++i)
-            {
-                if (wnd.isKeyPressed(GLFW_KEY_1 + i))
-                {
-                    selectedBlockIndex = i;
-                }
-            }
-
             // Player
-            PlayerInput playerInput;
-            if (playerUpdateTimer.peek())
-            {
-                playerInput.moveForward = wnd.isKeyPressed(GLFW_KEY_W);
-                playerInput.moveBackward = wnd.isKeyPressed(GLFW_KEY_S);
-                playerInput.moveLeft = wnd.isKeyPressed(GLFW_KEY_A);
-                playerInput.moveRight = wnd.isKeyPressed(GLFW_KEY_D);
-                playerInput.moveUp = wnd.isKeyPressed(GLFW_KEY_SPACE);
-                playerInput.moveDown = wnd.isKeyPressed(GLFW_KEY_LEFT_CONTROL);
-                playerInput.sprint = wnd.isKeyPressed(GLFW_KEY_LEFT_SHIFT);
-
-                playerInput.leftMousePressed = wnd.isMouseButtonPressed(GLFW_MOUSE_BUTTON_LEFT);
-                playerInput.rightMousePressed = wnd.isMouseButtonPressed(GLFW_MOUSE_BUTTON_RIGHT);
-
-                float mouseX, mouseY;
-                wnd.getMousePos(mouseX, mouseY);
-                playerInput.mouseDelta = glm::vec2(mouseX - previousMousePos.x, mouseY - previousMousePos.y);
-                previousMousePos = glm::vec2(mouseX, mouseY);
-            }
-            
-            while (playerUpdateTimer.shouldUpdate())
-            {
-                player.update(playerInput, playerUpdateTimer.getUpdateInterval());
-                playerInput.mouseDelta = glm::vec2(0.0f, 0.0f);
-            }
-            player.interpolateCameraTransform(playerUpdateTimer.getAccumulatedTimeInPercent());
-            
             World::RaycastResult playerRaycastResult;
             {
                 const Camera& camera = player.getCamera();
@@ -213,24 +290,40 @@ int main()
                 playerRaycastResult = world.raycast(transform.position, camera.getForward(), 16.0f);
             }
 
-            // World
-            while (worldUpdateTimer.shouldUpdate())
+            collectPlayerInput(playerInput, wnd, previousMousePos);
+            
+            if (playerUpdateTimer.peek())
             {
-				glm::vec3 playerPos = player.getPosition();
-				world.loadChunksAroundPlayer(playerPos, CHUNK_LOAD_DISTANCE);
+                player.updatePreviousTransform();
 
-				world.update();
+                int updateCount = playerUpdateTimer.howManyTimesShouldUpdate();
+                playerInput.mouseDelta /= updateCount;
+                for (int i = 0; i < updateCount; i++)
+                {
+                    player.update(playerInput, playerUpdateTimer.getUpdateInterval());
+                }
 
-                // Handle block placement and breaking
                 if (playerInput.leftMousePressed)
                 {
-                    world.placeBlock(playerRaycastResult, playerHotbar[selectedBlockIndex]);
+                    world.placeBlock(playerRaycastResult, player.getSelectedItem());
                 }
 
                 if (playerInput.rightMousePressed)
                 {
                     world.breakBlock(playerRaycastResult);
                 }
+
+                resetPlayerInput(playerInput);
+            }
+            player.interpolateCameraTransform(playerUpdateTimer.getAccumulatedTimeInPercent());
+
+            // World
+            while (worldUpdateTimer.shouldUpdate())
+            {
+				glm::vec3 playerPos = player.getPosition();
+				world.loadChunksAroundPlayer(playerPos);
+
+				world.update();
 
                 if (wnd.isKeyPressed(GLFW_KEY_P))
                 {
@@ -252,15 +345,8 @@ int main()
                 FBO->bind();
             }
 
-            {
-                const auto& color = world.visuals.backgroundColor;
-                glClearColor(color.r, color.g, color.b, 1.0f);
-            }
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-            TextRenderer::updateProjectionMatrix(wnd.getWidth(), wnd.getHeight());
-
-			world.renderChunks(player.getCamera());
+            world.clearFrambuffer();
+            world.renderChunks(player.getCamera());
             world.renderVoxelMarker(player.getCamera(), playerRaycastResult);
 
             // Rendering to screen
@@ -284,69 +370,8 @@ int main()
             }
 
             // Text rendering
-            {
-                const auto& debug = world.getDebugData();
-
-                float rowHeight = 24.0f;
-                std::ostringstream ss;
-                ss << std::fixed << std::setprecision(1);
-
-                ss << "FPS: " << UI_FPS;
-
-                if (wnd.getVSYNC())
-                {
-                    ss << " VSYNC";
-                }
-
-                // Chunks
-                ss << "\nChunks: Loaded: " << formatSize(debug.loadedChunksCount)
-                    << ", Rendered: " << formatSize(debug.renderedChunks);
-
-                // Faces
-                ss << "\nFaces: " << formatSize(debug.totalFaces)
-                    << "/" << formatSize(debug.totalFaceCapacity)
-                    << ", Rendered: " << formatSize(debug.renderedFaceCount);
-
-                // Meshes
-                ss << "\nChunk meshes: Capacity: " << formatSizeBinary(debug.totalFaceCapacity * sizeof(BlockFaceInstance))
-                    << ", Gaps: " << formatSizeBinary(debug.chunkMeshesGaps * sizeof(BlockFaceInstance));
-
-                // Buffer sizes
-                ss << "\nChunk draw command buffer: " << formatSizeBinary(debug.chunkDrawCommandBufferSizeInBytes);
-                ss << "\nChunk position buffer: " << formatSizeBinary(debug.chunkPositionBufferSizeInBytes);
-
-                // TODO: Add textures and font size in bytes
-
-                // Player orientation
-                const Camera& camera = player.getCamera();
-                const auto& cameraPos = camera.getPosition();
-                const auto& cameraViewDirection = camera.getForward();
-
-                ss << "\nX: " << cameraPos.x << " Y: " << cameraPos.y << " Z: " << cameraPos.z;
-
-                std::string facingDir;
-                {
-                    float absX = std::abs(cameraViewDirection.x);
-                    float absY = std::abs(cameraViewDirection.y);
-                    float absZ = std::abs(cameraViewDirection.z);
-                    if (absX > absY && absX > absZ)
-                    {
-                        facingDir = (cameraViewDirection.x > 0.0f) ? "+X" : "-X";
-                    }
-                    else if (absY > absX && absY > absZ)
-                    {
-                        facingDir = (cameraViewDirection.y > 0.0f) ? "+Y" : "-Y";
-                    }
-                    else
-                    {
-                        facingDir = (cameraViewDirection.z > 0.0f) ? "+Z" : "-Z";
-                    }
-                }
-                ss << "\nView direction: " << facingDir;
-
-                std::string text = ss.str();
-                TextRenderer::renderText(text, 10.0f, wnd.getHeight() - 10.0f - rowHeight, rowHeight, glm::vec3(1.0f, 0.0f, 0.0f));
-            }
+            TextRenderer::updateProjectionMatrix(wnd.getWidth(), wnd.getHeight());
+            renderDebugData(world.getDebugData(), wnd, player, UI_FPS);
 
             // Swap buffers
             wnd.swapBuffers();

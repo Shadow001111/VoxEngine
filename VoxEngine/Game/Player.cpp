@@ -6,11 +6,14 @@ Player::Player(const glm::vec3& position, float yaw, float pitch) :
 {
 }
 
-void Player::update(const PlayerInput& input, float deltaTime)
+void Player::updatePreviousTransform()
 {
 	previousTransform = transform;
+}
 
-    // Position
+void Player::update(const PlayerInput& input, float deltaTime)
+{
+	// Position
     {
 		const float cameraSpeed = (input.sprint ? 4.0f : 1.0f) * (15.0f * deltaTime);
 
@@ -30,11 +33,21 @@ void Player::update(const PlayerInput& input, float deltaTime)
             move(movementVector);
         }
     }
+
     // Rotation
     {
 		const float mouseSensitivity = 0.002f;
         rotate(-input.mouseDelta.x * mouseSensitivity, -input.mouseDelta.y * mouseSensitivity);
     }
+
+	// Selecting item
+	for (int i = 0; i < PLAYER_HOTBAR_SIZE; i++)
+	{
+		if (input.numbers[i + 1])
+		{
+			selectedItemIndex = i;
+		}
+	}
 }
 
 void Player::interpolateCameraTransform(float factor)
@@ -110,4 +123,9 @@ Transform Player::getPreviousTransform() const
 Camera& Player::getCamera()
 {
 	return camera;
+}
+
+Block Player::getSelectedItem() const
+{
+	return hotbar[selectedItemIndex];
 }

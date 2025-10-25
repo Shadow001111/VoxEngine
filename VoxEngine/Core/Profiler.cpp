@@ -312,6 +312,7 @@ void Profiler::printCategoryStatistics(const std::unordered_map<ProfileCategory,
 
 void Profiler::printProfileReport()
 {
+    // TODO: Use ostream
     //Save current iostream state
     std::ios_base::fmtflags originalFlags = std::cout.flags();
     std::streamsize originalPrecision = std::cout.precision();

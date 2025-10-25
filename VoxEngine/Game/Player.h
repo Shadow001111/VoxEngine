@@ -1,5 +1,6 @@
 #pragma once
 #include "Graphics/Camera.h"
+#include "World/Chunk/Block.h"
 
 struct PlayerInput
 {
@@ -11,11 +12,15 @@ struct PlayerInput
 	bool moveDown = false;
 	bool sprint = false;
 
+	bool numbers[10] = { false, false, false, false, false, false, false, false, false, false };
+
 	bool leftMousePressed = false;
 	bool rightMousePressed = false;
 
 	glm::vec2 mouseDelta = glm::vec2(0.0f);
 };
+
+constexpr int PLAYER_HOTBAR_SIZE = 6;
 
 class Player
 {
@@ -23,9 +28,20 @@ class Player
 	Transform previousTransform;
 
 	Camera camera;
+
+	Block hotbar[PLAYER_HOTBAR_SIZE] = {
+		Block::GrassBlock,
+		Block::Dirt,
+		Block::Stone,
+		Block::GlowStone,
+		Block::Glass,
+		Block::ColoredGlass
+	};
+	uint8_t selectedItemIndex = 0;
 public:
 	Player(const glm::vec3& position, float yaw, float pitch);
 
+	void updatePreviousTransform();
 	void update(const PlayerInput& input, float deltaTime);
 	void interpolateCameraTransform(float factor);
 
@@ -44,5 +60,7 @@ public:
 	Transform getTransform() const;
 	Transform getPreviousTransform() const;
 	Camera& getCamera();
+
+	Block getSelectedItem() const;
 };
 

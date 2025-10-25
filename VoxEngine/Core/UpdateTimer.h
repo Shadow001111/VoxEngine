@@ -10,6 +10,7 @@ public:
 	void setUpdateToTrue();
 
 	bool shouldUpdate();
+	int howManyTimesShouldUpdate();
 	bool peek() const;
 
 	float getAccumulatedTime() const;

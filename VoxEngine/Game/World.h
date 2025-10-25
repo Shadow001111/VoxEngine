@@ -34,7 +34,7 @@ public:
 		int hitNormal = -1;
 		float distance = 0.0f;
 	};
-private:
+public:
 	struct DebugData
 	{
 		size_t loadedChunksCount = 0;
@@ -50,6 +50,10 @@ private:
 		size_t chunkPositionBufferSizeInBytes = 0;
 	};
 private:
+	// Settings
+	int chunkLoadingDistance = 0;
+
+	//
 	ChunkPool chunkPool;
 	std::unordered_map<glm::ivec3, std::unique_ptr<Chunk>, Int3Hasher> chunks;
 	
@@ -80,9 +84,10 @@ private:
 
 	// Debug
 	mutable DebugData debugData;
-public:
-	WorldVisualSettings visuals;
 
+	// Visual settings
+	WorldVisualSettings visualSettings;
+public:
 	World();
 	~World();
 
@@ -91,12 +96,13 @@ public:
 	World(World&&) = delete;
 	World& operator=(World&&) = delete;
 
-	void preparation(int renderDistance);
-	void loadChunksAroundPlayer(const glm::vec3& loaderPos, int renderDistance);
+	void preparation();
+	void loadChunksAroundPlayer(const glm::vec3& loaderPos);
 	void update();
 	void sortChunkMeshes(const glm::vec3& cameraPos);
 	void sendChunkMeshesToGPU();
 
+	void clearFrambuffer() const;
 	void renderChunks(const Camera& camera) const;
 	void renderVoxelMarker(const Camera& camera, const RaycastResult& raycast) const;
 
@@ -112,7 +118,7 @@ private:
 
 	bool chunkExistsAt(const glm::ivec3& position) const;
 
-	void unloadChunksOutsideRange(int renderDistance);
+	void unloadChunksOutsideRange();
 	void loadChunk(int chunkX, int chunkY, int chunkZ, std::vector<Chunk*>& chunksToSend);
 
 	void startBuildingChunkBlocks();
@@ -127,5 +133,7 @@ public:
 	bool placeBlock(const RaycastResult& raycast, Block block);
 	bool breakBlock(const RaycastResult& raycast);
 	void updateBlockAt(const glm::ivec3& worldPos, Block block);
+public:
+	void setChunkLoadingDistance(int renderDistance);
 };
 
