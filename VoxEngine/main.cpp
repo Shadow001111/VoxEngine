@@ -115,6 +115,16 @@ int main()
         player.getCamera().setAspectRatio(wnd.getAspectRatio());
         player.getCamera().setFarPlane(CAMERA_FAR_PLANE);
 
+        const std::vector<Block> playerHotbar = {
+            Block::GrassBlock,
+            Block::Dirt,
+            Block::Stone,
+            Block::GlowStone,
+            Block::Glass,
+            Block::ColoredGlass
+        };
+        int selectedBlockIndex = 0;
+
         // World
         World world;
         world.preparation(CHUNK_LOAD_DISTANCE);
@@ -158,6 +168,15 @@ int main()
 			worldUpdateTimer.addTime(deltaTime);
 			profilerUpdateTimer.addTime(deltaTime);
             frequentUIDataUpdateTimer.addTime(deltaTime);
+
+            // Block selection with number keys
+            for (int i = 0; i < static_cast<int>(playerHotbar.size()); ++i)
+            {
+                if (wnd.isKeyPressed(GLFW_KEY_1 + i))
+                {
+                    selectedBlockIndex = i;
+                }
+            }
 
             // Player
             PlayerInput playerInput;
@@ -205,7 +224,7 @@ int main()
                 // Handle block placement and breaking
                 if (playerInput.leftMousePressed)
                 {
-                    world.placeBlock(playerRaycastResult, Block::Stone);
+                    world.placeBlock(playerRaycastResult, playerHotbar[selectedBlockIndex]);
                 }
 
                 if (playerInput.rightMousePressed)

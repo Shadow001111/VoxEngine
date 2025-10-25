@@ -169,21 +169,6 @@ void Chunk::buildBlocks()
 				}
 			}
 		}
-
-		constexpr int border = 4;
-		for (int x = border; x < CHUNK_SIZE - border; x++)
-		{
-			for (int y = border; y < CHUNK_SIZE - border; y++)
-			{
-				for (int z = border; z < CHUNK_SIZE - border; z++)
-				{
-					if ((x + y + z) & 1)
-					{
-						blocks[getIndex(x, y, z)] = Block::ColoredGlass;
-					}
-				}
-			}
-		}
 	}
 
 	// Caves
@@ -331,7 +316,7 @@ void Chunk::computeConnectivity()
 		}
 	}
 
-	// TODO: Check flood fill mask if it filled all the space
+	// Check flood fill mask if it filled all the space
 }
 
 void Chunk::buildLight()
@@ -685,6 +670,11 @@ void Chunk::buildMesh()
 				shouldSortMeshAfterBuild = true;
 				cameraClosestBlockPosForSortingMesh = -1;
 			}
+		}
+
+		if (!(meshData.opaqueDirty || meshData.transparentDirty))
+		{
+			meshData.updateRenderFaceCount();
 		}
 	}
 }

@@ -531,7 +531,6 @@ void World::rebuildAllChunkMeshes()
 			Chunk* chunk = pair.second.get();
 			if (chunk->getState() == Chunk::State::Ready)
 			{
-				chunk->setState(Chunk::State::NeedsMesh);
 				buildMeshContainer.insert(chunk);
 			}
 		}

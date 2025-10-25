@@ -132,16 +132,18 @@ void main()
     int skyLight3   = (instanceData.y >> 28) & 15;
     
     // AO
-    ao[0] = float(ao0) / 3.0;
-    ao[1] = float(ao1) / 3.0;
-    ao[2] = float(ao2) / 3.0;
-    ao[3] = float(ao3) / 3.0;
+    const float inv3 = 1.0 / 3.9;
+    ao[0] = float(ao0) * inv3;
+    ao[1] = float(ao1) * inv3;
+    ao[2] = float(ao2) * inv3;
+    ao[3] = float(ao3) * inv3;
 
     // Light
-    light[0] = max(blockLight0, skyLight0) / 15.0;
-    light[1] = max(blockLight1, skyLight1) / 15.0;
-    light[2] = max(blockLight2, skyLight2) / 15.0;
-    light[3] = max(blockLight3, skyLight3) / 15.0;
+    const float inv15 = 1.0 / 15.0;
+    light[0] = max(blockLight0, skyLight0) * inv15;
+    light[1] = max(blockLight1, skyLight1) * inv15;
+    light[2] = max(blockLight2, skyLight2) * inv15;
+    light[3] = max(blockLight3, skyLight3) * inv15;
 
     // Transform vertex and uv
     vec3 vertexPos = vertexRotations[normal] * vec3(aPos, 0.0) + vertexOffsets[normal];
