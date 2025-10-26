@@ -2,6 +2,7 @@
 #include "World/ChunkPool.h"
 #include "World/WorldVisualSettings.h"
 #include "World/VoxelMarkerMesh.h"
+#include "World/Entity.h"
 
 #include "Graphics/Shader.h"
 #include "Graphics/Camera.h"
@@ -87,6 +88,9 @@ private:
 
 	// Visual settings
 	WorldVisualSettings visualSettings;
+
+	// Entities
+	std::unordered_map<Entity::Id, std::unique_ptr<Entity>> entities;
 public:
 	World();
 	~World();
@@ -98,7 +102,7 @@ public:
 
 	void preparation();
 	void loadChunksAroundPlayer(const glm::vec3& loaderPos);
-	void update();
+	void update(float deltaTime);
 	void sortChunkMeshes(const glm::vec3& cameraPos);
 	void sendChunkMeshesToGPU();
 
@@ -107,6 +111,16 @@ public:
 	void renderVoxelMarker(const Camera& camera, const RaycastResult& raycast) const;
 
 	RaycastResult raycast(const glm::vec3& origin, const glm::vec3& direction, float maxDistance = 100.0f) const;
+
+	template<typename T, typename... Args>
+	T* createEntity(Args&&... args) {
+		static_assert(std::is_base_of<Entity, T>::value, "T must derive from Entity");
+
+		auto e = std::make_unique<T>(std::forward<Args>(args)...);
+		T* raw = e.get();
+		entities.emplace(e->getId(), std::move(e));
+		return raw;
+	}
 
 	// Debug
 	void rebuildAllChunkMeshes();

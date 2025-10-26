@@ -143,6 +143,7 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Game\World\Entity.cpp" />
     <ClCompile Include="Game\World\Chunk\ChunkMeshManager.cpp" />
     <ClCompile Include="Core\BlockAllocator.cpp" />
     <ClCompile Include="Graphics\OpenGL_Buffer.cpp" />
@@ -167,7 +168,7 @@
     <ClCompile Include="Core\UpdateTimer.cpp" />
     <ClCompile Include="Core\Transform.cpp" />
     <ClCompile Include="Core\Shapes\Plane.cpp" />
-    <ClCompile Include="Game\Player.cpp" />
+    <ClCompile Include="Game\World\Player.cpp" />
     <ClCompile Include="Game\World\Chunk\TerrainGenerator.cpp" />
     <ClCompile Include="Game\World\VoxelMarkerMesh.cpp" />
     <ClCompile Include="Graphics\TextRenderer.cpp" />
@@ -178,6 +179,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Core\SymmetricBitMatrix.h" />
+    <ClInclude Include="Game\World\Entity.h" />
     <ClInclude Include="Game\World\Chunk\ChunkMeshManager.h" />
     <ClInclude Include="Core\BlockAllocator.h" />
     <ClInclude Include="Graphics\OpenGL_Buffer.h" />
@@ -203,7 +205,7 @@
     <ClInclude Include="Core\UpdateTimer.h" />
     <ClInclude Include="Core\Transform.h" />
     <ClInclude Include="Core\Shapes\Plane.h" />
-    <ClInclude Include="Game\Player.h" />
+    <ClInclude Include="Game\World\Player.h" />
     <ClInclude Include="Game\World\Chunk\TerrainGenerator.h" />
     <ClInclude Include="Game\World\VoxelMarkerMesh.h" />
     <ClInclude Include="Graphics\TextRenderer.h" />

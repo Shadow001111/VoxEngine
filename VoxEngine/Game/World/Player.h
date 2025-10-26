@@ -1,6 +1,8 @@
 #pragma once
 #include "Graphics/Camera.h"
-#include "World/Chunk/Block.h"
+
+#include "Chunk/Block.h"
+#include "Entity.h"
 
 struct PlayerInput
 {
@@ -22,11 +24,8 @@ struct PlayerInput
 
 constexpr int PLAYER_HOTBAR_SIZE = 6;
 
-class Player
+class Player : public Entity
 {
-	Transform transform;
-	Transform previousTransform;
-
 	Camera camera;
 
 	Block hotbar[PLAYER_HOTBAR_SIZE] = {
@@ -41,8 +40,7 @@ class Player
 public:
 	Player(const glm::vec3& position, float yaw, float pitch);
 
-	void updatePreviousTransform();
-	void update(const PlayerInput& input, float deltaTime);
+	void applyInput(const PlayerInput& input, float deltaTime);
 	void interpolateCameraTransform(float factor);
 
 	void setPosition(const glm::vec3& position);

@@ -4,7 +4,7 @@
 #include "Core/Profiler.h"
 
 #include "Game/World.h"
-#include "Game/Player.h"
+#include "Game/World/Player.h"
 
 #include "Graphics/TextRenderer.h"
 
@@ -143,7 +143,7 @@ void resetPlayerInput(PlayerInput& input)
 }
 
 
-void renderDebugData(const World::DebugData& debug, const WindowManager& wnd, Player& player, float FPS)
+void renderDebugData(const World::DebugData& debug, const WindowManager& wnd, Player* player, float FPS)
 {
     float rowHeight = 24.0f;
     std::ostringstream ss;
@@ -176,7 +176,7 @@ void renderDebugData(const World::DebugData& debug, const WindowManager& wnd, Pl
     // TODO: Add textures and font size in bytes
 
     // Player orientation
-    const Camera& camera = player.getCamera();
+    const Camera& camera = player->getCamera();
     const auto& cameraPos = camera.getPosition();
     const auto& cameraViewDirection = camera.getForward();
 
@@ -234,17 +234,17 @@ int main()
         TextRenderer::loadFont("RusEngMinecraft", 8);
         TextRenderer::setCurrentFont("RusEngMinecraft");
 
-        // Player
-        Player player({ 0.0f, 20.0f, 0.0f }, glm::radians(180.0f), 0.0f);
-        player.getCamera().setAspectRatio(wnd.getAspectRatio());
-        player.getCamera().setFarPlane(CAMERA_FAR_PLANE);
-
-        PlayerInput playerInput;
-
         // World
         World world;
         world.setChunkLoadingDistance(CHUNK_LOAD_DISTANCE);
         world.preparation();
+
+        // Player
+        Player* player = world.createEntity<Player>(glm::vec3(0.0f, 20.0f, 0.0f), glm::radians(180.0f), 0.0f);
+        player->getCamera().setAspectRatio(wnd.getAspectRatio());
+        player->getCamera().setFarPlane(CAMERA_FAR_PLANE);
+
+        PlayerInput playerInput;
 
         // Input
         glm::vec2 previousMousePos;
@@ -253,7 +253,7 @@ int main()
 
         // Timers
 		float lastTime = static_cast<float>(glfwGetTime());
-		UpdateTimer playerUpdateTimer(40.0f);
+		UpdateTimer playerUpdateTimer(20.0f);
 		UpdateTimer worldUpdateTimer(20.0f); worldUpdateTimer.setUpdateToTrue();
 		UpdateTimer profilerUpdateTimer(1.0f / 3.0f);
         UpdateTimer frequentUIDataUpdateTimer(1.0f);
@@ -285,7 +285,7 @@ int main()
             // Player
             World::RaycastResult playerRaycastResult;
             {
-                const Camera& camera = player.getCamera();
+                const Camera& camera = player->getCamera();
                 const Transform& transform = camera.getTransform();
                 playerRaycastResult = world.raycast(transform.position, camera.getForward(), 16.0f);
             }
@@ -294,18 +294,16 @@ int main()
             
             if (playerUpdateTimer.peek())
             {
-                player.updatePreviousTransform();
-
                 int updateCount = playerUpdateTimer.howManyTimesShouldUpdate();
                 playerInput.mouseDelta /= updateCount;
                 for (int i = 0; i < updateCount; i++)
                 {
-                    player.update(playerInput, playerUpdateTimer.getUpdateInterval());
+                    player->applyInput(playerInput, playerUpdateTimer.getUpdateInterval());
                 }
 
                 if (playerInput.leftMousePressed)
                 {
-                    world.placeBlock(playerRaycastResult, player.getSelectedItem());
+                    world.placeBlock(playerRaycastResult, player->getSelectedItem());
                 }
 
                 if (playerInput.rightMousePressed)
@@ -315,15 +313,15 @@ int main()
 
                 resetPlayerInput(playerInput);
             }
-            player.interpolateCameraTransform(playerUpdateTimer.getAccumulatedTimeInPercent());
+            player->interpolateCameraTransform(worldUpdateTimer.getAccumulatedTimeInPercent());
 
             // World
             while (worldUpdateTimer.shouldUpdate())
             {
-				glm::vec3 playerPos = player.getPosition();
+				glm::vec3 playerPos = player->getPosition();
 				world.loadChunksAroundPlayer(playerPos);
 
-				world.update();
+				world.update(worldUpdateTimer.getUpdateInterval());
 
                 if (wnd.isKeyPressed(GLFW_KEY_P))
                 {
@@ -336,7 +334,7 @@ int main()
                     world.debugMethod();
                 }
             }
-            world.sortChunkMeshes(player.getCamera().getPosition());
+            world.sortChunkMeshes(player->getCamera().getPosition());
             world.sendChunkMeshesToGPU();
 
             // Rendering to FBO
@@ -346,8 +344,8 @@ int main()
             }
 
             world.clearFrambuffer();
-            world.renderChunks(player.getCamera());
-            world.renderVoxelMarker(player.getCamera(), playerRaycastResult);
+            world.renderChunks(player->getCamera());
+            world.renderVoxelMarker(player->getCamera(), playerRaycastResult);
 
             // Rendering to screen
             if (USE_FBO)
@@ -359,7 +357,7 @@ int main()
 
                 FBO->bindTextures();
 
-                const Camera& camera = player.getCamera();
+                const Camera& camera = player->getCamera();
                 float near = camera.getNear();
                 float far = camera.getFar();
 
@@ -395,7 +393,7 @@ int main()
 
         while (GLenum err = glGetError() != GL_NO_ERROR)
         {
-            std::cerr << err;
+            std::cerr << err << "\n";
         }
     }
     catch (const std::exception& e)

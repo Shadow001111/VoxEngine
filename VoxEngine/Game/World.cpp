@@ -165,8 +165,9 @@ void World::loadChunksAroundPlayer(const glm::vec3& loaderPos)
 	}
 }
 
-void World::update()
+void World::update(float deltaTime)
 {
+	// Chunks
 	chunkPool.returnProcessingChunksToPool();
 
 	if (!buildBlocksContainer.empty())
@@ -188,6 +189,13 @@ void World::update()
 	if (!buildMeshContainer.empty())
 	{
 		startBuildingChunkMeshes();
+	}
+
+	// Entities
+	for (auto& pair : entities)
+	{
+		auto& entity = pair.second;
+		entity->update(deltaTime);
 	}
 }
 

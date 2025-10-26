@@ -39,7 +39,7 @@
     <ClCompile Include="Core\Transform.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="Game\Player.cpp">
+    <ClCompile Include="Game\World\Player.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
     <ClCompile Include="Game\World.cpp">
@@ -111,6 +111,9 @@
     <ClCompile Include="Graphics\OpenGL_FBO.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
+    <ClCompile Include="Game\World\Entity.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="WindowManager.h">
@@ -137,7 +140,7 @@
     <ClInclude Include="Core\CoreMath.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="Game\Player.h">
+    <ClInclude Include="Game\World\Player.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Game\World.h">
@@ -213,6 +216,9 @@
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Core\SymmetricBitMatrix.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\World\Entity.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
   </ItemGroup>

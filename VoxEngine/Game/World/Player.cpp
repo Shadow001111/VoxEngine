@@ -1,17 +1,12 @@
 #include "Player.h"
 
 Player::Player(const glm::vec3& position, float yaw, float pitch) :
-	transform(position, yaw, pitch), previousTransform(transform),
-	camera(position, yaw, pitch, glm::radians(90.0f), 1.0f, 0.1f, 128.0f)
+	Entity(position, yaw, pitch, glm::vec3(0.0f), glm::vec3(1.0f, 1.7f, 1.0f), false),
+	camera(position, yaw, pitch, glm::radians(90.0f), 1.0f, 0.1f, 1.0f)
 {
 }
 
-void Player::updatePreviousTransform()
-{
-	previousTransform = transform;
-}
-
-void Player::update(const PlayerInput& input, float deltaTime)
+void Player::applyInput(const PlayerInput& input, float deltaTime)
 {
 	// Position
     {
@@ -21,16 +16,16 @@ void Player::update(const PlayerInput& input, float deltaTime)
         float forwardBackward = input.moveForward - input.moveBackward;
         float worldUpDown = input.moveUp - input.moveDown;
 
-        glm::vec3 movementVector = glm::vec3(0.0f);
+        glm::vec3 force = glm::vec3(0.0f);
 
-        movementVector += camera.getRight() * leftRight;
-        movementVector += camera.getForward() * forwardBackward;
-        movementVector.y += worldUpDown;
+        force += camera.getRight() * leftRight;
+        force += camera.getForward() * forwardBackward;
+        force.y += worldUpDown;
 
-        if (glm::length(movementVector) > 0.0f)
+        if (glm::length(force) > 0.0f)
         {
-            movementVector = glm::normalize(movementVector) * cameraSpeed;
-            move(movementVector);
+            force = glm::normalize(force) * cameraSpeed;
+			velocity += force;
         }
     }
 
