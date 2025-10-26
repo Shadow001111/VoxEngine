@@ -121,28 +121,6 @@ void collectPlayerInput(PlayerInput& input, const WindowManager& wnd, glm::vec2&
     previousMousePos = glm::vec2(mouseX, mouseY);
 }
 
-void resetPlayerInput(PlayerInput& input)
-{
-    input.moveForward = false;
-    input.moveBackward = false;
-    input.moveLeft = false;
-    input.moveRight = false;
-    input.moveUp = false;
-    input.moveDown = false;
-    input.sprint = false;
-
-    for (int i = 0; i <= 9; i++)
-    {
-        input.numbers[i] = false;
-    }
-
-    input.leftMousePressed = false;
-    input.rightMousePressed = false;
-
-    input.mouseDelta = glm::vec2(0.0f);
-}
-
-
 void renderDebugData(const World::DebugData& debug, const WindowManager& wnd, Player* player, float FPS)
 {
     float rowHeight = 24.0f;
@@ -240,7 +218,7 @@ int main()
         world.preparation();
 
         // Player
-        Player* player = world.createEntity<Player>(glm::vec3(0.0f, 20.0f, 0.0f), glm::radians(180.0f), 0.0f);
+        Player* player = world.createEntity<Player>(glm::vec3(0.0, 20.0, 0.0), glm::radians(180.0f), 0.0f);
         player->getCamera().setAspectRatio(wnd.getAspectRatio());
         player->getCamera().setFarPlane(CAMERA_FAR_PLANE);
 
@@ -252,8 +230,7 @@ int main()
         glfwSetInputMode(wnd.getWindow(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
         // Timers
-		float lastTime = static_cast<float>(glfwGetTime());
-		UpdateTimer playerUpdateTimer(20.0f);
+        double lastTime = glfwGetTime();
 		UpdateTimer worldUpdateTimer(20.0f); worldUpdateTimer.setUpdateToTrue();
 		UpdateTimer profilerUpdateTimer(1.0f / 3.0f);
         UpdateTimer frequentUIDataUpdateTimer(1.0f);
@@ -270,50 +247,27 @@ int main()
             wnd.pollEvents();
 
 			// Time logic
-			float time = static_cast<float>(glfwGetTime());
-			float deltaTime = time - lastTime;
+            // TODO: Maybe reset timer. Maybe if timer will get too big, everything will break.
+            double time = glfwGetTime();
+            double deltaTime = time - lastTime;
 			lastTime = time;
 
-            accumulatedFPS += 1.0f / deltaTime;
+            accumulatedFPS += 1.0f / (float)deltaTime;
             accumulatedFrames++;
 
-			playerUpdateTimer.addTime(deltaTime);
 			worldUpdateTimer.addTime(deltaTime);
 			profilerUpdateTimer.addTime(deltaTime);
             frequentUIDataUpdateTimer.addTime(deltaTime);
 
             // Player
+            collectPlayerInput(player->input, wnd, previousMousePos);
+
             World::RaycastResult playerRaycastResult;
             {
                 const Camera& camera = player->getCamera();
                 const Transform& transform = camera.getTransform();
                 playerRaycastResult = world.raycast(transform.position, camera.getForward(), 16.0f);
             }
-
-            collectPlayerInput(playerInput, wnd, previousMousePos);
-            
-            if (playerUpdateTimer.peek())
-            {
-                int updateCount = playerUpdateTimer.howManyTimesShouldUpdate();
-                playerInput.mouseDelta /= updateCount;
-                for (int i = 0; i < updateCount; i++)
-                {
-                    player->applyInput(playerInput, playerUpdateTimer.getUpdateInterval());
-                }
-
-                if (playerInput.leftMousePressed)
-                {
-                    world.placeBlock(playerRaycastResult, player->getSelectedItem());
-                }
-
-                if (playerInput.rightMousePressed)
-                {
-                    world.breakBlock(playerRaycastResult);
-                }
-
-                resetPlayerInput(playerInput);
-            }
-            player->interpolateCameraTransform(worldUpdateTimer.getAccumulatedTimeInPercent());
 
             // World
             while (worldUpdateTimer.shouldUpdate())
@@ -334,6 +288,9 @@ int main()
                     world.debugMethod();
                 }
             }
+
+            player->interpolateCameraTransform(worldUpdateTimer.getAccumulatedTimeInPercent());
+
             world.sortChunkMeshes(player->getCamera().getPosition());
             world.sendChunkMeshesToGPU();
 

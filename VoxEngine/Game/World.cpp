@@ -66,6 +66,9 @@ World::World()
 	// Chunk position SSBO
 	chunkPositionSSBO = std::make_unique<OpenGL_SSBO>(0);
 	chunkPositionSSBO->bindBase();
+
+	// Entities
+	Entity::world = this;
 }
 
 World::~World()
@@ -402,16 +405,16 @@ void World::renderVoxelMarker(const Camera& camera, const RaycastResult& raycast
 	}
 }
 
-World::RaycastResult World::raycast(const glm::vec3& origin, const glm::vec3& direction, float maxDistance) const
+World::RaycastResult World::raycast(const glm::dvec3& origin, const glm::dvec3& direction, float maxDistance) const
 {
 	PROFILE_SCOPE("Raycast", ProfileCategory::General);
 
 	RaycastResult result;
 
-	const glm::vec3 dir = glm::normalize(direction);
+	const glm::dvec3 dir = glm::normalize(direction);
 
 	// DDA algorithm for voxel traversal
-	glm::vec3 currentPos = origin;
+	glm::dvec3 currentPos = origin;
 	glm::ivec3 blockPos = glm::ivec3(glm::floor(currentPos));
 
 	// Step direction for each axis
@@ -419,23 +422,23 @@ World::RaycastResult World::raycast(const glm::vec3& origin, const glm::vec3& di
 
 	// tMax: distance to next voxel boundary along each axis
 	// tDelta: distance to move along ray to cross one voxel on each axis
-	glm::vec3 tDelta, tMax;
+	glm::dvec3 tDelta, tMax;
 
 	for (int i = 0; i < 3; i++)
 	{
-		if (std::abs(dir[i]) < 0.0001f)
+		if (std::abs(dir[i]) < 0.0001)
 		{
-			tDelta[i] = std::numeric_limits<float>::max();
-			tMax[i] = std::numeric_limits<float>::max();
+			tDelta[i] = std::numeric_limits<double>::max();
+			tMax[i] = std::numeric_limits<double>::max();
 		}
 		else
 		{
-			float invDir = 1.0f / dir[i];
-			float delta = fabsf(invDir);
+			double invDir = 1.0 / dir[i];
+			double delta = fabsf(invDir);
 			tDelta[i] = delta;
 			if (step[i] > 0)
 			{
-				tMax[i] = (1.0f - glm::fract(currentPos[i])) * delta;
+				tMax[i] = (1.0 - glm::fract(currentPos[i])) * delta;
 			}
 			else
 			{
@@ -476,7 +479,7 @@ World::RaycastResult World::raycast(const glm::vec3& origin, const glm::vec3& di
 			{
 				result.hit = true;
 				result.hitBlock = block;
-				result.hitPosition = origin + dir * distanceTraveled;
+				result.hitPosition = origin + dir * (double)distanceTraveled;
 				result.hitBlockPosition = blockPos;
 				result.hitChunk = chunk;
 				if (lastAxis == -1)
@@ -949,9 +952,9 @@ void World::collectChunksToRender(std::vector<ChunkRenderInfo>& chunksToRender, 
 	chunksToRender.reserve(chunks.size());
 
 	const Frustum& frustum = camera.getFrustum();
-	Box chunkShape(glm::vec3(0.0f), glm::vec3(CHUNK_SIZE * 0.5f));
+	Box chunkShape(glm::dvec3(0.0), glm::dvec3(CHUNK_SIZE >> 1));
 
-	const glm::vec3 cameraPosition = camera.getPosition();
+	const glm::dvec3 cameraPosition = camera.getPosition();
 	const glm::ivec3 cameraChunkPosition = glm::ivec3(cameraPosition) >> CHUNK_SIZE_LOG2;
 
 	for (const auto& pair : chunks)
@@ -965,7 +968,7 @@ void World::collectChunksToRender(std::vector<ChunkRenderInfo>& chunksToRender, 
 
 		// Check is chunk is on frustum
 		glm::ivec3 chunkPosition = chunk->getPosition();
-		glm::vec3 chunkWorldPosition = glm::vec3(chunkPosition * CHUNK_SIZE);
+		glm::dvec3 chunkWorldPosition = glm::dvec3(chunkPosition * CHUNK_SIZE);
 
 		chunkShape.center = chunkWorldPosition + chunkShape.halfExtents;
 		if (!frustum.checkBox(chunkShape))
@@ -1074,6 +1077,20 @@ void World::setChunkLoadingDistance(int renderDistance)
 
 	float fogDistance = (chunkLoadingDistance - 0.5f) * CHUNK_SIZE;
 	visualSettings.fogDensity = visualSettings.calculateFogDensity(fogDistance, visualSettings.fogGradient);
+}
+
+std::optional<Block> World::getBlockAt(const glm::ivec3& globalPosition) const
+{
+	glm::ivec3 chunkPos = globalPosition >> CHUNK_SIZE_LOG2;
+
+	const Chunk* chunk = getChunkAt(chunkPos);
+	if (!chunk)
+	{
+		return std::nullopt;
+	}
+
+	glm::ivec3 localBlockPos = globalPosition & CHUNK_LOWER_BITS_MASK;
+	return chunk->getBlock_inBoundaries(localBlockPos.x, localBlockPos.y, localBlockPos.z);
 }
 
 //============================================================================

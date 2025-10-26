@@ -3,9 +3,9 @@
 
 struct Box
 {
-	glm::vec3 center, halfExtents;
+	glm::dvec3 center, halfExtents;
 
 	Box();
-	Box(const glm::vec3& center, const glm::vec3& halfExtents);
+	Box(const glm::dvec3& center, const glm::dvec3& halfExtents);
 };
 

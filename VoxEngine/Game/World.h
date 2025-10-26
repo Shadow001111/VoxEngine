@@ -110,7 +110,7 @@ public:
 	void renderChunks(const Camera& camera) const;
 	void renderVoxelMarker(const Camera& camera, const RaycastResult& raycast) const;
 
-	RaycastResult raycast(const glm::vec3& origin, const glm::vec3& direction, float maxDistance = 100.0f) const;
+	RaycastResult raycast(const glm::dvec3& origin, const glm::dvec3& direction, float maxDistance = 100.0f) const;
 
 	template<typename T, typename... Args>
 	T* createEntity(Args&&... args) {
@@ -149,5 +149,7 @@ public:
 	void updateBlockAt(const glm::ivec3& worldPos, Block block);
 public:
 	void setChunkLoadingDistance(int renderDistance);
+public:
+	std::optional<Block> getBlockAt(const glm::ivec3& globalPosition) const;
 };
 

@@ -38,9 +38,14 @@ class Player : public Entity
 	};
 	uint8_t selectedItemIndex = 0;
 public:
-	Player(const glm::vec3& position, float yaw, float pitch);
+	PlayerInput input;
 
-	void applyInput(const PlayerInput& input, float deltaTime);
+	Player(const glm::dvec3& position, float yaw, float pitch);
+
+	void update(double deltaTime) override;
+private:
+	void resetInput();
+public:
 	void interpolateCameraTransform(float factor);
 
 	void setPosition(const glm::vec3& position);
@@ -52,7 +57,7 @@ public:
 	void move(const glm::vec3& delta);
 	void rotate(float deltaYaw, float deltaPitch);
 
-	glm::vec3 getPosition() const;
+	glm::dvec3 getPosition() const;
 	float getYaw() const;
 	float getPitch() const;
 	Transform getTransform() const;

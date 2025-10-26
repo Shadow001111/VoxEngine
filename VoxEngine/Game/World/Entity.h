@@ -2,6 +2,8 @@
 #include "Core/Transform.h"
 #include <cstdint>
 
+class World;
+
 class Entity
 {
 public:
@@ -13,18 +15,24 @@ protected:
 	Transform transform;
 	Transform previousTransform;
 
-	glm::vec3 velocity;
-	glm::vec3 size; // Half - extents of the entity's bounding box
+	glm::dvec3 velocity;
+	glm::dvec3 size; // Half - extents of the entity's bounding box
 
 	bool hasGravity = false;
+
+	bool onGround = false;
 public:
-	Entity(const glm::vec3& position, float yaw, float pitch, const glm::vec3& velocity, const glm::vec3& size, bool hasGravity);
+	static World* world;
+
+	Entity(const glm::dvec3& position, float yaw, float pitch, const glm::dvec3& velocity, const glm::dvec3& size, bool hasGravity);
 	virtual ~Entity() = default;
 
 	// Update entity physics and logic
-	virtual void update(float deltaTime);
+	virtual void update(double deltaTime);
 
 	//
 	Id getId() const noexcept { return id; }
+private:
+	bool isBlockSolidAt(const glm::ivec3 pos) const;
 };
 

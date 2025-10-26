@@ -2,16 +2,16 @@
 #include <glm/glm.hpp>
 
 Plane::Plane() :
-	center(0.0f), normal(0.0f)
+	center(0.0), normal(0.0)
 {
 }
 
-Plane::Plane(const glm::vec3& center, const glm::vec3& normal) :
+Plane::Plane(const glm::dvec3& center, const glm::dvec3& normal) :
 	center(center), normal(normal)
 {
 }
 
-float Plane::distanceToPoint(const glm::vec3& point) const
+float Plane::distanceToPoint(const glm::dvec3& point) const
 {
 	return glm::dot(normal, point - center);
 }

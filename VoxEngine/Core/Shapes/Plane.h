@@ -3,11 +3,11 @@
 
 struct Plane
 {
-	glm::vec3 center, normal;
+	glm::dvec3 center, normal;
 
 	Plane();
-	Plane(const glm::vec3& center, const glm::vec3& normal);
+	Plane(const glm::dvec3& center, const glm::dvec3& normal);
 
-	float distanceToPoint(const glm::vec3& point) const;
+	float distanceToPoint(const glm::dvec3& point) const;
 };
 

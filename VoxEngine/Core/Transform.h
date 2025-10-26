@@ -4,12 +4,12 @@
 // Contains position and rotation
 struct Transform
 {
-	glm::vec3 position;
+	glm::dvec3 position;
 	float yaw, pitch; // Radians
 
 	Transform();
-	Transform(const glm::vec3& position, float yaw, float pitch);
+	Transform(const glm::dvec3& position, float yaw, float pitch);
 
-	Transform interpolate(const Transform& other, float factor) const;
+	Transform interpolate(const Transform& other, double factor) const;
 };
 

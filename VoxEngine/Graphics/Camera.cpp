@@ -1,7 +1,7 @@
 #include "Camera.h"
 #include <glm/gtc/matrix_transform.hpp>
 
-glm::vec3 Camera::worldUp = glm::vec3(0.0f, 1.0f, 0.0f);
+glm::dvec3 Camera::worldUp = glm::vec3(0.0, 1.0, 0.0);
 
 void Camera::updateCameraVectors() const
 {
@@ -9,7 +9,7 @@ void Camera::updateCameraVectors() const
 	vectorsUpdateRequired = false;
 
 	// Calculate the new Front vector
-	glm::vec3 front;
+	glm::dvec3 front;
 	front.x = sin(transform.yaw) * cos(transform.pitch);
 	front.y = sin(transform.pitch);
 	front.z = cos(transform.yaw) * cos(transform.pitch);
@@ -28,15 +28,16 @@ void Camera::updateFrustum() const
 	updateCameraVectors();
 
 	//
-	float tanHF = tanf(FOV * 0.5f);
-	float tanHFAR = tanHF * aspectRatio;
+	double tanHF = tan((double)FOV * 0.5);
+	double tanHFAR = tanHF * (double)aspectRatio;
 
-	float halfVSide = farPlane * tanHF;
-	float halfHSide = halfVSide * aspectRatio;
+	double halfVSide = farPlane * tanHF;
+	double halfHSide = halfVSide * aspectRatio;
 
-	glm::vec3 frontMultFar = farPlane * forward;
+	glm::dvec3 nearMultFar = (double)nearPlane * forward;
+	glm::dvec3 frontMultFar = (double)farPlane * forward;
 
-	frustum.near = Plane(transform.position + nearPlane * forward, forward);
+	frustum.near = Plane(transform.position + nearMultFar, forward);
 	frustum.far = Plane(transform.position + frontMultFar, -forward);
 
 	frustum.right = Plane(transform.position, glm::cross(frontMultFar - right * halfHSide, up));
@@ -46,7 +47,7 @@ void Camera::updateFrustum() const
 	frustum.bottom = Plane(transform.position, glm::cross(frontMultFar + up * halfVSide, right));
 }
 
-Camera::Camera(const glm::vec3 position, float yaw, float pitch, float FOV, float aspectRatio, float nearPlane, float farPlane) :
+Camera::Camera(const glm::dvec3 position, float yaw, float pitch, float FOV, float aspectRatio, float nearPlane, float farPlane) :
 	transform(position, yaw, pitch), FOV(FOV), aspectRatio(aspectRatio), nearPlane(nearPlane), farPlane(farPlane)
 {
 }
@@ -62,7 +63,7 @@ glm::mat4 Camera::getProjectionMatrix() const
 	return glm::perspective(FOV, aspectRatio, nearPlane, farPlane);
 }
 
-void Camera::setPosition(const glm::vec3& position)
+void Camera::setPosition(const glm::dvec3& position)
 {
 	transform.position = position;
 	frustumUpdateRequired = true;
@@ -118,7 +119,7 @@ void Camera::setFarPlane(float farPlane)
 	frustumUpdateRequired = true;
 }
 
-void Camera::move(const glm::vec3& delta)
+void Camera::move(const glm::dvec3& delta)
 {
 	transform.position += delta;
 	frustumUpdateRequired = true;
@@ -133,7 +134,7 @@ void Camera::rotate(float deltaYaw, float deltaPitch)
 	frustumUpdateRequired = true;
 }
 
-glm::vec3 Camera::getPosition() const
+glm::dvec3 Camera::getPosition() const
 {
 	return transform.position;
 }
@@ -153,19 +154,19 @@ Transform Camera::getTransform() const
 	return transform;
 }
 
-glm::vec3 Camera::getForward() const
+glm::dvec3 Camera::getForward() const
 {
 	updateCameraVectors();
 	return forward;
 }
 
-glm::vec3 Camera::getUp() const
+glm::dvec3 Camera::getUp() const
 {
 	updateCameraVectors();
 	return up;
 }
 
-glm::vec3 Camera::getRight() const
+glm::dvec3 Camera::getRight() const
 {
 	updateCameraVectors();
 	return right;

@@ -1,39 +1,68 @@
 #include "Player.h"
 
-Player::Player(const glm::vec3& position, float yaw, float pitch) :
-	Entity(position, yaw, pitch, glm::vec3(0.0f), glm::vec3(1.0f, 1.7f, 1.0f), false),
+#include <iostream>
+
+glm::dvec3 makeVectorFlatNormalized(const glm::dvec3& vec)
+{
+	glm::dvec3 flat = vec;
+	flat.y = 0.0;
+
+	double squaredLength = glm::dot(flat, flat);
+	if (squaredLength == 0.0)
+	{
+		return flat;
+	}
+
+	return flat / sqrt(squaredLength);
+}
+
+Player::Player(const glm::dvec3& position, float yaw, float pitch) :
+	Entity(position, yaw, pitch, glm::dvec3(0.0), glm::dvec3(0.6, 1.7, 0.6), true),
 	camera(position, yaw, pitch, glm::radians(90.0f), 1.0f, 0.1f, 1.0f)
 {
 }
 
-void Player::applyInput(const PlayerInput& input, float deltaTime)
+void Player::update(double deltaTime)
 {
-	// Position
-    {
-		const float cameraSpeed = (input.sprint ? 4.0f : 1.0f) * (15.0f * deltaTime);
+	Entity::update(deltaTime);
 
-        float leftRight = input.moveRight - input.moveLeft;
-        float forwardBackward = input.moveForward - input.moveBackward;
-        float worldUpDown = input.moveUp - input.moveDown;
+	// Position and velocity
+	{
+		// Apply friction
+		double friction = pow(0.2, deltaTime);
+		velocity.x *= friction;
+		velocity.z *= friction;
 
-        glm::vec3 force = glm::vec3(0.0f);
+		// Get flat vectors
+		glm::dvec3 right = makeVectorFlatNormalized(camera.getRight());
+		glm::dvec3 forward = makeVectorFlatNormalized(camera.getForward());
 
-        force += camera.getRight() * leftRight;
-        force += camera.getForward() * forwardBackward;
-        force.y += worldUpDown;
+		// Get wishDir
+		double leftRight = input.moveRight - input.moveLeft;
+		double forwardBackward = input.moveForward - input.moveBackward;
+		glm::dvec3 wishDir = right * leftRight + forward * forwardBackward;
+		
+		if (glm::dot(wishDir, wishDir) > 0.0)
+		{
+			wishDir = glm::normalize(wishDir);
 
-        if (glm::length(force) > 0.0f)
-        {
-            force = glm::normalize(force) * cameraSpeed;
-			velocity += force;
-        }
-    }
+			// Get acceleration
+			constexpr double MAX_SPEED = 10.0;
+			constexpr double MAX_ACCELERATION = 50.0;
+			double currentSpeed = glm::dot(velocity, wishDir);
 
-    // Rotation
-    {
+			double acceleration = fmax(0.0, fmin(MAX_ACCELERATION * deltaTime, MAX_SPEED - currentSpeed));
+
+			// Apply acceleration
+			velocity += wishDir * acceleration;
+		}
+	}
+
+	// Rotation
+	{
 		const float mouseSensitivity = 0.002f;
-        rotate(-input.mouseDelta.x * mouseSensitivity, -input.mouseDelta.y * mouseSensitivity);
-    }
+		rotate(-input.mouseDelta.x * mouseSensitivity, -input.mouseDelta.y * mouseSensitivity);
+	}
 
 	// Selecting item
 	for (int i = 0; i < PLAYER_HOTBAR_SIZE; i++)
@@ -43,6 +72,30 @@ void Player::applyInput(const PlayerInput& input, float deltaTime)
 			selectedItemIndex = i;
 		}
 	}
+
+	// Reset input
+	resetInput();
+}
+
+void Player::resetInput()
+{
+	input.moveForward = false;
+	input.moveBackward = false;
+	input.moveLeft = false;
+	input.moveRight = false;
+	input.moveUp = false;
+	input.moveDown = false;
+	input.sprint = false;
+
+	for (int i = 0; i <= 9; i++)
+	{
+		input.numbers[i] = false;
+	}
+
+	input.leftMousePressed = false;
+	input.rightMousePressed = false;
+
+	input.mouseDelta = glm::vec2(0.0f);
 }
 
 void Player::interpolateCameraTransform(float factor)
@@ -90,7 +143,7 @@ void Player::rotate(float deltaYaw, float deltaPitch)
 	transform.pitch = glm::clamp(transform.pitch, -1.5707f, 1.5707f);
 }
 
-glm::vec3 Player::getPosition() const
+glm::dvec3 Player::getPosition() const
 {
 	return transform.position;
 }

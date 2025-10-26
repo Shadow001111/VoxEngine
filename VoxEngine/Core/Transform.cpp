@@ -7,12 +7,12 @@ Transform::Transform() :
 {
 }
 
-Transform::Transform(const glm::vec3& position, float yaw, float pitch) :
+Transform::Transform(const glm::dvec3& position, float yaw, float pitch) :
 	position(position), yaw(yaw), pitch(pitch)
 {
 }
 
-Transform Transform::interpolate(const Transform& other, float factor) const
+Transform Transform::interpolate(const Transform& other, double factor) const
 {
 	return Transform(
 		lerp(position, other.position, factor),

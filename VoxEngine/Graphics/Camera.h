@@ -7,16 +7,16 @@ class Camera
 {
 	Transform transform;
 
-	mutable glm::vec3 forward;
-	mutable glm::vec3 up;
-	mutable glm::vec3 right;
+	mutable glm::dvec3 forward;
+	mutable glm::dvec3 up;
+	mutable glm::dvec3 right;
 
 	mutable Frustum frustum;
 
 	mutable bool vectorsUpdateRequired = true;
 	mutable bool frustumUpdateRequired = true;
 
-	static glm::vec3 worldUp;
+	static glm::dvec3 worldUp;
 
 	float FOV; // Radians
 	float aspectRatio;
@@ -25,12 +25,12 @@ class Camera
 	void updateCameraVectors() const;
 	void updateFrustum() const;
 public:
-	Camera(const glm::vec3 position, float yaw, float pitch, float FOV, float aspectRatio, float nearPlane, float farPlane);
+	Camera(const glm::dvec3 position, float yaw, float pitch, float FOV, float aspectRatio, float nearPlane, float farPlane);
 
 	glm::mat4 getViewMatrix() const;
 	glm::mat4 getProjectionMatrix() const;
 
-	void setPosition(const glm::vec3& position);
+	void setPosition(const glm::dvec3& position);
 	void setYaw(float yaw);
 	void setPitch(float pitch);
 	void setYawPitch(float yaw, float pitch);
@@ -39,16 +39,16 @@ public:
 	void setAspectRatio(float aspect);
 	void setFarPlane(float farPlane);
 
-	void move(const glm::vec3& delta);
+	void move(const glm::dvec3& delta);
 	void rotate(float deltaYaw, float deltaPitch);
 
-	glm::vec3 getPosition() const;
+	glm::dvec3 getPosition() const;
 	float getYaw() const;
 	float getPitch() const;
 	Transform getTransform() const;
-	glm::vec3 getForward() const;
-	glm::vec3 getUp() const;
-	glm::vec3 getRight() const;
+	glm::dvec3 getForward() const;
+	glm::dvec3 getUp() const;
+	glm::dvec3 getRight() const;
 	const Frustum& getFrustum() const;
 	float getNear() const;
 	float getFar() const;
