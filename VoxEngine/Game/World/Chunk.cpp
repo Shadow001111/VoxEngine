@@ -681,7 +681,7 @@ void Chunk::buildMesh()
 	}
 }
 
-bool Chunk::updateLight()
+std::bitset<7> Chunk::updateLight()
 {
 	if (
 		!isLoadedInWorld.load(std::memory_order_acquire) ||
@@ -712,7 +712,7 @@ bool Chunk::updateLight()
 	const int dy[] = { 0, 0, -1, 1, 0, 0 };
 	const int dz[] = { 0, 0, 0, 0, -1, 1 };
 
-	bool lightChanged = false;
+	std::bitset<7> lightChanged;
 
 	// Process light propagation
 	while (!localLightQueue.empty())
@@ -764,7 +764,17 @@ bool Chunk::updateLight()
 
 		// Store new value
 		light[index] = newBlockLight | (currentSkyLight << 4);
-		lightChanged = true;
+
+		// Check if light was changed on corners
+		std::bitset<7> localLightChanged;
+		localLightChanged.set(0, true);
+		localLightChanged.set(1, x == 0);
+		localLightChanged.set(2, x == (CHUNK_SIZE - 1));
+		localLightChanged.set(3, y == 0);
+		localLightChanged.set(4, y == (CHUNK_SIZE - 1));
+		localLightChanged.set(5, z == 0);
+		localLightChanged.set(6, z == (CHUNK_SIZE - 1));
+		lightChanged |= localLightChanged;
 
 		// Early exit, because spreading light value of 1 will do nothing
 		if (newBlockLight == 1)

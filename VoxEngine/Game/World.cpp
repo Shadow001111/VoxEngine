@@ -883,13 +883,20 @@ void World::updateChunkLights()
 			continue;
 		}
 
-		if (chunk->updateLight())
+		std::bitset<7> lightChanged = chunk->updateLight();
+		if (lightChanged.any())
 		{
-			std::lock_guard<std::mutex> lokc(buildMeshMutex);
+			std::lock_guard<std::mutex> lock(buildMeshMutex);
 			buildMeshContainer.insert(chunk);
+			for (int i = 0; i < 6; i++)
+			{
+				if (lightChanged.test(i + 1) && chunk->neighbors[i])
+				{
+					buildMeshContainer.insert(chunk->neighbors[i]);
+				}
+			}
 		}
 	}
-	std::cout << chunksToUpdate.size() << std::endl;
 }
 
 void World::collectChunksNeedingLightUpdate()

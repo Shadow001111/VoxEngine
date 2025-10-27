@@ -10,6 +10,7 @@
 #include <atomic>
 #include <cstdint>
 #include <glm/glm.hpp>
+#include <bitset>
 
 struct LightNode
 {
@@ -98,7 +99,7 @@ public:
 	void buildLight();
 	void buildMesh();
 
-	bool updateLight();
+	std::bitset<7> updateLight();
 	bool hasLightUpdates() const;
 
 	void sortMesh(const glm::ivec3& cameraBlockPos);
