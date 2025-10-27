@@ -13,7 +13,7 @@
 #include <iomanip>
 
 constexpr bool USE_FBO = false;
-constexpr int CHUNK_LOAD_DISTANCE = 12;
+constexpr int CHUNK_LOAD_DISTANCE = 5;
 
 
 std::string formatSize(size_t value)

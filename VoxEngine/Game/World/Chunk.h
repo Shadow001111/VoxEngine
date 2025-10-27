@@ -114,6 +114,7 @@ public:
 	Block getBlock_checkNeighborsTraverse(int x, int y, int z) const;
 
 	void setBlock_inBoundaries(int x, int y, int z, Block block);
+	void setBlock_inBoundaries_updateLight(int x, int y, int z, Block block);
 
 	uint8_t getLight_inBoundaries(int x, int y, int z) const;
 	uint8_t getLight_checkSideNeighbor(int x, int y, int z, int side) const;

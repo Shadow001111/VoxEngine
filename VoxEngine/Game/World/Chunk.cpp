@@ -169,6 +169,8 @@ void Chunk::buildBlocks()
 				}
 			}
 		}
+
+		blocks[getIndex(7, 7, 7)] = Block::GlowStone;
 	}
 
 	// Caves
@@ -379,7 +381,7 @@ void Chunk::buildLight()
 							(ny & CHUNK_UPPER_BITS_MASK) == 0 &&
 							(nz & CHUNK_UPPER_BITS_MASK) == 0)
 						{
-							localLightNodeContainer.emplace_back(nx, ny, nz, emission, i);
+							localLightNodeContainer.emplace_back(nx, ny, nz, emission, -1);
 						}
 						else
 						{
@@ -393,7 +395,7 @@ void Chunk::buildLight()
 							int neighborLocalY = ny & CHUNK_LOWER_BITS_MASK;
 							int neighborLocalZ = nz & CHUNK_LOWER_BITS_MASK;
 
-							neighbor->addNodeToLightQueue(neighborLocalX, neighborLocalY, neighborLocalZ, emission, i);
+							neighbor->addNodeToLightQueue(neighborLocalX, neighborLocalY, neighborLocalZ, emission, -1);
 						}
 					}
 				}
@@ -407,7 +409,7 @@ void Chunk::buildLight()
 
 		while (!localLightNodeContainer.empty())
 		{
-			auto data = localLightNodeContainer.front();
+			auto data = localLightNodeContainer.back();
 			localLightNodeContainer.pop_back();
 
 			// Get node data
@@ -444,7 +446,7 @@ void Chunk::buildLight()
 			// Get current light
 			uint8_t currentLight = light[index];
 			uint8_t currentBlockLight = currentLight & 15;
-			uint8_t currentSkyLight = currentLight << 4;
+			uint8_t currentSkyLight = currentLight >> 4;
 
 			// Compare light values
 			if (newBlockLight <= currentBlockLight)
@@ -453,7 +455,7 @@ void Chunk::buildLight()
 			}
 
 			// Store new value
-			light[index] = currentSkyLight | newBlockLight;
+			light[index] = newBlockLight | (currentSkyLight << 4);
 
 			// Early exit, because spreading light value of 1 will do nothing
 			if (newBlockLight == 1)
@@ -540,6 +542,7 @@ void Chunk::buildMesh()
 					// -X
 					std::pair<Block, uint8_t> blockAndLight = getBlockAndLight_checkSideNeighbor(x - 1, y, z, 0);
 					const BlockData* neighborBlockData = BlockDataBase::getBlockData(blockAndLight.first);
+					// TODO: Maybe Check block != otherblock, before getting block data
 					if (neighborBlockData->properties.areFacesTransparent && block != blockAndLight.first)
 					{
 						unsigned int ao, light;
@@ -681,6 +684,7 @@ void Chunk::buildMesh()
 
 void Chunk::updateLight()
 {
+	// TODO: Update mesh after lighting is updated. Return bool if changes happened, then send to build mesh.
 	if (
 		!isLoadedInWorld.load(std::memory_order_acquire) ||
 		!areBlocksBuilt.load(std::memory_order_acquire)
@@ -715,7 +719,7 @@ void Chunk::updateLight()
 	// Process light propagation
 	while (!localLightQueue.empty())
 	{
-		auto data = localLightQueue.front();
+		auto data = localLightQueue.back();
 		localLightQueue.pop_back();
 
 		// Get node data
@@ -752,7 +756,7 @@ void Chunk::updateLight()
 		// Get current light
 		uint8_t currentLight = light[index];
 		uint8_t currentBlockLight = currentLight & 15;
-		uint8_t currentSkyLight = currentLight << 4;
+		uint8_t currentSkyLight = currentLight >> 4;
 
 		// Compare light values
 		if (newBlockLight <= currentBlockLight)
@@ -761,7 +765,7 @@ void Chunk::updateLight()
 		}
 
 		// Store new value
-		light[index] = currentSkyLight | newBlockLight;
+		light[index] = newBlockLight | (currentSkyLight << 4);
 
 		// Early exit, because spreading light value of 1 will do nothing
 		if (newBlockLight == 1)
@@ -1019,6 +1023,67 @@ void Chunk::setBlock_inBoundaries(int x, int y, int z, Block block)
 	blocks[getIndex(x, y, z)] = block;
 }
 
+void Chunk::setBlock_inBoundaries_updateLight(int x, int y, int z, Block block)
+{
+	assert(x >= 0 && x < CHUNK_SIZE);
+	assert(y >= 0 && y < CHUNK_SIZE);
+	assert(z >= 0 && z < CHUNK_SIZE);
+
+	size_t index = getIndex(x, y, z);
+
+	Block previousBlock = blocks[index];
+	if (previousBlock == block)
+	{
+		return;
+	}
+
+	//const BlockData* previousBlockData = BlockDataBase::getBlockData(previousBlock);
+	const BlockData* blockData = BlockDataBase::getBlockData(block);
+	// TODO: Add darkness propagation
+	uint8_t emission = blockData->properties.lightEmission;
+	if (emission > 0)
+	{
+		if (blockData->properties.areFacesTransparent)
+		{
+			addNodeToLightQueue(x, y, z, emission, -1);
+		}
+
+		const int dx[] = { -1, 1, 0, 0, 0, 0 };
+		const int dy[] = { 0, 0, -1, 1, 0, 0 };
+		const int dz[] = { 0, 0, 0, 0, -1, 1 };
+
+		for (int i = 0; i < 6; i++)
+		{
+			int nx = x + dx[i];
+			int ny = y + dy[i];
+			int nz = z + dz[i];
+
+			if ((nx & CHUNK_UPPER_BITS_MASK) == 0 &&
+				(ny & CHUNK_UPPER_BITS_MASK) == 0 &&
+				(nz & CHUNK_UPPER_BITS_MASK) == 0)
+			{
+				addNodeToLightQueue(nx, ny, nz, emission, -1);
+			}
+			else
+			{
+				Chunk* neighbor = neighbors[i];
+				if (neighbor == nullptr)
+				{
+					continue;
+				}
+
+				int neighborLocalX = nx & CHUNK_LOWER_BITS_MASK;
+				int neighborLocalY = ny & CHUNK_LOWER_BITS_MASK;
+				int neighborLocalZ = nz & CHUNK_LOWER_BITS_MASK;
+
+				neighbor->addNodeToLightQueue(neighborLocalX, neighborLocalY, neighborLocalZ, emission, -1);
+			}
+		}
+	}
+
+	blocks[index] = block;
+}
+
 uint8_t Chunk::getLight_inBoundaries(int x, int y, int z) const
 {
 	assert(x >= 0 && x < CHUNK_SIZE);
@@ -1185,6 +1250,7 @@ void Chunk::addNodeToLightQueue(int x, int y, int z, uint8_t lightLevel, int8_t 
 
 void Chunk::calculateVertexAmbientOcclusionAndLight(unsigned int& ao, unsigned int& light, uint8_t centerLight, uint8_t side1Light, uint8_t side2Light, uint8_t cornerLight, bool side1Solid, bool side2Solid, bool cornerSolid) const
 {
+	// TODO: Maybe fix smoothlighting. It's strange when light values are in checkerboard.
 	unsigned int blockLightSum = centerLight & 15;
 	unsigned int skyLightSum = (centerLight >> 4) & 15;
 	unsigned int count = 1;
@@ -1192,7 +1258,7 @@ void Chunk::calculateVertexAmbientOcclusionAndLight(unsigned int& ao, unsigned i
 	if (side1Solid && side2Solid)
 	{
 		ao = 0;
-		light = (blockLightSum & 15) | ((skyLightSum & 15) << 4);
+		light = centerLight;
 		return;
 	}
 
@@ -1210,7 +1276,7 @@ void Chunk::calculateVertexAmbientOcclusionAndLight(unsigned int& ao, unsigned i
 		count++;
 	}
 
-	if (!side1Solid && !side2Solid && !cornerSolid)
+	if (!cornerSolid)
 	{
 		blockLightSum += cornerLight & 15;
 		skyLightSum += (cornerLight >> 4) & 15;

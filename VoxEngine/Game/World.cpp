@@ -985,6 +985,7 @@ void World::collectChunksToRender(std::vector<ChunkRenderInfo>& chunksToRender, 
 
 bool World::placeBlock(const RaycastResult& raycast, Block block)
 {
+	// TODO: Don't place block if entity is there
 	if (!raycast.hit)
 	{
 		return false;
@@ -1032,7 +1033,7 @@ void World::updateBlockAt(const glm::ivec3& worldPos, Block block)
 	}
 
 	// Update the block
-	chunk->setBlock_inBoundaries(localPos.x, localPos.y, localPos.z, block);
+	chunk->setBlock_inBoundaries_updateLight(localPos.x, localPos.y, localPos.z, block);
 
 	// Collect neighbor chunks to build mesh
 	bool onBorder[6] =
