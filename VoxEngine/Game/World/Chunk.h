@@ -98,7 +98,7 @@ public:
 	void buildLight();
 	void buildMesh();
 
-	void updateLight();
+	bool updateLight();
 	bool hasLightUpdates() const;
 
 	void sortMesh(const glm::ivec3& cameraBlockPos);

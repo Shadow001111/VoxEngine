@@ -871,8 +871,7 @@ void World::startBuildingChunkMeshes()
 
 void World::updateChunkLights()
 {
-	std::unordered_set<Chunk*> chunksToUpdate;
-	std::unordered_set<Chunk*> affectedChunks;
+	std::vector<Chunk*> chunksToUpdate;
 
 	chunksToUpdate.swap(lightUpdateContainer);
 
@@ -884,51 +883,13 @@ void World::updateChunkLights()
 			continue;
 		}
 
-		chunk->updateLight();
-		affectedChunks.insert(chunk);
-
-		// Check if neighbors need updates too
-		for (int i = 0; i < 6; i++)
+		if (chunk->updateLight())
 		{
-			Chunk* neighbor = chunk->neighbors[i];
-			if (neighbor && neighbor->hasLightUpdates())
-			{
-				affectedChunks.insert(neighbor);
-			}
+			std::lock_guard<std::mutex> lokc(buildMeshMutex);
+			buildMeshContainer.insert(chunk);
 		}
 	}
-
-	// Re-check for more updates (light can cascade)
-	for (Chunk* chunk : affectedChunks)
-	{
-		if (chunk->hasLightUpdates())
-		{
-			lightUpdateContainer.insert(chunk);
-		}
-	}
-
-	// Queue affected chunks for mesh rebuild
-	{
-		std::lock_guard<std::mutex> lock(buildMeshMutex);
-		for (Chunk* chunk : affectedChunks)
-		{
-			if (chunk->getState() == Chunk::State::NeedsMesh)
-			{
-				buildMeshContainer.insert(chunk);
-
-				// Also rebuild neighbors that might be affected by lighting changes
-				for (int i = 0; i < 6; i++)
-				{
-					Chunk* neighbor = chunk->neighbors[i];
-					if (neighbor && neighbor->getState() == Chunk::State::Ready)
-					{
-						neighbor->setState(Chunk::State::NeedsMesh);
-						buildMeshContainer.insert(neighbor);
-					}
-				}
-			}
-		}
-	}
+	std::cout << chunksToUpdate.size() << std::endl;
 }
 
 void World::collectChunksNeedingLightUpdate()
@@ -938,11 +899,9 @@ void World::collectChunksNeedingLightUpdate()
 	for (const auto& pair : chunks)
 	{
 		Chunk* chunk = pair.second.get();
-
-		// Only update chunks that are ready and have pending light updates
-		if (chunk->getState() == Chunk::State::Ready && chunk->hasLightUpdates())
+		if (chunk->hasLightUpdates())
 		{
-			lightUpdateContainer.insert(chunk);
+			lightUpdateContainer.push_back(chunk);
 		}
 	}
 }

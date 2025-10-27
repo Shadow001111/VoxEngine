@@ -57,7 +57,7 @@ private:
 	std::unordered_set<Chunk*> buildMeshContainer;
 	std::mutex buildMeshMutex;
 
-	std::unordered_set<Chunk*> lightUpdateContainer;
+	std::vector<Chunk*> lightUpdateContainer;
 
 	glm::ivec3 lastChunkLoaderPos = { INT_MAX, INT_MAX, INT_MAX };
 	glm::ivec3 lastChunkMeshSortPos = { INT_MAX, INT_MAX, INT_MAX };

@@ -355,7 +355,6 @@ void Chunk::buildLight()
 				for (int z = 0; z < CHUNK_SIZE; z++)
 				{
 					size_t index = getIndex(x, y, z);
-					light[index] = 15 << 4;
 
 					Block currentBlock = blocks[index];
 					const BlockData* currentBlockData = BlockDataBase::getBlockData(currentBlock);
@@ -682,15 +681,14 @@ void Chunk::buildMesh()
 	}
 }
 
-void Chunk::updateLight()
+bool Chunk::updateLight()
 {
-	// TODO: Update mesh after lighting is updated. Return bool if changes happened, then send to build mesh.
 	if (
 		!isLoadedInWorld.load(std::memory_order_acquire) ||
 		!areBlocksBuilt.load(std::memory_order_acquire)
 		)
 	{
-		return;
+		return false;
 	}
 
 	Profiler::beginProfile("Update chunk light: wait", ProfileCategory::ChunkLight);
@@ -705,7 +703,7 @@ void Chunk::updateLight()
 		std::lock_guard<std::mutex> lock(lightMutex);
 		if (lightNodeContainer.empty())
 		{
-			return;
+			return false;
 		}
 		localLightQueue.swap(lightNodeContainer);
 	}
@@ -766,6 +764,7 @@ void Chunk::updateLight()
 
 		// Store new value
 		light[index] = newBlockLight | (currentSkyLight << 4);
+		lightChanged = true;
 
 		// Early exit, because spreading light value of 1 will do nothing
 		if (newBlockLight == 1)
@@ -808,11 +807,7 @@ void Chunk::updateLight()
 		}
 	}
 
-	// If light changed, mark for mesh rebuild
-	if (lightChanged && getState() == State::Ready)
-	{
-		setState(State::NeedsMesh);
-	}
+	return lightChanged;
 }
 
 bool Chunk::hasLightUpdates() const
