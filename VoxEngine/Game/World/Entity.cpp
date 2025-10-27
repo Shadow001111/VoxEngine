@@ -19,7 +19,7 @@ void Entity::update(double deltaTime)
 	// Apply gravity
 	if (hasGravity)
 	{
-		constexpr double GRAVITY = -22.0;
+		constexpr double GRAVITY = -32.0;
 		velocity.y += GRAVITY * deltaTime;
 		velocity.y = glm::max(velocity.y, -78.4);
 	}
@@ -27,6 +27,7 @@ void Entity::update(double deltaTime)
 	// TODO: Use DDA for movement. It should be better.
 	
 	// Move
+	onGround = false;
 	for (int axis = 0; axis < 3; axis++)
 	{
 		float sign = copysign(1.0, velocity[axis]);
@@ -69,23 +70,28 @@ void Entity::update(double deltaTime)
 			minZ = maxZ = floor(transform.position.z + sign * size.z);
 		}
 
-		bool done = false;
-		for (int x = minX; x <= maxX && !done; x++)
+		bool foundCollision = false;
+		for (int x = minX; x <= maxX && !foundCollision; x++)
 		{
-			for (int y = minY; y <= maxY && !done; y++)
+			for (int y = minY; y <= maxY && !foundCollision; y++)
 			{
-				for (int z = minZ; z <= maxZ && !done; z++)
+				for (int z = minZ; z <= maxZ && !foundCollision; z++)
 				{
 					glm::ivec3 blockPos = { x, y, z };
 					if (isBlockSolidAt(blockPos))
 					{
 						transform.position[axis] = (double)blockPos[axis] + add - sign * (size[axis] + 1e-6);
 						velocity[axis] = 0.0;
-						done = true;
+						foundCollision = true;
 						break;
 					}
 				}
 			}
+		}
+
+		if (axis == 1 && foundCollision && sign < 0.0)
+		{
+			onGround = true;
 		}
 	}
 }

@@ -405,7 +405,7 @@ void World::renderVoxelMarker(const Camera& camera, const RaycastResult& raycast
 	}
 }
 
-World::RaycastResult World::raycast(const glm::dvec3& origin, const glm::dvec3& direction, float maxDistance) const
+RaycastResult World::raycast(const glm::dvec3& origin, const glm::dvec3& direction, float maxDistance) const
 {
 	PROFILE_SCOPE("Raycast", ProfileCategory::General);
 

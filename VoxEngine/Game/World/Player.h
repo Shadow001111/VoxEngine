@@ -2,6 +2,8 @@
 #include "Graphics/Camera.h"
 
 #include "Chunk/Block.h"
+
+#include "RaycastResult.h"
 #include "Entity.h"
 
 struct PlayerInput
@@ -10,8 +12,8 @@ struct PlayerInput
 	bool moveBackward = false;
 	bool moveLeft = false;
 	bool moveRight = false;
-	bool moveUp = false;
-	bool moveDown = false;
+	bool jump = false;
+	bool crouch = false;
 	bool sprint = false;
 
 	bool numbers[10] = { false, false, false, false, false, false, false, false, false, false };
@@ -40,11 +42,14 @@ class Player : public Entity
 public:
 	PlayerInput input;
 
+	RaycastResult raycastResult;
+
 	Player(const glm::dvec3& position, float yaw, float pitch);
 
 	void update(double deltaTime) override;
 private:
 	void resetInput();
+	void getMovingValues(double& friction, double& maxSpeed, double& maxAcceleration) const;
 public:
 	void interpolateCameraTransform(float factor);
 

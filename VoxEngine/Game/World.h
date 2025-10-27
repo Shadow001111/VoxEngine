@@ -3,6 +3,7 @@
 #include "World/WorldVisualSettings.h"
 #include "World/VoxelMarkerMesh.h"
 #include "World/Entity.h"
+#include "World/RaycastResult.h"
 
 #include "Graphics/Shader.h"
 #include "Graphics/Camera.h"
@@ -23,17 +24,6 @@ class World
 		unsigned int manhattanDistance;
 
 		ChunkRenderInfo(const Chunk* chunk, unsigned int manhattanDistance);
-	};
-public:
-	struct RaycastResult
-	{
-		bool hit = false;
-		Block hitBlock = Block::Air;
-		glm::vec3 hitPosition;
-		glm::ivec3 hitBlockPosition;
-		Chunk* hitChunk = nullptr;
-		int hitNormal = -1;
-		float distance = 0.0f;
 	};
 public:
 	struct DebugData

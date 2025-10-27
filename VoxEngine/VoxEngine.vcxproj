@@ -210,6 +210,7 @@
     <ClInclude Include="Game\World\VoxelMarkerMesh.h" />
     <ClInclude Include="Graphics\TextRenderer.h" />
     <ClInclude Include="Graphics\OpenGL_FBO.h" />
+    <ClInclude Include="Game\World\RaycastResult.h" />
     <ClInclude Include="WindowManager.h" />
     <ClInclude Include="Game\World.h" />
     <ClInclude Include="Game\World\WorldVisualSettings.h" />

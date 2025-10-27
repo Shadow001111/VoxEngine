@@ -1,6 +1,6 @@
 #include "Player.h"
 
-#include <iostream>
+#include "../World.h"
 
 glm::dvec3 makeVectorFlatNormalized(const glm::dvec3& vec)
 {
@@ -17,7 +17,7 @@ glm::dvec3 makeVectorFlatNormalized(const glm::dvec3& vec)
 }
 
 Player::Player(const glm::dvec3& position, float yaw, float pitch) :
-	Entity(position, yaw, pitch, glm::dvec3(0.0), glm::dvec3(0.6, 1.7, 0.6), true),
+	Entity(position, yaw, pitch, glm::dvec3(0.0), glm::dvec3(0.6, 1.7, 0.6) * 0.5, true),
 	camera(position, yaw, pitch, glm::radians(90.0f), 1.0f, 0.1f, 1.0f)
 {
 }
@@ -26,12 +26,24 @@ void Player::update(double deltaTime)
 {
 	Entity::update(deltaTime);
 
+	// Jump
+	if (onGround && input.jump)
+	{
+		velocity.y = 10.0;
+		onGround = false;
+	}
+
 	// Position and velocity
 	{
+		double friction, maxSpeed, maxAcceleration;
+		getMovingValues(friction, maxSpeed, maxAcceleration);
 		// Apply friction
-		double friction = pow(0.2, deltaTime);
-		velocity.x *= friction;
-		velocity.z *= friction;
+		if (onGround)
+		{
+			double friction = pow(0.05, deltaTime);
+			velocity.x *= friction;
+			velocity.z *= friction;
+		}
 
 		// Get flat vectors
 		glm::dvec3 right = makeVectorFlatNormalized(camera.getRight());
@@ -46,12 +58,9 @@ void Player::update(double deltaTime)
 		{
 			wishDir = glm::normalize(wishDir);
 
-			// Get acceleration
-			constexpr double MAX_SPEED = 10.0;
-			constexpr double MAX_ACCELERATION = 50.0;
 			double currentSpeed = glm::dot(velocity, wishDir);
 
-			double acceleration = fmax(0.0, fmin(MAX_ACCELERATION * deltaTime, MAX_SPEED - currentSpeed));
+			double acceleration = fmax(0.0, fmin(maxAcceleration * deltaTime, maxSpeed - currentSpeed));
 
 			// Apply acceleration
 			velocity += wishDir * acceleration;
@@ -73,6 +82,20 @@ void Player::update(double deltaTime)
 		}
 	}
 
+	// Raycast
+	raycastResult = world->raycast(camera.getPosition(), camera.getForward(), 16.0f);
+	if (raycastResult.hit)
+	{
+		if (input.leftMousePressed)
+		{
+			world->placeBlock(raycastResult, hotbar[selectedItemIndex]);
+		}
+		if (input.rightMousePressed)
+		{
+			world->breakBlock(raycastResult);
+		}
+	}
+
 	// Reset input
 	resetInput();
 }
@@ -83,8 +106,8 @@ void Player::resetInput()
 	input.moveBackward = false;
 	input.moveLeft = false;
 	input.moveRight = false;
-	input.moveUp = false;
-	input.moveDown = false;
+	input.jump = false;
+	input.crouch = false;
 	input.sprint = false;
 
 	for (int i = 0; i <= 9; i++)
@@ -98,9 +121,32 @@ void Player::resetInput()
 	input.mouseDelta = glm::vec2(0.0f);
 }
 
+void Player::getMovingValues(double& friction, double& maxSpeed, double& maxAcceleration) const
+{
+	if (onGround)
+	{
+		if (input.sprint)
+		{
+			maxSpeed = 12.0;
+			maxAcceleration = 100.0;
+		}
+		else
+		{
+			maxSpeed = 6.0;
+			maxAcceleration = 50.0;
+		}
+	}
+	else
+	{
+		maxSpeed = 3.0;
+		maxAcceleration = 25.0;
+	}
+}
+
 void Player::interpolateCameraTransform(float factor)
 {
     Transform interpolatedTransform = previousTransform.interpolate(transform, factor);
+	interpolatedTransform.position.y += 1.7 * 0.5 - 0.2;
 	camera.setTransform(interpolatedTransform);
 }
 

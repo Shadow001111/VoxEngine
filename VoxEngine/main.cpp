@@ -103,8 +103,8 @@ void collectPlayerInput(PlayerInput& input, const WindowManager& wnd, glm::vec2&
     input.moveBackward |= wnd.isKeyPressed(GLFW_KEY_S);
     input.moveLeft |= wnd.isKeyPressed(GLFW_KEY_A);
     input.moveRight |= wnd.isKeyPressed(GLFW_KEY_D);
-    input.moveUp |= wnd.isKeyPressed(GLFW_KEY_SPACE);
-    input.moveDown |= wnd.isKeyPressed(GLFW_KEY_LEFT_CONTROL);
+    input.jump |= wnd.isKeyPressed(GLFW_KEY_SPACE);
+    input.crouch |= wnd.isKeyPressed(GLFW_KEY_LEFT_CONTROL);
     input.sprint |= wnd.isKeyPressed(GLFW_KEY_LEFT_SHIFT);
 
     for (int i = 0; i <= 9; i++)
@@ -262,13 +262,6 @@ int main()
             // Player
             collectPlayerInput(player->input, wnd, previousMousePos);
 
-            World::RaycastResult playerRaycastResult;
-            {
-                const Camera& camera = player->getCamera();
-                const Transform& transform = camera.getTransform();
-                playerRaycastResult = world.raycast(transform.position, camera.getForward(), 16.0f);
-            }
-
             // World
             while (worldUpdateTimer.shouldUpdate())
             {
@@ -302,7 +295,7 @@ int main()
 
             world.clearFrambuffer();
             world.renderChunks(player->getCamera());
-            world.renderVoxelMarker(player->getCamera(), playerRaycastResult);
+            world.renderVoxelMarker(player->getCamera(), player->raycastResult);
 
             // Rendering to screen
             if (USE_FBO)
