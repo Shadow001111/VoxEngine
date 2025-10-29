@@ -341,7 +341,7 @@ void Chunk::buildLight()
 	const int dz[] = { 0, 0, 0, 0, -1, 1 };
 
 	// Initialize all light values to 0
-	std::fill(std::begin(light), std::end(light), 0);
+	std::fill(std::begin(lightLevels), std::end(lightLevels), LightLevel(0, 0));
 
 	// Step 1: Collect light sources
 	std::vector<LightNode> localLightNodeContainer;
@@ -367,7 +367,7 @@ void Chunk::buildLight()
 
 					if (currentBlockData->properties.areFacesTransparent)
 					{
-						localLightNodeContainer.emplace_back(x, y, z, emission, -1);
+						localLightNodeContainer.emplace_back(x, y, z, LightLevel(emission, 0), -1);
 					}
 
 					for (int i = 0; i < 6; i++)
@@ -380,7 +380,7 @@ void Chunk::buildLight()
 							(ny & CHUNK_UPPER_BITS_MASK) == 0 &&
 							(nz & CHUNK_UPPER_BITS_MASK) == 0)
 						{
-							localLightNodeContainer.emplace_back(nx, ny, nz, emission, -1);
+							localLightNodeContainer.emplace_back(nx, ny, nz, LightLevel(emission, 0), -1);
 						}
 						else
 						{
@@ -394,7 +394,7 @@ void Chunk::buildLight()
 							int neighborLocalY = ny & CHUNK_LOWER_BITS_MASK;
 							int neighborLocalZ = nz & CHUNK_LOWER_BITS_MASK;
 
-							neighbor->addNodeToLightQueue(neighborLocalX, neighborLocalY, neighborLocalZ, emission, -1);
+							neighbor->addNodeToLightQueue(neighborLocalX, neighborLocalY, neighborLocalZ, LightLevel(emission, 0), -1);
 						}
 					}
 				}
@@ -415,8 +415,7 @@ void Chunk::buildLight()
 			int x = data.x;
 			int y = data.y;
 			int z = data.z;
-			uint8_t blockLight = data.lightLevel & 15;
-			int8_t propagationSide = data.propagationSide;
+			LightLevel nodeLightLevel = data.lightLevel;
 
 			// Get block data
 			size_t index = getIndex(x, y, z);
@@ -428,13 +427,13 @@ void Chunk::buildLight()
 
 			// Calculate new light
 			uint8_t newBlockLight;
-			if (propagationSide == -1)
+			if (data.propagationSide == -1)
 			{
-				newBlockLight = blockLight;
+				newBlockLight = nodeLightLevel.blockLight;
 			}
 			else
 			{
-				newBlockLight = blockLight > lightAbsorption ? blockLight - lightAbsorption : 0;
+				newBlockLight = nodeLightLevel.blockLight > lightAbsorption ? nodeLightLevel.blockLight - lightAbsorption : 0;
 			}
 
 			if (newBlockLight == 0)
@@ -443,18 +442,17 @@ void Chunk::buildLight()
 			}
 
 			// Get current light
-			uint8_t currentLight = light[index];
-			uint8_t currentBlockLight = currentLight & 15;
-			uint8_t currentSkyLight = currentLight >> 4;
+			LightLevel currentLightLevel = lightLevels[index];
 
 			// Compare light values
-			if (newBlockLight <= currentBlockLight)
+			if (newBlockLight <= currentLightLevel.blockLight)
 			{
 				continue;
 			}
 
 			// Store new value
-			light[index] = newBlockLight | (currentSkyLight << 4);
+			LightLevel newLightLevel = LightLevel(newBlockLight, currentLightLevel.skyLight);
+			lightLevels[index] = newLightLevel;
 
 			// Early exit, because spreading light value of 1 will do nothing
 			if (newBlockLight == 1)
@@ -463,9 +461,10 @@ void Chunk::buildLight()
 			}
 
 			// Propagate to 6 neighbors
+			auto oppositePropagationSide = data.propagationSide ^ 1;
 			for (int i = 0; i < 6; i++)
 			{
-				if (i == (propagationSide ^ 1))
+				if (i == oppositePropagationSide)
 				{
 					continue;
 				}
@@ -478,7 +477,7 @@ void Chunk::buildLight()
 					(ny & CHUNK_UPPER_BITS_MASK) == 0 &&
 					(nz & CHUNK_UPPER_BITS_MASK) == 0)
 				{
-					localLightNodeContainer.emplace_back(nx, ny, nz, newBlockLight, i);
+					localLightNodeContainer.emplace_back(nx, ny, nz, newLightLevel, i);
 				}
 				else
 				{
@@ -492,7 +491,7 @@ void Chunk::buildLight()
 					int neighborLocalY = ny & CHUNK_LOWER_BITS_MASK;
 					int neighborLocalZ = nz & CHUNK_LOWER_BITS_MASK;
 
-					neighbor->addNodeToLightQueue(neighborLocalX, neighborLocalY, neighborLocalZ, newBlockLight, i);
+					neighbor->addNodeToLightQueue(neighborLocalX, neighborLocalY, neighborLocalZ, newLightLevel, i);
 				}
 			}
 		}
@@ -539,7 +538,7 @@ void Chunk::buildMesh()
 					auto& instances = blockData->properties.areFacesTransparent ? transparentInstances : opaqueInstances;
 
 					// -X
-					std::pair<Block, uint8_t> blockAndLight = getBlockAndLight_checkSideNeighbor(x - 1, y, z, 0);
+					auto blockAndLight = getBlockAndLight_checkSideNeighbor(x - 1, y, z, 0);
 					const BlockData* neighborBlockData = BlockDataBase::getBlockData(blockAndLight.first);
 					// TODO: Maybe Check block != otherblock, before getting block data
 					if (neighborBlockData->properties.areFacesTransparent && block != blockAndLight.first)
@@ -724,8 +723,7 @@ std::bitset<7> Chunk::updateLight()
 		int x = data.x;
 		int y = data.y;
 		int z = data.z;
-		uint8_t blockLight = data.lightLevel & 15;
-		int8_t propagationSide = data.propagationSide;
+		LightLevel nodeLightLevel = data.lightLevel;
 
 		// Get block data
 		size_t index = getIndex(x, y, z);
@@ -737,13 +735,13 @@ std::bitset<7> Chunk::updateLight()
 
 		// Calculate new light
 		uint8_t newBlockLight;
-		if (propagationSide == -1)
+		if (data.propagationSide == -1)
 		{
-			newBlockLight = blockLight;
+			newBlockLight = nodeLightLevel.blockLight;
 		}
 		else
 		{
-			newBlockLight = blockLight > lightAbsorption ? blockLight - lightAbsorption : 0;
+			newBlockLight = nodeLightLevel.blockLight > lightAbsorption ? nodeLightLevel.blockLight - lightAbsorption : 0;
 		}
 
 		if (newBlockLight == 0)
@@ -752,18 +750,17 @@ std::bitset<7> Chunk::updateLight()
 		}
 
 		// Get current light
-		uint8_t currentLight = light[index];
-		uint8_t currentBlockLight = currentLight & 15;
-		uint8_t currentSkyLight = currentLight >> 4;
+		LightLevel currentLightLevel = lightLevels[index];
 
 		// Compare light values
-		if (newBlockLight <= currentBlockLight)
+		if (newBlockLight <= currentLightLevel.blockLight)
 		{
 			continue;
 		}
 
 		// Store new value
-		light[index] = newBlockLight | (currentSkyLight << 4);
+		LightLevel newLightLevel = LightLevel(newBlockLight, currentLightLevel.skyLight);
+		lightLevels[index] = newLightLevel;
 
 		// Check if light was changed on corners
 		std::bitset<7> localLightChanged;
@@ -783,9 +780,10 @@ std::bitset<7> Chunk::updateLight()
 		}
 
 		// Propagate to 6 neighbors
+		auto oppositePropagationSide = data.propagationSide ^ 1;
 		for (int i = 0; i < 6; i++)
 		{
-			if (i == (propagationSide ^ 1))
+			if (i == oppositePropagationSide)
 			{
 				continue;
 			}
@@ -798,7 +796,7 @@ std::bitset<7> Chunk::updateLight()
 				(ny & CHUNK_UPPER_BITS_MASK) == 0 &&
 				(nz & CHUNK_UPPER_BITS_MASK) == 0)
 			{
-				localLightQueue.emplace_back(nx, ny, nz, newBlockLight, i);
+				localLightQueue.emplace_back(nx, ny, nz, newLightLevel, i);
 			}
 			else
 			{
@@ -812,7 +810,7 @@ std::bitset<7> Chunk::updateLight()
 				int neighborLocalY = ny & CHUNK_LOWER_BITS_MASK;
 				int neighborLocalZ = nz & CHUNK_LOWER_BITS_MASK;
 
-				neighbor->addNodeToLightQueue(neighborLocalX, neighborLocalY, neighborLocalZ, newBlockLight, i);
+				neighbor->addNodeToLightQueue(neighborLocalX, neighborLocalY, neighborLocalZ, newLightLevel, i);
 			}
 		}
 	}
@@ -1050,7 +1048,7 @@ void Chunk::setBlock_inBoundaries_updateLight(int x, int y, int z, Block block)
 	{
 		if (blockData->properties.areFacesTransparent)
 		{
-			addNodeToLightQueue(x, y, z, emission, -1);
+			addNodeToLightQueue(x, y, z, LightLevel(emission, 0), -1);
 		}
 
 		const int dx[] = { -1, 1, 0, 0, 0, 0 };
@@ -1067,7 +1065,7 @@ void Chunk::setBlock_inBoundaries_updateLight(int x, int y, int z, Block block)
 				(ny & CHUNK_UPPER_BITS_MASK) == 0 &&
 				(nz & CHUNK_UPPER_BITS_MASK) == 0)
 			{
-				addNodeToLightQueue(nx, ny, nz, emission, -1);
+				addNodeToLightQueue(nx, ny, nz, LightLevel(emission, 0), -1);
 			}
 			else
 			{
@@ -1081,7 +1079,7 @@ void Chunk::setBlock_inBoundaries_updateLight(int x, int y, int z, Block block)
 				int neighborLocalY = ny & CHUNK_LOWER_BITS_MASK;
 				int neighborLocalZ = nz & CHUNK_LOWER_BITS_MASK;
 
-				neighbor->addNodeToLightQueue(neighborLocalX, neighborLocalY, neighborLocalZ, emission, -1);
+				neighbor->addNodeToLightQueue(neighborLocalX, neighborLocalY, neighborLocalZ, LightLevel(emission, 0), -1);
 			}
 		}
 	}
@@ -1089,15 +1087,15 @@ void Chunk::setBlock_inBoundaries_updateLight(int x, int y, int z, Block block)
 	blocks[index] = block;
 }
 
-uint8_t Chunk::getLight_inBoundaries(int x, int y, int z) const
+LightLevel Chunk::getLight_inBoundaries(int x, int y, int z) const
 {
 	assert(x >= 0 && x < CHUNK_SIZE);
 	assert(y >= 0 && y < CHUNK_SIZE);
 	assert(z >= 0 && z < CHUNK_SIZE);
-	return light[getIndex(x, y, z)];
+	return lightLevels[getIndex(x, y, z)];
 }
 
-uint8_t Chunk::getLight_checkSideNeighbor(int x, int y, int z, int side) const
+LightLevel Chunk::getLight_checkSideNeighbor(int x, int y, int z, int side) const
 {
 	int nx = x & CHUNK_UPPER_BITS_MASK;
 	int ny = y & CHUNK_UPPER_BITS_MASK;
@@ -1105,7 +1103,7 @@ uint8_t Chunk::getLight_checkSideNeighbor(int x, int y, int z, int side) const
 
 	if (nx == 0 && ny == 0 && nz == 0)
 	{
-		return light[getIndex(x, y, z)];
+		return lightLevels[getIndex(x, y, z)];
 	}
 
 	const Chunk* neighbor = neighbors[side];
@@ -1113,10 +1111,10 @@ uint8_t Chunk::getLight_checkSideNeighbor(int x, int y, int z, int side) const
 	{
 		return neighbor->getLight_inBoundaries(x & CHUNK_LOWER_BITS_MASK, y & CHUNK_LOWER_BITS_MASK, z & CHUNK_LOWER_BITS_MASK);
 	}
-	return 15 << 4;
+	return LightLevel(0, 15);
 }
 
-uint8_t Chunk::getLight_checkNeighborsTraverse(int x, int y, int z) const
+LightLevel Chunk::getLight_checkNeighborsTraverse(int x, int y, int z) const
 {
 	int nx = x & CHUNK_UPPER_BITS_MASK;
 	int ny = y & CHUNK_UPPER_BITS_MASK;
@@ -1125,7 +1123,7 @@ uint8_t Chunk::getLight_checkNeighborsTraverse(int x, int y, int z) const
 	// If within current chunk bounds
 	if (nx == 0 && ny == 0 && nz == 0)
 	{
-		return light[getIndex(x, y, z)];
+		return lightLevels[getIndex(x, y, z)];
 	}
 
 	// Determine which direction(s) we need to traverse
@@ -1139,21 +1137,21 @@ uint8_t Chunk::getLight_checkNeighborsTraverse(int x, int y, int z) const
 	if (dirX != -1)
 	{
 		neighbor = neighbor->neighbors[dirX];
-		if (!neighbor) return 15 << 4;
+		if (!neighbor) return LightLevel(0, 15);
 	}
 
 	// Then traverse in Y direction
 	if (dirY != -1)
 	{
 		neighbor = neighbor->neighbors[dirY];
-		if (!neighbor) return 15 << 4;
+		if (!neighbor) return LightLevel(0, 15);
 	}
 
 	// Finally traverse in Z direction
 	if (dirZ != -1)
 	{
 		neighbor = neighbor->neighbors[dirZ];
-		if (!neighbor) return 15 << 4;
+		if (!neighbor) return LightLevel(0, 15);
 	}
 
 	// Get local coordinates in the final neighbor chunk
@@ -1164,23 +1162,24 @@ uint8_t Chunk::getLight_checkNeighborsTraverse(int x, int y, int z) const
 	return neighbor->getLight_inBoundaries(localX, localY, localZ);
 }
 
-void Chunk::setLight_inBoundaries(int x, int y, int z, uint8_t lightValue)
+void Chunk::setLight_inBoundaries(int x, int y, int z, LightLevel lightValue)
 {
 	assert(x >= 0 && x < CHUNK_SIZE);
 	assert(y >= 0 && y < CHUNK_SIZE);
 	assert(z >= 0 && z < CHUNK_SIZE);
-	light[getIndex(x, y, z)] = lightValue;
+	lightLevels[getIndex(x, y, z)] = lightValue;
 }
 
-std::pair<Block, uint8_t> Chunk::getBlockAndLight_inBoundaries(int x, int y, int z) const
+std::pair<Block, LightLevel> Chunk::getBlockAndLight_inBoundaries(int x, int y, int z) const
 {
 	assert(x >= 0 && x < CHUNK_SIZE);
 	assert(y >= 0 && y < CHUNK_SIZE);
 	assert(z >= 0 && z < CHUNK_SIZE);
-	return std::make_pair(blocks[getIndex(x, y, z)], light[getIndex(x, y, z)]);
+	const size_t index = getIndex(x, y, z);
+	return std::make_pair(blocks[index], lightLevels[index]);
 }
 
-std::pair<Block, uint8_t> Chunk::getBlockAndLight_checkSideNeighbor(int x, int y, int z, int side) const
+std::pair<Block, LightLevel> Chunk::getBlockAndLight_checkSideNeighbor(int x, int y, int z, int side) const
 {
 	int nx = x & CHUNK_UPPER_BITS_MASK;
 	int ny = y & CHUNK_UPPER_BITS_MASK;
@@ -1188,7 +1187,8 @@ std::pair<Block, uint8_t> Chunk::getBlockAndLight_checkSideNeighbor(int x, int y
 
 	if (nx == 0 && ny == 0 && nz == 0)
 	{
-		return std::make_pair(blocks[getIndex(x, y, z)], light[getIndex(x, y, z)]);
+		const size_t index = getIndex(x, y, z);
+		return std::make_pair(blocks[index], lightLevels[index]);
 	}
 
 	const Chunk* neighbor = neighbors[side];
@@ -1196,10 +1196,10 @@ std::pair<Block, uint8_t> Chunk::getBlockAndLight_checkSideNeighbor(int x, int y
 	{
 		return neighbor->getBlockAndLight_inBoundaries(x & CHUNK_LOWER_BITS_MASK, y & CHUNK_LOWER_BITS_MASK, z & CHUNK_LOWER_BITS_MASK);
 	}
-	return std::make_pair(Block::Air, 15 << 4);
+	return std::make_pair(Block::Air, LightLevel(0, 15));
 }
 
-std::pair<Block, uint8_t> Chunk::getBlockAndLight_checkNeighborsTraverse(int x, int y, int z) const
+std::pair<Block, LightLevel> Chunk::getBlockAndLight_checkNeighborsTraverse(int x, int y, int z) const
 {
 	int nx = x & CHUNK_UPPER_BITS_MASK;
 	int ny = y & CHUNK_UPPER_BITS_MASK;
@@ -1208,7 +1208,8 @@ std::pair<Block, uint8_t> Chunk::getBlockAndLight_checkNeighborsTraverse(int x, 
 	// If within current chunk bounds
 	if (nx == 0 && ny == 0 && nz == 0)
 	{
-		return std::make_pair(blocks[getIndex(x, y, z)], light[getIndex(x, y, z)]);
+		const size_t index = getIndex(x, y, z);
+		return std::make_pair(blocks[index], lightLevels[index]);
 	}
 
 	// Determine which direction(s) we need to traverse
@@ -1222,21 +1223,21 @@ std::pair<Block, uint8_t> Chunk::getBlockAndLight_checkNeighborsTraverse(int x, 
 	if (dirX != -1)
 	{
 		neighbor = neighbor->neighbors[dirX];
-		if (!neighbor) return std::make_pair(Block::Air, 15 << 4);
+		if (!neighbor) return std::make_pair(Block::Air, LightLevel(0, 15));
 	}
 
 	// Then traverse in Y direction
 	if (dirY != -1)
 	{
 		neighbor = neighbor->neighbors[dirY];
-		if (!neighbor) return std::make_pair(Block::Air, 15 << 4);
+		if (!neighbor) return std::make_pair(Block::Air, LightLevel(0, 15));
 	}
 
 	// Finally traverse in Z direction
 	if (dirZ != -1)
 	{
 		neighbor = neighbor->neighbors[dirZ];
-		if (!neighbor) return std::make_pair(Block::Air, 15 << 4);
+		if (!neighbor) return std::make_pair(Block::Air, LightLevel(0, 15));
 	}
 
 	// Get local coordinates in the final neighbor chunk
@@ -1247,17 +1248,17 @@ std::pair<Block, uint8_t> Chunk::getBlockAndLight_checkNeighborsTraverse(int x, 
 	return neighbor->getBlockAndLight_inBoundaries(localX, localY, localZ);
 }
 
-void Chunk::addNodeToLightQueue(int x, int y, int z, uint8_t lightLevel, int8_t propagationSide)
+void Chunk::addNodeToLightQueue(int x, int y, int z, LightLevel lightLevel, int8_t propagationSide)
 {
 	std::lock_guard<std::mutex> lock(lightMutex);
 	lightNodeContainer.emplace_back(x, y, z, lightLevel, propagationSide);
 }
 
-void Chunk::calculateVertexAmbientOcclusionAndLight(unsigned int& ao, unsigned int& light, uint8_t centerLight, uint8_t side1Light, uint8_t side2Light, uint8_t cornerLight, bool side1Solid, bool side2Solid, bool cornerSolid) const
+void Chunk::calculateVertexAmbientOcclusionAndLight(unsigned int& ao, LightLevel& light, LightLevel centerLight, LightLevel side1Light, LightLevel side2Light, LightLevel cornerLight, bool side1Solid, bool side2Solid, bool cornerSolid) const
 {
 	// TODO: Maybe fix smoothlighting. It's strange when light values are in checkerboard.
-	unsigned int blockLightSum = centerLight & 15;
-	unsigned int skyLightSum = (centerLight >> 4) & 15;
+	unsigned int blockLightSum = centerLight.blockLight;
+	unsigned int skyLightSum = centerLight.skyLight;
 	unsigned int count = 1;
 
 	if (side1Solid && side2Solid)
@@ -1269,22 +1270,22 @@ void Chunk::calculateVertexAmbientOcclusionAndLight(unsigned int& ao, unsigned i
 
 	if (!side1Solid)
 	{
-		blockLightSum += side1Light & 15;
-		skyLightSum += (side1Light >> 4) & 15;
+		blockLightSum += side1Light.blockLight;
+		skyLightSum += side1Light.skyLight;
 		count++;
 	}
 
 	if (!side2Solid)
 	{
-		blockLightSum += side2Light & 15;
-		skyLightSum += (side2Light >> 4) & 15;
+		blockLightSum += side2Light.blockLight;
+		skyLightSum += side2Light.skyLight;
 		count++;
 	}
 
 	if (!cornerSolid)
 	{
-		blockLightSum += cornerLight & 15;
-		skyLightSum += (cornerLight >> 4) & 15;
+		blockLightSum += cornerLight.blockLight;
+		skyLightSum += cornerLight.skyLight;
 		count++;
 	}
 
@@ -1295,19 +1296,20 @@ void Chunk::calculateVertexAmbientOcclusionAndLight(unsigned int& ao, unsigned i
 	assert(avgSkyLight >= 0 && avgSkyLight <= 15);
 
 	ao = 3 - (side1Solid + side2Solid + cornerSolid);
-	light = (avgBlockLight & 15) | ((avgSkyLight & 15) << 4);
+	light.blockLight = avgBlockLight;
+	light.skyLight = avgSkyLight;
 }
 
-void Chunk::calculateFaceAmbientOcclusionAndLight(unsigned int& ao, unsigned int& light, int x, int y, int z, int normal, uint8_t centerFaceLight) const
+void Chunk::calculateFaceAmbientOcclusionAndLight(unsigned int& ao, unsigned int& light, int x, int y, int z, int normal, LightLevel centerFaceLight) const
 {
 	// For each face normal, we need to check 8 neighbors around the face
 	// The AO calculation depends on which direction the face is facing
 
-	std::pair<Block, uint8_t> data[8];
+	std::pair<Block, LightLevel> data[8];
 	bool n[8]; // 8 neighbors around the face
 
 	unsigned int ao0, ao1, ao2, ao3;
-	unsigned int light0, light1, light2, light3;
+	LightLevel lightLevels[4];
 
 	switch (normal)
 	{
@@ -1326,10 +1328,10 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(unsigned int& ao, unsigned int
 			n[i] = !BlockDataBase::getBlockData(data[i].first)->properties.areFacesTransparent;
 		}
 
-		calculateVertexAmbientOcclusionAndLight(ao0, light0, centerFaceLight, data[1].second, data[3].second, data[0].second, n[1], n[3], n[0]);
-		calculateVertexAmbientOcclusionAndLight(ao1, light1, centerFaceLight, data[1].second, data[4].second, data[2].second, n[1], n[4], n[2]);
-		calculateVertexAmbientOcclusionAndLight(ao2, light2, centerFaceLight, data[6].second, data[4].second, data[7].second, n[6], n[4], n[7]);
-		calculateVertexAmbientOcclusionAndLight(ao3, light3, centerFaceLight, data[6].second, data[3].second, data[5].second, n[6], n[3], n[5]);
+		calculateVertexAmbientOcclusionAndLight(ao0, lightLevels[0], centerFaceLight, data[1].second, data[3].second, data[0].second, n[1], n[3], n[0]);
+		calculateVertexAmbientOcclusionAndLight(ao1, lightLevels[1], centerFaceLight, data[1].second, data[4].second, data[2].second, n[1], n[4], n[2]);
+		calculateVertexAmbientOcclusionAndLight(ao2, lightLevels[2], centerFaceLight, data[6].second, data[4].second, data[7].second, n[6], n[4], n[7]);
+		calculateVertexAmbientOcclusionAndLight(ao3, lightLevels[3], centerFaceLight, data[6].second, data[3].second, data[5].second, n[6], n[3], n[5]);
 		break;
 	case 1: // +X face
 		data[0] = getBlockAndLight_checkNeighborsTraverse(x + 1, y - 1, z - 1);
@@ -1346,10 +1348,10 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(unsigned int& ao, unsigned int
 			n[i] = !BlockDataBase::getBlockData(data[i].first)->properties.areFacesTransparent;
 		}
 
-		calculateVertexAmbientOcclusionAndLight(ao0, light0, centerFaceLight, data[1].second, data[4].second, data[2].second, n[1], n[4], n[2]);
-		calculateVertexAmbientOcclusionAndLight(ao1, light1, centerFaceLight, data[1].second, data[3].second, data[0].second, n[1], n[3], n[0]);
-		calculateVertexAmbientOcclusionAndLight(ao2, light2, centerFaceLight, data[6].second, data[3].second, data[5].second, n[6], n[3], n[5]);
-		calculateVertexAmbientOcclusionAndLight(ao3, light3, centerFaceLight, data[6].second, data[4].second, data[7].second, n[6], n[4], n[7]);
+		calculateVertexAmbientOcclusionAndLight(ao0, lightLevels[0], centerFaceLight, data[1].second, data[4].second, data[2].second, n[1], n[4], n[2]);
+		calculateVertexAmbientOcclusionAndLight(ao1, lightLevels[1], centerFaceLight, data[1].second, data[3].second, data[0].second, n[1], n[3], n[0]);
+		calculateVertexAmbientOcclusionAndLight(ao2, lightLevels[2], centerFaceLight, data[6].second, data[3].second, data[5].second, n[6], n[3], n[5]);
+		calculateVertexAmbientOcclusionAndLight(ao3, lightLevels[3], centerFaceLight, data[6].second, data[4].second, data[7].second, n[6], n[4], n[7]);
 		break;
 	case 2: // -Y face
 		data[0] = getBlockAndLight_checkNeighborsTraverse(x - 1, y - 1, z - 1);
@@ -1366,10 +1368,10 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(unsigned int& ao, unsigned int
 			n[i] = !BlockDataBase::getBlockData(data[i].first)->properties.areFacesTransparent;
 		}
 
-		calculateVertexAmbientOcclusionAndLight(ao0, light0, centerFaceLight, data[1].second, data[4].second, data[2].second, n[1], n[4], n[2]);
-		calculateVertexAmbientOcclusionAndLight(ao1, light1, centerFaceLight, data[1].second, data[3].second, data[0].second, n[1], n[3], n[0]);
-		calculateVertexAmbientOcclusionAndLight(ao2, light2, centerFaceLight, data[6].second, data[3].second, data[5].second, n[6], n[3], n[5]);
-		calculateVertexAmbientOcclusionAndLight(ao3, light3, centerFaceLight, data[6].second, data[4].second, data[7].second, n[6], n[4], n[7]);
+		calculateVertexAmbientOcclusionAndLight(ao0, lightLevels[0], centerFaceLight, data[1].second, data[4].second, data[2].second, n[1], n[4], n[2]);
+		calculateVertexAmbientOcclusionAndLight(ao1, lightLevels[1], centerFaceLight, data[1].second, data[3].second, data[0].second, n[1], n[3], n[0]);
+		calculateVertexAmbientOcclusionAndLight(ao2, lightLevels[2], centerFaceLight, data[6].second, data[3].second, data[5].second, n[6], n[3], n[5]);
+		calculateVertexAmbientOcclusionAndLight(ao3, lightLevels[3], centerFaceLight, data[6].second, data[4].second, data[7].second, n[6], n[4], n[7]);
 		break;
 	case 3: // +Y face
 		data[0] = getBlockAndLight_checkNeighborsTraverse(x - 1, y + 1, z - 1);
@@ -1386,10 +1388,10 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(unsigned int& ao, unsigned int
 			n[i] = !BlockDataBase::getBlockData(data[i].first)->properties.areFacesTransparent;
 		}
 
-		calculateVertexAmbientOcclusionAndLight(ao0, light0, centerFaceLight, data[4].second, data[1].second, data[2].second, n[4], n[1], n[2]);
-		calculateVertexAmbientOcclusionAndLight(ao1, light1, centerFaceLight, data[3].second, data[1].second, data[0].second, n[3], n[1], n[0]);
-		calculateVertexAmbientOcclusionAndLight(ao2, light2, centerFaceLight, data[3].second, data[6].second, data[5].second, n[3], n[6], n[5]);
-		calculateVertexAmbientOcclusionAndLight(ao3, light3, centerFaceLight, data[4].second, data[6].second, data[7].second, n[4], n[6], n[7]);
+		calculateVertexAmbientOcclusionAndLight(ao0, lightLevels[0], centerFaceLight, data[4].second, data[1].second, data[2].second, n[4], n[1], n[2]);
+		calculateVertexAmbientOcclusionAndLight(ao1, lightLevels[1], centerFaceLight, data[3].second, data[1].second, data[0].second, n[3], n[1], n[0]);
+		calculateVertexAmbientOcclusionAndLight(ao2, lightLevels[2], centerFaceLight, data[3].second, data[6].second, data[5].second, n[3], n[6], n[5]);
+		calculateVertexAmbientOcclusionAndLight(ao3, lightLevels[3], centerFaceLight, data[4].second, data[6].second, data[7].second, n[4], n[6], n[7]);
 		break;
 	case 4: // -Z face
 		data[0] = getBlockAndLight_checkNeighborsTraverse(x - 1, y - 1, z - 1);
@@ -1406,10 +1408,10 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(unsigned int& ao, unsigned int
 			n[i] = !BlockDataBase::getBlockData(data[i].first)->properties.areFacesTransparent;
 		}
 
-		calculateVertexAmbientOcclusionAndLight(ao0, light0, centerFaceLight, data[1].second, data[4].second, data[2].second, n[1], n[4], n[2]);
-		calculateVertexAmbientOcclusionAndLight(ao1, light1, centerFaceLight, data[1].second, data[3].second, data[0].second, n[1], n[3], n[0]);
-		calculateVertexAmbientOcclusionAndLight(ao2, light2, centerFaceLight, data[6].second, data[3].second, data[5].second, n[6], n[3], n[5]);
-		calculateVertexAmbientOcclusionAndLight(ao3, light3, centerFaceLight, data[6].second, data[4].second, data[7].second, n[6], n[4], n[7]);
+		calculateVertexAmbientOcclusionAndLight(ao0, lightLevels[0], centerFaceLight, data[1].second, data[4].second, data[2].second, n[1], n[4], n[2]);
+		calculateVertexAmbientOcclusionAndLight(ao1, lightLevels[1], centerFaceLight, data[1].second, data[3].second, data[0].second, n[1], n[3], n[0]);
+		calculateVertexAmbientOcclusionAndLight(ao2, lightLevels[2], centerFaceLight, data[6].second, data[3].second, data[5].second, n[6], n[3], n[5]);
+		calculateVertexAmbientOcclusionAndLight(ao3, lightLevels[3], centerFaceLight, data[6].second, data[4].second, data[7].second, n[6], n[4], n[7]);
 		break;
 	case 5: // +Z face
 		data[0] = getBlockAndLight_checkNeighborsTraverse(x - 1, y - 1, z + 1);
@@ -1426,16 +1428,16 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(unsigned int& ao, unsigned int
 			n[i] = !BlockDataBase::getBlockData(data[i].first)->properties.areFacesTransparent;
 		}
 
-		calculateVertexAmbientOcclusionAndLight(ao0, light0, centerFaceLight, data[1].second, data[3].second, data[0].second, n[1], n[3], n[0]);
-		calculateVertexAmbientOcclusionAndLight(ao1, light1, centerFaceLight, data[1].second, data[4].second, data[2].second, n[1], n[4], n[2]);
-		calculateVertexAmbientOcclusionAndLight(ao2, light2, centerFaceLight, data[6].second, data[4].second, data[7].second, n[6], n[4], n[7]);
-		calculateVertexAmbientOcclusionAndLight(ao3, light3, centerFaceLight, data[6].second, data[3].second, data[5].second, n[6], n[3], n[5]);
+		calculateVertexAmbientOcclusionAndLight(ao0, lightLevels[0], centerFaceLight, data[1].second, data[3].second, data[0].second, n[1], n[3], n[0]);
+		calculateVertexAmbientOcclusionAndLight(ao1, lightLevels[1], centerFaceLight, data[1].second, data[4].second, data[2].second, n[1], n[4], n[2]);
+		calculateVertexAmbientOcclusionAndLight(ao2, lightLevels[2], centerFaceLight, data[6].second, data[4].second, data[7].second, n[6], n[4], n[7]);
+		calculateVertexAmbientOcclusionAndLight(ao3, lightLevels[3], centerFaceLight, data[6].second, data[3].second, data[5].second, n[6], n[3], n[5]);
 		break;
 	}
 
 	//
 	ao = ao0 | (ao1 << 2) | (ao2 << 4) | (ao3 << 6);
-	light = light0 | (light1 << 8) | (light2 << 16) | (light3 << 24);
+	light = *((unsigned int*)lightLevels); // TODO: Light values can be in reversed order!
 }
 
 int Chunk::getX() const
@@ -1569,9 +1571,46 @@ void Chunk::sendMeshesToGPU()
 }
 
 //============================================================================
+//LightLevel
+
+LightLevel::LightLevel() :
+	blockLight(0), skyLight(0)
+{
+}
+
+LightLevel::LightLevel(uint8_t blockLight, uint8_t skyLight) :
+	blockLight(blockLight), skyLight(skyLight)
+{
+}
+
+LightLevel::LightLevel(const LightLevel& other) :
+	blockLight(other.blockLight), skyLight(other.skyLight)
+{
+}
+
+LightLevel::LightLevel(LightLevel&& other) :
+	blockLight(other.blockLight), skyLight(other.skyLight)
+{
+}
+
+LightLevel& LightLevel::operator=(const LightLevel& other)
+{
+	blockLight = other.blockLight;
+	skyLight = other.skyLight;
+	return *this;
+}
+
+LightLevel& LightLevel::operator=(LightLevel&& other) noexcept
+{
+	blockLight = other.blockLight;
+	skyLight = other.skyLight;
+	return *this;
+}
+
+//============================================================================
 //LightNode
 
-LightNode::LightNode(int x, int y, int z, uint8_t lightLevel, int8_t propagationSide) :
+LightNode::LightNode(int x, int y, int z, LightLevel lightLevel, int8_t propagationSide) :
 	x(x), y(y), z(z), lightLevel(lightLevel), propagationSide(propagationSide)
 {
 }

@@ -184,9 +184,10 @@ void World::update(float deltaTime)
 	}
 
 	collectChunksNeedingLightUpdate();
-	if (!lightUpdateContainer.empty())
+	while (!lightUpdateContainer.empty())
 	{
 		updateChunkLights();
+		collectChunksNeedingLightUpdate();
 	}
 
 	if (!buildMeshContainer.empty())
@@ -875,7 +876,8 @@ void World::updateChunkLights()
 
 	chunksToUpdate.swap(lightUpdateContainer);
 
-	// Process light updates (on main thread for now, could be threaded later)
+	// Process light updates (on main thread for now, could be threaded later) (if using multithreading, them update chunks in checkboard pattern to avoid race conditions)
+	// TODO: Diagonal neighbor meshes should be updated too.
 	for (Chunk* chunk : chunksToUpdate)
 	{
 		if (!chunk->getIsLoadedInWorld())

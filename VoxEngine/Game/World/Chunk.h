@@ -12,13 +12,28 @@
 #include <glm/glm.hpp>
 #include <bitset>
 
+struct LightLevel
+{
+	uint8_t blockLight : 4;
+	uint8_t skyLight : 4;
+
+	LightLevel();
+	LightLevel(uint8_t blockLight, uint8_t skyLight);
+
+	LightLevel(const LightLevel& other);
+	LightLevel(LightLevel&& other);
+
+	LightLevel& operator=(const LightLevel& other);
+	LightLevel& operator=(LightLevel&& other) noexcept;
+};
+
 struct LightNode
 {
 	int x, y, z;
-	uint8_t lightLevel;
+	LightLevel lightLevel;
 	int8_t propagationSide;
 
-	LightNode(int x, int y, int z, uint8_t lightLevel, int8_t propagationSide);
+	LightNode(int x, int y, int z, LightLevel lightLevel, int8_t propagationSide);
 };
 
 struct DrawArraysIndirectCommand
@@ -61,7 +76,7 @@ private:
 	bool shouldSortMeshAfterBuild;
 
 	Block blocks[CHUNK_VOLUME];
-	uint8_t light[CHUNK_VOLUME];
+	LightLevel lightLevels[CHUNK_VOLUME];
 
 	std::vector<LightNode> lightNodeContainer;
 	mutable std::mutex lightMutex;
@@ -117,20 +132,20 @@ public:
 	void setBlock_inBoundaries(int x, int y, int z, Block block);
 	void setBlock_inBoundaries_updateLight(int x, int y, int z, Block block);
 
-	uint8_t getLight_inBoundaries(int x, int y, int z) const;
-	uint8_t getLight_checkSideNeighbor(int x, int y, int z, int side) const;
-	uint8_t getLight_checkNeighborsTraverse(int x, int y, int z) const;
+	LightLevel getLight_inBoundaries(int x, int y, int z) const;
+	LightLevel getLight_checkSideNeighbor(int x, int y, int z, int side) const;
+	LightLevel getLight_checkNeighborsTraverse(int x, int y, int z) const;
 
-	void setLight_inBoundaries(int x, int y, int z, uint8_t lightValue);
+	void setLight_inBoundaries(int x, int y, int z, LightLevel lightValue);
 
-	std::pair<Block, uint8_t> getBlockAndLight_inBoundaries(int x, int y, int z) const;
-	std::pair<Block, uint8_t> getBlockAndLight_checkSideNeighbor(int x, int y, int z, int side) const;
-	std::pair<Block, uint8_t> getBlockAndLight_checkNeighborsTraverse(int x, int y, int z) const;
+	std::pair<Block, LightLevel> getBlockAndLight_inBoundaries(int x, int y, int z) const;
+	std::pair<Block, LightLevel> getBlockAndLight_checkSideNeighbor(int x, int y, int z, int side) const;
+	std::pair<Block, LightLevel> getBlockAndLight_checkNeighborsTraverse(int x, int y, int z) const;
 
-	void addNodeToLightQueue(int x, int y, int z, uint8_t lightLevel, int8_t propagationSide);
+	void addNodeToLightQueue(int x, int y, int z, LightLevel lightLevel, int8_t propagationSide);
 private:
-	void calculateVertexAmbientOcclusionAndLight(unsigned int& ao, unsigned int& light, uint8_t centerLight, uint8_t side1Light, uint8_t side2Light, uint8_t cornerLight, bool side1Solid, bool side2Solid, bool cornerSolid) const;
-	void calculateFaceAmbientOcclusionAndLight(unsigned int& ao, unsigned int& light, int x, int y, int z, int normal, uint8_t centerFaceLight) const;
+	void calculateVertexAmbientOcclusionAndLight(unsigned int& ao, LightLevel& light, LightLevel centerLight, LightLevel side1Light, LightLevel side2Light, LightLevel cornerLight, bool side1Solid, bool side2Solid, bool cornerSolid) const;
+	void calculateFaceAmbientOcclusionAndLight(unsigned int& ao, unsigned int& light, int x, int y, int z, int normal, LightLevel centerFaceLight) const;
 public:
 	int getX() const;
 	int getY() const;
