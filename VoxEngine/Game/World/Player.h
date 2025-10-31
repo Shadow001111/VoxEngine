@@ -24,7 +24,7 @@ struct PlayerInput
 	glm::vec2 mouseDelta = glm::vec2(0.0f);
 };
 
-constexpr int PLAYER_HOTBAR_SIZE = 6;
+constexpr int PLAYER_HOTBAR_SIZE = 5;
 
 class Player : public Entity
 {
@@ -34,7 +34,6 @@ class Player : public Entity
 		Block::GrassBlock,
 		Block::Dirt,
 		Block::Stone,
-		Block::GlowStone,
 		Block::Glass,
 		Block::ColoredGlass
 	};

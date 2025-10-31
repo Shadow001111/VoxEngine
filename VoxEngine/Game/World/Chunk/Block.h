@@ -7,7 +7,7 @@ enum class Block : uint8_t
 	GrassBlock,
 	Dirt,
 	Stone,
-	GlowStone,
+	//GlowStone,
 	Glass,
 	ColoredGlass,
 	__BlockCount__

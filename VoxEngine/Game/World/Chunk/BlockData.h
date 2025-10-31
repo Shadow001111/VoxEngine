@@ -6,14 +6,14 @@
 
 struct BlockProperties
 {
-	uint8_t lightAbsorption = 1;
+	bool absorbsLight = false;
 	uint8_t lightEmission = 0;
 	bool hasFaces = false;
 	bool areFacesTransparent = false; // Can be array of 6
 	bool raycastable = false;
 
 	BlockProperties() = default;
-	BlockProperties(uint8_t lightAbsorption, uint8_t lightEmission, bool hasFaces, bool areFacesTransparent, bool raycastable);
+	BlockProperties(bool absorbsLight, uint8_t lightEmission, bool hasFaces, bool areFacesTransparent, bool raycastable);
 };
 
 enum class TextureTransformation : uint8_t

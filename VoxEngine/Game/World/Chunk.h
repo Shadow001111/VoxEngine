@@ -6,6 +6,7 @@
 #include "Core/Multithreading/ProcessingFence.h"
 
 #include <vector>
+#include <queue>
 #include <mutex>
 #include <atomic>
 #include <cstdint>
@@ -27,13 +28,19 @@ struct LightLevel
 	LightLevel& operator=(LightLevel&& other) noexcept;
 };
 
+// TODO: Maybe use union to use position as index
 struct LightNode
 {
-	int x, y, z;
-	LightLevel lightLevel;
-	int8_t propagationSide;
+	uint16_t x : 4, y : 4, z : 4;
 
-	LightNode(int x, int y, int z, LightLevel lightLevel, int8_t propagationSide);
+	LightNode(int x, int y, int z);
+};
+
+struct LightRemovalNode
+{
+	uint16_t x : 4, y : 4, z : 4, lightLevel : 4;
+
+	LightRemovalNode(int x, int y, int z, uint8_t lightLevel);
 };
 
 struct DrawArraysIndirectCommand
@@ -78,8 +85,11 @@ private:
 	Block blocks[CHUNK_VOLUME];
 	LightLevel lightLevels[CHUNK_VOLUME];
 
-	std::vector<LightNode> lightNodeContainer;
-	mutable std::mutex lightMutex;
+	std::queue<LightNode> lightNodeContainer;
+	mutable std::mutex lightNodeMutex;
+
+	std::queue<LightRemovalNode> lightRemovalNodeContainer;
+	mutable std::mutex lightRemovalNodeMutex;
 
 	MeshData meshData;
 	ProcessingFence processingFence;
@@ -142,7 +152,8 @@ public:
 	std::pair<Block, LightLevel> getBlockAndLight_checkSideNeighbor(int x, int y, int z, int side) const;
 	std::pair<Block, LightLevel> getBlockAndLight_checkNeighborsTraverse(int x, int y, int z) const;
 
-	void addNodeToLightQueue(int x, int y, int z, LightLevel lightLevel, int8_t propagationSide);
+	void addLightNodeToQueue(int x, int y, int z);
+	void addLightRemovalNodeToQueue(int x, int y, int z, uint8_t lightLevel);
 private:
 	void calculateVertexAmbientOcclusionAndLight(unsigned int& ao, LightLevel& light, LightLevel centerLight, LightLevel side1Light, LightLevel side2Light, LightLevel cornerLight, bool side1Solid, bool side2Solid, bool cornerSolid) const;
 	void calculateFaceAmbientOcclusionAndLight(unsigned int& ao, unsigned int& light, int x, int y, int z, int normal, LightLevel centerFaceLight) const;

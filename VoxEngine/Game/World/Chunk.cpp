@@ -100,10 +100,17 @@ void Chunk::destroy()
 
 	//
 	{
-		std::lock_guard<std::mutex> lock(lightMutex);
+		std::lock_guard<std::mutex> lock(lightNodeMutex);
 		while (!lightNodeContainer.empty())
 		{
-			lightNodeContainer.pop_back();
+			lightNodeContainer.pop();
+		}
+	}
+	{
+		std::lock_guard<std::mutex> lock(lightRemovalNodeMutex);
+		while (!lightRemovalNodeContainer.empty())
+		{
+			lightRemovalNodeContainer.pop();
 		}
 	}
 }
@@ -170,7 +177,7 @@ void Chunk::buildBlocks()
 			}
 		}
 
-		blocks[getIndex(7, 7, 7)] = Block::GlowStone;
+		blocks[getIndex(7, 7, 7)] = Block::ColoredGlass;
 	}
 
 	// Caves
@@ -344,7 +351,7 @@ void Chunk::buildLight()
 	std::fill(std::begin(lightLevels), std::end(lightLevels), LightLevel(0, 0));
 
 	// Step 1: Collect light sources
-	std::vector<LightNode> localLightNodeContainer;
+	std::queue<LightNode> localLightNodeContainer;
 	{
 		PROFILE_SCOPE("Build chunk light: collect light sources", ProfileCategory::ChunkLight);
 
@@ -365,38 +372,8 @@ void Chunk::buildLight()
 						continue;
 					}
 
-					if (currentBlockData->properties.areFacesTransparent)
-					{
-						localLightNodeContainer.emplace_back(x, y, z, LightLevel(emission, 0), -1);
-					}
-
-					for (int i = 0; i < 6; i++)
-					{
-						int nx = x + dx[i];
-						int ny = y + dy[i];
-						int nz = z + dz[i];
-
-						if ((nx & CHUNK_UPPER_BITS_MASK) == 0 &&
-							(ny & CHUNK_UPPER_BITS_MASK) == 0 &&
-							(nz & CHUNK_UPPER_BITS_MASK) == 0)
-						{
-							localLightNodeContainer.emplace_back(nx, ny, nz, LightLevel(emission, 0), -1);
-						}
-						else
-						{
-							Chunk* neighbor = neighbors[i];
-							if (neighbor == nullptr)
-							{
-								continue;
-							}
-
-							int neighborLocalX = nx & CHUNK_LOWER_BITS_MASK;
-							int neighborLocalY = ny & CHUNK_LOWER_BITS_MASK;
-							int neighborLocalZ = nz & CHUNK_LOWER_BITS_MASK;
-
-							neighbor->addNodeToLightQueue(neighborLocalX, neighborLocalY, neighborLocalZ, LightLevel(emission, 0), -1);
-						}
-					}
+					lightLevels[index].blockLight = emission;
+					localLightNodeContainer.emplace(x, y, z);
 				}
 			}
 		}
@@ -404,94 +381,69 @@ void Chunk::buildLight()
 
 	// Step 2: Propagate light using flood-fill
 	{
-		PROFILE_SCOPE("Build chunk light: flood-fill", ProfileCategory::ChunkLight);
+		PROFILE_SCOPE("Build chunk light: light propagation", ProfileCategory::ChunkLight);
 
+		// TODO: Consider using vector to speed up. Must remove front element!
 		while (!localLightNodeContainer.empty())
 		{
-			auto data = localLightNodeContainer.back();
-			localLightNodeContainer.pop_back();
-
 			// Get node data
+			const auto& data = localLightNodeContainer.front();
 			int x = data.x;
 			int y = data.y;
 			int z = data.z;
-			LightLevel nodeLightLevel = data.lightLevel;
-
-			// Get block data
 			size_t index = getIndex(x, y, z);
-			Block block = blocks[index];
-			const BlockData* blockData = BlockDataBase::getBlockData(block);
+			localLightNodeContainer.pop();
 
-			uint8_t lightAbsorption = blockData->properties.lightAbsorption;
-			assert(lightAbsorption > 0);
-
-			// Calculate new light
-			uint8_t newBlockLight;
-			if (data.propagationSide == -1)
-			{
-				newBlockLight = nodeLightLevel.blockLight;
-			}
-			else
-			{
-				newBlockLight = nodeLightLevel.blockLight > lightAbsorption ? nodeLightLevel.blockLight - lightAbsorption : 0;
-			}
-
-			if (newBlockLight == 0)
+			// Get light level
+			LightLevel lightLevel = lightLevels[index];
+			if (lightLevel.blockLight < 2)
 			{
 				continue;
 			}
 
-			// Get current light
-			LightLevel currentLightLevel = lightLevels[index];
-
-			// Compare light values
-			if (newBlockLight <= currentLightLevel.blockLight)
-			{
-				continue;
-			}
-
-			// Store new value
-			LightLevel newLightLevel = LightLevel(newBlockLight, currentLightLevel.skyLight);
-			lightLevels[index] = newLightLevel;
-
-			// Early exit, because spreading light value of 1 will do nothing
-			if (newBlockLight == 1)
-			{
-				continue;
-			}
-
-			// Propagate to 6 neighbors
-			auto oppositePropagationSide = data.propagationSide ^ 1;
+			// Propagate to neighbors
 			for (int i = 0; i < 6; i++)
 			{
-				if (i == oppositePropagationSide)
-				{
-					continue;
-				}
-
 				int nx = x + dx[i];
 				int ny = y + dy[i];
 				int nz = z + dz[i];
 
-				if ((nx & CHUNK_UPPER_BITS_MASK) == 0 &&
-					(ny & CHUNK_UPPER_BITS_MASK) == 0 &&
-					(nz & CHUNK_UPPER_BITS_MASK) == 0)
+				auto neighborData = getBlockAndLight_checkSideNeighbor(nx, ny, nz, i);
+
+				if (BlockDataBase::getBlockData(neighborData.first)->properties.absorbsLight)
 				{
-					localLightNodeContainer.emplace_back(nx, ny, nz, newLightLevel, i);
+					continue;
+				}
+
+				if (neighborData.second.blockLight > lightLevel.blockLight - 2)
+				{
+					continue;
+				}
+
+				int checkX = nx & CHUNK_UPPER_BITS_MASK;
+				int checkY = ny & CHUNK_UPPER_BITS_MASK;
+				int checkZ = nz & CHUNK_UPPER_BITS_MASK;
+				
+				if (checkX == 0 && checkY == 0 && checkZ == 0)
+				{
+					lightLevels[getIndex(nx, ny, nz)].blockLight = lightLevel.blockLight - 1;
+					localLightNodeContainer.emplace(nx, ny, nz);
 				}
 				else
 				{
 					Chunk* neighbor = neighbors[i];
-					if (neighbor == nullptr)
+					if (!neighbor)
 					{
 						continue;
 					}
 
-					int neighborLocalX = nx & CHUNK_LOWER_BITS_MASK;
-					int neighborLocalY = ny & CHUNK_LOWER_BITS_MASK;
-					int neighborLocalZ = nz & CHUNK_LOWER_BITS_MASK;
+					int neighborNX = nx & CHUNK_LOWER_BITS_MASK;
+					int neighborNY = ny & CHUNK_LOWER_BITS_MASK;
+					int neighborNZ = nz & CHUNK_LOWER_BITS_MASK;
 
-					neighbor->addNodeToLightQueue(neighborLocalX, neighborLocalY, neighborLocalZ, newLightLevel, i);
+					LightLevel newLightLevel = LightLevel(lightLevel.blockLight - 1, neighborData.second.skyLight);
+					neighbor->setLight_inBoundaries(neighborNX, neighborNY, neighborNZ, newLightLevel);
+					neighbor->addLightNodeToQueue(neighborNX, neighborNY, neighborNZ);
 				}
 			}
 		}
@@ -696,132 +648,227 @@ std::bitset<7> Chunk::updateLight()
 
 	PROFILE_SCOPE("Update chunk light", ProfileCategory::ChunkLight);
 
-	// Get pending light updates
-	std::vector<LightNode> localLightQueue;
-	{
-		std::lock_guard<std::mutex> lock(lightMutex);
-		if (lightNodeContainer.empty())
-		{
-			return false;
-		}
-		localLightQueue.swap(lightNodeContainer);
-	}
-
+	//
 	const int dx[] = { -1, 1, 0, 0, 0, 0 };
 	const int dy[] = { 0, 0, -1, 1, 0, 0 };
 	const int dz[] = { 0, 0, 0, 0, -1, 1 };
 
 	std::bitset<7> lightChanged;
 
-	// Process light propagation
-	while (!localLightQueue.empty())
+	//TODO: Instead of immediate neighbor calls, collect and batch
+
+	std::queue<LightNode> localLightNodeContainer;
 	{
-		auto data = localLightQueue.back();
-		localLightQueue.pop_back();
+		std::lock_guard<std::mutex> lock(lightNodeMutex);
+		localLightNodeContainer.swap(lightNodeContainer);
+	}
+	std::queue<LightRemovalNode> localLightRemovalNodeContainer;
+	{
+		std::lock_guard<std::mutex> lock(lightRemovalNodeMutex);
+		localLightRemovalNodeContainer.swap(lightRemovalNodeContainer);
+	}
 
-		// Get node data
-		int x = data.x;
-		int y = data.y;
-		int z = data.z;
-		LightLevel nodeLightLevel = data.lightLevel;
+	{
+		PROFILE_SCOPE("Update chunk light: light removal", ProfileCategory::ChunkLight);
 
-		// Get block data
-		size_t index = getIndex(x, y, z);
-		Block block = blocks[index];
-		const BlockData* blockData = BlockDataBase::getBlockData(block);
-
-		uint8_t lightAbsorption = blockData->properties.lightAbsorption;
-		assert(lightAbsorption > 0);
-
-		// Calculate new light
-		uint8_t newBlockLight;
-		if (data.propagationSide == -1)
+		while (!localLightRemovalNodeContainer.empty())
 		{
-			newBlockLight = nodeLightLevel.blockLight;
-		}
-		else
-		{
-			newBlockLight = nodeLightLevel.blockLight > lightAbsorption ? nodeLightLevel.blockLight - lightAbsorption : 0;
-		}
+			// Get node data
+			const auto& data = localLightRemovalNodeContainer.front();
+			int x = data.x;
+			int y = data.y;
+			int z = data.z;
+			uint8_t nodeLightLevel = data.lightLevel;
+			size_t index = getIndex(x, y, z);
+			localLightRemovalNodeContainer.pop();
 
-		if (newBlockLight == 0)
-		{
-			continue;
-		}
-
-		// Get current light
-		LightLevel currentLightLevel = lightLevels[index];
-
-		// Compare light values
-		if (newBlockLight <= currentLightLevel.blockLight)
-		{
-			continue;
-		}
-
-		// Store new value
-		LightLevel newLightLevel = LightLevel(newBlockLight, currentLightLevel.skyLight);
-		lightLevels[index] = newLightLevel;
-
-		// Check if light was changed on corners
-		std::bitset<7> localLightChanged;
-		localLightChanged.set(0, true);
-		localLightChanged.set(1, x == 0);
-		localLightChanged.set(2, x == (CHUNK_SIZE - 1));
-		localLightChanged.set(3, y == 0);
-		localLightChanged.set(4, y == (CHUNK_SIZE - 1));
-		localLightChanged.set(5, z == 0);
-		localLightChanged.set(6, z == (CHUNK_SIZE - 1));
-		lightChanged |= localLightChanged;
-
-		// Early exit, because spreading light value of 1 will do nothing
-		if (newBlockLight == 1)
-		{
-			continue;
-		}
-
-		// Propagate to 6 neighbors
-		auto oppositePropagationSide = data.propagationSide ^ 1;
-		for (int i = 0; i < 6; i++)
-		{
-			if (i == oppositePropagationSide)
+			// Get light level
+			/*LightLevel lightLevel = lightLevels[index];
+			if (lightLevel.blockLight < 2)
 			{
 				continue;
-			}
+			}*/
 
-			int nx = x + dx[i];
-			int ny = y + dy[i];
-			int nz = z + dz[i];
+			// Propagate to neighbors
+			for (int i = 0; i < 6; i++)
+			{
+				int nx = x + dx[i];
+				int ny = y + dy[i];
+				int nz = z + dz[i];
 
-			if ((nx & CHUNK_UPPER_BITS_MASK) == 0 &&
-				(ny & CHUNK_UPPER_BITS_MASK) == 0 &&
-				(nz & CHUNK_UPPER_BITS_MASK) == 0)
-			{
-				localLightQueue.emplace_back(nx, ny, nz, newLightLevel, i);
-			}
-			else
-			{
-				Chunk* neighbor = neighbors[i];
-				if (neighbor == nullptr)
+				auto neighborData = getBlockAndLight_checkSideNeighbor(nx, ny, nz, i);
+
+				if (BlockDataBase::getBlockData(neighborData.first)->properties.absorbsLight)
 				{
 					continue;
 				}
 
-				int neighborLocalX = nx & CHUNK_LOWER_BITS_MASK;
-				int neighborLocalY = ny & CHUNK_LOWER_BITS_MASK;
-				int neighborLocalZ = nz & CHUNK_LOWER_BITS_MASK;
+				auto neighborBlockLight = neighborData.second.blockLight;
+				if (neighborBlockLight > 0 && neighborBlockLight < nodeLightLevel)
+				{
+					int checkX = nx & CHUNK_UPPER_BITS_MASK;
+					int checkY = ny & CHUNK_UPPER_BITS_MASK;
+					int checkZ = nz & CHUNK_UPPER_BITS_MASK;
 
-				neighbor->addNodeToLightQueue(neighborLocalX, neighborLocalY, neighborLocalZ, newLightLevel, i);
+					if (checkX == 0 && checkY == 0 && checkZ == 0)
+					{
+						lightLevels[getIndex(nx, ny, nz)].blockLight = 0;
+						localLightRemovalNodeContainer.emplace(nx, ny, nz, neighborBlockLight);
+
+						std::bitset<7> localLightChanged;
+						localLightChanged.set(0, true);
+						localLightChanged.set(1, x == 0);
+						localLightChanged.set(2, x == (CHUNK_SIZE - 1));
+						localLightChanged.set(3, y == 0);
+						localLightChanged.set(4, y == (CHUNK_SIZE - 1));
+						localLightChanged.set(5, z == 0);
+						localLightChanged.set(6, z == (CHUNK_SIZE - 1));
+						lightChanged |= localLightChanged;
+					}
+					else
+					{
+						Chunk* neighbor = neighbors[i];
+						if (!neighbor)
+						{
+							continue;
+						}
+
+						int neighborNX = nx & CHUNK_LOWER_BITS_MASK;
+						int neighborNY = ny & CHUNK_LOWER_BITS_MASK;
+						int neighborNZ = nz & CHUNK_LOWER_BITS_MASK;
+
+						LightLevel newLightLevel = LightLevel(0, neighborData.second.skyLight);
+						neighbor->setLight_inBoundaries(neighborNX, neighborNY, neighborNZ, newLightLevel);
+						neighbor->addLightRemovalNodeToQueue(neighborNX, neighborNY, neighborNZ, neighborBlockLight);
+					}
+				}
+				else if (neighborBlockLight >= nodeLightLevel)
+				{
+					int checkX = nx & CHUNK_UPPER_BITS_MASK;
+					int checkY = ny & CHUNK_UPPER_BITS_MASK;
+					int checkZ = nz & CHUNK_UPPER_BITS_MASK;
+
+					if (checkX == 0 && checkY == 0 && checkZ == 0)
+					{
+						localLightNodeContainer.emplace(nx, ny, nz);
+					}
+					else
+					{
+						Chunk* neighbor = neighbors[i];
+						if (!neighbor)
+						{
+							continue;
+						}
+
+						int neighborNX = nx & CHUNK_LOWER_BITS_MASK;
+						int neighborNY = ny & CHUNK_LOWER_BITS_MASK;
+						int neighborNZ = nz & CHUNK_LOWER_BITS_MASK;
+
+						neighbor->addLightNodeToQueue(neighborNX, neighborNY, neighborNZ);
+					}
+				}
 			}
 		}
 	}
 
+	{
+		PROFILE_SCOPE("Update chunk light: light propagation", ProfileCategory::ChunkLight);
+
+		// TODO: Consider using vector to speed up. Must remove front element!
+		while (!localLightNodeContainer.empty())
+		{
+			// Get node data
+			const auto& data = localLightNodeContainer.front();
+			int x = data.x;
+			int y = data.y;
+			int z = data.z;
+			size_t index = getIndex(x, y, z);
+			localLightNodeContainer.pop();
+
+			// Get light level
+			LightLevel lightLevel = lightLevels[index];
+			if (lightLevel.blockLight < 2)
+			{
+				continue;
+			}
+
+			// Propagate to neighbors
+			for (int i = 0; i < 6; i++)
+			{
+				int nx = x + dx[i];
+				int ny = y + dy[i];
+				int nz = z + dz[i];
+
+				auto neighborData = getBlockAndLight_checkSideNeighbor(nx, ny, nz, i);
+
+				if (BlockDataBase::getBlockData(neighborData.first)->properties.absorbsLight)
+				{
+					continue;
+				}
+
+				if (neighborData.second.blockLight > lightLevel.blockLight - 2)
+				{
+					continue;
+				}
+
+				int checkX = nx & CHUNK_UPPER_BITS_MASK;
+				int checkY = ny & CHUNK_UPPER_BITS_MASK;
+				int checkZ = nz & CHUNK_UPPER_BITS_MASK;
+
+				if (checkX == 0 && checkY == 0 && checkZ == 0)
+				{
+					lightLevels[getIndex(nx, ny, nz)].blockLight = lightLevel.blockLight - 1;
+					localLightNodeContainer.emplace(nx, ny, nz);
+
+					std::bitset<7> localLightChanged;
+					localLightChanged.set(0, true);
+					localLightChanged.set(1, x == 0);
+					localLightChanged.set(2, x == (CHUNK_SIZE - 1));
+					localLightChanged.set(3, y == 0);
+					localLightChanged.set(4, y == (CHUNK_SIZE - 1));
+					localLightChanged.set(5, z == 0);
+					localLightChanged.set(6, z == (CHUNK_SIZE - 1));
+					lightChanged |= localLightChanged;
+				}
+				else
+				{
+					Chunk* neighbor = neighbors[i];
+					if (!neighbor)
+					{
+						continue;
+					}
+
+					int neighborNX = nx & CHUNK_LOWER_BITS_MASK;
+					int neighborNY = ny & CHUNK_LOWER_BITS_MASK;
+					int neighborNZ = nz & CHUNK_LOWER_BITS_MASK;
+
+					LightLevel newLightLevel = LightLevel(lightLevel.blockLight - 1, neighborData.second.skyLight);
+					neighbor->setLight_inBoundaries(neighborNX, neighborNY, neighborNZ, newLightLevel);
+					neighbor->addLightNodeToQueue(neighborNX, neighborNY, neighborNZ);
+				}
+			}
+		}
+	}
 	return lightChanged;
 }
 
 bool Chunk::hasLightUpdates() const
 {
-	std::lock_guard<std::mutex> lock(lightMutex);
-	return !lightNodeContainer.empty();
+	{
+		std::lock_guard<std::mutex> lock(lightNodeMutex);
+		if (!lightNodeContainer.empty())
+		{
+			return true;
+		}
+	}
+	{
+		std::lock_guard<std::mutex> lock(lightRemovalNodeMutex);
+		if (!lightRemovalNodeContainer.empty())
+		{
+			return true;
+		}
+	}
+	return false;
 }
 
 void Chunk::sortMesh(const glm::ivec3& cameraBlockPos)
@@ -1040,51 +1087,31 @@ void Chunk::setBlock_inBoundaries_updateLight(int x, int y, int z, Block block)
 		return;
 	}
 
-	//const BlockData* previousBlockData = BlockDataBase::getBlockData(previousBlock);
-	const BlockData* blockData = BlockDataBase::getBlockData(block);
-	// TODO: Add darkness propagation
-	uint8_t emission = blockData->properties.lightEmission;
-	if (emission > 0)
+	blocks[index] = block;
+
+	const BlockData* previousBlockData = BlockDataBase::getBlockData(previousBlock);
+	uint8_t previousEmission = previousBlockData->properties.lightEmission;
+
+	const BlockData* newBlockData = BlockDataBase::getBlockData(block);
+	uint8_t newEmission = newBlockData->properties.lightEmission;
+
+	if (previousEmission == newEmission)
 	{
-		if (blockData->properties.areFacesTransparent)
-		{
-			addNodeToLightQueue(x, y, z, LightLevel(emission, 0), -1);
-		}
-
-		const int dx[] = { -1, 1, 0, 0, 0, 0 };
-		const int dy[] = { 0, 0, -1, 1, 0, 0 };
-		const int dz[] = { 0, 0, 0, 0, -1, 1 };
-
-		for (int i = 0; i < 6; i++)
-		{
-			int nx = x + dx[i];
-			int ny = y + dy[i];
-			int nz = z + dz[i];
-
-			if ((nx & CHUNK_UPPER_BITS_MASK) == 0 &&
-				(ny & CHUNK_UPPER_BITS_MASK) == 0 &&
-				(nz & CHUNK_UPPER_BITS_MASK) == 0)
-			{
-				addNodeToLightQueue(nx, ny, nz, LightLevel(emission, 0), -1);
-			}
-			else
-			{
-				Chunk* neighbor = neighbors[i];
-				if (neighbor == nullptr)
-				{
-					continue;
-				}
-
-				int neighborLocalX = nx & CHUNK_LOWER_BITS_MASK;
-				int neighborLocalY = ny & CHUNK_LOWER_BITS_MASK;
-				int neighborLocalZ = nz & CHUNK_LOWER_BITS_MASK;
-
-				neighbor->addNodeToLightQueue(neighborLocalX, neighborLocalY, neighborLocalZ, LightLevel(emission, 0), -1);
-			}
-		}
+		return;
 	}
 
-	blocks[index] = block;
+	lightLevels[index].blockLight = newEmission;
+
+	if (previousEmission > newEmission)
+	{
+		addLightRemovalNodeToQueue(x, y, z, previousEmission);
+		lightLevels[index].blockLight = 0;
+	}
+
+	if (newEmission > 0)
+	{
+		addLightNodeToQueue(x, y, z);
+	}
 }
 
 LightLevel Chunk::getLight_inBoundaries(int x, int y, int z) const
@@ -1248,10 +1275,16 @@ std::pair<Block, LightLevel> Chunk::getBlockAndLight_checkNeighborsTraverse(int 
 	return neighbor->getBlockAndLight_inBoundaries(localX, localY, localZ);
 }
 
-void Chunk::addNodeToLightQueue(int x, int y, int z, LightLevel lightLevel, int8_t propagationSide)
+void Chunk::addLightNodeToQueue(int x, int y, int z)
 {
-	std::lock_guard<std::mutex> lock(lightMutex);
-	lightNodeContainer.emplace_back(x, y, z, lightLevel, propagationSide);
+	std::lock_guard<std::mutex> lock(lightNodeMutex);
+	lightNodeContainer.emplace(x, y, z);
+}
+
+void Chunk::addLightRemovalNodeToQueue(int x, int y, int z, uint8_t lightLevel)
+{
+	std::lock_guard<std::mutex> lock(lightRemovalNodeMutex);
+	lightRemovalNodeContainer.emplace(x, y, z, lightLevel);
 }
 
 void Chunk::calculateVertexAmbientOcclusionAndLight(unsigned int& ao, LightLevel& light, LightLevel centerLight, LightLevel side1Light, LightLevel side2Light, LightLevel cornerLight, bool side1Solid, bool side2Solid, bool cornerSolid) const
@@ -1610,8 +1643,16 @@ LightLevel& LightLevel::operator=(LightLevel&& other) noexcept
 //============================================================================
 //LightNode
 
-LightNode::LightNode(int x, int y, int z, LightLevel lightLevel, int8_t propagationSide) :
-	x(x), y(y), z(z), lightLevel(lightLevel), propagationSide(propagationSide)
+LightNode::LightNode(int x, int y, int z) :
+	x(x), y(y), z(z)
+{
+}
+
+//============================================================================
+//LightNode
+
+LightRemovalNode::LightRemovalNode(int x, int y, int z, uint8_t lightLevel) :
+	x(x), y(y), z(z), lightLevel(lightLevel)
 {
 }
 

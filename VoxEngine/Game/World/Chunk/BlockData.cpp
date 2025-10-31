@@ -12,8 +12,8 @@ inline uint8_t clamp(uint8_t v, uint8_t min, uint8_t max)
 }
 
 
-BlockProperties::BlockProperties(uint8_t lightAbsorption, uint8_t lightEmission, bool hasFaces, bool areFacesTransparent, bool raycastable) :
-	lightAbsorption(clamp(lightAbsorption, 1, 15)),
+BlockProperties::BlockProperties(bool absorbsLight, uint8_t lightEmission, bool hasFaces, bool areFacesTransparent, bool raycastable) :
+	absorbsLight(absorbsLight),
 	lightEmission(clamp(lightEmission, 0, 15)),
 	hasFaces(hasFaces),
 	areFacesTransparent(areFacesTransparent || !hasFaces),
@@ -59,49 +59,49 @@ void BlockDataBase::registerBlock(Block block, const BlockProperties& properties
 void BlockDataBase::loadBlockDataBase()
 {
 	registerBlock(Block::Air,
-		{ 1,  0,  false, true, false },
+		{ false,  0,  false, true, false },
 		{ "", "", "",
 		  "", "", "",
 		  TextureTransformation::None, TextureTransformation::None, TextureTransformation::None,
 		  TextureTransformation::None, TextureTransformation::None, TextureTransformation::None });
 
 	registerBlock(Block::GrassBlock,
-		{ 15, 0,  true,  false, true },
+		{ true, 0,  true,  false, true },
 		{ "grass_block_side", "grass_block_side", "dirt",
 		  "grass_block_top", "grass_block_side", "grass_block_side",
 		  TextureTransformation::None, TextureTransformation::None, TextureTransformation::RotateAndFlip,
 		  TextureTransformation::RotateAndFlip, TextureTransformation::None, TextureTransformation::None });
 
 	registerBlock(Block::Dirt,
-		{ 15, 0,  true,  false, true },
+		{ true, 0,  true,  false, true },
 		{ "dirt", "dirt", "dirt",
 		  "dirt", "dirt", "dirt",
 		  TextureTransformation::RotateAndFlip, TextureTransformation::RotateAndFlip, TextureTransformation::RotateAndFlip,
 		  TextureTransformation::RotateAndFlip, TextureTransformation::RotateAndFlip, TextureTransformation::RotateAndFlip });
 
 	registerBlock(Block::Stone,
-		{ 15, 0,  true,  false, true },
+		{ true, 0,  true,  false, true },
 		{ "stone", "stone", "stone",
 		  "stone", "stone", "stone",
 		  TextureTransformation::Flip, TextureTransformation::Flip, TextureTransformation::Flip,
 		  TextureTransformation::Flip, TextureTransformation::Flip, TextureTransformation::Flip });
 
-	registerBlock(Block::GlowStone,
-		{ 15, 15, true,  false, true },
+	/*registerBlock(Block::GlowStone,
+		{ true, 15, true,  false, true },
 		{ "glowstone", "glowstone", "glowstone",
 		  "glowstone", "glowstone", "glowstone",
 		  TextureTransformation::RotateAndFlip, TextureTransformation::RotateAndFlip, TextureTransformation::RotateAndFlip,
-		  TextureTransformation::RotateAndFlip, TextureTransformation::RotateAndFlip, TextureTransformation::RotateAndFlip });
+		  TextureTransformation::RotateAndFlip, TextureTransformation::RotateAndFlip, TextureTransformation::RotateAndFlip });*/
 
 	registerBlock(Block::Glass,
-		{ 1, 0, true,  true, true },
+		{ false, 0, true,  true, true },
 		{ "glass", "glass", "glass",
 		  "glass", "glass", "glass",
 		  TextureTransformation::None, TextureTransformation::None, TextureTransformation::None,
 		  TextureTransformation::None, TextureTransformation::None, TextureTransformation::None });
 
 	registerBlock(Block::ColoredGlass,
-		{ 1, 0, true,  true, true },
+		{ false, 15, true,  true, true },
 		{ "glass_red", "glass_green", "glass_blue",
 		  "glass_cyan", "glass_pink", "glass_yellow",
 		  TextureTransformation::None, TextureTransformation::None, TextureTransformation::None,
