@@ -17,7 +17,7 @@ out vec2 texCoords;
 flat out float ao[4];
 flat out float light[4];
 flat out uint textureID;
-flat out float depth;
+out vec3 viewVertexPosition;
 
 const mat3 vertexRotations[6] = mat3[6](
     mat3(0, 1, 0,
@@ -178,7 +178,7 @@ void main()
     vec3 worldPos = chunkPosition + vertexPos + vec3(x, y, z);
     vec4 viewPos = view * vec4(worldPos, 1.0);
 
-    depth = length(viewPos);
+    viewVertexPosition = viewPos.xyz;
     
     gl_Position = projection * viewPos;
 }

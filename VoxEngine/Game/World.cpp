@@ -245,7 +245,7 @@ void World::renderChunks(const Camera& camera) const
 		// Matrices
 		faceShader->setMat4("view", camera.getViewMatrix());
 		faceShader->setMat4("projection", camera.getProjectionMatrix());
-
+	
 		const auto& fogColor = visualSettings.backgroundColor;
 		faceShader->setVec3("fogColor", fogColor.r, fogColor.g, fogColor.b);
 		faceShader->setFloat("fogDensity", visualSettings.fogDensity);
@@ -1038,6 +1038,11 @@ void World::updateBlockAt(const glm::ivec3& worldPos, Block block)
 	{
 		buildMeshContainer.insert(chunk);
 	}
+}
+
+const WorldVisualSettings& World::getWorldVisualSettings() const
+{
+	return visualSettings;
 }
 
 void World::setChunkLoadingDistance(int renderDistance)

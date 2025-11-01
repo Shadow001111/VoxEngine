@@ -682,13 +682,6 @@ std::bitset<7> Chunk::updateLight()
 			size_t index = getIndex(x, y, z);
 			localLightRemovalNodeContainer.pop();
 
-			// Get light level
-			/*LightLevel lightLevel = lightLevels[index];
-			if (lightLevel.blockLight < 2)
-			{
-				continue;
-			}*/
-
 			// Propagate to neighbors
 			for (int i = 0; i < 6; i++)
 			{
@@ -1112,6 +1105,8 @@ void Chunk::setBlock_inBoundaries_updateLight(int x, int y, int z, Block block)
 	{
 		addLightNodeToQueue(x, y, z);
 	}
+
+	// TODO: Implement proper light propagation when blocking block is removing
 }
 
 LightLevel Chunk::getLight_inBoundaries(int x, int y, int z) const

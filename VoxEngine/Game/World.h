@@ -138,6 +138,7 @@ public:
 	bool breakBlock(const RaycastResult& raycast);
 	void updateBlockAt(const glm::ivec3& worldPos, Block block);
 public:
+	const WorldVisualSettings& getWorldVisualSettings() const;
 	void setChunkLoadingDistance(int renderDistance);
 public:
 	std::optional<Block> getBlockAt(const glm::ivec3& globalPosition) const;

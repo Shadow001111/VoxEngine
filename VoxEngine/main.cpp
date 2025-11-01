@@ -12,7 +12,6 @@
 #include <sstream>
 #include <iomanip>
 
-constexpr bool USE_FBO = false;
 constexpr int CHUNK_LOAD_DISTANCE = 5;
 
 
@@ -199,10 +198,7 @@ int main()
         auto* FBO = wnd.getFBO();
         GLuint rectVAO;
         std::unique_ptr<Shader> fboShader;
-        if (USE_FBO)
-        {
-            setupFramebuffer(rectVAO, fboShader);
-        }
+        setupFramebuffer(rectVAO, fboShader);
 
         // OpenGL states
         setupOpenGLStates();
@@ -288,34 +284,23 @@ int main()
             world.sendChunkMeshesToGPU();
 
             // Rendering to FBO
-            if (USE_FBO)
-            {
-                FBO->bind();
-            }
+            FBO->bind();
 
             world.clearFrambuffer();
             world.renderChunks(player->getCamera());
             world.renderVoxelMarker(player->getCamera(), player->raycastResult);
 
             // Rendering to screen
-            if (USE_FBO)
-            {
-                FBO->unbind();
-                glBindVertexArray(rectVAO);
-                glDisable(GL_DEPTH_TEST);
-                glDisable(GL_BLEND);
+            FBO->unbind();
+            glBindVertexArray(rectVAO);
+            glDisable(GL_DEPTH_TEST);
+            glDisable(GL_BLEND);
 
-                FBO->bindTextures();
+            FBO->bindTextures();
 
-                const Camera& camera = player->getCamera();
-                float near = camera.getNear();
-                float far = camera.getFar();
+            fboShader->use();
 
-                fboShader->use();
-                fboShader->setVec2("nearFarPlanes", near, far);
-
-                glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-            }
+            glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
 
             // Text rendering
             TextRenderer::updateProjectionMatrix(wnd.getWidth(), wnd.getHeight());
