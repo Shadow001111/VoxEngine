@@ -132,7 +132,7 @@ void main()
     int skyLight3   = (instanceData.y >> 28) & 15;
     
     // AO
-    const float inv3 = 1.0 / 3.9;
+    const float inv3 = 1.0 / 3.0;
     ao[0] = float(ao0) * inv3;
     ao[1] = float(ao1) * inv3;
     ao[2] = float(ao2) * inv3;

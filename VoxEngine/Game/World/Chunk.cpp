@@ -379,7 +379,128 @@ void Chunk::buildLight()
 		}
 	}
 
-	// Step 2: Propagate light using flood-fill
+	// Step 2: Collect light from neighbors
+	{
+		PROFILE_SCOPE("Build chunk light: collect neighbor light", ProfileCategory::ChunkLight);
+		
+		const Chunk* neighbor = nullptr;
+
+		// -X
+		neighbor = neighbors[0];
+		if (neighbor)
+		{
+			for (int y = 0; y < CHUNK_SIZE; y++)
+			{
+				for (int z = 0; z < CHUNK_SIZE; z++)
+				{
+					LightLevel neighborLight = neighbor->getLight_inBoundaries(CHUNK_SIZE - 1, y, z);
+					size_t index = getIndex(0, y, z);
+					if (lightLevels[index].blockLight + 2 <= neighborLight.blockLight)
+					{
+						lightLevels[index].blockLight = neighborLight.blockLight - 1;
+						localLightNodeContainer.emplace(0, y, z);
+					}
+				}
+			}
+		}
+
+		// +X
+		neighbor = neighbors[1];
+		if (neighbor)
+		{
+			for (int y = 0; y < CHUNK_SIZE; y++)
+			{
+				for (int z = 0; z < CHUNK_SIZE; z++)
+				{
+					LightLevel neighborLight = neighbor->getLight_inBoundaries(0, y, z);
+					size_t index = getIndex(CHUNK_SIZE - 1, y, z);
+					if (lightLevels[index].blockLight + 2 <= neighborLight.blockLight)
+					{
+						lightLevels[index].blockLight = neighborLight.blockLight - 1;
+						localLightNodeContainer.emplace(CHUNK_SIZE - 1, y, z);
+					}
+				}
+			}
+		}
+
+		// -Y
+		neighbor = neighbors[2];
+		if (neighbor)
+		{
+			for (int x = 0; x < CHUNK_SIZE; x++)
+			{
+				for (int z = 0; z < CHUNK_SIZE; z++)
+				{
+					LightLevel neighborLight = neighbor->getLight_inBoundaries(x, CHUNK_SIZE - 1, z);
+					size_t index = getIndex(x, 0, z);
+					if (lightLevels[index].blockLight + 2 <= neighborLight.blockLight)
+					{
+						lightLevels[index].blockLight = neighborLight.blockLight - 1;
+						localLightNodeContainer.emplace(x, 0, z);
+					}
+				}
+			}
+		}
+
+		// +Y
+		neighbor = neighbors[3];
+		if (neighbor)
+		{
+			for (int x = 0; x < CHUNK_SIZE; x++)
+			{
+				for (int z = 0; z < CHUNK_SIZE; z++)
+				{
+					LightLevel neighborLight = neighbor->getLight_inBoundaries(x, 0, z);
+					size_t index = getIndex(x, CHUNK_SIZE - 1, z);
+					if (lightLevels[index].blockLight + 2 <= neighborLight.blockLight)
+					{
+						lightLevels[index].blockLight = neighborLight.blockLight - 1;
+						localLightNodeContainer.emplace(x, CHUNK_SIZE - 1, z);
+					}
+				}
+			}
+		}
+
+		// -Z
+		neighbor = neighbors[4];
+		if (neighbor)
+		{
+			for (int x = 0; x < CHUNK_SIZE; x++)
+			{
+				for (int y = 0; y < CHUNK_SIZE; y++)
+				{
+					LightLevel neighborLight = neighbor->getLight_inBoundaries(x, y, CHUNK_SIZE - 1);
+					size_t index = getIndex(x, y, 0);
+					if (lightLevels[index].blockLight + 2 <= neighborLight.blockLight)
+					{
+						lightLevels[index].blockLight = neighborLight.blockLight - 1;
+						localLightNodeContainer.emplace(x, y, 0);
+					}
+				}
+			}
+		}
+
+		// +Z
+		neighbor = neighbors[5];
+		if (neighbor)
+		{
+			for (int x = 0; x < CHUNK_SIZE; x++)
+			{
+				for (int y = 0; y < CHUNK_SIZE; y++)
+				{
+					LightLevel neighborLight = neighbor->getLight_inBoundaries(x, y, 0);
+					size_t index = getIndex(x, y, CHUNK_SIZE - 1);
+					if (lightLevels[index].blockLight + 2 <= neighborLight.blockLight)
+					{
+						lightLevels[index].blockLight = neighborLight.blockLight - 1;
+						localLightNodeContainer.emplace(x, y, CHUNK_SIZE - 1);
+					}
+				}
+			}
+		}
+	}
+
+	// Step 3: Propagate light using flood-fill
 	{
 		PROFILE_SCOPE("Build chunk light: light propagation", ProfileCategory::ChunkLight);
 
@@ -799,7 +920,7 @@ std::bitset<7> Chunk::updateLight()
 					continue;
 				}
 
-				if (neighborData.second.blockLight > lightLevel.blockLight - 2)
+				if (neighborData.second.blockLight + 2 > lightLevel.blockLight)
 				{
 					continue;
 				}
@@ -1296,6 +1417,8 @@ void Chunk::calculateVertexAmbientOcclusionAndLight(unsigned int& ao, LightLevel
 		return;
 	}
 
+#define CHUNK_SMOOTH_LIGHTING 1
+#if CHUNK_SMOOTH_LIGHTING
 	if (!side1Solid)
 	{
 		blockLightSum += side1Light.blockLight;
@@ -1316,6 +1439,7 @@ void Chunk::calculateVertexAmbientOcclusionAndLight(unsigned int& ao, LightLevel
 		skyLightSum += cornerLight.skyLight;
 		count++;
 	}
+#endif
 
 	unsigned int avgBlockLight = blockLightSum / count;
 	unsigned int avgSkyLight = skyLightSum / count;

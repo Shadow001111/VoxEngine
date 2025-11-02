@@ -878,6 +878,8 @@ void World::updateChunkLights()
 
 	// Process light updates (on main thread for now, could be threaded later) (if using multithreading, them update chunks in checkboard pattern to avoid race conditions)
 	// TODO: Diagonal neighbor meshes should be updated too.
+	// Since smooth lighting is enabled, we should update all 26 neighbor chunks.
+	size_t updatedChunkCount = 0;
 	for (Chunk* chunk : chunksToUpdate)
 	{
 		if (!chunk->getIsLoadedInWorld())
@@ -895,10 +897,16 @@ void World::updateChunkLights()
 				if (lightChanged.test(i + 1) && chunk->neighbors[i])
 				{
 					buildMeshContainer.insert(chunk->neighbors[i]);
+					updatedChunkCount++;
 				}
 			}
 		}
 	}
+
+	/*if (updatedChunkCount > 0)
+	{
+		std::cout << updatedChunkCount << std::endl;
+	}*/
 }
 
 void World::collectChunksNeedingLightUpdate()
