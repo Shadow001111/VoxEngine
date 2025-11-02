@@ -885,7 +885,8 @@ std::bitset<27> Chunk::updateLight()
 						};
 
 						std::bitset<27> localLightChanged;
-						localLightChanged.set(index3x3x3(0, 0, 0), true);
+						constexpr size_t centerIndex = index3x3x3(0, 0, 0);
+						localLightChanged.set(centerIndex, true);
 						size_t bitIndex = 0;
 						for (int dx = -1; dx <= 1; dx++)
 						{
@@ -893,7 +894,7 @@ std::bitset<27> Chunk::updateLight()
 							{
 								for (int dz = -1; dz <= 1; dz++)
 								{
-									if (dx == 0 && dy == 0 && dz == 0)
+									if (bitIndex == centerIndex)
 									{
 										bitIndex++;
 										continue;
@@ -1020,7 +1021,8 @@ std::bitset<27> Chunk::updateLight()
 					};
 
 					std::bitset<27> localLightChanged;
-					localLightChanged.set(index3x3x3(0, 0, 0), true);
+					constexpr size_t centerIndex = index3x3x3(0, 0, 0);
+					localLightChanged.set(centerIndex, true);
 					size_t bitIndex = 0;
 					for (int dx = -1; dx <= 1; dx++)
 					{
@@ -1028,7 +1030,7 @@ std::bitset<27> Chunk::updateLight()
 						{
 							for (int dz = -1; dz <= 1; dz++)
 							{
-								if (dx == 0 && dy == 0 && dz == 0)
+								if (bitIndex == centerIndex)
 								{
 									bitIndex++;
 									continue;

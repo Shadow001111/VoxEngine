@@ -877,8 +877,12 @@ void World::updateChunkLights()
 	chunksToUpdate.swap(lightUpdateContainer);
 
 	// Process light updates (on main thread for now, could be threaded later) (if using multithreading, them update chunks in checkboard pattern to avoid race conditions)
-	// TODO: Diagonal neighbor meshes should be updated too.
-	// Since smooth lighting is enabled, we should update all 26 neighbor chunks.
+	
+	constexpr auto index3x3x3 = [](int dx, int dy, int dz) noexcept
+		{
+		return (dx + 1) * 9 + (dy + 1) * 3 + (dz + 1);
+		};
+	
 	size_t updatedChunkCount = 0;
 	for (Chunk* chunk : chunksToUpdate)
 	{
@@ -890,22 +894,41 @@ void World::updateChunkLights()
 		std::bitset<27> lightChanged = chunk->updateLight();
 		if (lightChanged.any())
 		{
-			std::lock_guard<std::mutex> lock(buildMeshMutex);
-			buildMeshContainer.insert(chunk);
-			for (int i = 0; i < 6; i++)
 			{
-				if (lightChanged.test(i + 1) && chunk->neighbors[i])
+				std::lock_guard<std::mutex> lock(buildMeshMutex);
+				buildMeshContainer.insert(chunk);
+			}
+
+			size_t bitIndex = 0;
+			const size_t centerIndex = index3x3x3(0, 0, 0);
+			for (int dx = -1; dx <= 1; dx++)
+			{
+				for (int dy = -1; dy <= 1; dy++)
 				{
-					buildMeshContainer.insert(chunk->neighbors[i]);
-					updatedChunkCount++;
+					for (int dz = -1; dz <= 1; dz++)
+					{
+						if (bitIndex == centerIndex)
+						{
+							bitIndex++;
+							continue;
+						}
+
+						if (lightChanged.test(bitIndex))
+						{
+							glm::ivec3 neighborPos = chunk->getPosition() + glm::ivec3(dx, dy, dz);
+							Chunk* neighborChunk = getChunkAt(neighborPos);
+							if (neighborChunk)
+							{
+								std::lock_guard<std::mutex> lock(buildMeshMutex);
+								buildMeshContainer.insert(neighborChunk);
+							}
+						}
+
+						bitIndex++;
+					}
 				}
 			}
 		}
-	}
-
-	if (updatedChunkCount > 0)
-	{
-		std::cout << updatedChunkCount << std::endl;
 	}
 }
 
