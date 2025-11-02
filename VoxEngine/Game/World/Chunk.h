@@ -135,22 +135,31 @@ public:
 	void collectTransparentRenderData(std::vector<DrawArraysIndirectCommand>& drawCommands, std::vector<glm::ivec3>& positions) const;
 	bool canBeRendered() const;
 
-	Block getBlock_inBoundaries(int x, int y, int z) const;
-	Block getBlock_checkSideNeighbor(int x, int y, int z, int side) const;
-	Block getBlock_checkNeighborsTraverse(int x, int y, int z) const;
+	const Chunk* getChunkAndIndex_checkSideNeighbor(int x, int y, int z, int side, size_t& outIndex) const;
+	Chunk* getChunkAndIndex_checkSideNeighbor(int x, int y, int z, int side, size_t& outIndex);
 
-	void setBlock_inBoundaries(int x, int y, int z, Block block);
-	void setBlock_inBoundaries_updateLight(int x, int y, int z, Block block);
+	const Chunk* getChunkAndIndex_checkNeighborsTraverse(int x, int y, int z, size_t& outIndex) const;
+	Chunk* getChunkAndIndex_checkNeighborsTraverse(int x, int y, int z, size_t& outIndex);
 
-	LightLevel getLight_inBoundaries(int x, int y, int z) const;
-	LightLevel getLight_checkSideNeighbor(int x, int y, int z, int side) const;
-	LightLevel getLight_checkNeighborsTraverse(int x, int y, int z) const;
+	Block getBlockAt(int x, int y, int z) const;
+	LightLevel getLightAt(int x, int y, int z) const;
+	std::pair<Block, LightLevel> getBlockAndLightAt(int x, int y, int z) const;
 
-	void setLight_inBoundaries(int x, int y, int z, LightLevel lightValue);
+	Block getBlockAt(size_t index) const;
+	LightLevel getLightAt(size_t index) const;
+	std::pair<Block, LightLevel> getBlockAndLightAt(size_t index) const;
 
-	std::pair<Block, LightLevel> getBlockAndLight_inBoundaries(int x, int y, int z) const;
-	std::pair<Block, LightLevel> getBlockAndLight_checkSideNeighbor(int x, int y, int z, int side) const;
-	std::pair<Block, LightLevel> getBlockAndLight_checkNeighborsTraverse(int x, int y, int z) const;
+	void setBlockAt(int x, int y, int z, Block block);
+	void setBlockAt_updateLight(int x, int y, int z, Block block);
+	void setLightAt(int x, int y, int z, LightLevel lightLevel);
+	void setBlockLightAt(int x, int y, int z, uint8_t lightLevel);
+	void setSkyLightAt(int x, int y, int z, uint8_t lightLevel);
+
+	void setBlockAt(size_t index, Block block);
+	//void setBlockAt_updateLight(size_t index, Block block);
+	void setLightAt(size_t index, LightLevel lightValue);
+	void setBlockLightAt(size_t index, uint8_t lightLevel);
+	void setSkyLightAt(size_t index, uint8_t lightLevel);
 
 	void addLightNodeToQueue(int x, int y, int z);
 	void addLightRemovalNodeToQueue(int x, int y, int z, uint8_t lightLevel);

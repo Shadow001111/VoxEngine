@@ -404,7 +404,7 @@ void Chunk::buildLight()
 					{
 						continue;
 					}
-					LightLevel neighborLight = neighbor->getLight_inBoundaries(neighborX, y, z);
+					LightLevel neighborLight = neighbor->getLightAt(neighborX, y, z);
 					if (lightLevels[index].blockLight + 2 > neighborLight.blockLight)
 					{
 						continue;
@@ -430,7 +430,7 @@ void Chunk::buildLight()
 					{
 						continue;
 					}
-					LightLevel neighborLight = neighbor->getLight_inBoundaries(neighborX, y, z);
+					LightLevel neighborLight = neighbor->getLightAt(neighborX, y, z);
 					if (lightLevels[index].blockLight + 2 > neighborLight.blockLight)
 					{
 						continue;
@@ -456,7 +456,7 @@ void Chunk::buildLight()
 					{
 						continue;
 					}
-					LightLevel neighborLight = neighbor->getLight_inBoundaries(x, neighborY, z);
+					LightLevel neighborLight = neighbor->getLightAt(x, neighborY, z);
 					if (lightLevels[index].blockLight + 2 > neighborLight.blockLight)
 					{
 						continue;
@@ -482,7 +482,7 @@ void Chunk::buildLight()
 					{
 						continue;
 					}
-					LightLevel neighborLight = neighbor->getLight_inBoundaries(x, neighborY, z);
+					LightLevel neighborLight = neighbor->getLightAt(x, neighborY, z);
 					if (lightLevels[index].blockLight + 2 > neighborLight.blockLight)
 					{
 						continue;
@@ -508,7 +508,7 @@ void Chunk::buildLight()
 					{
 						continue;
 					}
-					LightLevel neighborLight = neighbor->getLight_inBoundaries(x, y, neighborZ);
+					LightLevel neighborLight = neighbor->getLightAt(x, y, neighborZ);
 					if (lightLevels[index].blockLight + 2 > neighborLight.blockLight)
 					{
 						continue;
@@ -534,7 +534,7 @@ void Chunk::buildLight()
 					{
 						continue;
 					}
-					LightLevel neighborLight = neighbor->getLight_inBoundaries(x, y, neighborZ);
+					LightLevel neighborLight = neighbor->getLightAt(x, y, neighborZ);
 					if (lightLevels[index].blockLight + 2 > neighborLight.blockLight)
 					{
 						continue;
@@ -575,42 +575,40 @@ void Chunk::buildLight()
 				int ny = y + dy[i];
 				int nz = z + dz[i];
 
-				auto neighborData = getBlockAndLight_checkSideNeighbor(nx, ny, nz, i);
-
-				if (GET_BLOCK_PROPERTIES(neighborData.first).absorbsLight)
+				size_t neighborIndex;
+				Chunk* neighborChunk = getChunkAndIndex_checkSideNeighbor(nx, ny, nz, i, neighborIndex);
+				if (!neighborChunk)
 				{
 					continue;
 				}
 
-				if (neighborData.second.blockLight > lightLevel.blockLight - 2)
+				const Block neighborBlock = neighborChunk->getBlockAt(neighborIndex);
+				const LightLevel neighborLight = neighborChunk->getLightAt(neighborIndex);
+
+				if (GET_BLOCK_PROPERTIES(neighborBlock).absorbsLight)
 				{
 					continue;
 				}
 
-				int checkX = nx & CHUNK_UPPER_BITS_MASK;
-				int checkY = ny & CHUNK_UPPER_BITS_MASK;
-				int checkZ = nz & CHUNK_UPPER_BITS_MASK;
-				
-				if (checkX == 0 && checkY == 0 && checkZ == 0)
+				if (neighborLight.blockLight > lightLevel.blockLight - 2)
+				{
+					continue;
+				}
+
+				if (neighborChunk == this)
 				{
 					lightLevels[getIndex(nx, ny, nz)].blockLight = lightLevel.blockLight - 1;
 					localLightNodeContainer.emplace(nx, ny, nz);
 				}
 				else
 				{
-					Chunk* neighbor = neighbors[i];
-					if (!neighbor)
-					{
-						continue;
-					}
-
 					int neighborNX = nx & CHUNK_LOWER_BITS_MASK;
 					int neighborNY = ny & CHUNK_LOWER_BITS_MASK;
 					int neighborNZ = nz & CHUNK_LOWER_BITS_MASK;
 
-					LightLevel newLightLevel = LightLevel(lightLevel.blockLight - 1, neighborData.second.skyLight);
-					neighbor->setLight_inBoundaries(neighborNX, neighborNY, neighborNZ, newLightLevel);
-					neighbor->addLightNodeToQueue(neighborNX, neighborNY, neighborNZ);
+					// TODO: This and the same line in UpdateLight should cause chunk to update its mesh
+					neighborChunk->setBlockLightAt(neighborIndex, lightLevel.blockLight - 1);
+					neighborChunk->addLightNodeToQueue(neighborNX, neighborNY, neighborNZ);
 				}
 			}
 		}
@@ -646,7 +644,7 @@ void Chunk::buildMesh()
 			{
 				for (int z = 0; z < CHUNK_SIZE; z++)
 				{
-					Block block = getBlock_inBoundaries(x, y, z);
+					Block block = getBlockAt(x, y, z);
 					const BlockData* blockData = GET_BLOCK_DATA(block);
 					if (!blockData->properties.hasFaces)
 					{
@@ -657,12 +655,21 @@ void Chunk::buildMesh()
 					auto& instances = blockData->properties.areFacesTransparent ? transparentInstances : opaqueInstances;
 					const BlockData* neighborBlockData;
 
+					size_t neighborIndex;
+					const Chunk* neighborChunk;
+					Block neighborBlock;
+					LightLevel neighborLight;
+
 					// -X
-					auto blockAndLight = getBlockAndLight_checkSideNeighbor(x - 1, y, z, 0);
-					if (block != blockAndLight.first && (neighborBlockData = GET_BLOCK_DATA(blockAndLight.first))->properties.areFacesTransparent)
+					// TODO: If neighbor is missing, don't generate faces
+					neighborChunk = getChunkAndIndex_checkSideNeighbor(x - 1, y, z, 0, neighborIndex);
+					neighborBlock = neighborChunk ? neighborChunk->getBlockAt(neighborIndex) : Block::Air;
+					neighborLight = neighborChunk ? neighborChunk->getLightAt(neighborIndex) : LightLevel(0, 15);
+
+					if (block != neighborBlock && (neighborBlockData = GET_BLOCK_DATA(neighborBlock))->properties.areFacesTransparent)
 					{
 						unsigned int ao, light;
-						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 0, blockAndLight.second);
+						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 0, neighborLight);
 						instances.emplace_back(
 							x, y, z,
 							0,
@@ -674,11 +681,14 @@ void Chunk::buildMesh()
 					}
 
 					// +X
-					blockAndLight = getBlockAndLight_checkSideNeighbor(x + 1, y, z, 1);
-					if (block != blockAndLight.first && (neighborBlockData = GET_BLOCK_DATA(blockAndLight.first))->properties.areFacesTransparent)
+					neighborChunk = getChunkAndIndex_checkSideNeighbor(x + 1, y, z, 1, neighborIndex);
+					neighborBlock = neighborChunk ? neighborChunk->getBlockAt(neighborIndex) : Block::Air;
+					neighborLight = neighborChunk ? neighborChunk->getLightAt(neighborIndex) : LightLevel(0, 15);
+
+					if (block != neighborBlock && (neighborBlockData = GET_BLOCK_DATA(neighborBlock))->properties.areFacesTransparent)
 					{
 						unsigned int ao, light;
-						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 1, blockAndLight.second);
+						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 1, neighborLight);
 						instances.emplace_back(
 							x, y, z,
 							1,
@@ -689,11 +699,14 @@ void Chunk::buildMesh()
 					}
 
 					// -Y
-					blockAndLight = getBlockAndLight_checkSideNeighbor(x, y - 1, z, 2);
-					if (block != blockAndLight.first && (neighborBlockData = GET_BLOCK_DATA(blockAndLight.first))->properties.areFacesTransparent)
+					neighborChunk = getChunkAndIndex_checkSideNeighbor(x, y - 1, z, 2, neighborIndex);
+					neighborBlock = neighborChunk ? neighborChunk->getBlockAt(neighborIndex) : Block::Air;
+					neighborLight = neighborChunk ? neighborChunk->getLightAt(neighborIndex) : LightLevel(0, 15);
+
+					if (block != neighborBlock && (neighborBlockData = GET_BLOCK_DATA(neighborBlock))->properties.areFacesTransparent)
 					{
 						unsigned int ao, light;
-						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 2, blockAndLight.second);
+						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 2, neighborLight);
 						instances.emplace_back(
 							x, y, z,
 							2,
@@ -705,11 +718,14 @@ void Chunk::buildMesh()
 					}
 
 					// +Y
-					blockAndLight = getBlockAndLight_checkSideNeighbor(x, y + 1, z, 3);
-					if (block != blockAndLight.first && (neighborBlockData = GET_BLOCK_DATA(blockAndLight.first))->properties.areFacesTransparent)
+					neighborChunk = getChunkAndIndex_checkSideNeighbor(x, y + 1, z, 3, neighborIndex);
+					neighborBlock = neighborChunk ? neighborChunk->getBlockAt(neighborIndex) : Block::Air;
+					neighborLight = neighborChunk ? neighborChunk->getLightAt(neighborIndex) : LightLevel(0, 15);
+
+					if (block != neighborBlock && (neighborBlockData = GET_BLOCK_DATA(neighborBlock))->properties.areFacesTransparent)
 					{
 						unsigned int ao, light;
-						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 3, blockAndLight.second);
+						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 3, neighborLight);
 						instances.emplace_back(
 							x, y, z,
 							3,
@@ -721,11 +737,14 @@ void Chunk::buildMesh()
 					}
 
 					// -Z
-					blockAndLight = getBlockAndLight_checkSideNeighbor(x, y, z - 1, 4);
-					if (block != blockAndLight.first && (neighborBlockData = GET_BLOCK_DATA(blockAndLight.first))->properties.areFacesTransparent)
+					neighborChunk = getChunkAndIndex_checkSideNeighbor(x, y, z - 1, 4, neighborIndex);
+					neighborBlock = neighborChunk ? neighborChunk->getBlockAt(neighborIndex) : Block::Air;
+					neighborLight = neighborChunk ? neighborChunk->getLightAt(neighborIndex) : LightLevel(0, 15);
+
+					if (block != neighborBlock && (neighborBlockData = GET_BLOCK_DATA(neighborBlock))->properties.areFacesTransparent)
 					{
 						unsigned int ao, light;
-						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 4, blockAndLight.second);
+						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 4, neighborLight);
 						instances.emplace_back(
 							x, y, z,
 							4,
@@ -737,11 +756,14 @@ void Chunk::buildMesh()
 					}
 
 					// +Z
-					blockAndLight = getBlockAndLight_checkSideNeighbor(x, y, z + 1, 5);
-					if (block != blockAndLight.first && (neighborBlockData = GET_BLOCK_DATA(blockAndLight.first))->properties.areFacesTransparent)
+					neighborChunk = getChunkAndIndex_checkSideNeighbor(x, y, z + 1, 5, neighborIndex);
+					neighborBlock = neighborChunk ? neighborChunk->getBlockAt(neighborIndex) : Block::Air;
+					neighborLight = neighborChunk ? neighborChunk->getLightAt(neighborIndex) : LightLevel(0, 15);
+
+					if (block != neighborBlock && (neighborBlockData = GET_BLOCK_DATA(neighborBlock))->properties.areFacesTransparent)
 					{
 						unsigned int ao, light;
-						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 5, blockAndLight.second);
+						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 5, neighborLight);
 						instances.emplace_back(
 							x, y, z,
 							5,
@@ -855,24 +877,27 @@ std::bitset<27> Chunk::updateLight()
 				int ny = y + dy[i];
 				int nz = z + dz[i];
 
-				auto neighborData = getBlockAndLight_checkSideNeighbor(nx, ny, nz, i);
-
-				if (GET_BLOCK_PROPERTIES(neighborData.first).absorbsLight)
+				size_t neighborIndex;
+				Chunk* neighborChunk = getChunkAndIndex_checkSideNeighbor(nx, ny, nz, i, neighborIndex);
+				if (!neighborChunk)
 				{
 					continue;
 				}
 
-				auto neighborBlockLight = neighborData.second.blockLight;
-				if (neighborBlockLight > 0 && neighborBlockLight < nodeLightLevel)
-				{
-					int checkX = nx & CHUNK_UPPER_BITS_MASK;
-					int checkY = ny & CHUNK_UPPER_BITS_MASK;
-					int checkZ = nz & CHUNK_UPPER_BITS_MASK;
+				const Block neighborBlock = neighborChunk->getBlockAt(neighborIndex);
+				const LightLevel neighborLight = neighborChunk->getLightAt(neighborIndex);
 
-					if (checkX == 0 && checkY == 0 && checkZ == 0)
+				if (GET_BLOCK_PROPERTIES(neighborBlock).absorbsLight)
+				{
+					continue;
+				}
+
+				if (neighborLight.blockLight > 0 && neighborLight.blockLight < nodeLightLevel)
+				{
+					if (neighborChunk == this)
 					{
 						lightLevels[getIndex(nx, ny, nz)].blockLight = 0;
-						localLightRemovalNodeContainer.emplace(nx, ny, nz, neighborBlockLight);
+						localLightRemovalNodeContainer.emplace(nx, ny, nz, neighborLight.blockLight);
 
 						const bool onBorder[6] = {
 							nx == 0,
@@ -917,44 +942,27 @@ std::bitset<27> Chunk::updateLight()
 					}
 					else
 					{
-						Chunk* neighbor = neighbors[i];
-						if (!neighbor)
-						{
-							continue;
-						}
-
 						int neighborNX = nx & CHUNK_LOWER_BITS_MASK;
 						int neighborNY = ny & CHUNK_LOWER_BITS_MASK;
 						int neighborNZ = nz & CHUNK_LOWER_BITS_MASK;
 
-						LightLevel newLightLevel = LightLevel(0, neighborData.second.skyLight);
-						neighbor->setLight_inBoundaries(neighborNX, neighborNY, neighborNZ, newLightLevel);
-						neighbor->addLightRemovalNodeToQueue(neighborNX, neighborNY, neighborNZ, neighborBlockLight);
+						neighborChunk->setBlockLightAt(neighborNX, neighborNY, neighborNZ, 0);
+						neighborChunk->addLightRemovalNodeToQueue(neighborNX, neighborNY, neighborNZ, neighborLight.blockLight);
 					}
 				}
-				else if (neighborBlockLight >= nodeLightLevel)
+				else if (neighborLight.blockLight >= nodeLightLevel)
 				{
-					int checkX = nx & CHUNK_UPPER_BITS_MASK;
-					int checkY = ny & CHUNK_UPPER_BITS_MASK;
-					int checkZ = nz & CHUNK_UPPER_BITS_MASK;
-
-					if (checkX == 0 && checkY == 0 && checkZ == 0)
+					if (neighborChunk == this)
 					{
 						localLightNodeContainer.emplace(nx, ny, nz);
 					}
 					else
 					{
-						Chunk* neighbor = neighbors[i];
-						if (!neighbor)
-						{
-							continue;
-						}
-
 						int neighborNX = nx & CHUNK_LOWER_BITS_MASK;
 						int neighborNY = ny & CHUNK_LOWER_BITS_MASK;
 						int neighborNZ = nz & CHUNK_LOWER_BITS_MASK;
 
-						neighbor->addLightNodeToQueue(neighborNX, neighborNY, neighborNZ);
+						neighborChunk->addLightNodeToQueue(neighborNX, neighborNY, neighborNZ);
 					}
 				}
 			}
@@ -989,14 +997,22 @@ std::bitset<27> Chunk::updateLight()
 				int ny = y + dy[i];
 				int nz = z + dz[i];
 
-				auto neighborData = getBlockAndLight_checkSideNeighbor(nx, ny, nz, i);
-
-				if (GET_BLOCK_PROPERTIES(neighborData.first).absorbsLight)
+				size_t neighborIndex;
+				Chunk* neighborChunk = getChunkAndIndex_checkSideNeighbor(nx, ny, nz, i, neighborIndex);
+				if (!neighborChunk)
 				{
 					continue;
 				}
 
-				if (neighborData.second.blockLight + 2 > lightLevel.blockLight)
+				const Block neighborBlock = neighborChunk->getBlockAt(neighborIndex);
+				const LightLevel neighborLight = neighborChunk->getLightAt(neighborIndex);
+
+				if (GET_BLOCK_PROPERTIES(neighborBlock).absorbsLight)
+				{
+					continue;
+				}
+
+				if (neighborLight.blockLight + 2 > lightLevel.blockLight)
 				{
 					continue;
 				}
@@ -1005,7 +1021,7 @@ std::bitset<27> Chunk::updateLight()
 				int checkY = ny & CHUNK_UPPER_BITS_MASK;
 				int checkZ = nz & CHUNK_UPPER_BITS_MASK;
 
-				if (checkX == 0 && checkY == 0 && checkZ == 0)
+				if (neighborChunk == this)
 				{
 					lightLevels[getIndex(nx, ny, nz)].blockLight = lightLevel.blockLight - 1;
 					localLightNodeContainer.emplace(nx, ny, nz);
@@ -1053,19 +1069,12 @@ std::bitset<27> Chunk::updateLight()
 				}
 				else
 				{
-					Chunk* neighbor = neighbors[i];
-					if (!neighbor)
-					{
-						continue;
-					}
-
 					int neighborNX = nx & CHUNK_LOWER_BITS_MASK;
 					int neighborNY = ny & CHUNK_LOWER_BITS_MASK;
 					int neighborNZ = nz & CHUNK_LOWER_BITS_MASK;
 
-					LightLevel newLightLevel = LightLevel(lightLevel.blockLight - 1, neighborData.second.skyLight);
-					neighbor->setLight_inBoundaries(neighborNX, neighborNY, neighborNZ, newLightLevel);
-					neighbor->addLightNodeToQueue(neighborNX, neighborNY, neighborNZ);
+					neighborChunk->setBlockLightAt(neighborNX, neighborNY, neighborNZ, lightLevel.blockLight - 1);
+					neighborChunk->addLightNodeToQueue(neighborNX, neighborNY, neighborNZ);
 				}
 			}
 		}
@@ -1207,8 +1216,79 @@ bool Chunk::canBeRendered() const
 		faceCount <= meshData.getFaceCapacity();
 }
 
-// Function doesn't check for boundaries, it trusts the caller. On debug mode, it asserts.
-Block Chunk::getBlock_inBoundaries(int x, int y, int z) const
+const Chunk* Chunk::getChunkAndIndex_checkSideNeighbor(int x, int y, int z, int side, size_t& outIndex) const
+{
+	int nx = x & CHUNK_UPPER_BITS_MASK;
+	int ny = y & CHUNK_UPPER_BITS_MASK;
+	int nz = z & CHUNK_UPPER_BITS_MASK;
+
+	if (nx == 0 && ny == 0 && nz == 0)
+	{
+		outIndex = getIndex(x, y, z);
+		return this;
+	}
+
+	const Chunk* neighbor = neighbors[side];
+	if (neighbor)
+	{
+		outIndex = getIndex(x & CHUNK_LOWER_BITS_MASK, y & CHUNK_LOWER_BITS_MASK, z & CHUNK_LOWER_BITS_MASK);
+		return neighbor;
+	}
+
+	return nullptr;
+}
+
+Chunk* Chunk::getChunkAndIndex_checkSideNeighbor(int x, int y, int z, int side, size_t& outIndex)
+{
+	return const_cast<Chunk*>(const_cast<const Chunk*>(this)->getChunkAndIndex_checkSideNeighbor(x, y, z, side, outIndex));
+}
+
+const Chunk* Chunk::getChunkAndIndex_checkNeighborsTraverse(int x, int y, int z, size_t& outIndex) const
+{
+	int nx = x & CHUNK_UPPER_BITS_MASK;
+	int ny = y & CHUNK_UPPER_BITS_MASK;
+	int nz = z & CHUNK_UPPER_BITS_MASK;
+
+	if (nx == 0 && ny == 0 && nz == 0)
+	{
+		outIndex = getIndex(x, y, z);
+		return this;
+	}
+
+	int dirX = (nx < 0) ? 0 : ((nx > 0) ? 1 : -1);
+	int dirY = (ny < 0) ? 2 : ((ny > 0) ? 3 : -1);
+	int dirZ = (nz < 0) ? 4 : ((nz > 0) ? 5 : -1);
+
+	const Chunk* neighbor = this;
+
+	if (dirX != -1)
+	{
+		neighbor = neighbor->neighbors[dirX];
+		if (!neighbor) return nullptr;
+	}
+
+	if (dirY != -1)
+	{
+		neighbor = neighbor->neighbors[dirY];
+		if (!neighbor) return nullptr;
+	}
+
+	if (dirZ != -1)
+	{
+		neighbor = neighbor->neighbors[dirZ];
+		if (!neighbor) return nullptr;
+	}
+
+	outIndex = getIndex(x & CHUNK_LOWER_BITS_MASK, y & CHUNK_LOWER_BITS_MASK, z & CHUNK_LOWER_BITS_MASK);
+	return neighbor;
+}
+
+Chunk* Chunk::getChunkAndIndex_checkNeighborsTraverse(int x, int y, int z, size_t& outIndex)
+{
+	return const_cast<Chunk*>(const_cast<const Chunk*>(this)->getChunkAndIndex_checkNeighborsTraverse(x, y, z, outIndex));
+}
+
+Block Chunk::getBlockAt(int x, int y, int z) const
 {
 	assert(x >= 0 && x < CHUNK_SIZE);
 	assert(y >= 0 && y < CHUNK_SIZE);
@@ -1216,77 +1296,42 @@ Block Chunk::getBlock_inBoundaries(int x, int y, int z) const
 	return blocks[getIndex(x, y, z)];
 }
 
-Block Chunk::getBlock_checkSideNeighbor(int x, int y, int z, int side) const
+LightLevel Chunk::getLightAt(int x, int y, int z) const
 {
-	int nx = x & CHUNK_UPPER_BITS_MASK;
-	int ny = y & CHUNK_UPPER_BITS_MASK;
-	int nz = z & CHUNK_UPPER_BITS_MASK;
-
-	if (nx == 0 && ny == 0 && nz == 0)
-	{
-		return blocks[getIndex(x, y, z)];
-	}
-
-	const Chunk* neighbor = neighbors[side];
-	if (neighbor)
-	{
-		return neighbor->getBlock_inBoundaries(x & CHUNK_LOWER_BITS_MASK, y & CHUNK_LOWER_BITS_MASK, z & CHUNK_LOWER_BITS_MASK);
-	}
-	return Block::Air;
+	assert(x >= 0 && x < CHUNK_SIZE);
+	assert(y >= 0 && y < CHUNK_SIZE);
+	assert(z >= 0 && z < CHUNK_SIZE);
+	return lightLevels[getIndex(x, y, z)];
 }
 
-// Function checks neighbors, if out of boundaries. Handles diagonal neighbors too.
-Block Chunk::getBlock_checkNeighborsTraverse(int x, int y, int z) const
+std::pair<Block, LightLevel> Chunk::getBlockAndLightAt(int x, int y, int z) const
 {
-	// Note: Traverse may fail depending on traversal order. Isn't critical for ambient occlusion computing.
-
-	int nx = x & CHUNK_UPPER_BITS_MASK;
-	int ny = y & CHUNK_UPPER_BITS_MASK;
-	int nz = z & CHUNK_UPPER_BITS_MASK;
-
-	// If within current chunk bounds
-	if (nx == 0 && ny == 0 && nz == 0)
-	{
-		return blocks[getIndex(x, y, z)];
-	}
-
-	// Determine which direction(s) we need to traverse
-	int dirX = (nx < 0) ? 0 : ((nx > 0) ? 1 : -1); // -1 means no X traversal
-	int dirY = (ny < 0) ? 2 : ((ny > 0) ? 3 : -1); // -1 means no Y traversal
-	int dirZ = (nz < 0) ? 4 : ((nz > 0) ? 5 : -1); // -1 means no Z traversal
-
-	const Chunk* neighbor = this;
-
-	// Traverse in X direction first
-	if (dirX != -1)
-	{
-		neighbor = neighbor->neighbors[dirX];
-		if (!neighbor) return Block::Air;
-	}
-
-	// Then traverse in Y direction
-	if (dirY != -1)
-	{
-		neighbor = neighbor->neighbors[dirY];
-		if (!neighbor) return Block::Air;
-	}
-
-	// Finally traverse in Z direction
-	if (dirZ != -1)
-	{
-		neighbor = neighbor->neighbors[dirZ];
-		if (!neighbor) return Block::Air;
-	}
-
-	// Get local coordinates in the final neighbor chunk
-	int localX = x & CHUNK_LOWER_BITS_MASK;
-	int localY = y & CHUNK_LOWER_BITS_MASK;
-	int localZ = z & CHUNK_LOWER_BITS_MASK;
-
-	return neighbor->getBlock_inBoundaries(localX, localY, localZ);
+	assert(x >= 0 && x < CHUNK_SIZE);
+	assert(y >= 0 && y < CHUNK_SIZE);
+	assert(z >= 0 && z < CHUNK_SIZE);
+	size_t index = getIndex(x, y, z);
+	return std::make_pair(blocks[index], lightLevels[index]);
 }
 
-void Chunk::setBlock_inBoundaries(int x, int y, int z, Block block)
+Block Chunk::getBlockAt(size_t index) const
+{
+	assert(index < CHUNK_VOLUME);
+	return blocks[index];
+}
+
+LightLevel Chunk::getLightAt(size_t index) const
+{
+	assert(index < CHUNK_VOLUME);
+	return lightLevels[index];
+}
+
+std::pair<Block, LightLevel> Chunk::getBlockAndLightAt(size_t index) const
+{
+	assert(index < CHUNK_VOLUME);
+	return std::make_pair(blocks[index], lightLevels[index]);
+}
+
+void Chunk::setBlockAt(int x, int y, int z, Block block)
 {
 	assert(x >= 0 && x < CHUNK_SIZE);
 	assert(y >= 0 && y < CHUNK_SIZE);
@@ -1294,7 +1339,7 @@ void Chunk::setBlock_inBoundaries(int x, int y, int z, Block block)
 	blocks[getIndex(x, y, z)] = block;
 }
 
-void Chunk::setBlock_inBoundaries_updateLight(int x, int y, int z, Block block)
+void Chunk::setBlockAt_updateLight(int x, int y, int z, Block block)
 {
 	assert(x >= 0 && x < CHUNK_SIZE);
 	assert(y >= 0 && y < CHUNK_SIZE);
@@ -1337,82 +1382,7 @@ void Chunk::setBlock_inBoundaries_updateLight(int x, int y, int z, Block block)
 	// TODO: Implement proper light propagation when blocking block is removing
 }
 
-LightLevel Chunk::getLight_inBoundaries(int x, int y, int z) const
-{
-	assert(x >= 0 && x < CHUNK_SIZE);
-	assert(y >= 0 && y < CHUNK_SIZE);
-	assert(z >= 0 && z < CHUNK_SIZE);
-	return lightLevels[getIndex(x, y, z)];
-}
-
-LightLevel Chunk::getLight_checkSideNeighbor(int x, int y, int z, int side) const
-{
-	int nx = x & CHUNK_UPPER_BITS_MASK;
-	int ny = y & CHUNK_UPPER_BITS_MASK;
-	int nz = z & CHUNK_UPPER_BITS_MASK;
-
-	if (nx == 0 && ny == 0 && nz == 0)
-	{
-		return lightLevels[getIndex(x, y, z)];
-	}
-
-	const Chunk* neighbor = neighbors[side];
-	if (neighbor)
-	{
-		return neighbor->getLight_inBoundaries(x & CHUNK_LOWER_BITS_MASK, y & CHUNK_LOWER_BITS_MASK, z & CHUNK_LOWER_BITS_MASK);
-	}
-	return LightLevel(0, 15);
-}
-
-LightLevel Chunk::getLight_checkNeighborsTraverse(int x, int y, int z) const
-{
-	int nx = x & CHUNK_UPPER_BITS_MASK;
-	int ny = y & CHUNK_UPPER_BITS_MASK;
-	int nz = z & CHUNK_UPPER_BITS_MASK;
-
-	// If within current chunk bounds
-	if (nx == 0 && ny == 0 && nz == 0)
-	{
-		return lightLevels[getIndex(x, y, z)];
-	}
-
-	// Determine which direction(s) we need to traverse
-	int dirX = (nx < 0) ? 0 : ((nx > 0) ? 1 : -1); // -1 means no X traversal
-	int dirY = (ny < 0) ? 2 : ((ny > 0) ? 3 : -1); // -1 means no Y traversal
-	int dirZ = (nz < 0) ? 4 : ((nz > 0) ? 5 : -1); // -1 means no Z traversal
-
-	const Chunk* neighbor = this;
-
-	// Traverse in X direction first
-	if (dirX != -1)
-	{
-		neighbor = neighbor->neighbors[dirX];
-		if (!neighbor) return LightLevel(0, 15);
-	}
-
-	// Then traverse in Y direction
-	if (dirY != -1)
-	{
-		neighbor = neighbor->neighbors[dirY];
-		if (!neighbor) return LightLevel(0, 15);
-	}
-
-	// Finally traverse in Z direction
-	if (dirZ != -1)
-	{
-		neighbor = neighbor->neighbors[dirZ];
-		if (!neighbor) return LightLevel(0, 15);
-	}
-
-	// Get local coordinates in the final neighbor chunk
-	int localX = x & CHUNK_LOWER_BITS_MASK;
-	int localY = y & CHUNK_LOWER_BITS_MASK;
-	int localZ = z & CHUNK_LOWER_BITS_MASK;
-
-	return neighbor->getLight_inBoundaries(localX, localY, localZ);
-}
-
-void Chunk::setLight_inBoundaries(int x, int y, int z, LightLevel lightValue)
+void Chunk::setLightAt(int x, int y, int z, LightLevel lightValue)
 {
 	assert(x >= 0 && x < CHUNK_SIZE);
 	assert(y >= 0 && y < CHUNK_SIZE);
@@ -1420,82 +1390,44 @@ void Chunk::setLight_inBoundaries(int x, int y, int z, LightLevel lightValue)
 	lightLevels[getIndex(x, y, z)] = lightValue;
 }
 
-std::pair<Block, LightLevel> Chunk::getBlockAndLight_inBoundaries(int x, int y, int z) const
+void Chunk::setBlockLightAt(int x, int y, int z, uint8_t lightLevel)
 {
 	assert(x >= 0 && x < CHUNK_SIZE);
 	assert(y >= 0 && y < CHUNK_SIZE);
 	assert(z >= 0 && z < CHUNK_SIZE);
-	const size_t index = getIndex(x, y, z);
-	return std::make_pair(blocks[index], lightLevels[index]);
+	lightLevels[getIndex(x, y, z)].blockLight = lightLevel;
 }
 
-std::pair<Block, LightLevel> Chunk::getBlockAndLight_checkSideNeighbor(int x, int y, int z, int side) const
+void Chunk::setSkyLightAt(int x, int y, int z, uint8_t lightLevel)
 {
-	int nx = x & CHUNK_UPPER_BITS_MASK;
-	int ny = y & CHUNK_UPPER_BITS_MASK;
-	int nz = z & CHUNK_UPPER_BITS_MASK;
-
-	if (nx == 0 && ny == 0 && nz == 0)
-	{
-		const size_t index = getIndex(x, y, z);
-		return std::make_pair(blocks[index], lightLevels[index]);
-	}
-
-	const Chunk* neighbor = neighbors[side];
-	if (neighbor)
-	{
-		return neighbor->getBlockAndLight_inBoundaries(x & CHUNK_LOWER_BITS_MASK, y & CHUNK_LOWER_BITS_MASK, z & CHUNK_LOWER_BITS_MASK);
-	}
-	return std::make_pair(Block::Air, LightLevel(0, 15));
+	assert(x >= 0 && x < CHUNK_SIZE);
+	assert(y >= 0 && y < CHUNK_SIZE);
+	assert(z >= 0 && z < CHUNK_SIZE);
+	lightLevels[getIndex(x, y, z)].skyLight = lightLevel;
 }
 
-std::pair<Block, LightLevel> Chunk::getBlockAndLight_checkNeighborsTraverse(int x, int y, int z) const
+void Chunk::setBlockAt(size_t index, Block block)
 {
-	int nx = x & CHUNK_UPPER_BITS_MASK;
-	int ny = y & CHUNK_UPPER_BITS_MASK;
-	int nz = z & CHUNK_UPPER_BITS_MASK;
+	assert(index < CHUNK_VOLUME);
+	blocks[index] = block;
+}
 
-	// If within current chunk bounds
-	if (nx == 0 && ny == 0 && nz == 0)
-	{
-		const size_t index = getIndex(x, y, z);
-		return std::make_pair(blocks[index], lightLevels[index]);
-	}
+void Chunk::setLightAt(size_t index, LightLevel lightValue)
+{
+	assert(index < CHUNK_VOLUME);
+	lightLevels[index] = lightValue;
+}
 
-	// Determine which direction(s) we need to traverse
-	int dirX = (nx < 0) ? 0 : ((nx > 0) ? 1 : -1); // -1 means no X traversal
-	int dirY = (ny < 0) ? 2 : ((ny > 0) ? 3 : -1); // -1 means no Y traversal
-	int dirZ = (nz < 0) ? 4 : ((nz > 0) ? 5 : -1); // -1 means no Z traversal
+void Chunk::setBlockLightAt(size_t index, uint8_t lightLevel)
+{
+	assert(index < CHUNK_VOLUME);
+	lightLevels[index].blockLight = lightLevel;
+}
 
-	const Chunk* neighbor = this;
-
-	// Traverse in X direction first
-	if (dirX != -1)
-	{
-		neighbor = neighbor->neighbors[dirX];
-		if (!neighbor) return std::make_pair(Block::Air, LightLevel(0, 15));
-	}
-
-	// Then traverse in Y direction
-	if (dirY != -1)
-	{
-		neighbor = neighbor->neighbors[dirY];
-		if (!neighbor) return std::make_pair(Block::Air, LightLevel(0, 15));
-	}
-
-	// Finally traverse in Z direction
-	if (dirZ != -1)
-	{
-		neighbor = neighbor->neighbors[dirZ];
-		if (!neighbor) return std::make_pair(Block::Air, LightLevel(0, 15));
-	}
-
-	// Get local coordinates in the final neighbor chunk
-	int localX = x & CHUNK_LOWER_BITS_MASK;
-	int localY = y & CHUNK_LOWER_BITS_MASK;
-	int localZ = z & CHUNK_LOWER_BITS_MASK;
-
-	return neighbor->getBlockAndLight_inBoundaries(localX, localY, localZ);
+void Chunk::setSkyLightAt(size_t index, uint8_t lightLevel)
+{
+	assert(index < CHUNK_VOLUME);
+	lightLevels[index].skyLight = lightLevel;
 }
 
 void Chunk::addLightNodeToQueue(int x, int y, int z)
@@ -1569,21 +1501,29 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(unsigned int& ao, unsigned int
 	unsigned int ao0, ao1, ao2, ao3;
 	LightLevel lightLevels[4];
 
+	auto getSafe = [this, &data](size_t dataIdx, int x_, int y_, int z_)
+		{
+			size_t idx;
+			const Chunk* c = getChunkAndIndex_checkNeighborsTraverse(x_, y_, z_, idx);
+			data[dataIdx] = c ? c->getBlockAndLightAt(idx) : std::make_pair(Block::Air, LightLevel(0, 15));
+		};
+
 	switch (normal)
 	{
 	case 0: // -X face
-		data[0] = getBlockAndLight_checkNeighborsTraverse(x - 1, y - 1, z - 1);
-		data[1] = getBlockAndLight_checkNeighborsTraverse(x - 1, y - 1, z);
-		data[2] = getBlockAndLight_checkNeighborsTraverse(x - 1, y - 1, z + 1);
-		data[3] = getBlockAndLight_checkNeighborsTraverse(x - 1, y, z - 1);
-		data[4] = getBlockAndLight_checkNeighborsTraverse(x - 1, y, z + 1);
-		data[5] = getBlockAndLight_checkNeighborsTraverse(x - 1, y + 1, z - 1);
-		data[6] = getBlockAndLight_checkNeighborsTraverse(x - 1, y + 1, z);
-		data[7] = getBlockAndLight_checkNeighborsTraverse(x - 1, y + 1, z + 1);
+
+		getSafe(0, x - 1, y - 1, z - 1);
+		getSafe(1, x - 1, y - 1, z);
+		getSafe(2, x - 1, y - 1, z + 1);
+		getSafe(3, x - 1, y, z - 1);
+		getSafe(4, x - 1, y, z + 1);
+		getSafe(5, x - 1, y + 1, z - 1);
+		getSafe(6, x - 1, y + 1, z);
+		getSafe(7, x - 1, y + 1, z + 1);
 
 		for (int i = 0; i < 8; i++)
 		{
-			n[i] = !BlockDataBase::getBlockData(data[i].first)->properties.areFacesTransparent;
+			n[i] = !GET_BLOCK_PROPERTIES(data[i].first).areFacesTransparent;
 		}
 
 		calculateVertexAmbientOcclusionAndLight(ao0, lightLevels[0], centerFaceLight, data[1].second, data[3].second, data[0].second, n[1], n[3], n[0]);
@@ -1592,18 +1532,18 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(unsigned int& ao, unsigned int
 		calculateVertexAmbientOcclusionAndLight(ao3, lightLevels[3], centerFaceLight, data[6].second, data[3].second, data[5].second, n[6], n[3], n[5]);
 		break;
 	case 1: // +X face
-		data[0] = getBlockAndLight_checkNeighborsTraverse(x + 1, y - 1, z - 1);
-		data[1] = getBlockAndLight_checkNeighborsTraverse(x + 1, y - 1, z);
-		data[2] = getBlockAndLight_checkNeighborsTraverse(x + 1, y - 1, z + 1);
-		data[3] = getBlockAndLight_checkNeighborsTraverse(x + 1, y, z - 1);
-		data[4] = getBlockAndLight_checkNeighborsTraverse(x + 1, y, z + 1);
-		data[5] = getBlockAndLight_checkNeighborsTraverse(x + 1, y + 1, z - 1);
-		data[6] = getBlockAndLight_checkNeighborsTraverse(x + 1, y + 1, z);
-		data[7] = getBlockAndLight_checkNeighborsTraverse(x + 1, y + 1, z + 1);
+		getSafe(0, x + 1, y - 1, z - 1);
+		getSafe(1, x + 1, y - 1, z);
+		getSafe(2, x + 1, y - 1, z + 1);
+		getSafe(3, x + 1, y, z - 1);
+		getSafe(4, x + 1, y, z + 1);
+		getSafe(5, x + 1, y + 1, z - 1);
+		getSafe(6, x + 1, y + 1, z);
+		getSafe(7, x + 1, y + 1, z + 1);
 
 		for (int i = 0; i < 8; i++)
 		{
-			n[i] = !BlockDataBase::getBlockData(data[i].first)->properties.areFacesTransparent;
+			n[i] = !GET_BLOCK_PROPERTIES(data[i].first).areFacesTransparent;
 		}
 
 		calculateVertexAmbientOcclusionAndLight(ao0, lightLevels[0], centerFaceLight, data[1].second, data[4].second, data[2].second, n[1], n[4], n[2]);
@@ -1612,18 +1552,18 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(unsigned int& ao, unsigned int
 		calculateVertexAmbientOcclusionAndLight(ao3, lightLevels[3], centerFaceLight, data[6].second, data[4].second, data[7].second, n[6], n[4], n[7]);
 		break;
 	case 2: // -Y face
-		data[0] = getBlockAndLight_checkNeighborsTraverse(x - 1, y - 1, z - 1);
-		data[1] = getBlockAndLight_checkNeighborsTraverse(x, y - 1, z - 1);
-		data[2] = getBlockAndLight_checkNeighborsTraverse(x + 1, y - 1, z - 1);
-		data[3] = getBlockAndLight_checkNeighborsTraverse(x - 1, y - 1, z);
-		data[4] = getBlockAndLight_checkNeighborsTraverse(x + 1, y - 1, z);
-		data[5] = getBlockAndLight_checkNeighborsTraverse(x - 1, y - 1, z + 1);
-		data[6] = getBlockAndLight_checkNeighborsTraverse(x, y - 1, z + 1);
-		data[7] = getBlockAndLight_checkNeighborsTraverse(x + 1, y - 1, z + 1);
+		getSafe(0, x - 1, y - 1, z - 1);
+		getSafe(1, x, y - 1, z - 1);
+		getSafe(2, x + 1, y - 1, z - 1);
+		getSafe(3, x - 1, y - 1, z);
+		getSafe(4, x + 1, y - 1, z);
+		getSafe(5, x - 1, y - 1, z + 1);
+		getSafe(6, x, y - 1, z + 1);
+		getSafe(7, x + 1, y - 1, z + 1);
 
 		for (int i = 0; i < 8; i++)
 		{
-			n[i] = !BlockDataBase::getBlockData(data[i].first)->properties.areFacesTransparent;
+			n[i] = !GET_BLOCK_PROPERTIES(data[i].first).areFacesTransparent;
 		}
 
 		calculateVertexAmbientOcclusionAndLight(ao0, lightLevels[0], centerFaceLight, data[1].second, data[4].second, data[2].second, n[1], n[4], n[2]);
@@ -1632,18 +1572,18 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(unsigned int& ao, unsigned int
 		calculateVertexAmbientOcclusionAndLight(ao3, lightLevels[3], centerFaceLight, data[6].second, data[4].second, data[7].second, n[6], n[4], n[7]);
 		break;
 	case 3: // +Y face
-		data[0] = getBlockAndLight_checkNeighborsTraverse(x - 1, y + 1, z - 1);
-		data[1] = getBlockAndLight_checkNeighborsTraverse(x, y + 1, z - 1);
-		data[2] = getBlockAndLight_checkNeighborsTraverse(x + 1, y + 1, z - 1);
-		data[3] = getBlockAndLight_checkNeighborsTraverse(x - 1, y + 1, z);
-		data[4] = getBlockAndLight_checkNeighborsTraverse(x + 1, y + 1, z);
-		data[5] = getBlockAndLight_checkNeighborsTraverse(x - 1, y + 1, z + 1);
-		data[6] = getBlockAndLight_checkNeighborsTraverse(x, y + 1, z + 1);
-		data[7] = getBlockAndLight_checkNeighborsTraverse(x + 1, y + 1, z + 1);
+		getSafe(0, x - 1, y + 1, z - 1);
+		getSafe(1, x, y + 1, z - 1);
+		getSafe(2, x + 1, y + 1, z - 1);
+		getSafe(3, x - 1, y + 1, z);
+		getSafe(4, x + 1, y + 1, z);
+		getSafe(5, x - 1, y + 1, z + 1);
+		getSafe(6, x, y + 1, z + 1);
+		getSafe(7, x + 1, y + 1, z + 1);
 
 		for (int i = 0; i < 8; i++)
 		{
-			n[i] = !BlockDataBase::getBlockData(data[i].first)->properties.areFacesTransparent;
+			n[i] = !GET_BLOCK_PROPERTIES(data[i].first).areFacesTransparent;
 		}
 
 		calculateVertexAmbientOcclusionAndLight(ao0, lightLevels[0], centerFaceLight, data[4].second, data[1].second, data[2].second, n[4], n[1], n[2]);
@@ -1652,18 +1592,18 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(unsigned int& ao, unsigned int
 		calculateVertexAmbientOcclusionAndLight(ao3, lightLevels[3], centerFaceLight, data[4].second, data[6].second, data[7].second, n[4], n[6], n[7]);
 		break;
 	case 4: // -Z face
-		data[0] = getBlockAndLight_checkNeighborsTraverse(x - 1, y - 1, z - 1);
-		data[1] = getBlockAndLight_checkNeighborsTraverse(x, y - 1, z - 1);
-		data[2] = getBlockAndLight_checkNeighborsTraverse(x + 1, y - 1, z - 1);
-		data[3] = getBlockAndLight_checkNeighborsTraverse(x - 1, y, z - 1);
-		data[4] = getBlockAndLight_checkNeighborsTraverse(x + 1, y, z - 1);
-		data[5] = getBlockAndLight_checkNeighborsTraverse(x - 1, y + 1, z - 1);
-		data[6] = getBlockAndLight_checkNeighborsTraverse(x, y + 1, z - 1);
-		data[7] = getBlockAndLight_checkNeighborsTraverse(x + 1, y + 1, z - 1);
+		getSafe(0, x - 1, y - 1, z - 1);
+		getSafe(1, x, y - 1, z - 1);
+		getSafe(2, x + 1, y - 1, z - 1);
+		getSafe(3, x - 1, y, z - 1);
+		getSafe(4, x + 1, y, z - 1);
+		getSafe(5, x - 1, y + 1, z - 1);
+		getSafe(6, x, y + 1, z - 1);
+		getSafe(7, x + 1, y + 1, z - 1);
 
 		for (int i = 0; i < 8; i++)
 		{
-			n[i] = !BlockDataBase::getBlockData(data[i].first)->properties.areFacesTransparent;
+			n[i] = !GET_BLOCK_PROPERTIES(data[i].first).areFacesTransparent;
 		}
 
 		calculateVertexAmbientOcclusionAndLight(ao0, lightLevels[0], centerFaceLight, data[1].second, data[4].second, data[2].second, n[1], n[4], n[2]);
@@ -1672,18 +1612,18 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(unsigned int& ao, unsigned int
 		calculateVertexAmbientOcclusionAndLight(ao3, lightLevels[3], centerFaceLight, data[6].second, data[4].second, data[7].second, n[6], n[4], n[7]);
 		break;
 	case 5: // +Z face
-		data[0] = getBlockAndLight_checkNeighborsTraverse(x - 1, y - 1, z + 1);
-		data[1] = getBlockAndLight_checkNeighborsTraverse(x, y - 1, z + 1);
-		data[2] = getBlockAndLight_checkNeighborsTraverse(x + 1, y - 1, z + 1);
-		data[3] = getBlockAndLight_checkNeighborsTraverse(x - 1, y, z + 1);
-		data[4] = getBlockAndLight_checkNeighborsTraverse(x + 1, y, z + 1);
-		data[5] = getBlockAndLight_checkNeighborsTraverse(x - 1, y + 1, z + 1);
-		data[6] = getBlockAndLight_checkNeighborsTraverse(x, y + 1, z + 1);
-		data[7] = getBlockAndLight_checkNeighborsTraverse(x + 1, y + 1, z + 1);
+		getSafe(0, x - 1, y - 1, z + 1);
+		getSafe(1, x, y - 1, z + 1);
+		getSafe(2, x + 1, y - 1, z + 1);
+		getSafe(3, x - 1, y, z + 1);
+		getSafe(4, x + 1, y, z + 1);
+		getSafe(5, x - 1, y + 1, z + 1);
+		getSafe(6, x, y + 1, z + 1);
+		getSafe(7, x + 1, y + 1, z + 1);
 
 		for (int i = 0; i < 8; i++)
 		{
-			n[i] = !BlockDataBase::getBlockData(data[i].first)->properties.areFacesTransparent;
+			n[i] = !GET_BLOCK_PROPERTIES(data[i].first).areFacesTransparent;
 		}
 
 		calculateVertexAmbientOcclusionAndLight(ao0, lightLevels[0], centerFaceLight, data[1].second, data[3].second, data[0].second, n[1], n[3], n[0]);

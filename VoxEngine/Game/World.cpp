@@ -473,7 +473,7 @@ RaycastResult World::raycast(const glm::dvec3& origin, const glm::dvec3& directi
 			// Local block position within chunk
 			glm::ivec3 localBlockPos = blockPos & CHUNK_LOWER_BITS_MASK;
 
-			Block block = chunk->getBlock_inBoundaries(localBlockPos.x, localBlockPos.y, localBlockPos.z);
+			Block block = chunk->getBlockAt(localBlockPos.x, localBlockPos.y, localBlockPos.z);
 			const BlockData* blockData = BlockDataBase::getBlockData(block);
 
 			if (blockData->properties.raycastable)
@@ -1030,7 +1030,7 @@ void World::updateBlockAt(const glm::ivec3& worldPos, Block block)
 	}
 
 	// Update the block
-	chunk->setBlock_inBoundaries_updateLight(localPos.x, localPos.y, localPos.z, block);
+	chunk->setBlockAt_updateLight(localPos.x, localPos.y, localPos.z, block);
 
 	// Collect neighbor chunks to build mesh
 	bool onBorder[6] =
@@ -1093,7 +1093,7 @@ std::optional<Block> World::getBlockAt(const glm::ivec3& globalPosition) const
 	}
 
 	glm::ivec3 localBlockPos = globalPosition & CHUNK_LOWER_BITS_MASK;
-	return chunk->getBlock_inBoundaries(localBlockPos.x, localBlockPos.y, localBlockPos.z);
+	return chunk->getBlockAt(localBlockPos.x, localBlockPos.y, localBlockPos.z);
 }
 
 //============================================================================
