@@ -1,4 +1,5 @@
 #include "Profiler.h"
+
 #include <iostream>
 #include <iomanip>
 #include <algorithm>
@@ -240,9 +241,9 @@ namespace ProfilerReport
     constexpr int TOTAL_WIDTH = COL_NAME + COL_AVG + COL_MIN + COL_MAX + COL_TOTAL + COL_CALLS + COL_PERCENT;
 }
 
-void Profiler::printTableHeader()
+void Profiler::printTableHeader(std::ostringstream& ss)
 {
-    std::cout << std::left
+    ss << std::left
               << std::setw(ProfilerReport::COL_NAME) << "Function/Section"
               << std::setw(ProfilerReport::COL_AVG) << "Avg (ms)"
               << std::setw(ProfilerReport::COL_MIN) << "Min (ms)"
@@ -252,14 +253,14 @@ void Profiler::printTableHeader()
               << std::string(ProfilerReport::TOTAL_WIDTH, '-') << "\n";
 }
 
-void Profiler::printProfileEntry(const std::string& name, const ProfileData& data, double frameTotalTime)
+void Profiler::printProfileEntry(std::ostringstream& ss, const std::string& name, const ProfileData& data, double frameTotalTime)
 {
     if (data.callCount == 0) return;
 
     double minTime = (data.minTime == std::numeric_limits<double>::max()) ? 0.0 : data.minTime;
     const char* color = getCategoryColor(data.category);
 
-    std::cout << color
+    ss << color
               << std::setw(ProfilerReport::COL_NAME)  << name.substr(0, ProfilerReport::COL_NAME - 1)
               << std::setw(ProfilerReport::COL_AVG)   << data.getAverageTime()
               << std::setw(ProfilerReport::COL_MIN)   << minTime
@@ -269,21 +270,21 @@ void Profiler::printProfileEntry(const std::string& name, const ProfileData& dat
 
     // Add percentage if not the frame total itself
     double percentage = (data.totalTime / frameTotalTime) * 100.0;
-    std::cout << std::setw(ProfilerReport::COL_PERCENT) << percentage << "%";
+    ss << std::setw(ProfilerReport::COL_PERCENT) << percentage << "%";
 
-    std::cout << ProfilerColors::RESET << "\n";
+    ss << ProfilerColors::RESET << "\n";
 }
 
-void Profiler::printCategoryStatistics(const std::unordered_map<ProfileCategory, double>& categoryTotals, double frameTotalTime)
+void Profiler::printCategoryStatistics(std::ostringstream& ss, const std::unordered_map<ProfileCategory, double>& categoryTotals, double frameTotalTime)
 {
     if (categoryTotals.empty()) return;
 
-    std::cout << "Category Statistics:\n";
-    std::cout << std::left;
-    std::cout << std::setw(ProfilerReport::COL_NAME) << "Category"
+    ss << "Category Statistics:\n";
+    ss << std::left;
+    ss << std::setw(ProfilerReport::COL_NAME) << "Category"
         << std::setw(ProfilerReport::COL_TOTAL) << "Total (ms)"
         << "% of Frame" << "\n";
-    std::cout << std::string(ProfilerReport::TOTAL_WIDTH, '-') << "\n";
+    ss << std::string(ProfilerReport::TOTAL_WIDTH, '-') << "\n";
 
     // Sort categories by total time (descending)
     std::vector<std::pair<ProfileCategory, double>> sortedCategories(categoryTotals.begin(), categoryTotals.end());
@@ -298,30 +299,27 @@ void Profiler::printCategoryStatistics(const std::unordered_map<ProfileCategory,
         const char* color = getCategoryColor(category);
         const char* name = getCategoryName(category);
 
-        std::cout << color << std::left;
-        std::cout << std::setw(ProfilerReport::COL_NAME) << name
+        ss << color << std::left;
+        ss << std::setw(ProfilerReport::COL_NAME) << name
             << std::setw(ProfilerReport::COL_TOTAL) << std::setprecision(4) << totalTime;
 
         // Show percentage of frame time
         double percentage = (totalTime / frameTotalTime) * 100.0;
-        std::cout << std::setprecision(1) << percentage << "%";
+        ss << std::setprecision(1) << percentage << "%";
 
-        std::cout << ProfilerColors::RESET << "\n";
+        ss << ProfilerColors::RESET << "\n";
     }
 }
 
 void Profiler::printProfileReport()
 {
-    // TODO: Use ostream
-    //Save current iostream state
-    std::ios_base::fmtflags originalFlags = std::cout.flags();
-    std::streamsize originalPrecision = std::cout.precision();
+    std::ostringstream ss;
 
     //
-    std::cout << "\n===[PERFORMANCE PROFILE REPORT]" << std::string(ProfilerReport::TOTAL_WIDTH - 32, '=') << "\n";
-    std::cout << std::fixed << std::setprecision(4);
+    ss << "\n===[PERFORMANCE PROFILE REPORT]" << std::string(ProfilerReport::TOTAL_WIDTH - 32, '=') << "\n";
+    ss << std::fixed << std::setprecision(4);
 
-    printTableHeader();
+    printTableHeader(ss);
 
     auto sortedData = getAllProfileData();
     const ProfileData* frameData = getProfileData("Frame Total");
@@ -342,27 +340,24 @@ void Profiler::printProfileReport()
     if (totalTime > 0.0f)
     {
         // Print all profile entries
-        std::cout << "Entries Statistics:\n" << std::setprecision(1);
+        ss << "Entries Statistics:\n" << std::setprecision(1);
         for (const auto& pair : sortedData)
         {
             const auto& name = pair.first;
             const auto& data = pair.second;
 
-            printProfileEntry(name, data, totalTime);
+            printProfileEntry(ss, name, data, totalTime);
         }
 
-        std::cout << std::string(ProfilerReport::TOTAL_WIDTH, '=') << "\n";
+        ss << std::string(ProfilerReport::TOTAL_WIDTH, '=') << "\n";
 
-        printCategoryStatistics(categoryTotals, totalTime);
+        printCategoryStatistics(ss, categoryTotals, totalTime);
     }
 
-    std::cout << std::string(ProfilerReport::TOTAL_WIDTH, '=') << std::endl;
+    ss << std::string(ProfilerReport::TOTAL_WIDTH, '=') << std::endl;
 
-    // Restore original iostream state
-    std::cout.flags(originalFlags);
-    std::cout.precision(originalPrecision);
+    std::cout << ss.str();
 
-    //
     Profiler::resetAllProfiles();
 }
 

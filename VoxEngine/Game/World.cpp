@@ -886,46 +886,43 @@ void World::updateChunkLights()
 	size_t updatedChunkCount = 0;
 	for (Chunk* chunk : chunksToUpdate)
 	{
-		if (!chunk->getIsLoadedInWorld())
+		std::bitset<27> lightChanged = chunk->updateLight();
+		if (lightChanged.none())
 		{
 			continue;
 		}
 
-		std::bitset<27> lightChanged = chunk->updateLight();
-		if (lightChanged.any())
 		{
-			{
-				std::lock_guard<std::mutex> lock(buildMeshMutex);
-				buildMeshContainer.insert(chunk);
-			}
+			std::lock_guard<std::mutex> lock(buildMeshMutex);
+			buildMeshContainer.insert(chunk);
+		}
 
-			size_t bitIndex = 0;
-			const size_t centerIndex = index3x3x3(0, 0, 0);
-			for (int dx = -1; dx <= 1; dx++)
+		size_t bitIndex = 0;
+		const size_t centerIndex = index3x3x3(0, 0, 0);
+		for (int dx = -1; dx <= 1; dx++)
+		{
+			for (int dy = -1; dy <= 1; dy++)
 			{
-				for (int dy = -1; dy <= 1; dy++)
+				for (int dz = -1; dz <= 1; dz++)
 				{
-					for (int dz = -1; dz <= 1; dz++)
+					if (bitIndex == centerIndex)
 					{
-						if (bitIndex == centerIndex)
-						{
-							bitIndex++;
-							continue;
-						}
-
-						if (lightChanged.test(bitIndex))
-						{
-							glm::ivec3 neighborPos = chunk->getPosition() + glm::ivec3(dx, dy, dz);
-							Chunk* neighborChunk = getChunkAt(neighborPos);
-							if (neighborChunk)
-							{
-								std::lock_guard<std::mutex> lock(buildMeshMutex);
-								buildMeshContainer.insert(neighborChunk);
-							}
-						}
-
 						bitIndex++;
+						continue;
 					}
+
+					if (lightChanged.test(bitIndex))
+					{
+						glm::ivec3 neighborPos = chunk->getPosition() + glm::ivec3(dx, dy, dz);
+						Chunk* neighborChunk = getChunkAt(neighborPos);
+						if (neighborChunk)
+						{
+							std::lock_guard<std::mutex> lock(buildMeshMutex);
+							buildMeshContainer.insert(neighborChunk);
+						}
+					}
+
+					bitIndex++;
 				}
 			}
 		}

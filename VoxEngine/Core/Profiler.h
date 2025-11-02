@@ -5,6 +5,7 @@
 #include <vector>
 #include <limits>
 #include <mutex>
+#include <sstream>
 
 enum class ProfileCategory
 {
@@ -56,9 +57,9 @@ public:
 
     static void resetAllProfiles();
 private:
-    static void printTableHeader();
-    static void printProfileEntry(const std::string& name, const ProfileData& data, double frameTotalTime);
-    static void printCategoryStatistics(const std::unordered_map<ProfileCategory, double>& categoryTotals, double frameTotalTime);
+    static void printTableHeader(std::ostringstream& ss);
+    static void printProfileEntry(std::ostringstream& ss, const std::string& name, const ProfileData& data, double frameTotalTime);
+    static void printCategoryStatistics(std::ostringstream& ss, const std::unordered_map<ProfileCategory, double>& categoryTotals, double frameTotalTime);
 public:
     static void printProfileReport();
 };
