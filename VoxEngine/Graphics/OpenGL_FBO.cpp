@@ -46,7 +46,7 @@ OpenGL_FBO::~OpenGL_FBO()
 OpenGL_FBO::OpenGL_FBO(OpenGL_FBO&& other) noexcept :
 	id(other.id), colorTextureID(other.colorTextureID), depthTextureID(other.depthTextureID)
 {
-	other.id = other.colorTextureID = other.depthTextureID;
+	other.id = other.colorTextureID = other.depthTextureID = 0;
 }
 
 OpenGL_FBO& OpenGL_FBO::operator=(OpenGL_FBO&& other) noexcept
@@ -61,7 +61,7 @@ OpenGL_FBO& OpenGL_FBO::operator=(OpenGL_FBO&& other) noexcept
 		colorTextureID = other.colorTextureID;
 		depthTextureID = other.depthTextureID;
 
-		other.id = other.colorTextureID = other.depthTextureID;
+		other.id = other.colorTextureID = other.depthTextureID = 0;
 	}
 	return *this;
 }

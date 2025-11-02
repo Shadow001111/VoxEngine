@@ -154,10 +154,13 @@ void renderDebugData(const World::DebugData& debug, const WindowManager& wnd, Pl
 
     // Player orientation
     const Camera& camera = player->getCamera();
-    const auto& cameraPos = camera.getPosition();
+    const auto& playerPos = player->getPosition();
     const auto& cameraViewDirection = camera.getForward();
 
-    ss << "\nX: " << cameraPos.x << " Y: " << cameraPos.y << " Z: " << cameraPos.z;
+    glm::ivec3 localPlayerPos = glm::ivec3(glm::mod(glm::mod(playerPos, (double)CHUNK_SIZE) + (double)CHUNK_SIZE, (double)CHUNK_SIZE));
+
+    ss << "\nXYZ: " << playerPos.x << " " << playerPos.y << " " << playerPos.z;
+    ss << "\nBlock: " << localPlayerPos.x << " " << localPlayerPos.y << " " << localPlayerPos.z;
 
     std::string facingDir;
     {

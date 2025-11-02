@@ -903,10 +903,10 @@ void World::updateChunkLights()
 		}
 	}
 
-	/*if (updatedChunkCount > 0)
+	if (updatedChunkCount > 0)
 	{
 		std::cout << updatedChunkCount << std::endl;
-	}*/
+	}
 }
 
 void World::collectChunksNeedingLightUpdate()
