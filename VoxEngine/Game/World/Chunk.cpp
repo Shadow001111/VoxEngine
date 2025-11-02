@@ -794,7 +794,7 @@ void Chunk::buildMesh()
 	}
 }
 
-std::bitset<7> Chunk::updateLight()
+std::bitset<27> Chunk::updateLight()
 {
 	if (
 		!isLoadedInWorld.load(std::memory_order_acquire) ||
@@ -815,7 +815,12 @@ std::bitset<7> Chunk::updateLight()
 	const int dy[] = { 0, 0, -1, 1, 0, 0 };
 	const int dz[] = { 0, 0, 0, 0, -1, 1 };
 
-	std::bitset<7> lightChanged;
+	std::bitset<27> lightChanged;
+
+	constexpr auto index3x3x3 = [](int dx, int dy, int dz) noexcept
+		{
+		return (dx + 1) * 9 + (dy + 1) * 3 + (dz + 1);
+		};
 
 	//TODO: Instead of immediate neighbor calls, collect and batch
 
@@ -870,14 +875,44 @@ std::bitset<7> Chunk::updateLight()
 						lightLevels[getIndex(nx, ny, nz)].blockLight = 0;
 						localLightRemovalNodeContainer.emplace(nx, ny, nz, neighborBlockLight);
 
-						std::bitset<7> localLightChanged;
-						localLightChanged.set(0, true);
-						localLightChanged.set(1, nx == 0);
-						localLightChanged.set(2, nx == (CHUNK_SIZE - 1));
-						localLightChanged.set(3, ny == 0);
-						localLightChanged.set(4, ny == (CHUNK_SIZE - 1));
-						localLightChanged.set(5, nz == 0);
-						localLightChanged.set(6, nz == (CHUNK_SIZE - 1));
+						const bool onBorder[6] = {
+							nx == 0,
+							nx == (CHUNK_SIZE - 1),
+							ny == 0,
+							ny == (CHUNK_SIZE - 1),
+							nz == 0,
+							nz == (CHUNK_SIZE - 1)
+						};
+
+						std::bitset<27> localLightChanged;
+						localLightChanged.set(index3x3x3(0, 0, 0), true);
+						size_t bitIndex = 0;
+						for (int dx = -1; dx <= 1; dx++)
+						{
+							for (int dy = -1; dy <= 1; dy++)
+							{
+								for (int dz = -1; dz <= 1; dz++)
+								{
+									if (dx == 0 && dy == 0 && dz == 0)
+									{
+										bitIndex++;
+										continue;
+									}
+
+									bool changed = true;
+
+									if (dx < 0) changed &= onBorder[0];
+									else if (dx > 0) changed &= onBorder[1];
+									if (dy < 0) changed &= onBorder[2];
+									else if (dy > 0) changed &= onBorder[3];
+									if (dz < 0) changed &= onBorder[4];
+									else if (dz > 0) changed &= onBorder[5];
+
+									localLightChanged.set(bitIndex, changed);
+									bitIndex++;
+								}
+							}
+						}
 						lightChanged |= localLightChanged;
 					}
 					else
@@ -975,14 +1010,44 @@ std::bitset<7> Chunk::updateLight()
 					lightLevels[getIndex(nx, ny, nz)].blockLight = lightLevel.blockLight - 1;
 					localLightNodeContainer.emplace(nx, ny, nz);
 
-					std::bitset<7> localLightChanged;
-					localLightChanged.set(0, true);
-					localLightChanged.set(1, nx == 0);
-					localLightChanged.set(2, nx == (CHUNK_SIZE - 1));
-					localLightChanged.set(3, ny == 0);
-					localLightChanged.set(4, ny == (CHUNK_SIZE - 1));
-					localLightChanged.set(5, nz == 0);
-					localLightChanged.set(6, nz == (CHUNK_SIZE - 1));
+					const bool onBorder[6] = {
+							nx == 0,
+							nx == (CHUNK_SIZE - 1),
+							ny == 0,
+							ny == (CHUNK_SIZE - 1),
+							nz == 0,
+							nz == (CHUNK_SIZE - 1)
+					};
+
+					std::bitset<27> localLightChanged;
+					localLightChanged.set(index3x3x3(0, 0, 0), true);
+					size_t bitIndex = 0;
+					for (int dx = -1; dx <= 1; dx++)
+					{
+						for (int dy = -1; dy <= 1; dy++)
+						{
+							for (int dz = -1; dz <= 1; dz++)
+							{
+								if (dx == 0 && dy == 0 && dz == 0)
+								{
+									bitIndex++;
+									continue;
+								}
+
+								bool changed = true;
+
+								if (dx < 0) changed &= onBorder[0];
+								else if (dx > 0) changed &= onBorder[1];
+								if (dy < 0) changed &= onBorder[2];
+								else if (dy > 0) changed &= onBorder[3];
+								if (dz < 0) changed &= onBorder[4];
+								else if (dz > 0) changed &= onBorder[5];
+
+								localLightChanged.set(bitIndex, changed);
+								bitIndex++;
+							}
+						}
+					}
 					lightChanged |= localLightChanged;
 				}
 				else

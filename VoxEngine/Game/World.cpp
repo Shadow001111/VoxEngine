@@ -887,7 +887,7 @@ void World::updateChunkLights()
 			continue;
 		}
 
-		std::bitset<7> lightChanged = chunk->updateLight();
+		std::bitset<27> lightChanged = chunk->updateLight();
 		if (lightChanged.any())
 		{
 			std::lock_guard<std::mutex> lock(buildMeshMutex);

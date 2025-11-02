@@ -124,7 +124,7 @@ public:
 	void buildLight();
 	void buildMesh();
 
-	std::bitset<7> updateLight();
+	std::bitset<27> updateLight();
 	bool hasLightUpdates() const;
 
 	void sortMesh(const glm::ivec3& cameraBlockPos);
