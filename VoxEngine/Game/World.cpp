@@ -705,16 +705,6 @@ void World::startBuildingChunkBlocks()
 						std::lock_guard<std::mutex> lock(buildLightMutex);
 						buildLightContainer.insert(chunk);
 					}
-
-					/*for (int i = 0; i < 6; i++)
-					{
-						Chunk* neighbor = chunk->neighbors[i];
-						if (neighbor && neighbor->getState() == Chunk::State::NeedsLight)
-						{
-							std::lock_guard<std::mutex> lock(buildLightMutex);
-							buildLightContainer.insert(neighbor);
-						}
-					}*/
 				});
 		}
 	}
@@ -800,12 +790,23 @@ void World::startBuildingChunkLights()
 						buildMeshContainer.insert(chunk);
 
 						// Also rebuild mesh for neighbors that might be affected
-						for (int i = 0; i < 6; i++)
+						for (int dx = -1; dx <= 1; dx++)
 						{
-							Chunk* neighbor = chunk->neighbors[i];
-							if (neighbor && neighbor->getState() == Chunk::State::Ready)
+							for (int dy = -1; dy <= 1; dy++)
 							{
-								buildMeshContainer.insert(neighbor);
+								for (int dz = -1; dz <= 1; dz++)
+								{
+									if (dx == 0 && dy == 0 && dz == 0)
+									{
+										continue;
+									}
+									glm::ivec3 neighborPos = chunk->getPosition() + glm::ivec3(dx, dy, dz);
+									Chunk* neighborChunk = getChunkAt(neighborPos);
+									if (neighborChunk && neighborChunk->getState() == Chunk::State::Ready)
+									{
+										buildMeshContainer.insert(neighborChunk);
+									}
+								}
 							}
 						}
 					}

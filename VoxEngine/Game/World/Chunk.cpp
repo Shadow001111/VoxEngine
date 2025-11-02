@@ -650,12 +650,11 @@ void Chunk::buildMesh()
 
 					const auto& textureIDs = blockTextureDatabase.getBlockTextureIDs(block);
 					auto& instances = blockData->properties.areFacesTransparent ? transparentInstances : opaqueInstances;
+					const BlockData* neighborBlockData;
 
 					// -X
 					auto blockAndLight = getBlockAndLight_checkSideNeighbor(x - 1, y, z, 0);
-					const BlockData* neighborBlockData = BlockDataBase::getBlockData(blockAndLight.first);
-					// TODO: Maybe Check block != otherblock, before getting block data
-					if (neighborBlockData->properties.areFacesTransparent && block != blockAndLight.first)
+					if (block != blockAndLight.first && (neighborBlockData = GET_BLOCK_DATA(blockAndLight.first))->properties.areFacesTransparent)
 					{
 						unsigned int ao, light;
 						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 0, blockAndLight.second);
@@ -671,8 +670,7 @@ void Chunk::buildMesh()
 
 					// +X
 					blockAndLight = getBlockAndLight_checkSideNeighbor(x + 1, y, z, 1);
-					neighborBlockData = BlockDataBase::getBlockData(blockAndLight.first);
-					if (neighborBlockData->properties.areFacesTransparent && block != blockAndLight.first)
+					if (block != blockAndLight.first && (neighborBlockData = GET_BLOCK_DATA(blockAndLight.first))->properties.areFacesTransparent)
 					{
 						unsigned int ao, light;
 						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 1, blockAndLight.second);
@@ -687,8 +685,7 @@ void Chunk::buildMesh()
 
 					// -Y
 					blockAndLight = getBlockAndLight_checkSideNeighbor(x, y - 1, z, 2);
-					neighborBlockData = BlockDataBase::getBlockData(blockAndLight.first);
-					if (neighborBlockData->properties.areFacesTransparent && block != blockAndLight.first)
+					if (block != blockAndLight.first && (neighborBlockData = GET_BLOCK_DATA(blockAndLight.first))->properties.areFacesTransparent)
 					{
 						unsigned int ao, light;
 						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 2, blockAndLight.second);
@@ -704,8 +701,7 @@ void Chunk::buildMesh()
 
 					// +Y
 					blockAndLight = getBlockAndLight_checkSideNeighbor(x, y + 1, z, 3);
-					neighborBlockData = BlockDataBase::getBlockData(blockAndLight.first);
-					if (neighborBlockData->properties.areFacesTransparent && block != blockAndLight.first)
+					if (block != blockAndLight.first && (neighborBlockData = GET_BLOCK_DATA(blockAndLight.first))->properties.areFacesTransparent)
 					{
 						unsigned int ao, light;
 						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 3, blockAndLight.second);
@@ -721,8 +717,7 @@ void Chunk::buildMesh()
 
 					// -Z
 					blockAndLight = getBlockAndLight_checkSideNeighbor(x, y, z - 1, 4);
-					neighborBlockData = BlockDataBase::getBlockData(blockAndLight.first);
-					if (neighborBlockData->properties.areFacesTransparent && block != blockAndLight.first)
+					if (block != blockAndLight.first && (neighborBlockData = GET_BLOCK_DATA(blockAndLight.first))->properties.areFacesTransparent)
 					{
 						unsigned int ao, light;
 						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 4, blockAndLight.second);
@@ -738,8 +733,7 @@ void Chunk::buildMesh()
 
 					// +Z
 					blockAndLight = getBlockAndLight_checkSideNeighbor(x, y, z + 1, 5);
-					neighborBlockData = BlockDataBase::getBlockData(blockAndLight.first);
-					if (neighborBlockData->properties.areFacesTransparent && block != blockAndLight.first)
+					if (block != blockAndLight.first && (neighborBlockData = GET_BLOCK_DATA(blockAndLight.first))->properties.areFacesTransparent)
 					{
 						unsigned int ao, light;
 						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 5, blockAndLight.second);
