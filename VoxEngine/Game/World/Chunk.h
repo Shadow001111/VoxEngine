@@ -101,7 +101,7 @@ private:
 public:
 	static BlockTextureIDDatabase blockTextureDatabase;
 
-	Chunk* neighbors[6]; // Pointers to neighboring chunks, for easier access when building mesh
+	Chunk* neighbors[6]; // Pointers to neighboring chunks for easier access
 
 	Chunk();
 	~Chunk();

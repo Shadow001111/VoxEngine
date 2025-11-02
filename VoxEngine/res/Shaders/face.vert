@@ -93,8 +93,8 @@ const vec2 texCoordsOffsets[4] = vec2[4](
 
 const float aoValues[4] = float[4](
     0.0,
-    0.089,
-    0.409,
+    0.333,
+    0.666,
     1.0
 );
 

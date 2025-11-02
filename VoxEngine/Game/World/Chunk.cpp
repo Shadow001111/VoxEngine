@@ -9,6 +9,8 @@
 #include <vector>
 #include <iostream>
 
+#define CHUNK_SMOOTH_LIGHTING 1
+
 BlockTextureIDDatabase Chunk::blockTextureDatabase;
 std::vector<MeshData*> Chunk::pendingMeshUploads;
 
@@ -177,7 +179,10 @@ void Chunk::buildBlocks()
 			}
 		}
 
-		blocks[getIndex(7, 7, 7)] = Block::ColoredGlass;
+		if ((position.x + position.z) & 1)
+		{
+			blocks[getIndex(7, 7, 7)] = Block::ColoredGlass;
+		}
 	}
 
 	// Caves
@@ -1519,7 +1524,6 @@ void Chunk::calculateVertexAmbientOcclusionAndLight(unsigned int& ao, LightLevel
 		return;
 	}
 
-#define CHUNK_SMOOTH_LIGHTING 1
 #if CHUNK_SMOOTH_LIGHTING
 	if (!side1Solid)
 	{

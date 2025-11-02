@@ -88,7 +88,7 @@ BlockTextureArray::BlockTextureArray(const std::string& texturesFolderPath, cons
     }
 
     //
-    GLenum internalFormat = (desiredChannels == 4) ? GL_SRGB8_ALPHA8 : GL_SRGB8;
+    GLenum internalFormat = (desiredChannels == 4) ? GL_RGBA8 : GL_RGB8;
     GLenum format = (desiredChannels == 4) ? GL_RGBA : GL_RGB;
 
     // Generate texture

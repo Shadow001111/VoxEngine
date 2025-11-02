@@ -19,7 +19,7 @@ void main()
 {
     vec3 baseColor = texture(colorTexture, texCoords).xyz;
 
-    vec3 gammaCorrected = pow(baseColor, vec3(1.0 / gamma));
+    //vec3 gammaCorrected = pow(baseColor, vec3(1.0 / gamma));
 
-    FragColor = vec4(gammaCorrected, 1.0);
+    FragColor = vec4(baseColor, 1.0);
 }

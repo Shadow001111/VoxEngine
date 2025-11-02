@@ -1,6 +1,6 @@
 #version 460 core
 
-uniform sampler2DArray blockTextures; // sRGB
+uniform sampler2DArray blockTextures;
 
 uniform vec3 fogColor;
 uniform float fogDensity;
