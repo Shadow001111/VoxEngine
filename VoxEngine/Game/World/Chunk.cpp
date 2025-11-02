@@ -872,12 +872,12 @@ std::bitset<7> Chunk::updateLight()
 
 						std::bitset<7> localLightChanged;
 						localLightChanged.set(0, true);
-						localLightChanged.set(1, x == 0);
-						localLightChanged.set(2, x == (CHUNK_SIZE - 1));
-						localLightChanged.set(3, y == 0);
-						localLightChanged.set(4, y == (CHUNK_SIZE - 1));
-						localLightChanged.set(5, z == 0);
-						localLightChanged.set(6, z == (CHUNK_SIZE - 1));
+						localLightChanged.set(1, nx == 0);
+						localLightChanged.set(2, nx == (CHUNK_SIZE - 1));
+						localLightChanged.set(3, ny == 0);
+						localLightChanged.set(4, ny == (CHUNK_SIZE - 1));
+						localLightChanged.set(5, nz == 0);
+						localLightChanged.set(6, nz == (CHUNK_SIZE - 1));
 						lightChanged |= localLightChanged;
 					}
 					else
@@ -977,12 +977,12 @@ std::bitset<7> Chunk::updateLight()
 
 					std::bitset<7> localLightChanged;
 					localLightChanged.set(0, true);
-					localLightChanged.set(1, x == 0);
-					localLightChanged.set(2, x == (CHUNK_SIZE - 1));
-					localLightChanged.set(3, y == 0);
-					localLightChanged.set(4, y == (CHUNK_SIZE - 1));
-					localLightChanged.set(5, z == 0);
-					localLightChanged.set(6, z == (CHUNK_SIZE - 1));
+					localLightChanged.set(1, nx == 0);
+					localLightChanged.set(2, nx == (CHUNK_SIZE - 1));
+					localLightChanged.set(3, ny == 0);
+					localLightChanged.set(4, ny == (CHUNK_SIZE - 1));
+					localLightChanged.set(5, nz == 0);
+					localLightChanged.set(6, nz == (CHUNK_SIZE - 1));
 					lightChanged |= localLightChanged;
 				}
 				else
