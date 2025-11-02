@@ -70,6 +70,9 @@ public:
 	static const BlockData* getBlockData(size_t index);
 };
 
+#define GET_BLOCK_DATA(block) (BlockDataBase::getBlockData(block))
+#define GET_BLOCK_PROPERTIES(block) (BlockDataBase::getBlockData(block)->properties)
+
 class BlockTextureIDDatabase
 {
 	struct BlockTextureIDs

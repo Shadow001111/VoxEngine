@@ -1,7 +1,7 @@
 #version 460 core
 
 layout(location = 0) in vec2 aPos;
-layout(location = 1) in ivec2 instanceData;
+layout(location = 1) in uvec2 instanceData;
 
 layout(binding = 0) restrict readonly buffer chunkPositionSSBO
 {
@@ -91,9 +91,18 @@ const vec2 texCoordsOffsets[4] = vec2[4](
     vec2(0, 1)
 );
 
+const float aoValues[4] = float[4](
+    0.0,
+    0.089,
+    0.409,
+    1.0
+);
+
+const float INV_LIGHT_SCALE = 1.0 / 15.0;
+
 uint hash3(ivec3 sv)
 {
-    uvec3 v = sv;
+    uvec3 v = uvec3(sv);
     uint x = v.x * 0x27d4eb2du + v.y * 0x165667b1u + v.z * 0x1b873593u;
     x ^= x >> 15u;
     x *= 0x85ebca6bu;
@@ -106,69 +115,67 @@ uint hash3(ivec3 sv)
 void main()
 {
     // Unpack face data
-    int x = instanceData.x & 15;
-    int y = (instanceData.x >> 4) & 15;
-    int z = (instanceData.x >> 8) & 15;
+    uint x = instanceData.x & 15u;
+    uint y = (instanceData.x >> 4u) & 15u;
+    uint z = (instanceData.x >> 8u) & 15u;
 
-    int normal = (instanceData.x >> 12) & 7;
+    uint normal = (instanceData.x >> 12u) & 7u;
 
-    int faceAO = (instanceData.x >> 15) & 255;
-    int ao0 = faceAO & 3;
-    int ao1 = (faceAO >> 2) & 3;
-    int ao2 = (faceAO >> 4) & 3;
-    int ao3 = faceAO >> 6;
+    uint faceAO = (instanceData.x >> 15u) & 255u;
+    uint ao0 = faceAO & 3u;
+    uint ao1 = (faceAO >> 2u) & 3u;
+    uint ao2 = (faceAO >> 4u) & 3u;
+    uint ao3 = faceAO >> 6u;
 
-    textureID = (instanceData.x >> 23) & 127;
+    textureID = (instanceData.x >> 23u) & 127u;
     
-    int textureTransformation = (instanceData.x >> 30) & 3;
+    uint textureTransformation = (instanceData.x >> 30u) & 3u;
 
-    int blockLight0 = (instanceData.y >> 0)  & 15;
-    int skyLight0   = (instanceData.y >> 4)  & 15;
-    int blockLight1 = (instanceData.y >> 8)  & 15;
-    int skyLight1   = (instanceData.y >> 12) & 15;
-    int blockLight2 = (instanceData.y >> 16) & 15;
-    int skyLight2   = (instanceData.y >> 20) & 15;
-    int blockLight3 = (instanceData.y >> 24) & 15;
-    int skyLight3   = (instanceData.y >> 28) & 15;
+    uint blockLight0 = (instanceData.y >> 0u)  & 15u;
+    uint skyLight0   = (instanceData.y >> 4u)  & 15u;
+    uint blockLight1 = (instanceData.y >> 8u)  & 15u;
+    uint skyLight1   = (instanceData.y >> 12u) & 15u;
+    uint blockLight2 = (instanceData.y >> 16u) & 15u;
+    uint skyLight2   = (instanceData.y >> 20u) & 15u;
+    uint blockLight3 = (instanceData.y >> 24u) & 15u;
+    uint skyLight3   = (instanceData.y >> 28u) & 15u;
     
     // AO
-    const float inv3 = 1.0 / 3.0;
-    ao[0] = float(ao0) * inv3;
-    ao[1] = float(ao1) * inv3;
-    ao[2] = float(ao2) * inv3;
-    ao[3] = float(ao3) * inv3;
+    ao[0] = aoValues[ao0];
+    ao[1] = aoValues[ao1];
+    ao[2] = aoValues[ao2];
+    ao[3] = aoValues[ao3];
 
     // Light
-    const float inv15 = 1.0 / 15.0;
-    light[0] = max(blockLight0, skyLight0) * inv15;
-    light[1] = max(blockLight1, skyLight1) * inv15;
-    light[2] = max(blockLight2, skyLight2) * inv15;
-    light[3] = max(blockLight3, skyLight3) * inv15;
+    light[0] = max(blockLight0, skyLight0) * INV_LIGHT_SCALE;
+    light[1] = max(blockLight1, skyLight1) * INV_LIGHT_SCALE;
+    light[2] = max(blockLight2, skyLight2) * INV_LIGHT_SCALE;
+    light[3] = max(blockLight3, skyLight3) * INV_LIGHT_SCALE;
 
     // Transform vertex and uv
     vec3 vertexPos = vertexRotations[normal] * vec3(aPos, 0.0) + vertexOffsets[normal];
     uv = uvRotations[normal] * aPos + uvOffsets[normal];
 
     // Chunk position
-    const uint posIndex = gl_DrawID * 3;
+    const uint posIndex = uint(gl_DrawID) * 3u;
     const vec3 chunkPosition = CHUNK_SIZE * vec3
 	(
 		chunkPositions[posIndex],
-		chunkPositions[posIndex + 1],
-		chunkPositions[posIndex + 2]
+		chunkPositions[posIndex + 1u],
+		chunkPositions[posIndex + 2u]
 	);
 
     // Transform texCoords. TODO: Remove branching. Idk, maybe it won't change a thing.
     texCoords = uv;
     if (textureTransformation > 0)
     {
-        uint hash = hash3(ivec3(x + chunkPosition.x, y + chunkPosition.y, z + chunkPosition.z));
+        ivec3 blockWorldPos = ivec3(x, y, z) + ivec3(chunkPosition);
+        uint hash = hash3(blockWorldPos);
 
-        // Flip
-        uint rotation = uint(textureTransformation > 1) * (hash & 3);
+        uint rotation = uint(textureTransformation > 1) * (hash & 3u);
         uint flip = (hash >> 3) & 3;
 
-        vec2 flipMask = vec2(float((flip & 1) == 0), float((flip & 2) == 0));
+        vec2 flipMask = vec2(float((flip & 1u) == 0), float((flip & 2u) == 0));
 
         texCoords = mix(texCoords, vec2(1.0) - texCoords, flipMask);
         texCoords = texCoordsRotations[rotation] * texCoords + texCoordsOffsets[rotation];

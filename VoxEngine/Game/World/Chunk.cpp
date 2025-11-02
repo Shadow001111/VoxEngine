@@ -364,9 +364,8 @@ void Chunk::buildLight()
 					size_t index = getIndex(x, y, z);
 
 					Block currentBlock = blocks[index];
-					const BlockData* currentBlockData = BlockDataBase::getBlockData(currentBlock);
 
-					uint8_t emission = currentBlockData->properties.lightEmission;
+					uint8_t emission = GET_BLOCK_PROPERTIES(currentBlock).lightEmission;
 					if (emission == 0)
 					{
 						continue;
@@ -383,23 +382,30 @@ void Chunk::buildLight()
 	{
 		PROFILE_SCOPE("Build chunk light: collect neighbor light", ProfileCategory::ChunkLight);
 		
-		const Chunk* neighbor = nullptr;
+		const Chunk* neighbor;;
 
 		// -X
 		neighbor = neighbors[0];
 		if (neighbor)
 		{
+			const int x = 0;
+			const int neighborX = CHUNK_SIZE - 1;
 			for (int y = 0; y < CHUNK_SIZE; y++)
 			{
 				for (int z = 0; z < CHUNK_SIZE; z++)
 				{
-					LightLevel neighborLight = neighbor->getLight_inBoundaries(CHUNK_SIZE - 1, y, z);
-					size_t index = getIndex(0, y, z);
-					if (lightLevels[index].blockLight + 2 <= neighborLight.blockLight)
+					size_t index = getIndex(x, y, z);
+					if (GET_BLOCK_PROPERTIES(blocks[index]).absorbsLight)
 					{
-						lightLevels[index].blockLight = neighborLight.blockLight - 1;
-						localLightNodeContainer.emplace(0, y, z);
+						continue;
 					}
+					LightLevel neighborLight = neighbor->getLight_inBoundaries(neighborX, y, z);
+					if (lightLevels[index].blockLight + 2 > neighborLight.blockLight)
+					{
+						continue;
+					}
+					lightLevels[index].blockLight = neighborLight.blockLight - 1;
+					localLightNodeContainer.emplace(x, y, z);
 				}
 			}
 		}
@@ -408,17 +414,24 @@ void Chunk::buildLight()
 		neighbor = neighbors[1];
 		if (neighbor)
 		{
+			const int x = CHUNK_SIZE - 1;
+			const int neighborX = 0;
 			for (int y = 0; y < CHUNK_SIZE; y++)
 			{
 				for (int z = 0; z < CHUNK_SIZE; z++)
 				{
-					LightLevel neighborLight = neighbor->getLight_inBoundaries(0, y, z);
-					size_t index = getIndex(CHUNK_SIZE - 1, y, z);
-					if (lightLevels[index].blockLight + 2 <= neighborLight.blockLight)
+					size_t index = getIndex(x, y, z);
+					if (GET_BLOCK_PROPERTIES(blocks[index]).absorbsLight)
 					{
-						lightLevels[index].blockLight = neighborLight.blockLight - 1;
-						localLightNodeContainer.emplace(CHUNK_SIZE - 1, y, z);
+						continue;
 					}
+					LightLevel neighborLight = neighbor->getLight_inBoundaries(neighborX, y, z);
+					if (lightLevels[index].blockLight + 2 > neighborLight.blockLight)
+					{
+						continue;
+					}
+					lightLevels[index].blockLight = neighborLight.blockLight - 1;
+					localLightNodeContainer.emplace(x, y, z);
 				}
 			}
 		}
@@ -427,17 +440,24 @@ void Chunk::buildLight()
 		neighbor = neighbors[2];
 		if (neighbor)
 		{
+			const int y = 0;
+			const int neighborY = CHUNK_SIZE - 1;
 			for (int x = 0; x < CHUNK_SIZE; x++)
 			{
 				for (int z = 0; z < CHUNK_SIZE; z++)
 				{
-					LightLevel neighborLight = neighbor->getLight_inBoundaries(x, CHUNK_SIZE - 1, z);
-					size_t index = getIndex(x, 0, z);
-					if (lightLevels[index].blockLight + 2 <= neighborLight.blockLight)
+					size_t index = getIndex(x, y, z);
+					if (GET_BLOCK_PROPERTIES(blocks[index]).absorbsLight)
 					{
-						lightLevels[index].blockLight = neighborLight.blockLight - 1;
-						localLightNodeContainer.emplace(x, 0, z);
+						continue;
 					}
+					LightLevel neighborLight = neighbor->getLight_inBoundaries(x, neighborY, z);
+					if (lightLevels[index].blockLight + 2 > neighborLight.blockLight)
+					{
+						continue;
+					}
+					lightLevels[index].blockLight = neighborLight.blockLight - 1;
+					localLightNodeContainer.emplace(x, y, z);
 				}
 			}
 		}
@@ -446,17 +466,24 @@ void Chunk::buildLight()
 		neighbor = neighbors[3];
 		if (neighbor)
 		{
+			const int y = CHUNK_SIZE - 1;
+			const int neighborY = 0;
 			for (int x = 0; x < CHUNK_SIZE; x++)
 			{
 				for (int z = 0; z < CHUNK_SIZE; z++)
 				{
-					LightLevel neighborLight = neighbor->getLight_inBoundaries(x, 0, z);
-					size_t index = getIndex(x, CHUNK_SIZE - 1, z);
-					if (lightLevels[index].blockLight + 2 <= neighborLight.blockLight)
+					size_t index = getIndex(x, y, z);
+					if (GET_BLOCK_PROPERTIES(blocks[index]).absorbsLight)
 					{
-						lightLevels[index].blockLight = neighborLight.blockLight - 1;
-						localLightNodeContainer.emplace(x, CHUNK_SIZE - 1, z);
+						continue;
 					}
+					LightLevel neighborLight = neighbor->getLight_inBoundaries(x, neighborY, z);
+					if (lightLevels[index].blockLight + 2 > neighborLight.blockLight)
+					{
+						continue;
+					}
+					lightLevels[index].blockLight = neighborLight.blockLight - 1;
+					localLightNodeContainer.emplace(x, y, z);
 				}
 			}
 		}
@@ -465,17 +492,24 @@ void Chunk::buildLight()
 		neighbor = neighbors[4];
 		if (neighbor)
 		{
+			const int z = 0;
+			const int neighborZ = CHUNK_SIZE - 1;
 			for (int x = 0; x < CHUNK_SIZE; x++)
 			{
 				for (int y = 0; y < CHUNK_SIZE; y++)
 				{
-					LightLevel neighborLight = neighbor->getLight_inBoundaries(x, y, CHUNK_SIZE - 1);
-					size_t index = getIndex(x, y, 0);
-					if (lightLevels[index].blockLight + 2 <= neighborLight.blockLight)
+					size_t index = getIndex(x, y, z);
+					if (GET_BLOCK_PROPERTIES(blocks[index]).absorbsLight)
 					{
-						lightLevels[index].blockLight = neighborLight.blockLight - 1;
-						localLightNodeContainer.emplace(x, y, 0);
+						continue;
 					}
+					LightLevel neighborLight = neighbor->getLight_inBoundaries(x, y, neighborZ);
+					if (lightLevels[index].blockLight + 2 > neighborLight.blockLight)
+					{
+						continue;
+					}
+					lightLevels[index].blockLight = neighborLight.blockLight - 1;
+					localLightNodeContainer.emplace(x, y, z);
 				}
 			}
 		}
@@ -484,17 +518,24 @@ void Chunk::buildLight()
 		neighbor = neighbors[5];
 		if (neighbor)
 		{
+			const int z = CHUNK_SIZE - 1;
+			const int neighborZ = 0;
 			for (int x = 0; x < CHUNK_SIZE; x++)
 			{
 				for (int y = 0; y < CHUNK_SIZE; y++)
 				{
-					LightLevel neighborLight = neighbor->getLight_inBoundaries(x, y, 0);
-					size_t index = getIndex(x, y, CHUNK_SIZE - 1);
-					if (lightLevels[index].blockLight + 2 <= neighborLight.blockLight)
+					size_t index = getIndex(x, y, z);
+					if (GET_BLOCK_PROPERTIES(blocks[index]).absorbsLight)
 					{
-						lightLevels[index].blockLight = neighborLight.blockLight - 1;
-						localLightNodeContainer.emplace(x, y, CHUNK_SIZE - 1);
+						continue;
 					}
+					LightLevel neighborLight = neighbor->getLight_inBoundaries(x, y, neighborZ);
+					if (lightLevels[index].blockLight + 2 > neighborLight.blockLight)
+					{
+						continue;
+					}
+					lightLevels[index].blockLight = neighborLight.blockLight - 1;
+					localLightNodeContainer.emplace(x, y, z);
 				}
 			}
 		}
@@ -531,7 +572,7 @@ void Chunk::buildLight()
 
 				auto neighborData = getBlockAndLight_checkSideNeighbor(nx, ny, nz, i);
 
-				if (BlockDataBase::getBlockData(neighborData.first)->properties.absorbsLight)
+				if (GET_BLOCK_PROPERTIES(neighborData.first).absorbsLight)
 				{
 					continue;
 				}
@@ -601,7 +642,7 @@ void Chunk::buildMesh()
 				for (int z = 0; z < CHUNK_SIZE; z++)
 				{
 					Block block = getBlock_inBoundaries(x, y, z);
-					const BlockData* blockData = BlockDataBase::getBlockData(block);
+					const BlockData* blockData = GET_BLOCK_DATA(block);
 					if (!blockData->properties.hasFaces)
 					{
 						continue;
@@ -812,7 +853,7 @@ std::bitset<7> Chunk::updateLight()
 
 				auto neighborData = getBlockAndLight_checkSideNeighbor(nx, ny, nz, i);
 
-				if (BlockDataBase::getBlockData(neighborData.first)->properties.absorbsLight)
+				if (GET_BLOCK_PROPERTIES(neighborData.first).absorbsLight)
 				{
 					continue;
 				}
@@ -915,7 +956,7 @@ std::bitset<7> Chunk::updateLight()
 
 				auto neighborData = getBlockAndLight_checkSideNeighbor(nx, ny, nz, i);
 
-				if (BlockDataBase::getBlockData(neighborData.first)->properties.absorbsLight)
+				if (GET_BLOCK_PROPERTIES(neighborData.first).absorbsLight)
 				{
 					continue;
 				}

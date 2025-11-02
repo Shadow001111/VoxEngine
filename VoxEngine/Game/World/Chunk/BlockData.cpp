@@ -122,7 +122,6 @@ const BlockData* BlockDataBase::getBlockData(size_t index)
 	return &BLOCK_DATABASE[index];
 }
 
-
 BlockTextureIDDatabase::BlockTextureIDDatabase()
 {
 	// Create array
