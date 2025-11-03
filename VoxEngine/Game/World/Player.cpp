@@ -37,12 +37,20 @@ void Player::update(double deltaTime)
 	{
 		double friction, maxSpeed, maxAcceleration;
 		getMovingValues(friction, maxSpeed, maxAcceleration);
+
 		// Apply friction
-		if (onGround)
 		{
-			double friction = pow(0.05, deltaTime);
-			velocity.x *= friction;
-			velocity.z *= friction;
+			double frictionForce = friction * deltaTime;
+			glm::dvec3 flatVelocity = glm::dvec3(velocity.x, 0.0, velocity.z);
+			if (frictionForce > glm::length(flatVelocity))
+			{
+				velocity.x = 0.0;
+				velocity.z = 0.0;
+			}
+			else
+			{
+				velocity -= glm::normalize(flatVelocity) * frictionForce;
+			}
 		}
 
 		// Get flat vectors
@@ -86,13 +94,15 @@ void Player::update(double deltaTime)
 	raycastResult = world->raycast(camera.getPosition(), camera.getForward(), 16.0f);
 	if (raycastResult.hit)
 	{
-		if (input.leftMousePressed)
+		if (input.leftMouseClicked)
 		{
 			world->placeBlock(raycastResult, hotbar[selectedItemIndex]);
+			input.leftMouseClicked = false;
 		}
-		if (input.rightMousePressed)
+		if (input.rightMouseClicked)
 		{
 			world->breakBlock(raycastResult);
+			input.rightMouseClicked = false;
 		}
 	}
 
@@ -118,6 +128,9 @@ void Player::resetInput()
 	input.leftMousePressed = false;
 	input.rightMousePressed = false;
 
+	input.leftMouseClicked = false;
+	input.rightMouseClicked = false;
+
 	input.mouseDelta = glm::vec2(0.0f);
 }
 
@@ -125,19 +138,23 @@ void Player::getMovingValues(double& friction, double& maxSpeed, double& maxAcce
 {
 	if (onGround)
 	{
-		if (input.sprint)
+		bool moveAny = input.moveForward || input.moveBackward || input.moveLeft || input.moveRight;
+		if (input.sprint && moveAny)
 		{
-			maxSpeed = 12.0;
+			friction = 10.0;
+			maxSpeed = 10.0;
 			maxAcceleration = 100.0;
 		}
 		else
 		{
-			maxSpeed = 6.0;
+			friction = 10.0;
+			maxSpeed = 5.0;
 			maxAcceleration = 50.0;
 		}
 	}
 	else
 	{
+		friction = 1.0;
 		maxSpeed = 3.0;
 		maxAcceleration = 25.0;
 	}

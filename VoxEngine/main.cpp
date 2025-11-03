@@ -111,8 +111,23 @@ void collectPlayerInput(PlayerInput& input, const WindowManager& wnd, glm::vec2&
         input.numbers[i] |= wnd.isKeyPressed(GLFW_KEY_0 + i);
     }
 
+	static bool prevLeftMouseState = false;
+	static bool prevRightMouseState = false;
+
     input.leftMousePressed |= wnd.isMouseButtonPressed(GLFW_MOUSE_BUTTON_LEFT);
     input.rightMousePressed |= wnd.isMouseButtonPressed(GLFW_MOUSE_BUTTON_RIGHT);
+
+    if (!prevLeftMouseState && input.leftMousePressed)
+    {
+		input.leftMouseClicked = true;
+    }
+    if (!prevRightMouseState && input.rightMousePressed)
+	{
+		input.rightMouseClicked = true;
+	}
+
+	prevLeftMouseState = input.leftMousePressed;
+	prevRightMouseState = input.rightMousePressed;
 
     float mouseX, mouseY;
     wnd.getMousePos(mouseX, mouseY);
