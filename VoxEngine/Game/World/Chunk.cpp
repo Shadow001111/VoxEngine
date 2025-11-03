@@ -395,11 +395,10 @@ void Chunk::buildLight()
 	const int* heightMap = chunkColumnData->heightMapRead();
 
 	std::queue<LightNode> localSkyLightBfsQueue;
+	const Chunk* top = neighbors[3];
 	{
-		PROFILE_SCOPE("Build chunk light: collectlight sources", ProfileCategory::ChunkLight);
+		PROFILE_SCOPE("Build chunk light: collect light sources", ProfileCategory::ChunkLight);
 	
-		const Chunk* top = neighbors[3];
-
 		if (top)
 		{
 			// Propagate from top neighbor
@@ -463,10 +462,34 @@ void Chunk::buildLight()
 	{
 		PROFILE_SCOPE("Build chunk light: collect neighbor light", ProfileCategory::ChunkLight);
 		
-		const Chunk* neighbor;;
+		auto processNeighborFace = [&](int x, int y, int z, int nx, int ny, int nz, const Chunk* neighbor, bool propagatingFromTop)
+			{
+				size_t index = getIndex(x, y, z);
+				if (GET_BLOCK_PROPERTIES(blocks[index]).absorbsLight)
+				{
+					return;
+				}
+
+				LightLevel neighborLight = neighbor->getLightAt(nx, ny, nz);
+
+				// Block light
+				if (lightLevels[index].blockLight + 1 < neighborLight.blockLight)
+				{
+					lightLevels[index].blockLight = neighborLight.blockLight - 1;
+					localBlockLightBfsQueue.emplace(x, y, z);
+				}
+
+				// Sky light
+				uint8_t skyLightAbsorption = (propagatingFromTop && lightLevels[index].skyLight == 15) ? 0 : 1;
+				if (lightLevels[index].skyLight + skyLightAbsorption < neighborLight.skyLight)
+				{
+					lightLevels[index].skyLight = neighborLight.skyLight - skyLightAbsorption;
+					localSkyLightBfsQueue.emplace(x, y, z);
+				}
+			};
 
 		// -X
-		neighbor = neighbors[0];
+		const Chunk* neighbor = neighbors[0];
 		if (neighbor)
 		{
 			const int x = 0;
@@ -475,18 +498,7 @@ void Chunk::buildLight()
 			{
 				for (int z = 0; z < CHUNK_SIZE; z++)
 				{
-					size_t index = getIndex(x, y, z);
-					if (GET_BLOCK_PROPERTIES(blocks[index]).absorbsLight)
-					{
-						continue;
-					}
-					LightLevel neighborLight = neighbor->getLightAt(neighborX, y, z);
-					if (lightLevels[index].blockLight + 2 > neighborLight.blockLight)
-					{
-						continue;
-					}
-					lightLevels[index].blockLight = neighborLight.blockLight - 1;
-					localBlockLightBfsQueue.emplace(x, y, z);
+					processNeighborFace(x, y, z, neighborX, y, z, neighbor, false);
 				}
 			}
 		}
@@ -501,18 +513,7 @@ void Chunk::buildLight()
 			{
 				for (int z = 0; z < CHUNK_SIZE; z++)
 				{
-					size_t index = getIndex(x, y, z);
-					if (GET_BLOCK_PROPERTIES(blocks[index]).absorbsLight)
-					{
-						continue;
-					}
-					LightLevel neighborLight = neighbor->getLightAt(neighborX, y, z);
-					if (lightLevels[index].blockLight + 2 > neighborLight.blockLight)
-					{
-						continue;
-					}
-					lightLevels[index].blockLight = neighborLight.blockLight - 1;
-					localBlockLightBfsQueue.emplace(x, y, z);
+					processNeighborFace(x, y, z, neighborX, y, z, neighbor, false);
 				}
 			}
 		}
@@ -527,23 +528,12 @@ void Chunk::buildLight()
 			{
 				for (int z = 0; z < CHUNK_SIZE; z++)
 				{
-					size_t index = getIndex(x, y, z);
-					if (GET_BLOCK_PROPERTIES(blocks[index]).absorbsLight)
-					{
-						continue;
-					}
-					LightLevel neighborLight = neighbor->getLightAt(x, neighborY, z);
-					if (lightLevels[index].blockLight + 2 > neighborLight.blockLight)
-					{
-						continue;
-					}
-					lightLevels[index].blockLight = neighborLight.blockLight - 1;
-					localBlockLightBfsQueue.emplace(x, y, z);
+					processNeighborFace(x, y, z, x, neighborY, z, neighbor, false);
 				}
 			}
 		}
 
-		// +Y
+		// +Y. Sky light shouldn't be gropagated if 'top' chunk isn't nullptr, but I don't care much.
 		neighbor = neighbors[3];
 		if (neighbor)
 		{
@@ -553,18 +543,7 @@ void Chunk::buildLight()
 			{
 				for (int z = 0; z < CHUNK_SIZE; z++)
 				{
-					size_t index = getIndex(x, y, z);
-					if (GET_BLOCK_PROPERTIES(blocks[index]).absorbsLight)
-					{
-						continue;
-					}
-					LightLevel neighborLight = neighbor->getLightAt(x, neighborY, z);
-					if (lightLevels[index].blockLight + 2 > neighborLight.blockLight)
-					{
-						continue;
-					}
-					lightLevels[index].blockLight = neighborLight.blockLight - 1;
-					localBlockLightBfsQueue.emplace(x, y, z);
+					processNeighborFace(x, y, z, x, neighborY, z, neighbor, true);
 				}
 			}
 		}
@@ -579,18 +558,7 @@ void Chunk::buildLight()
 			{
 				for (int y = 0; y < CHUNK_SIZE; y++)
 				{
-					size_t index = getIndex(x, y, z);
-					if (GET_BLOCK_PROPERTIES(blocks[index]).absorbsLight)
-					{
-						continue;
-					}
-					LightLevel neighborLight = neighbor->getLightAt(x, y, neighborZ);
-					if (lightLevels[index].blockLight + 2 > neighborLight.blockLight)
-					{
-						continue;
-					}
-					lightLevels[index].blockLight = neighborLight.blockLight - 1;
-					localBlockLightBfsQueue.emplace(x, y, z);
+					processNeighborFace(x, y, z, x, y, neighborZ, neighbor, false);
 				}
 			}
 		}
@@ -605,18 +573,7 @@ void Chunk::buildLight()
 			{
 				for (int y = 0; y < CHUNK_SIZE; y++)
 				{
-					size_t index = getIndex(x, y, z);
-					if (GET_BLOCK_PROPERTIES(blocks[index]).absorbsLight)
-					{
-						continue;
-					}
-					LightLevel neighborLight = neighbor->getLightAt(x, y, neighborZ);
-					if (lightLevels[index].blockLight + 2 > neighborLight.blockLight)
-					{
-						continue;
-					}
-					lightLevels[index].blockLight = neighborLight.blockLight - 1;
-					localBlockLightBfsQueue.emplace(x, y, z);
+					processNeighborFace(x, y, z, x, y, neighborZ, neighbor, false);
 				}
 			}
 		}
@@ -1015,8 +972,6 @@ std::bitset<27> Chunk::updateLight()
 
 	// Remove block light
 	{
-		PROFILE_SCOPE("Update chunk light: light removal", ProfileCategory::ChunkLight);
-
 		while (!localBlockLightRemovalBfsQueue.empty())
 		{
 			// Get node data
@@ -1128,8 +1083,6 @@ std::bitset<27> Chunk::updateLight()
 
 	// Propagate block light
 	{
-		PROFILE_SCOPE("Update chunk light: light propagation", ProfileCategory::ChunkLight);
-
 		// TODO: Consider using vector to speed up. Must remove front element!
 		while (!localBlockLightBfsQueue.empty())
 		{
@@ -1240,8 +1193,6 @@ std::bitset<27> Chunk::updateLight()
 
 	// Remove sky light
 	{
-		PROFILE_SCOPE("Update chunk light: light removal", ProfileCategory::ChunkLight);
-
 		while (!localSkyLightRemovalBfsQueue.empty())
 		{
 			// Get node data
@@ -1355,8 +1306,6 @@ std::bitset<27> Chunk::updateLight()
 
 	// Propagate sky light
 	{
-		PROFILE_SCOPE("Update chunk light: light propagation", ProfileCategory::ChunkLight);
-
 		while (!localSkyLightBfsQueue.empty())
 		{
 			// Get node data
