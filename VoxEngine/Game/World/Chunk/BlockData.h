@@ -25,6 +25,15 @@ enum class TextureTransformation : uint8_t
 
 struct BlockTextures
 {
+	uint16_t textureIDs[6] = { 0, 0, 0, 0, 0, 0 };
+	uint16_t texturesTransformation = 0;
+
+	BlockTextures() = default;
+	BlockTextures(uint16_t texturesTransformation);
+};
+
+struct BlockTextureNames
+{
 	const char* texName_negativeX = nullptr;
 	const char* texName_positiveX = nullptr;
 	const char* texName_negativeY = nullptr;
@@ -32,20 +41,14 @@ struct BlockTextures
 	const char* texName_negativeZ = nullptr;
 	const char* texName_positiveZ = nullptr;
 
-	uint16_t texturesTransformation = 0;
-
-	BlockTextures() = default;
-	BlockTextures(
+	BlockTextureNames() = default;
+	BlockTextureNames(
 		const char* nxName, const char* pxName,
 		const char* nyName, const char* pyName,
-		const char* nzName, const char* pzName,
-		TextureTransformation nxTransform, TextureTransformation pxTransform,
-		TextureTransformation nyTransform, TextureTransformation pyTransform,
-		TextureTransformation nzTransform, TextureTransformation pzTransform
+		const char* nzName, const char* pzName
 	);
 };
 
-// TODO: Add block texture IDs there
 struct BlockData
 {
 	BlockProperties properties;
@@ -61,10 +64,18 @@ class BlockDataBase
 	~BlockDataBase() = delete;
 
 	static BlockData BLOCK_DATABASE[(size_t)Block::__BlockCount__];
+	static BlockTextureNames TEXTURE_NAMES[(size_t)Block::__BlockCount__];
 
-	static void registerBlock(Block block, const BlockProperties& properties, const BlockTextures& textures);
+	static void registerBlock(Block block, const BlockProperties& properties,
+		const BlockTextureNames& textureNames, TextureTransformation nxTransform,
+		TextureTransformation pxTransform, TextureTransformation nyTransform,
+		TextureTransformation pyTransform, TextureTransformation nzTransform,
+		TextureTransformation pzTransform);
 public:
-	static void loadBlockDataBase();
+	static void loadBlockDataBase(std::vector<std::string>& textureNames);
+private:
+	static void buildTextureIDs(std::vector<std::string>& textureNames);
+public:
 
 	static const BlockData* getBlockData(Block block);
 	static const BlockData* getBlockData(size_t index);
@@ -72,24 +83,4 @@ public:
 
 #define GET_BLOCK_DATA(block) (BlockDataBase::getBlockData(block))
 #define GET_BLOCK_PROPERTIES(block) (BlockDataBase::getBlockData(block)->properties)
-
-class BlockTextureIDDatabase
-{
-	struct BlockTextureIDs
-	{
-		uint16_t ids[6];
-	};
-	std::vector<BlockTextureIDs> blockTexturesIDs;
-public:
-	BlockTextureIDDatabase();
-	~BlockTextureIDDatabase();
-
-	void build(std::vector<std::string>& textureNames);
-
-	BlockTextureIDDatabase(const BlockTextureIDDatabase& other) = delete;
-	BlockTextureIDDatabase& operator=(const BlockTextureIDDatabase& other) = delete;
-	BlockTextureIDDatabase(BlockTextureIDDatabase&& other) = delete;
-	BlockTextureIDDatabase& operator=(BlockTextureIDDatabase&& other) = delete;
-
-	const BlockTextureIDs& getBlockTextureIDs(Block block) const;
-};
+#define GET_BLOCK_TEXTURES(block) (BlockDataBase::getBlockData(block)->textures)

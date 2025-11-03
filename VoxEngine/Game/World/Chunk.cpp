@@ -11,7 +11,6 @@
 
 #define CHUNK_SMOOTH_LIGHTING 1
 
-BlockTextureIDDatabase Chunk::blockTextureDatabase;
 std::vector<MeshData*> Chunk::pendingMeshUploads;
 
 inline size_t Chunk::getIndex(int x, int y, int z)
@@ -651,7 +650,7 @@ void Chunk::buildMesh()
 						continue;
 					}
 
-					const auto& textureIDs = blockTextureDatabase.getBlockTextureIDs(block);
+					const auto& textureIDs = blockData->textures.textureIDs;
 					auto& instances = blockData->properties.areFacesTransparent ? transparentInstances : opaqueInstances;
 					const BlockData* neighborBlockData;
 
@@ -661,7 +660,6 @@ void Chunk::buildMesh()
 					LightLevel neighborLight;
 
 					// -X
-					// TODO: If neighbor is missing, don't generate faces
 					neighborChunk = getChunkAndIndex_checkSideNeighbor(x - 1, y, z, 0, neighborIndex);
 					neighborBlock = neighborChunk ? neighborChunk->getBlockAt(neighborIndex) : Block::Air;
 					neighborLight = neighborChunk ? neighborChunk->getLightAt(neighborIndex) : LightLevel(0, 15);
@@ -674,7 +672,7 @@ void Chunk::buildMesh()
 							x, y, z,
 							0,
 							ao,
-							textureIDs.ids[0],
+							textureIDs[0],
 							blockData->textures.texturesTransformation & 3,
 							light
 						);
@@ -693,7 +691,7 @@ void Chunk::buildMesh()
 							x, y, z,
 							1,
 							ao,
-							textureIDs.ids[1],
+							textureIDs[1],
 							(blockData->textures.texturesTransformation >> 2) & 3,
 							light);
 					}
@@ -711,7 +709,7 @@ void Chunk::buildMesh()
 							x, y, z,
 							2,
 							ao,
-							textureIDs.ids[2],
+							textureIDs[2],
 							(blockData->textures.texturesTransformation >> 4) & 3,
 							light
 						);
@@ -730,7 +728,7 @@ void Chunk::buildMesh()
 							x, y, z,
 							3,
 							ao,
-							textureIDs.ids[3],
+							textureIDs[3],
 							(blockData->textures.texturesTransformation >> 6) & 3,
 							light
 						);
@@ -749,7 +747,7 @@ void Chunk::buildMesh()
 							x, y, z,
 							4,
 							ao,
-							textureIDs.ids[4],
+							textureIDs[4],
 							(blockData->textures.texturesTransformation >> 8) & 3,
 							light
 						);
@@ -768,7 +766,7 @@ void Chunk::buildMesh()
 							x, y, z,
 							5,
 							ao,
-							textureIDs.ids[5],
+							textureIDs[5],
 							(blockData->textures.texturesTransformation >> 10) & 3,
 							light);
 					}
@@ -1635,7 +1633,7 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(unsigned int& ao, unsigned int
 
 	//
 	ao = ao0 | (ao1 << 2) | (ao2 << 4) | (ao3 << 6);
-	light = *((unsigned int*)lightLevels); // TODO: Light values can be in reversed order!
+	light = *((unsigned int*)lightLevels);
 }
 
 int Chunk::getX() const

@@ -99,8 +99,6 @@ private:
 	static size_t getIndex(int x, int y, int z);
 	static glm::ivec3 getPositionFromIndex(size_t index);
 public:
-	static BlockTextureIDDatabase blockTextureDatabase;
-
 	Chunk* neighbors[6]; // Pointers to neighboring chunks for easier access
 
 	Chunk();

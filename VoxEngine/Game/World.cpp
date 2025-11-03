@@ -32,14 +32,11 @@ World::World()
 	}
 
 	// Block data base
-	BlockDataBase::loadBlockDataBase();
+	std::vector<std::string> blockTextureNames;
+	BlockDataBase::loadBlockDataBase(blockTextureNames);
+
 
 	// Block textures
-	std::vector<std::string> blockTextureNames;
-	{
-		PROFILE_SCOPE("BlockTextureIDDatabase build", ProfileCategory::General);
-		Chunk::blockTextureDatabase.build(blockTextureNames);
-	}
 	{
 		PROFILE_SCOPE("Block texture array creation", ProfileCategory::General);
 		blockTextureArray = std::make_unique<BlockTextureArray>("res/Textures", blockTextureNames, 0, 16);
