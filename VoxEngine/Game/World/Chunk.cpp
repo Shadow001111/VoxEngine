@@ -71,6 +71,8 @@ void Chunk::init(int x, int y, int z, Chunk** neighbors)
 
 	cameraClosestBlockPosForSortingMesh = -1;
 	shouldSortMeshAfterBuild = false;
+
+	lightDirty = false;
 }
 
 // Cleans up resources
@@ -457,7 +459,6 @@ void Chunk::buildLight()
 	}
 
 	// Step 3: Collect light from neighbors
-	// TODO: Add support for sky light from neighbors (if 'top' chunk isn't loaded then propagate from top one)
 	// TODO: If neighbor block is solid, then check if it's a light source and propagate from it
 	{
 		PROFILE_SCOPE("Build chunk light: collect neighbor light", ProfileCategory::ChunkLight);
@@ -639,9 +640,9 @@ void Chunk::buildLight()
 					int neighborNY = ny & CHUNK_LOWER_BITS_MASK;
 					int neighborNZ = nz & CHUNK_LOWER_BITS_MASK;
 
-					// TODO: This and the same line in UpdateLight should cause chunk to update its mesh
 					neighborChunk->setBlockLightAt(neighborIndex, lightToSet);
 					neighborChunk->addBlockLightNodeToQueue(neighborNX, neighborNY, neighborNZ);
+					neighborChunk->lightDirty = true;
 				}
 			}
 		}
@@ -711,9 +712,9 @@ void Chunk::buildLight()
 					int neighborNY = ny & CHUNK_LOWER_BITS_MASK;
 					int neighborNZ = nz & CHUNK_LOWER_BITS_MASK;
 
-					// TODO: This and the same line in UpdateLight should cause chunk to update its mesh
 					neighborChunk->setSkyLightAt(neighborIndex, lightToSet);
 					neighborChunk->addSkyLightNodeToQueue(neighborNX, neighborNY, neighborNZ);
+					neighborChunk->lightDirty = true;
 				}
 			}
 		}
@@ -940,12 +941,14 @@ std::bitset<27> Chunk::updateLight()
 	const int dy[] = { 0, 0, -1, 1, 0, 0 };
 	const int dz[] = { 0, 0, 0, 0, -1, 1 };
 
-	std::bitset<27> lightChanged;
-
 	constexpr auto index3x3x3 = [](int dx, int dy, int dz) noexcept
 		{
 		return (dx + 1) * 9 + (dy + 1) * 3 + (dz + 1);
 		};
+
+	std::bitset<27> lightChanged;
+	lightChanged.set(index3x3x3(0, 0, 0), lightDirty);
+	lightDirty = false;
 
 	//TODO: Instead of immediate neighbor calls, collect and batch
 
@@ -1060,6 +1063,7 @@ std::bitset<27> Chunk::updateLight()
 
 						neighborChunk->setBlockLightAt(neighborNX, neighborNY, neighborNZ, 0);
 						neighborChunk->addBlockLightRemovalNodeToQueue(neighborNX, neighborNY, neighborNZ, neighborBlockLight);
+						neighborChunk->lightDirty = true;
 					}
 				}
 				else if (neighborBlockLight >= nodeLightLevel)
@@ -1075,6 +1079,7 @@ std::bitset<27> Chunk::updateLight()
 						int neighborNZ = nz & CHUNK_LOWER_BITS_MASK;
 
 						neighborChunk->addBlockLightNodeToQueue(neighborNX, neighborNY, neighborNZ);
+						neighborChunk->lightDirty = true;
 					}
 				}
 			}
@@ -1186,6 +1191,7 @@ std::bitset<27> Chunk::updateLight()
 
 					neighborChunk->setBlockLightAt(neighborNX, neighborNY, neighborNZ, lightToSet);
 					neighborChunk->addBlockLightNodeToQueue(neighborNX, neighborNY, neighborNZ);
+					neighborChunk->lightDirty = true;
 				}
 			}
 		}
@@ -1283,6 +1289,7 @@ std::bitset<27> Chunk::updateLight()
 
 						neighborChunk->setSkyLightAt(neighborNX, neighborNY, neighborNZ, 0);
 						neighborChunk->addSkyLightRemovalNodeToQueue(neighborNX, neighborNY, neighborNZ, neighborSkyLight);
+						neighborChunk->lightDirty = true;
 					}
 				}
 				else if (neighborSkyLight >= nodeLightLevel)
@@ -1411,6 +1418,7 @@ std::bitset<27> Chunk::updateLight()
 
 					neighborChunk->setSkyLightAt(neighborNX, neighborNY, neighborNZ, lightToSet);
 					neighborChunk->addSkyLightNodeToQueue(neighborNX, neighborNY, neighborNZ);
+					neighborChunk->lightDirty = true;
 				}
 			}
 		}

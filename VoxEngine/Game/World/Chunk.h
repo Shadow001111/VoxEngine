@@ -105,6 +105,7 @@ private:
 	static glm::ivec3 getPositionFromIndex(size_t index);
 public:
 	Chunk* neighbors[6]; // Pointers to neighboring chunks for easier access
+	bool lightDirty = false; // It's used for rare cases
 
 	Chunk();
 	~Chunk();
