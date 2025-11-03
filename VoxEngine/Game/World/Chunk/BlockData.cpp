@@ -9,6 +9,21 @@ inline uint8_t clamp(uint8_t v, uint8_t min, uint8_t max)
 	return std::min(max, std::max(min, v));
 }
 
+inline uint16_t packTransformations(
+	TextureTransformation nx, TextureTransformation px,
+	TextureTransformation ny, TextureTransformation py,
+	TextureTransformation nz, TextureTransformation pz)
+{
+	uint16_t result = 0u;
+	result |= uint16_t(nx);
+	result |= uint16_t(px) << 2u;
+	result |= uint16_t(ny) << 4u;
+	result |= uint16_t(py) << 6u;
+	result |= uint16_t(nz) << 8u;
+	result |= uint16_t(pz) << 10u;
+	return result;
+}
+
 
 BlockProperties::BlockProperties(bool absorbsLight, uint8_t lightEmission, bool hasFaces, bool areFacesTransparent, bool raycastable) :
 	absorbsLight(absorbsLight),
@@ -44,63 +59,65 @@ BlockData::BlockData(const BlockProperties& properties, const BlockTextures& tex
 BlockData BlockDataBase::BLOCK_DATABASE[(size_t)Block::__BlockCount__];
 BlockTextureNames BlockDataBase::TEXTURE_NAMES[(size_t)Block::__BlockCount__];
 
-void BlockDataBase::registerBlock(Block block, const BlockProperties& properties,
-	const BlockTextureNames& textureNames, TextureTransformation nxTransform,
-	TextureTransformation pxTransform, TextureTransformation nyTransform,
-	TextureTransformation pyTransform, TextureTransformation nzTransform,
-	TextureTransformation pzTransform)
+void BlockDataBase::registerBlock(Block block,
+	const BlockProperties& properties,
+	const BlockTextureNames& textureNames,
+	uint16_t texturesTransformation)
 {
-	uint16_t transformation = 0;
-	transformation |= uint16_t(nxTransform);
-	transformation |= uint16_t(pxTransform) << 2u;
-	transformation |= uint16_t(nyTransform) << 4u;
-	transformation |= uint16_t(pyTransform) << 6u;
-	transformation |= uint16_t(nzTransform) << 8u;
-	transformation |= uint16_t(pzTransform) << 10u;
-
-	BLOCK_DATABASE[(size_t)block] = { properties, BlockTextures(transformation) };
+	BLOCK_DATABASE[(size_t)block] = { properties, BlockTextures(texturesTransformation) };
 	TEXTURE_NAMES[(size_t)block] = textureNames;
 }
 
 // TODO: Import block data from some file. Store 'compiled' file in binary for fast loading. Check if file was updates by hashing.
-// TODO: Remove big and hard constructors
 void BlockDataBase::loadBlockDataBase(std::vector<std::string>& textureNames)
 {
 	registerBlock(Block::Air,
 		{ false,  0,  false, true, false },
 		{ "", "", "", "", "", "" },
-		TextureTransformation::None, TextureTransformation::None, TextureTransformation::None,
-		TextureTransformation::None, TextureTransformation::None, TextureTransformation::None);
+		packTransformations(
+			TextureTransformation::None, TextureTransformation::None, TextureTransformation::None,
+			TextureTransformation::None, TextureTransformation::None, TextureTransformation::None)
+	);
 
 	registerBlock(Block::GrassBlock,
 		{ true, 0,  true,  false, true },
 		{ "grass_block_side", "grass_block_side", "dirt", "grass_block_top", "grass_block_side", "grass_block_side" },
-		TextureTransformation::None, TextureTransformation::None, TextureTransformation::RotateAndFlip,
-		TextureTransformation::RotateAndFlip, TextureTransformation::None, TextureTransformation::None);
+		packTransformations(
+			TextureTransformation::None, TextureTransformation::None, TextureTransformation::RotateAndFlip,
+			TextureTransformation::RotateAndFlip, TextureTransformation::None, TextureTransformation::None)
+	);
 
 	registerBlock(Block::Dirt,
 		{ true, 0,  true,  false, true },
 		{ "dirt", "dirt", "dirt", "dirt", "dirt", "dirt" },
-		TextureTransformation::RotateAndFlip, TextureTransformation::RotateAndFlip, TextureTransformation::RotateAndFlip,
-		TextureTransformation::RotateAndFlip, TextureTransformation::RotateAndFlip, TextureTransformation::RotateAndFlip);
+		packTransformations(
+			TextureTransformation::RotateAndFlip, TextureTransformation::RotateAndFlip, TextureTransformation::RotateAndFlip,
+			TextureTransformation::RotateAndFlip, TextureTransformation::RotateAndFlip, TextureTransformation::RotateAndFlip)
+	);
 
 	registerBlock(Block::Stone,
 		{ true, 0,  true,  false, true },
 		{ "stone", "stone", "stone", "stone", "stone", "stone" },
-		TextureTransformation::Flip, TextureTransformation::Flip, TextureTransformation::Flip,
-		TextureTransformation::Flip, TextureTransformation::Flip, TextureTransformation::Flip);
+		packTransformations(
+			TextureTransformation::Flip, TextureTransformation::Flip, TextureTransformation::Flip,
+			TextureTransformation::Flip, TextureTransformation::Flip, TextureTransformation::Flip)
+	);
 
 	registerBlock(Block::Glass,
 		{ false, 0, true,  true, true },
 		{ "glass", "glass", "glass", "glass", "glass", "glass" },
-		TextureTransformation::None, TextureTransformation::None, TextureTransformation::None,
-		TextureTransformation::None, TextureTransformation::None, TextureTransformation::None);
+		packTransformations(
+			TextureTransformation::None, TextureTransformation::None, TextureTransformation::None,
+			TextureTransformation::None, TextureTransformation::None, TextureTransformation::None)
+	);
 
 	registerBlock(Block::ColoredGlass,
 		{ false, 15, true,  true, true },
 		{ "glass_red", "glass_green", "glass_blue", "glass_cyan", "glass_pink", "glass_yellow" },
-		TextureTransformation::None, TextureTransformation::None, TextureTransformation::None,
-		TextureTransformation::None, TextureTransformation::None, TextureTransformation::None);
+		packTransformations(
+			TextureTransformation::None, TextureTransformation::None, TextureTransformation::None,
+			TextureTransformation::None, TextureTransformation::None, TextureTransformation::None)
+	);
 
 	BlockDataBase::buildTextureIDs(textureNames);
 }

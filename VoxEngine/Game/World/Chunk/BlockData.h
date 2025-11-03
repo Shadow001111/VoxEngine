@@ -66,11 +66,10 @@ class BlockDataBase
 	static BlockData BLOCK_DATABASE[(size_t)Block::__BlockCount__];
 	static BlockTextureNames TEXTURE_NAMES[(size_t)Block::__BlockCount__];
 
-	static void registerBlock(Block block, const BlockProperties& properties,
-		const BlockTextureNames& textureNames, TextureTransformation nxTransform,
-		TextureTransformation pxTransform, TextureTransformation nyTransform,
-		TextureTransformation pyTransform, TextureTransformation nzTransform,
-		TextureTransformation pzTransform);
+	static void registerBlock(Block block,
+		const BlockProperties& properties,
+		const BlockTextureNames& textureNames,
+		uint16_t texturesTransformation);
 public:
 	static void loadBlockDataBase(std::vector<std::string>& textureNames);
 private:

@@ -1115,9 +1115,8 @@ void Chunk::sortMesh(const glm::ivec3& cameraBlockPos)
 	}
 	cameraClosestBlockPosForSortingMesh = compare;
 
-	// TODO: Let chunk update light when sorting mesh.
 	Profiler::beginProfile("Sort chunk mesh: wait", ProfileCategory::ChunkMesh);
-	ScopedProcessingFence scopedFence(processingFence);
+	ScopedProcessingFence scopedFence(meshData.processingFence);
 	Profiler::endProfile();
 
 	PROFILE_SCOPE("Sort chunk mesh", ProfileCategory::ChunkMesh);

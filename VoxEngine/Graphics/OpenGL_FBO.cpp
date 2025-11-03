@@ -85,7 +85,6 @@ void OpenGL_FBO::unbind()
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-// TODO: Implement framebuffer resize
 void OpenGL_FBO::resize(int w, int h)
 {
 	// Recreate color texture

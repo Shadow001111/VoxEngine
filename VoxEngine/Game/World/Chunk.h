@@ -28,7 +28,6 @@ struct LightLevel
 	LightLevel& operator=(LightLevel&& other) noexcept;
 };
 
-// TODO: Maybe use union to use position as index
 struct LightNode
 {
 	uint16_t x : 4, y : 4, z : 4;
