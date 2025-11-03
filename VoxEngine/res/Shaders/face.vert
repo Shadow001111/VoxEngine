@@ -14,8 +14,8 @@ uniform float CHUNK_SIZE;
 
 out vec2 uv;
 out vec2 texCoords;
-flat out float ao[4];
-flat out float light[4];
+flat out vec4 ao;
+flat out vec4 light;
 flat out uint textureID;
 out vec3 viewVertexPosition;
 
@@ -91,14 +91,8 @@ const vec2 texCoordsOffsets[4] = vec2[4](
     vec2(0, 1)
 );
 
-const float aoValues[4] = float[4](
-    0.0,
-    0.333,
-    0.666,
-    1.0
-);
-
 const float INV_LIGHT_SCALE = 1.0 / 15.0;
+const float INV_AO_SCALE = 1.0 / 3.0;
 
 uint hash3(ivec3 sv)
 {
@@ -141,16 +135,16 @@ void main()
     uint skyLight3   = (instanceData.y >> 28u) & 15u;
     
     // AO
-    ao[0] = aoValues[ao0];
-    ao[1] = aoValues[ao1];
-    ao[2] = aoValues[ao2];
-    ao[3] = aoValues[ao3];
+    ao.x = ao0 * INV_AO_SCALE;
+    ao.y = ao1 * INV_AO_SCALE;
+    ao.z = ao2 * INV_AO_SCALE;
+    ao.w = ao3 * INV_AO_SCALE;
 
     // Light
-    light[0] = max(blockLight0, skyLight0) * INV_LIGHT_SCALE;
-    light[1] = max(blockLight1, skyLight1) * INV_LIGHT_SCALE;
-    light[2] = max(blockLight2, skyLight2) * INV_LIGHT_SCALE;
-    light[3] = max(blockLight3, skyLight3) * INV_LIGHT_SCALE;
+    light.x = max(blockLight0, skyLight0) * INV_LIGHT_SCALE;
+    light.y = max(blockLight1, skyLight1) * INV_LIGHT_SCALE;
+    light.z = max(blockLight2, skyLight2) * INV_LIGHT_SCALE;
+    light.w = max(blockLight3, skyLight3) * INV_LIGHT_SCALE;
 
     // Transform vertex and uv
     vec3 vertexPos = vertexRotations[normal] * vec3(aPos, 0.0) + vertexOffsets[normal];

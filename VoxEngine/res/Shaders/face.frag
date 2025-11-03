@@ -8,8 +8,8 @@ uniform float fogGradient;
 
 in vec2 uv;
 in vec2 texCoords;
-flat in float ao[4];
-flat in float light[4];
+flat in vec4 ao;
+flat in vec4 light;
 flat in uint textureID;
 in vec3 viewVertexPosition;
 
@@ -18,24 +18,19 @@ out vec4 FragColor;
 
 float interpolateAO_Triang()
 {
-    float ao0 = ao[0];
-    float ao1 = ao[1];
-    float ao2 = ao[2];
-    float ao3 = ao[3];
-
     float diag0 = mix(
-        (1.0 - uv.x) * ao0 + (uv.x - uv.y) * ao1 + uv.y * ao2,
-        (1.0 - uv.y) * ao0 + uv.x * ao2 + (uv.y - uv.x) * ao3,
+        (1.0 - uv.x) * ao.x + (uv.x - uv.y) * ao.y + uv.y * ao.z,
+        (1.0 - uv.y) * ao.x + uv.x * ao.z + (uv.y - uv.x) * ao.w,
         step(uv.x, uv.y)
     );
 
     float diag1 = mix(
-        (1.0 - uv.x - uv.y) * ao0 + uv.x * ao1 + uv.y * ao3,
-        (1.0 - uv.y) * ao1 + (uv.x + uv.y - 1.0) * ao2 + (1.0 - uv.x) * ao3,
+        (1.0 - uv.x - uv.y) * ao.x + uv.x * ao.y + uv.y * ao.w,
+        (1.0 - uv.y) * ao.y + (uv.x + uv.y - 1.0) * ao.z + (1.0 - uv.x) * ao.w,
         step(1.0, uv.x + uv.y)
     );
 
-    float useDiagonal = step((ao1 + ao3) - (ao0 + ao2), 0.0);
+    float useDiagonal = step((ao.y + ao.w) - (ao.x + ao.z), 0.0);
     return mix(diag1, diag0, useDiagonal);
 }
 

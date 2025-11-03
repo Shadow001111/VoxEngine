@@ -84,11 +84,17 @@ private:
 	Block blocks[CHUNK_VOLUME];
 	LightLevel lightLevels[CHUNK_VOLUME];
 
-	std::queue<LightNode> lightNodeContainer;
-	mutable std::mutex lightNodeMutex;
+	std::queue<LightNode> blockLightBfsQueue;
+	mutable std::mutex blockLightBfsMutex;
 
-	std::queue<LightRemovalNode> lightRemovalNodeContainer;
-	mutable std::mutex lightRemovalNodeMutex;
+	std::queue<LightRemovalNode> blockLightRemovalBfsQueue;
+	mutable std::mutex blockLightRemovalBfsMutex;
+
+	std::queue<LightNode> skyLightBfsQueue;
+	mutable std::mutex skyLightBfsMutex;
+
+	std::queue<LightRemovalNode> skyLightRemovalBfsQueue;
+	mutable std::mutex skyLightRemovalBfsMutex;
 
 	MeshData meshData;
 	ProcessingFence processingFence;
@@ -158,8 +164,10 @@ public:
 	void setBlockLightAt(size_t index, uint8_t lightLevel);
 	void setSkyLightAt(size_t index, uint8_t lightLevel);
 
-	void addLightNodeToQueue(int x, int y, int z);
-	void addLightRemovalNodeToQueue(int x, int y, int z, uint8_t lightLevel);
+	void addBlockLightNodeToQueue(int x, int y, int z);
+	void addBlockLightRemovalNodeToQueue(int x, int y, int z, uint8_t lightLevel);
+	void addSkyLightNodeToQueue(int x, int y, int z);
+	void addSkyLightRemovalNodeToQueue(int x, int y, int z, uint8_t lightLevel);
 private:
 	void calculateVertexAmbientOcclusionAndLight(unsigned int& ao, LightLevel& light, LightLevel centerLight, LightLevel side1Light, LightLevel side2Light, LightLevel cornerLight, bool side1Solid, bool side2Solid, bool cornerSolid) const;
 	void calculateFaceAmbientOcclusionAndLight(unsigned int& ao, unsigned int& light, int x, int y, int z, int normal, LightLevel centerFaceLight) const;
