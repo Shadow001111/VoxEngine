@@ -72,7 +72,7 @@ void Chunk::init(int x, int y, int z, Chunk** neighbors)
 	cameraClosestBlockPosForSortingMesh = -1;
 	shouldSortMeshAfterBuild = false;
 
-	lightDirty = false;
+	lightChangedByNeighbor = false;
 }
 
 // Cleans up resources
@@ -642,7 +642,7 @@ void Chunk::buildLight()
 
 					neighborChunk->setBlockLightAt(neighborIndex, lightToSet);
 					neighborChunk->addBlockLightNodeToQueue(neighborNX, neighborNY, neighborNZ);
-					neighborChunk->lightDirty = true;
+					neighborChunk->lightChangedByNeighbor = true;
 				}
 			}
 		}
@@ -714,7 +714,7 @@ void Chunk::buildLight()
 
 					neighborChunk->setSkyLightAt(neighborIndex, lightToSet);
 					neighborChunk->addSkyLightNodeToQueue(neighborNX, neighborNY, neighborNZ);
-					neighborChunk->lightDirty = true;
+					neighborChunk->lightChangedByNeighbor = true;
 				}
 			}
 		}
@@ -947,8 +947,8 @@ std::bitset<27> Chunk::updateLight()
 		};
 
 	std::bitset<27> lightChanged;
-	lightChanged.set(index3x3x3(0, 0, 0), lightDirty);
-	lightDirty = false;
+	lightChanged.set(index3x3x3(0, 0, 0), lightChangedByNeighbor);
+	lightChangedByNeighbor = false;
 
 	//TODO: Instead of immediate neighbor calls, collect and batch
 
@@ -1063,7 +1063,7 @@ std::bitset<27> Chunk::updateLight()
 
 						neighborChunk->setBlockLightAt(neighborNX, neighborNY, neighborNZ, 0);
 						neighborChunk->addBlockLightRemovalNodeToQueue(neighborNX, neighborNY, neighborNZ, neighborBlockLight);
-						neighborChunk->lightDirty = true;
+						neighborChunk->lightChangedByNeighbor = true;
 					}
 				}
 				else if (neighborBlockLight >= nodeLightLevel)
@@ -1079,7 +1079,7 @@ std::bitset<27> Chunk::updateLight()
 						int neighborNZ = nz & CHUNK_LOWER_BITS_MASK;
 
 						neighborChunk->addBlockLightNodeToQueue(neighborNX, neighborNY, neighborNZ);
-						neighborChunk->lightDirty = true;
+						neighborChunk->lightChangedByNeighbor = true;
 					}
 				}
 			}
@@ -1191,7 +1191,7 @@ std::bitset<27> Chunk::updateLight()
 
 					neighborChunk->setBlockLightAt(neighborNX, neighborNY, neighborNZ, lightToSet);
 					neighborChunk->addBlockLightNodeToQueue(neighborNX, neighborNY, neighborNZ);
-					neighborChunk->lightDirty = true;
+					neighborChunk->lightChangedByNeighbor = true;
 				}
 			}
 		}
@@ -1289,7 +1289,7 @@ std::bitset<27> Chunk::updateLight()
 
 						neighborChunk->setSkyLightAt(neighborNX, neighborNY, neighborNZ, 0);
 						neighborChunk->addSkyLightRemovalNodeToQueue(neighborNX, neighborNY, neighborNZ, neighborSkyLight);
-						neighborChunk->lightDirty = true;
+						neighborChunk->lightChangedByNeighbor = true;
 					}
 				}
 				else if (neighborSkyLight >= nodeLightLevel)
@@ -1418,7 +1418,7 @@ std::bitset<27> Chunk::updateLight()
 
 					neighborChunk->setSkyLightAt(neighborNX, neighborNY, neighborNZ, lightToSet);
 					neighborChunk->addSkyLightNodeToQueue(neighborNX, neighborNY, neighborNZ);
-					neighborChunk->lightDirty = true;
+					neighborChunk->lightChangedByNeighbor = true;
 				}
 			}
 		}

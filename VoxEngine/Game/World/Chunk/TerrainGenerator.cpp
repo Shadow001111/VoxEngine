@@ -6,6 +6,26 @@
 #include <cmath>
 
 //============================================================================
+float continentalSpline(float x)
+{
+	return x;
+
+	float y1 = 10.0f * (1.0f - 20.0f * x);
+	float y3 = 10.0f * (x - 0.25f);
+	float y5 = 10.0f * (x - 0.5f);
+	float y6 = 1.0f + 0.1f * (x - 1.0f);
+	
+	float r1 = fminf(y3, 0.5f);
+	float r2 = fmaxf(r1, y5);
+	float r3 = fminf(r2, y6);
+	float r4 = fmaxf(y1, 0.0f);
+	float r5 = fmaxf(r4, r3);
+	float r6 = fminf(r5, 1.0f);
+
+	return r6;
+}
+
+//============================================================================
 //ChunkColumnData
 
 ChunkColumnData::ChunkColumnData()
@@ -271,7 +291,8 @@ float TerrainGenerator::calculateHeight(float continentalNoise, float erosionNoi
 	const float weirdnessAmplitude = 20.0f;
 
 	// Continental
-	float continentalHeight = continentalNoise * continentalAmplitude;
+	float continentalNoiseSpline = continentalSpline((continentalNoise + 1.0f) * 0.5f);
+	float continentalHeight = (continentalNoiseSpline * 2.0f - 1.0f) * continentalAmplitude;
 	float height = continentalHeight;
 
 	// Erosion
@@ -314,7 +335,7 @@ void TerrainGenerator::computeInitialHeightMap(int* heightMap, int chunkX, int c
 	float weirdnessNoiseArray[CHUNK_AREA];
 	{
 		NoiseParams params;
-		params.frequency = 0.0025f;
+		params.frequency = 0.0025f * 0.5f;
 		params.layerCount = 3;
 		params.amplitudeFactor = 0.25f;
 		params.frequencyFactor = 4.0f;

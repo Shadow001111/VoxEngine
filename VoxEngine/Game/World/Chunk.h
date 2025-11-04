@@ -69,7 +69,7 @@ public:
 		Ready
 	};
 private:
-	glm::ivec3 position; // Chunk coordinates in chunk space
+	glm::ivec3 position; // Chunk coordinates
 
 	uint16_t cameraClosestBlockPosForSortingMesh; // 5 bits per axis
 
@@ -80,6 +80,7 @@ private:
 	std::atomic<bool> isLightBuilt{ false };
 
 	bool shouldSortMeshAfterBuild;
+	bool lightChangedByNeighbor = false;
 
 	Block blocks[CHUNK_VOLUME];
 	LightLevel lightLevels[CHUNK_VOLUME];
@@ -105,7 +106,6 @@ private:
 	static glm::ivec3 getPositionFromIndex(size_t index);
 public:
 	Chunk* neighbors[6]; // Pointers to neighboring chunks for easier access
-	bool lightDirty = false; // It's used for rare cases
 
 	Chunk();
 	~Chunk();
