@@ -296,7 +296,10 @@ void World::renderChunks(const Camera& camera) const
 		const size_t drawCount = chunkDrawCommands.size();
 		if (drawCount > 0)
 		{
-			debugData.renderedFaceCount += drawCount;
+			for (const auto& command : chunkDrawCommands)
+			{
+				debugData.renderedFaceCount += command.instanceCount;
+			}
 
 			glDisable(GL_BLEND);
 
@@ -327,7 +330,10 @@ void World::renderChunks(const Camera& camera) const
 		const size_t drawCount = chunkDrawCommands.size();
 		if (drawCount > 0)
 		{
-			debugData.renderedFaceCount += drawCount;
+			for (const auto& command : chunkDrawCommands)
+			{
+				debugData.renderedFaceCount += command.instanceCount;
+			}
 
 			glEnable(GL_BLEND);
 			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);

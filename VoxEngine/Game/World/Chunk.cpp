@@ -1877,9 +1877,11 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(unsigned int& ao, unsigned int
 void Chunk::markBlockMeshDirty(int x, int y, int z)
 {
 	// TODO: Maybe find a better way to mark neighboring chunks as dirty, because light propagating calls this method a lot.
+	// Old version: 2535ms
+	
 	// 27 (3x3x3 grid)
 	// 27 and not 7 because changing a block may affect faces diagonally too, because of ambient occlusion and smooth-lighting
-	for (int dx = -1; dx <= 1; dx++)
+	/*for (int dx = -1; dx <= 1; dx++)
 	{
 		for (int dy = -1; dy <= 1; dy++)
 		{
@@ -1897,7 +1899,53 @@ void Chunk::markBlockMeshDirty(int x, int y, int z)
 				}
 			}
 		}
-	}
+	}*/
+
+	// Unrolling loop
+	// New version: 2205ms
+
+	// Center
+	meshDirty.set(getIndex(x, y, z), true);
+
+	//
+	size_t neighborIndex;
+	Chunk* neighborChunk;
+
+	// TODO: Try creating 'smarter' getChunkAndIndex_checkNeighborsTraverse. Pass sides to check instead of method computating it itself.
+
+	// Sides
+	neighborChunk = getChunkAndIndex_checkSideNeighbor(x - 1, y, z, 0, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
+	neighborChunk = getChunkAndIndex_checkSideNeighbor(x + 1, y, z, 1, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
+	neighborChunk = getChunkAndIndex_checkSideNeighbor(x, y - 1, z, 2, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
+	neighborChunk = getChunkAndIndex_checkSideNeighbor(x, y + 1, z, 3, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
+	neighborChunk = getChunkAndIndex_checkSideNeighbor(x, y, z - 1, 4, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
+	neighborChunk = getChunkAndIndex_checkSideNeighbor(x, y, z + 1, 5, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
+
+	// Edges
+	neighborChunk = getChunkAndIndex_checkNeighborsTraverse(x - 1, y - 1, z, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
+	neighborChunk = getChunkAndIndex_checkNeighborsTraverse(x - 1, y + 1, z, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
+	neighborChunk = getChunkAndIndex_checkNeighborsTraverse(x + 1, y - 1, z, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
+	neighborChunk = getChunkAndIndex_checkNeighborsTraverse(x + 1, y + 1, z, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
+
+	neighborChunk = getChunkAndIndex_checkNeighborsTraverse(x - 1, y, z - 1, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
+	neighborChunk = getChunkAndIndex_checkNeighborsTraverse(x - 1, y, z + 1, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
+	neighborChunk = getChunkAndIndex_checkNeighborsTraverse(x + 1, y, z - 1, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
+	neighborChunk = getChunkAndIndex_checkNeighborsTraverse(x + 1, y, z + 1, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
+
+	neighborChunk = getChunkAndIndex_checkNeighborsTraverse(x, y - 1, z - 1, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
+	neighborChunk = getChunkAndIndex_checkNeighborsTraverse(x, y - 1, z + 1, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
+	neighborChunk = getChunkAndIndex_checkNeighborsTraverse(x, y + 1, z - 1, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
+	neighborChunk = getChunkAndIndex_checkNeighborsTraverse(x, y + 1, z + 1, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
+
+	// Corners
+	neighborChunk = getChunkAndIndex_checkNeighborsTraverse(x - 1, y - 1, z - 1, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
+	neighborChunk = getChunkAndIndex_checkNeighborsTraverse(x - 1, y - 1, z + 1, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
+	neighborChunk = getChunkAndIndex_checkNeighborsTraverse(x - 1, y + 1, z - 1, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
+	neighborChunk = getChunkAndIndex_checkNeighborsTraverse(x - 1, y + 1, z + 1, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
+	neighborChunk = getChunkAndIndex_checkNeighborsTraverse(x + 1, y - 1, z - 1, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
+	neighborChunk = getChunkAndIndex_checkNeighborsTraverse(x + 1, y - 1, z + 1, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
+	neighborChunk = getChunkAndIndex_checkNeighborsTraverse(x + 1, y + 1, z - 1, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
+	neighborChunk = getChunkAndIndex_checkNeighborsTraverse(x + 1, y + 1, z + 1, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
 }
 
 void Chunk::removeDirtyBlockFaces(const std::bitset<CHUNK_VOLUME>& localMeshDirty)
