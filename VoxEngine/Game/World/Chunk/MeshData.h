@@ -11,6 +11,7 @@ struct MeshData
 {
 	BlockAllocator::Block allocatedBlock;
 
+	// TODO: Maybe remove these counts and just use opaqueInstances.size() and transparentInstances.size()?
 	uint16_t opaqueFaceCount = 0;
 	uint16_t transparentFaceCount = 0;
 

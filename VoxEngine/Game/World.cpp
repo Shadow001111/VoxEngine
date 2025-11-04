@@ -3,6 +3,8 @@
 #include "World/Chunk/TerrainGenerator.h"
 #include "World/Chunk/ChunkMeshManager.h"
 
+#include "World/Chunk/BlockData.h"
+
 #include "Core/Profiler.h"
 #include "Core/Multithreading/ThreadPool.h"
 
@@ -103,7 +105,7 @@ void World::preparation()
 	chunkPool.allocate(chunkCount + 10);
 	chunks.reserve(chunkCount + 10);
 
-	size_t maxFacesCount = (size_t)chunkCount * (CHUNK_VOLUME + CHUNK_AREA) * 3;
+	size_t maxFacesCount = chunkCount * (size_t)(CHUNK_VOLUME + CHUNK_AREA) * (size_t)3;
 	ChunkMeshManager::getInstance().preallocateMemory(maxFacesCount);
 
 	chunkDrawCommandBuffer->allocateMemory(chunkCount * sizeof(DrawArraysIndirectCommand));
@@ -187,10 +189,7 @@ void World::update(float deltaTime)
 		collectChunksNeedingLightUpdate();
 	}
 
-	if (!buildMeshContainer.empty())
-	{
-		startBuildingChunkMeshes();
-	}
+	updateChunkMeshes();
 
 	// Entities
 	for (auto& pair : entities)
@@ -535,17 +534,12 @@ RaycastResult World::raycast(const glm::dvec3& origin, const glm::dvec3& directi
 
 void World::rebuildAllChunkMeshes()
 {
-	// Queue all ready chunks for mesh rebuild
+	for (const auto& pair : chunks)
 	{
-		std::lock_guard<std::mutex> lock(buildMeshMutex);
-		buildMeshContainer.clear();
-		for (const auto& pair : chunks)
+		Chunk* chunk = pair.second.get();
+		if (chunk->getState() == Chunk::State::Ready)
 		{
-			Chunk* chunk = pair.second.get();
-			if (chunk->getState() == Chunk::State::Ready)
-			{
-				buildMeshContainer.insert(chunk);
-			}
+			chunk->markWholeMeshDirty();
 		}
 	}
 }
@@ -780,89 +774,6 @@ void World::startBuildingChunkLights()
 					}
 
 					chunk->setState(Chunk::State::NeedsMesh);
-
-					// Queue for mesh building
-					{
-						std::lock_guard<std::mutex> lock(buildMeshMutex);
-						buildMeshContainer.insert(chunk);
-
-						// Also rebuild mesh for neighbors that might be affected
-						for (int dx = -1; dx <= 1; dx++)
-						{
-							for (int dy = -1; dy <= 1; dy++)
-							{
-								for (int dz = -1; dz <= 1; dz++)
-								{
-									if (dx == 0 && dy == 0 && dz == 0)
-									{
-										continue;
-									}
-									glm::ivec3 neighborPos = chunk->getPosition() + glm::ivec3(dx, dy, dz);
-									Chunk* neighborChunk = getChunkAt(neighborPos);
-									if (neighborChunk && neighborChunk->getState() == Chunk::State::Ready)
-									{
-										buildMeshContainer.insert(neighborChunk);
-									}
-								}
-							}
-						}
-					}
-				});
-		}
-	}
-}
-
-void World::startBuildingChunkMeshes()
-{
-	// Collect chunks
-	std::vector<Chunk*> chunksToProcess;
-	{
-		PROFILE_SCOPE("Collect chunks for mesh building", ProfileCategory::ChunkMesh);
-
-		std::lock_guard<std::mutex> lock(buildMeshMutex);
-		if (buildMeshContainer.empty())
-		{
-			return;
-		}
-
-		std::unordered_set<Chunk*> remainingChunks;
-		remainingChunks.reserve(buildMeshContainer.size());
-
-		chunksToProcess.reserve(buildMeshContainer.size());
-		for (Chunk* chunk : buildMeshContainer)
-		{
-			Chunk::State state = chunk->getState();
-			if (state == Chunk::State::NeedsMesh || state == Chunk::State::Ready)
-			{
-				chunk->setState(Chunk::State::BuildingMesh);
-				chunksToProcess.push_back(chunk);
-			}
-			else
-			{
-				remainingChunks.insert(chunk);
-			}
-		}
-		buildMeshContainer.swap(remainingChunks);
-	}
-
-	// Submit chunks to thread pool
-	{
-		PROFILE_SCOPE("Send chunks to mesh building", ProfileCategory::ChunkMesh);
-
-		ThreadPool& pool = ParallelUtils::getGlobalThreadPool();
-		for (Chunk* chunk : chunksToProcess)
-		{
-			pool.enqueue([chunk]()
-				{
-					// Build mesh in background thread (no OpenGL calls here)
-					chunk->buildMesh();
-
-					if (!chunk->getIsLoadedInWorld())
-					{
-						return;
-					}
-
-					chunk->setState(Chunk::State::Ready);
 				});
 		}
 	}
@@ -876,54 +787,9 @@ void World::updateChunkLights()
 
 	// Process light updates (on main thread for now, could be threaded later) (if using multithreading, them update chunks in checkboard pattern to avoid race conditions)
 	
-	constexpr auto index3x3x3 = [](int dx, int dy, int dz) noexcept
-		{
-		return (dx + 1) * 9 + (dy + 1) * 3 + (dz + 1);
-		};
-	
-	size_t updatedChunkCount = 0;
 	for (Chunk* chunk : chunksToUpdate)
 	{
-		std::bitset<27> lightChanged = chunk->updateLight();
-		if (lightChanged.none())
-		{
-			continue;
-		}
-
-		{
-			std::lock_guard<std::mutex> lock(buildMeshMutex);
-			buildMeshContainer.insert(chunk);
-		}
-
-		size_t bitIndex = 0;
-		const size_t centerIndex = index3x3x3(0, 0, 0);
-		for (int dx = -1; dx <= 1; dx++)
-		{
-			for (int dy = -1; dy <= 1; dy++)
-			{
-				for (int dz = -1; dz <= 1; dz++)
-				{
-					if (bitIndex == centerIndex)
-					{
-						bitIndex++;
-						continue;
-					}
-
-					if (lightChanged.test(bitIndex))
-					{
-						glm::ivec3 neighborPos = chunk->getPosition() + glm::ivec3(dx, dy, dz);
-						Chunk* neighborChunk = getChunkAt(neighborPos);
-						if (neighborChunk)
-						{
-							std::lock_guard<std::mutex> lock(buildMeshMutex);
-							buildMeshContainer.insert(neighborChunk);
-						}
-					}
-
-					bitIndex++;
-				}
-			}
-		}
+		chunk->updateLight();
 	}
 }
 
@@ -937,6 +803,22 @@ void World::collectChunksNeedingLightUpdate()
 		if (chunk->hasLightUpdates())
 		{
 			lightUpdateContainer.push_back(chunk);
+		}
+	}
+}
+
+void World::updateChunkMeshes()
+{
+	ThreadPool& pool = ParallelUtils::getGlobalThreadPool();
+	for (const auto& pair : chunks)
+	{
+		Chunk* chunk = pair.second.get();
+		if (chunk->isMeshDirty())
+		{
+			pool.enqueue([chunk]()
+				{
+					chunk->updateMesh();
+				});
 		}
 	}
 }
@@ -1027,43 +909,7 @@ void World::updateBlockAt(const glm::ivec3& worldPos, Block block)
 	}
 
 	// Update the block
-	chunk->setBlockAt_updateLight(localPos.x, localPos.y, localPos.z, block);
-
-	// Collect neighbor chunks to build mesh
-	bool onBorder[6] =
-	{
-		localPos.x == 0,
-		localPos.x == (CHUNK_SIZE - 1),
-		localPos.y == 0,
-		localPos.y == (CHUNK_SIZE - 1),
-		localPos.z == 0,
-		localPos.z == (CHUNK_SIZE - 1),
-	};
-
-	std::vector<Chunk*> collectedChunks;
-	collectedChunks.reserve(7);
-	collectedChunks.push_back(chunk);
-
-	for (int i = 0; i < 6; i++)
-	{
-		if (!onBorder[i])
-		{
-			continue;
-		}
-
-		Chunk* neighbor = chunk->neighbors[i];
-		if (neighbor)
-		{
-			collectedChunks.push_back(neighbor);
-		}
-	}
-
-	// Also mark neighboring chunks if the block is on the edge
-	std::lock_guard<std::mutex> lock(buildMeshMutex);
-	for (Chunk* chunk : collectedChunks)
-	{
-		buildMeshContainer.insert(chunk);
-	}
+	chunk->setBlockAt(localPos.x, localPos.y, localPos.z, block);
 }
 
 const WorldVisualSettings& World::getWorldVisualSettings() const

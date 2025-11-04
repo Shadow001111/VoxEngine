@@ -1,6 +1,6 @@
 #pragma once
 #include "Chunk/MeshData.h"
-#include "Chunk/BlockData.h"
+#include "Chunk/Block.h"
 #include "Chunk/Metrics.h"
 
 #include "Core/Multithreading/ProcessingFence.h"
@@ -22,10 +22,8 @@ struct LightLevel
 	LightLevel(uint8_t blockLight, uint8_t skyLight);
 
 	LightLevel(const LightLevel& other);
-	LightLevel(LightLevel&& other);
 
 	LightLevel& operator=(const LightLevel& other);
-	LightLevel& operator=(LightLevel&& other) noexcept;
 };
 
 struct LightNode
@@ -74,16 +72,17 @@ private:
 	uint16_t cameraClosestBlockPosForSortingMesh; // 5 bits per axis
 
 	std::atomic<State> state;
+	// TODO: Maybe use atomic bitset?
 	std::atomic<bool> isLoadedInWorld{ false };
 	std::atomic<bool> isLoadedChunkColumnData { false };
 	std::atomic<bool> areBlocksBuilt{ false };
 	std::atomic<bool> isLightBuilt{ false };
 
 	bool shouldSortMeshAfterBuild;
-	bool lightChangedByNeighbor = false;
 
 	Block blocks[CHUNK_VOLUME];
 	LightLevel lightLevels[CHUNK_VOLUME];
+	std::bitset<CHUNK_VOLUME> meshDirty; // TODO: Make a second bitset to sumbit. While light updates are happening, mesh updates can be processed on the previous bitset.
 
 	std::queue<LightNode> blockLightBfsQueue;
 	mutable std::mutex blockLightBfsMutex;
@@ -126,13 +125,15 @@ private:
 	void computeConnectivity();
 public:
 	void buildLight();
-	void buildMesh();
-
-	std::bitset<27> updateLight();
+	void updateLight();
 	bool hasLightUpdates() const;
+
+	void updateMesh();
 
 	void sortMesh(const glm::ivec3& cameraBlockPos);
 	bool shouldMeshBeSorted(bool cameraMoved) const;
+	bool isMeshDirty() const;
+	void markWholeMeshDirty();
 	void askForMeshUpload();
 
 	void collectOpaqueRenderData(std::vector<DrawArraysIndirectCommand>& drawCommands, std::vector<glm::ivec3>& positions) const;
@@ -154,13 +155,12 @@ public:
 	std::pair<Block, LightLevel> getBlockAndLightAt(size_t index) const;
 
 	void setBlockAt(int x, int y, int z, Block block);
-	void setBlockAt_updateLight(int x, int y, int z, Block block);
 	void setLightAt(int x, int y, int z, LightLevel lightLevel);
 	void setBlockLightAt(int x, int y, int z, uint8_t lightLevel);
 	void setSkyLightAt(int x, int y, int z, uint8_t lightLevel);
 
 	void setBlockAt(size_t index, Block block);
-	//void setBlockAt_updateLight(size_t index, Block block);
+	//void setBlockAt_update(size_t index, Block block);
 	void setLightAt(size_t index, LightLevel lightValue);
 	void setBlockLightAt(size_t index, uint8_t lightLevel);
 	void setSkyLightAt(size_t index, uint8_t lightLevel);
@@ -172,6 +172,9 @@ public:
 private:
 	void calculateVertexAmbientOcclusionAndLight(unsigned int& ao, LightLevel& light, LightLevel centerLight, LightLevel side1Light, LightLevel side2Light, LightLevel cornerLight, bool side1Solid, bool side2Solid, bool cornerSolid) const;
 	void calculateFaceAmbientOcclusionAndLight(unsigned int& ao, unsigned int& light, int x, int y, int z, int normal, LightLevel centerFaceLight) const;
+private:
+	void markBlockMeshDirty(int x, int y, int z);
+	void removeDirtyBlockFaces(const std::bitset<CHUNK_VOLUME>& localMeshDirty);
 public:
 	int getX() const;
 	int getY() const;

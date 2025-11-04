@@ -1,7 +1,7 @@
 #version 460 core
 
 layout(location = 0) in vec2 aPos;
-layout(location = 1) in uvec2 instanceData;
+layout(location = 1) in ivec2 instanceData;
 
 layout(binding = 0) restrict readonly buffer chunkPositionSSBO
 {
@@ -11,6 +11,7 @@ layout(binding = 0) restrict readonly buffer chunkPositionSSBO
 uniform mat4 view;
 uniform mat4 projection;
 uniform float CHUNK_SIZE;
+uniform int skyLightSub = 0;
 
 out vec2 uv;
 out vec2 texCoords;
@@ -109,30 +110,30 @@ uint hash3(ivec3 sv)
 void main()
 {
     // Unpack face data
-    uint x = instanceData.x & 15u;
-    uint y = (instanceData.x >> 4u) & 15u;
-    uint z = (instanceData.x >> 8u) & 15u;
+    int x = instanceData.x & 15;
+    int y = (instanceData.x >> 4) & 15;
+    int z = (instanceData.x >> 8) & 15;
 
-    uint normal = (instanceData.x >> 12u) & 7u;
+    int normal = (instanceData.x >> 12) & 7;
 
-    uint faceAO = (instanceData.x >> 15u) & 255u;
-    uint ao0 = faceAO & 3u;
-    uint ao1 = (faceAO >> 2u) & 3u;
-    uint ao2 = (faceAO >> 4u) & 3u;
-    uint ao3 = faceAO >> 6u;
+    int faceAO = (instanceData.x >> 15) & 255;
+    int ao0 = faceAO & 3;
+    int ao1 = (faceAO >> 2) & 3;
+    int ao2 = (faceAO >> 4) & 3;
+    int ao3 = faceAO >> 6;
 
-    textureID = (instanceData.x >> 23u) & 127u;
+    textureID = (instanceData.x >> 23) & 127;
     
-    uint textureTransformation = (instanceData.x >> 30u) & 3u;
+    uint textureTransformation = (instanceData.x >> 30) & 3;
 
-    uint blockLight0 = (instanceData.y >> 0u)  & 15u;
-    uint skyLight0   = (instanceData.y >> 4u)  & 15u;
-    uint blockLight1 = (instanceData.y >> 8u)  & 15u;
-    uint skyLight1   = (instanceData.y >> 12u) & 15u;
-    uint blockLight2 = (instanceData.y >> 16u) & 15u;
-    uint skyLight2   = (instanceData.y >> 20u) & 15u;
-    uint blockLight3 = (instanceData.y >> 24u) & 15u;
-    uint skyLight3   = (instanceData.y >> 28u) & 15u;
+    int blockLight0 = (instanceData.y >> 0)  & 15;
+    int skyLight0   = (instanceData.y >> 4)  & 15;
+    int blockLight1 = (instanceData.y >> 8)  & 15;
+    int skyLight1   = (instanceData.y >> 12) & 15;
+    int blockLight2 = (instanceData.y >> 16) & 15;
+    int skyLight2   = (instanceData.y >> 20) & 15;
+    int blockLight3 = (instanceData.y >> 24) & 15;
+    int skyLight3   = (instanceData.y >> 28) & 15;
     
     // AO
     ao.x = ao0 * INV_AO_SCALE;
@@ -141,10 +142,10 @@ void main()
     ao.w = ao3 * INV_AO_SCALE;
 
     // Light
-    light.x = max(blockLight0, skyLight0) * INV_LIGHT_SCALE;
-    light.y = max(blockLight1, skyLight1) * INV_LIGHT_SCALE;
-    light.z = max(blockLight2, skyLight2) * INV_LIGHT_SCALE;
-    light.w = max(blockLight3, skyLight3) * INV_LIGHT_SCALE;
+    light.x = max(blockLight0, max(0, skyLight0 - skyLightSub)) * INV_LIGHT_SCALE;
+    light.y = max(blockLight1, max(0, skyLight1 - skyLightSub)) * INV_LIGHT_SCALE;
+    light.z = max(blockLight2, max(0, skyLight2 - skyLightSub)) * INV_LIGHT_SCALE;
+    light.w = max(blockLight3, max(0, skyLight3 - skyLightSub)) * INV_LIGHT_SCALE;
 
     // Transform vertex and uv
     vec3 vertexPos = vertexRotations[normal] * vec3(aPos, 0.0) + vertexOffsets[normal];

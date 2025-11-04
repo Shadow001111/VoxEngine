@@ -16,6 +16,10 @@
 
 #include <mutex>
 
+// Forward declarations
+class Camera;
+
+//
 class World
 {
 	struct ChunkRenderInfo
@@ -53,9 +57,6 @@ private:
 
 	std::unordered_set<Chunk*> buildLightContainer;
 	std::mutex buildLightMutex;
-	
-	std::unordered_set<Chunk*> buildMeshContainer;
-	std::mutex buildMeshMutex;
 
 	std::vector<Chunk*> lightUpdateContainer;
 
@@ -127,10 +128,11 @@ private:
 
 	void startBuildingChunkBlocks();
 	void startBuildingChunkLights();
-	void startBuildingChunkMeshes();
 
 	void updateChunkLights();
 	void collectChunksNeedingLightUpdate();
+
+	void updateChunkMeshes();
 
 	void collectChunksToRender(std::vector<ChunkRenderInfo>& chunksToRender, const Camera& camera) const;
 public:
