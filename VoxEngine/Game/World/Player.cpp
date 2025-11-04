@@ -142,7 +142,7 @@ void Player::getMovingValues(double& friction, double& maxSpeed, double& maxAcce
 		if (input.sprint && moveAny)
 		{
 			friction = 10.0;
-			maxSpeed = 10.0;
+			maxSpeed = 1000.0;
 			maxAcceleration = 100.0;
 		}
 		else

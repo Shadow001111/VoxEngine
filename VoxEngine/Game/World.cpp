@@ -182,11 +182,21 @@ void World::update(float deltaTime)
 		startBuildingChunkLights();
 	}
 
-	collectChunksNeedingLightUpdate();
-	while (!lightUpdateContainer.empty())
+	// TODO: Sometimes loops forever? Because of sky light propagation.
+	// If not limited, it goes forever. But when limited to 20 iterations, next fame iteration count is low and less than 20. STRANGE.
 	{
-		updateChunkLights();
+		size_t iterations = 0;
 		collectChunksNeedingLightUpdate();
+		while (!lightUpdateContainer.empty())
+		{
+			updateChunkLights();
+			collectChunksNeedingLightUpdate();
+			iterations++;
+			if (iterations >= 20)
+			{
+				break;
+			}
+		}
 	}
 
 	updateChunkMeshes();
@@ -543,10 +553,7 @@ void World::rebuildAllChunkMeshes()
 	for (const auto& pair : chunks)
 	{
 		Chunk* chunk = pair.second.get();
-		if (chunk->getState() == Chunk::State::Ready)
-		{
-			chunk->markWholeMeshDirty();
-		}
+		chunk->markWholeMeshDirty();
 	}
 }
 
@@ -790,7 +797,7 @@ void World::updateChunkLights()
 	std::vector<Chunk*> chunksToUpdate;
 	chunksToUpdate.swap(lightUpdateContainer);
 
-	// Process light updates (on main thread for now, could be threaded later) (if using multithreading, then update chunks in checkboard pattern to avoid race conditions)
+	// Maybe: (if using multithreading, then update chunks in checkboard pattern to avoid race conditions)
 	
 	// Using parallelForEach because it will assure that all tasks are done before returning
 	// If they wouldn't, World::update method could queue same chunks again before they are done. Though it won't cause problems...

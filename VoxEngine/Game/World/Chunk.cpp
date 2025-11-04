@@ -719,8 +719,6 @@ void Chunk::updateLight()
 		return;
 	}
 
-	// TODO: Update mesh dirty when changing light values. (In buildLight too) (Just remove build light and use updateLight instead)
-
 	std::queue<LightNode> localBlockLightBfsQueue;
 	{
 		std::lock_guard<std::mutex> lock(blockLightBfsMutex);
@@ -995,9 +993,9 @@ void Chunk::updateLight()
 				continue;
 			}
 
-			// If we are propagating down and skyLight is 15, lightAbsorption is 0, otherwise 1
 			uint8_t neighborSkyLight = neighborChunk->getLightAt(neighborIndex).skyLight;
 
+			// If we are propagating down and skyLight is 15, lightAbsorption is 0, otherwise 1
 			uint8_t lightAbsorption = (i == 2 && skyLight == 15) ? 0 : 1;
 			uint8_t lightToSet = skyLight - lightAbsorption;
 			if (neighborSkyLight >= lightToSet)
@@ -1074,18 +1072,13 @@ void Chunk::updateMesh()
 	ScopedProcessingFence scopedFence(processingFence);
 	ScopedProcessingFence scopedMeshFence(meshData.processingFence);
 
-	// Remove old dirty faces
-	if (meshData.opaqueInstances.size() > 0 || meshData.transparentInstances.size() > 0)
-	{
-		PROFILE_SCOPE("Update chunk mesh: remove faces", ProfileCategory::ChunkMesh);
+	PROFILE_SCOPE("Update chunk mesh", ProfileCategory::ChunkMesh);
 
-		removeDirtyBlockFaces(localMeshDirty);
-	}
+	// Remove old dirty faces
+	removeDirtyBlockFaces(localMeshDirty);
 
 	// Collect visible faces
 	{
-		PROFILE_SCOPE("Update chunk mesh", ProfileCategory::ChunkMesh);
-
 		for (size_t index = 0; index < CHUNK_VOLUME; index++)
 		{
 			if (!localMeshDirty.test(index))
@@ -1964,8 +1957,15 @@ void Chunk::removeDirtyBlockFaces(const std::bitset<CHUNK_VOLUME>& localMeshDirt
 			instances.end());
 		};
 
-	removeFaces(meshData.opaqueInstances);
-	removeFaces(meshData.transparentInstances);
+	if (!meshData.opaqueInstances.empty())
+	{
+		removeFaces(meshData.opaqueInstances);
+	}
+
+	if (!meshData.transparentInstances.empty())
+	{
+		removeFaces(meshData.transparentInstances);
+	}
 }
 
 int Chunk::getX() const
