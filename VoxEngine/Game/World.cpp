@@ -192,7 +192,7 @@ void World::update(float deltaTime)
 			updateChunkLights();
 			collectChunksNeedingLightUpdate();
 			iterations++;
-			if (iterations >= 20)
+			if (iterations >= 10)
 			{
 				break;
 			}
@@ -794,26 +794,38 @@ void World::startBuildingChunkLights()
 
 void World::updateChunkLights()
 {
-	std::vector<Chunk*> chunksToUpdate;
-	chunksToUpdate.swap(lightUpdateContainer);
-
-	// Maybe: (if using multithreading, then update chunks in checkboard pattern to avoid race conditions)
-	
 	// Using parallelForEach because it will assure that all tasks are done before returning
-	// If they wouldn't, World::update method could queue same chunks again before they are done. Though it won't cause problems...
-	ParallelUtils::parallelForEach(chunksToUpdate, 1, [](Chunk* chunk)
+	
+	// Split chunks into two groups in checkboard pattern and update them in two separate passes to avoid racing conditions
+	std::vector<Chunk*> groupA;
+	groupA.reserve(lightUpdateContainer.size() / 2);
+
+	std::vector<Chunk*> groupB;
+	groupB.reserve(lightUpdateContainer.size() / 2);
+
+	for (Chunk* chunk : lightUpdateContainer)
+	{
+		glm::ivec3 pos = chunk->getPosition();
+		if ((pos.x + pos.y + pos.z) & 1)
+		{
+			groupA.push_back(chunk);
+		}
+		else
+		{
+			groupB.push_back(chunk);
+		}
+	}
+
+	lightUpdateContainer.clear();
+
+	ParallelUtils::parallelForEach(groupA, 1, [](Chunk* chunk)
 		{
 			chunk->updateLight();
 		});
-
-	/*ThreadPool& pool = ParallelUtils::getGlobalThreadPool();
-	for (Chunk* chunk : chunksToUpdate)
-	{
-		pool.enqueue([chunk]()
-			{
-				chunk->updateLight();
-			});
-	}*/
+	ParallelUtils::parallelForEach(groupB, 1, [](Chunk* chunk)
+		{
+			chunk->updateLight();
+		});
 }
 
 void World::collectChunksNeedingLightUpdate()

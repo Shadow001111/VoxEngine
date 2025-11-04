@@ -394,7 +394,7 @@ void Chunk::buildLight()
 	std::queue<LightNode> localSkyLightBfsQueue;
 	const Chunk* top = neighbors[3];
 	{
-		if (top)
+		if (top && top->getState() > State::BuildingLight)
 		{
 			// Propagate from top neighbor
 			const int y = CHUNK_SIZE - 1;
@@ -482,7 +482,7 @@ void Chunk::buildLight()
 
 		// -X
 		const Chunk* neighbor = neighbors[0];
-		if (neighbor)
+		if (neighbor && neighbor->getState() > State::BuildingLight)
 		{
 			const int x = 0;
 			const int neighborX = CHUNK_SIZE - 1;
@@ -497,7 +497,7 @@ void Chunk::buildLight()
 
 		// +X
 		neighbor = neighbors[1];
-		if (neighbor)
+		if (neighbor && neighbor->getState() > State::BuildingLight)
 		{
 			const int x = CHUNK_SIZE - 1;
 			const int neighborX = 0;
@@ -512,7 +512,7 @@ void Chunk::buildLight()
 
 		// -Y
 		neighbor = neighbors[2];
-		if (neighbor)
+		if (neighbor && neighbor->getState() > State::BuildingLight)
 		{
 			const int y = 0;
 			const int neighborY = CHUNK_SIZE - 1;
@@ -527,7 +527,7 @@ void Chunk::buildLight()
 
 		// +Y. Sky light shouldn't be gropagated if 'top' chunk isn't nullptr, but I don't care much.
 		neighbor = neighbors[3];
-		if (neighbor)
+		if (neighbor && neighbor->getState() > State::BuildingLight)
 		{
 			const int y = CHUNK_SIZE - 1;
 			const int neighborY = 0;
@@ -542,7 +542,7 @@ void Chunk::buildLight()
 
 		// -Z
 		neighbor = neighbors[4];
-		if (neighbor)
+		if (neighbor && neighbor->getState() > State::BuildingLight)
 		{
 			const int z = 0;
 			const int neighborZ = CHUNK_SIZE - 1;
@@ -557,7 +557,7 @@ void Chunk::buildLight()
 
 		// +Z
 		neighbor = neighbors[5];
-		if (neighbor)
+		if (neighbor && neighbor->getState() > State::BuildingLight)
 		{
 			const int z = CHUNK_SIZE - 1;
 			const int neighborZ = 0;
