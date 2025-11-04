@@ -788,15 +788,25 @@ void World::startBuildingChunkLights()
 void World::updateChunkLights()
 {
 	std::vector<Chunk*> chunksToUpdate;
-
 	chunksToUpdate.swap(lightUpdateContainer);
 
-	// Process light updates (on main thread for now, could be threaded later) (if using multithreading, them update chunks in checkboard pattern to avoid race conditions)
+	// Process light updates (on main thread for now, could be threaded later) (if using multithreading, then update chunks in checkboard pattern to avoid race conditions)
 	
+	// Using parallelForEach because it will assure that all tasks are done before returning
+	// If they wouldn't, World::update method could queue same chunks again before they are done. Though it won't cause problems...
+	ParallelUtils::parallelForEach(chunksToUpdate, 1, [](Chunk* chunk)
+		{
+			chunk->updateLight();
+		});
+
+	/*ThreadPool& pool = ParallelUtils::getGlobalThreadPool();
 	for (Chunk* chunk : chunksToUpdate)
 	{
-		chunk->updateLight();
-	}
+		pool.enqueue([chunk]()
+			{
+				chunk->updateLight();
+			});
+	}*/
 }
 
 void World::collectChunksNeedingLightUpdate()
