@@ -10,8 +10,9 @@ layout(binding = 0) restrict readonly buffer chunkPositionSSBO
 
 uniform mat4 view;
 uniform mat4 projection;
-uniform float CHUNK_SIZE;
-uniform int skyLightSub = 15;
+uniform ivec3 cameraChunkPosition;
+uniform int CHUNK_SIZE;
+uniform int skyLightSub = -15;
 
 out vec2 uv;
 out vec2 texCoords;
@@ -153,12 +154,13 @@ void main()
 
     // Chunk position
     const uint posIndex = uint(gl_DrawID) * 3u;
-    const vec3 chunkPosition = CHUNK_SIZE * vec3
+    const ivec3 chunkPosition = ivec3
 	(
 		chunkPositions[posIndex],
 		chunkPositions[posIndex + 1u],
 		chunkPositions[posIndex + 2u]
 	);
+    const ivec3 relativeChunkPosition = chunkPosition - cameraChunkPosition;
 
     // Transform texCoords. TODO: Remove branching. Idk, maybe it won't change a thing.
     texCoords = uv;
@@ -177,7 +179,7 @@ void main()
     }
 
     //
-    vec3 worldPos = chunkPosition + vertexPos + vec3(x, y, z);
+    vec3 worldPos = vec3(CHUNK_SIZE * relativeChunkPosition) + vertexPos + vec3(x, y, z);
     vec4 viewPos = view * vec4(worldPos, 1.0);
 
     viewVertexPosition = viewPos.xyz;

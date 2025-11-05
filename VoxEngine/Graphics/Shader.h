@@ -22,13 +22,24 @@ public:
     void use() const;
 
     void setBool(const std::string& name, bool value) const;
+
     void setInt(const std::string& name, int value) const;
+	void setIvec2(const std::string& name, int x, int y) const;
+	void setIvec3(const std::string& name, int x, int y, int z) const;
+	void setIvec4(const std::string& name, int x, int y, int z, int w) const;
+
+	void setUint(const std::string& name, unsigned int value) const;
+    void setUvec2(const std::string& name, unsigned int x, unsigned int y) const;
+	void setUvec3(const std::string& name, unsigned int x, unsigned int y, unsigned int z) const;
+	void setUvec4(const std::string& name, unsigned int x, unsigned int y, unsigned int z, unsigned int w) const;
+
     void setFloat(const std::string& name, float value) const;
     void setFloatArray(const std::string& name, const float* values, size_t length) const;
 	void setVec2(const std::string& name, float x, float y) const;
     void setVec3(const std::string& name, float x, float y, float z) const;
+	void setVec4(const std::string& name, float x, float y, float z, float w) const;
+
     void setMat4(const std::string& name, const glm::mat4& mat) const;
-	void setUvec2(const std::string& name, unsigned int x, unsigned int y) const;
 
     GLuint getID() const { return ID; }
 

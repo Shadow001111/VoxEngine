@@ -58,6 +58,13 @@ glm::mat4 Camera::getViewMatrix() const
 	return glm::lookAt(transform.position, transform.position + forward, up);
 }
 
+glm::mat4 Camera::getViewMatrixModified(const glm::dvec3& posMod) const
+{
+	updateCameraVectors();
+	glm::dvec3 modifiedPos = glm::mod(transform.position, posMod);
+	return glm::lookAt(modifiedPos, modifiedPos + forward, up);
+}
+
 glm::mat4 Camera::getProjectionMatrix() const
 {
 	return glm::perspective(FOV, aspectRatio, nearPlane, farPlane);

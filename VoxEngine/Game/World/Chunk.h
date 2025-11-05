@@ -133,7 +133,7 @@ public:
 	void sortMesh(const glm::ivec3& cameraBlockPos);
 	bool shouldMeshBeSorted(bool cameraMoved) const;
 	bool isMeshDirty() const;
-	void markWholeMeshDirty();
+	void markMeshDirty();
 	void askForMeshUpload();
 
 	void collectOpaqueRenderData(std::vector<DrawArraysIndirectCommand>& drawCommands, std::vector<glm::ivec3>& positions) const;

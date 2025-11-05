@@ -7,6 +7,7 @@ class Camera
 {
 	Transform transform;
 
+	// TODO: These can be glm::vec3
 	mutable glm::dvec3 forward;
 	mutable glm::dvec3 up;
 	mutable glm::dvec3 right;
@@ -28,6 +29,7 @@ public:
 	Camera(const glm::dvec3 position, float yaw, float pitch, float FOV, float aspectRatio, float nearPlane, float farPlane);
 
 	glm::mat4 getViewMatrix() const;
+	glm::mat4 getViewMatrixModified(const glm::dvec3& posMod) const;
 	glm::mat4 getProjectionMatrix() const;
 
 	void setPosition(const glm::dvec3& position);

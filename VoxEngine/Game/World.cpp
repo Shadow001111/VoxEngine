@@ -23,7 +23,7 @@ World::World()
 		};
 		faceShader = std::make_unique<Shader>(faceShaderSources);
 		faceShader->use();
-		faceShader->setFloat("CHUNK_SIZE", CHUNK_SIZE);
+		faceShader->setInt("CHUNK_SIZE", CHUNK_SIZE);
 
 		std::vector<Shader::ShaderSource> voxelMarkerShaderSources =
 		{
@@ -31,6 +31,8 @@ World::World()
 			{GL_FRAGMENT_SHADER, "res/Shaders/voxelMarker.frag"}
 		};
 		voxelMarkerShader = std::make_unique<Shader>(voxelMarkerShaderSources);
+		voxelMarkerShader->use();
+		voxelMarkerShader->setInt("CHUNK_SIZE", CHUNK_SIZE);
 	}
 
 	// Block data base
@@ -248,10 +250,15 @@ void World::renderChunks(const Camera& camera) const
 {
 	faceShader->use();
 	{
+		// Camera chunk position
+		const glm::ivec3 cameraChunkPos = glm::ivec3(glm::floor(camera.getPosition())) >> CHUNK_SIZE_LOG2;
+		faceShader->setIvec3("cameraChunkPosition", cameraChunkPos.x, cameraChunkPos.y, cameraChunkPos.z);
+
 		// Matrices
-		faceShader->setMat4("view", camera.getViewMatrix());
+		faceShader->setMat4("view", camera.getViewMatrixModified(glm::dvec3(CHUNK_SIZE)));
 		faceShader->setMat4("projection", camera.getProjectionMatrix());
 	
+		// Fog
 		const auto& fogColor = visualSettings.backgroundColor;
 		faceShader->setVec3("fogColor", fogColor.r, fogColor.g, fogColor.b);
 		faceShader->setFloat("fogDensity", visualSettings.fogDensity);
@@ -368,8 +375,12 @@ void World::renderVoxelMarker(const Camera& camera, const RaycastResult& raycast
 
 	voxelMarkerShader->use();
 	{
+		// Camera chunk position
+		const glm::ivec3 cameraChunkPos = glm::ivec3(glm::floor(camera.getPosition())) >> CHUNK_SIZE_LOG2;
+		voxelMarkerShader->setIvec3("cameraChunkPosition", cameraChunkPos.x, cameraChunkPos.y, cameraChunkPos.z);
+
 		// Matrices
-		voxelMarkerShader->setMat4("view", camera.getViewMatrix());
+		voxelMarkerShader->setMat4("view", camera.getViewMatrixModified(glm::dvec3(CHUNK_SIZE)));
 		voxelMarkerShader->setMat4("projection", camera.getProjectionMatrix());
 	}
 
@@ -418,6 +429,7 @@ void World::renderVoxelMarker(const Camera& camera, const RaycastResult& raycast
 	}
 }
 
+// Make raycast undependable of float precision. Or do the same for voxel marker rendering.
 RaycastResult World::raycast(const glm::dvec3& origin, const glm::dvec3& direction, float maxDistance) const
 {
 	PROFILE_SCOPE("Raycast", ProfileCategory::General);
@@ -553,7 +565,7 @@ void World::rebuildAllChunkMeshes()
 	for (const auto& pair : chunks)
 	{
 		Chunk* chunk = pair.second.get();
-		chunk->markWholeMeshDirty();
+		chunk->markMeshDirty();
 	}
 }
 

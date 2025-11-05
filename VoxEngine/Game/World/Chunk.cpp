@@ -69,7 +69,7 @@ void Chunk::init(int x, int y, int z, Chunk** neighbors)
 	meshData.opaqueDirty = false;
 	meshData.transparentDirty = false;
 
-	meshDirty = true;
+	meshDirty = false;
 
 	cameraClosestBlockPosForSortingMesh = -1;
 	shouldSortMeshAfterBuild = false;
@@ -213,7 +213,85 @@ void Chunk::buildBlocks()
 
 	areBlocksBuilt.store(true, std::memory_order_release);
 
-	//computeConnectivity();
+	// Mark itself and neighbors as mesh dirty
+	{
+		meshDirty = true;
+
+		// Sides
+		Chunk* n0;
+		if (n0 = neighbors[0]) n0->meshDirty = true;
+		if (n0 = neighbors[1]) n0->meshDirty = true;
+		if (n0 = neighbors[2]) n0->meshDirty = true;
+		if (n0 = neighbors[3]) n0->meshDirty = true;
+		if (n0 = neighbors[4]) n0->meshDirty = true;
+		if (n0 = neighbors[5]) n0->meshDirty = true;
+
+		// Edges
+		Chunk* n1;
+		if ((n0 = neighbors[0]) && (n1 = n0->neighbors[2])) n1->meshDirty = true;
+		if ((n0 = neighbors[0]) && (n1 = n0->neighbors[3])) n1->meshDirty = true;
+		if ((n0 = neighbors[1]) && (n1 = n0->neighbors[2])) n1->meshDirty = true;
+		if ((n0 = neighbors[1]) && (n1 = n0->neighbors[3])) n1->meshDirty = true;
+		if ((n0 = neighbors[0]) && (n1 = n0->neighbors[4])) n1->meshDirty = true;
+		if ((n0 = neighbors[0]) && (n1 = n0->neighbors[5])) n1->meshDirty = true;
+		if ((n0 = neighbors[1]) && (n1 = n0->neighbors[4])) n1->meshDirty = true;
+		if ((n0 = neighbors[1]) && (n1 = n0->neighbors[5])) n1->meshDirty = true;
+		if ((n0 = neighbors[2]) && (n1 = n0->neighbors[4])) n1->meshDirty = true;
+		if ((n0 = neighbors[2]) && (n1 = n0->neighbors[5])) n1->meshDirty = true;
+		if ((n0 = neighbors[3]) && (n1 = n0->neighbors[4])) n1->meshDirty = true;
+		if ((n0 = neighbors[3]) && (n1 = n0->neighbors[5])) n1->meshDirty = true;
+
+		// Corners
+		Chunk* n2;
+		if ((n0 = neighbors[0]) &&
+			(n1 = n0->neighbors[2]) &&
+			(n2 = n1->neighbors[4]))
+		{
+			n2->meshDirty = true;
+		}
+		if ((n0 = neighbors[0]) &&
+			(n1 = n0->neighbors[2]) &&
+			(n2 = n1->neighbors[5]))
+		{
+			n2->meshDirty = true;
+		}
+		if ((n0 = neighbors[0]) &&
+			(n1 = n0->neighbors[3]) &&
+			(n2 = n1->neighbors[4]))
+		{
+			n2->meshDirty = true;
+		}
+		if ((n0 = neighbors[0]) &&
+			(n1 = n0->neighbors[3]) &&
+			(n2 = n1->neighbors[5]))
+		{
+			n2->meshDirty = true;
+		}
+		if ((n0 = neighbors[1]) &&
+			(n1 = n0->neighbors[2]) &&
+			(n2 = n1->neighbors[4]))
+		{
+			n2->meshDirty = true;
+		}
+		if ((n0 = neighbors[1]) &&
+			(n1 = n0->neighbors[2]) &&
+			(n2 = n1->neighbors[5]))
+		{
+			n2->meshDirty = true;
+		}
+		if ((n0 = neighbors[1]) &&
+			(n1 = n0->neighbors[3]) &&
+			(n2 = n1->neighbors[4]))
+		{
+			n2->meshDirty = true;
+		}
+		if ((n0 = neighbors[1]) &&
+			(n1 = n0->neighbors[3]) &&
+			(n2 = n1->neighbors[5]))
+		{
+			n2->meshDirty = true;
+		}
+	}
 }
 
 bool Chunk::findFloodFillStartIndex(uint16_t& startIndex, const bool* floodFillMask) const
@@ -340,6 +418,8 @@ void Chunk::computeConnectivity()
 
 void Chunk::buildLight()
 {
+	isLightBuilt.store(true, std::memory_order_release);
+	return;
 	if (
 		!isLoadedInWorld.load(std::memory_order_acquire) ||
 		!areBlocksBuilt.load(std::memory_order_acquire)
@@ -1340,7 +1420,7 @@ bool Chunk::isMeshDirty() const
 	return meshDirty;
 }
 
-void Chunk::markWholeMeshDirty()
+void Chunk::markMeshDirty()
 {
 	meshDirty = true;
 }
@@ -1700,18 +1780,18 @@ void Chunk::markBlockMeshDirty(int x, int y, int z)
 
 	// Mark neighbors meshes as dirty
 
-	bool left = x == 0;
-	bool right = x == (CHUNK_SIZE - 1);
-	bool bottom = y == 0;
-	bool top = y == (CHUNK_SIZE - 1);
-	bool back = z == 0;
-	bool front = z == (CHUNK_SIZE - 1);
+	const bool left = x == 0;
+	const bool right = x == (CHUNK_SIZE - 1);
+	const bool bottom = y == 0;
+	const bool top = y == (CHUNK_SIZE - 1);
+	const bool back = z == 0;
+	const bool front = z == (CHUNK_SIZE - 1);
+
+	// Early exit if not on any boundary
+	if (!(left || right || bottom || top || back || front)) return;
 
 	// Sides
 	Chunk* n0;
-	Chunk* n1;
-	Chunk* n2;
-
 	if (left   && (n0 = neighbors[0])) n0->meshDirty = true;
 	if (right  && (n0 = neighbors[1])) n0->meshDirty = true;
 	if (bottom && (n0 = neighbors[2])) n0->meshDirty = true;
@@ -1720,22 +1800,22 @@ void Chunk::markBlockMeshDirty(int x, int y, int z)
 	if (front  && (n0 = neighbors[5])) n0->meshDirty = true;
 
 	// Edges
+	Chunk* n1;
 	if (left   && bottom && (n0 = neighbors[0]) && (n1 = n0->neighbors[2])) n1->meshDirty = true;
 	if (left   && top    && (n0 = neighbors[0]) && (n1 = n0->neighbors[3])) n1->meshDirty = true;
 	if (right  && bottom && (n0 = neighbors[1]) && (n1 = n0->neighbors[2])) n1->meshDirty = true;
 	if (right  && top    && (n0 = neighbors[1]) && (n1 = n0->neighbors[3])) n1->meshDirty = true;
 	if (left   && back   && (n0 = neighbors[0]) && (n1 = n0->neighbors[4])) n1->meshDirty = true;
-
 	if (left   && front  && (n0 = neighbors[0]) && (n1 = n0->neighbors[5])) n1->meshDirty = true;
 	if (right  && back   && (n0 = neighbors[1]) && (n1 = n0->neighbors[4])) n1->meshDirty = true;
 	if (right  && front  && (n0 = neighbors[1]) && (n1 = n0->neighbors[5])) n1->meshDirty = true;
-
 	if (bottom && back   && (n0 = neighbors[2]) && (n1 = n0->neighbors[4])) n1->meshDirty = true;
 	if (bottom && front  && (n0 = neighbors[2]) && (n1 = n0->neighbors[5])) n1->meshDirty = true;
 	if (top    && back   && (n0 = neighbors[3]) && (n1 = n0->neighbors[4])) n1->meshDirty = true;
 	if (top    && front  && (n0 = neighbors[3]) && (n1 = n0->neighbors[5])) n1->meshDirty = true;
 
 	// Corners
+	Chunk* n2;
 	if (left && bottom && back &&
 		(n0 = neighbors[0]) &&
 		(n1 = n0->neighbors[2]) &&

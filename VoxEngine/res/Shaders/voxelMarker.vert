@@ -5,6 +5,8 @@ layout(location = 1) in vec2 aUV;
 
 uniform mat4 view;
 uniform mat4 projection;
+uniform ivec3 cameraChunkPosition;
+uniform int CHUNK_SIZE;
 
 uniform vec3 position;
 uniform float scale;
@@ -16,7 +18,7 @@ void main()
     uv = aUV;
 
     vec3 vertexPos = aPos * scale;
-    vec3 worldPos = position + vertexPos;
+    vec3 worldPos = position - vec3(cameraChunkPosition * CHUNK_SIZE) + vertexPos;
     vec4 viewPos = view * vec4(worldPos, 1.0);
     
     gl_Position = projection * viewPos;
