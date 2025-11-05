@@ -182,7 +182,7 @@ void World::update(float deltaTime)
 		startBuildingChunkLights();
 	}
 
-	// TODO: Sometimes loops forever? Because of sky light propagation.
+	// Sometimes loops forever. Because of sky light propagation.
 	// If not limited, it goes forever. But when limited to 20 iterations, next fame iteration count is low and less than 20. STRANGE.
 	{
 		size_t iterations = 0;

@@ -77,12 +77,12 @@ private:
 	std::atomic<bool> isLoadedChunkColumnData { false };
 	std::atomic<bool> areBlocksBuilt{ false };
 	std::atomic<bool> isLightBuilt{ false };
+	bool meshDirty;
 
 	bool shouldSortMeshAfterBuild;
 
 	Block blocks[CHUNK_VOLUME];
 	LightLevel lightLevels[CHUNK_VOLUME];
-	std::bitset<CHUNK_VOLUME> meshDirty; // TODO: Make a second bitset to sumbit. While light updates are happening, mesh updates can be processed on the previous bitset.
 
 	std::queue<LightNode> blockLightBfsQueue;
 	mutable std::mutex blockLightBfsMutex;
@@ -170,11 +170,10 @@ public:
 	void addSkyLightNodeToQueue(int x, int y, int z);
 	void addSkyLightRemovalNodeToQueue(int x, int y, int z, uint8_t lightLevel);
 private:
+	void markBlockMeshDirty(int x, int y, int z);
+private:
 	void calculateVertexAmbientOcclusionAndLight(unsigned int& ao, LightLevel& light, LightLevel centerLight, LightLevel side1Light, LightLevel side2Light, LightLevel cornerLight, bool side1Solid, bool side2Solid, bool cornerSolid) const;
 	void calculateFaceAmbientOcclusionAndLight(unsigned int& ao, unsigned int& light, int x, int y, int z, int normal, LightLevel centerFaceLight) const;
-private:
-	void markBlockMeshDirty(int x, int y, int z);
-	void removeDirtyBlockFaces(const std::bitset<CHUNK_VOLUME>& localMeshDirty);
 public:
 	int getX() const;
 	int getY() const;

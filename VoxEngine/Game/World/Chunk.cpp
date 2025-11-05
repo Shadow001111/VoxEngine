@@ -69,7 +69,7 @@ void Chunk::init(int x, int y, int z, Chunk** neighbors)
 	meshData.opaqueDirty = false;
 	meshData.transparentDirty = false;
 
-	meshDirty.set(); // All faces dirty
+	meshDirty = true;
 
 	cameraClosestBlockPosForSortingMesh = -1;
 	shouldSortMeshAfterBuild = false;
@@ -135,7 +135,6 @@ void Chunk::destroy()
 // Fills 'blocks' array
 void Chunk::buildBlocks()
 {
-	// TODO: Consider marking mesh dirty here. Measure perfomance difference.
 	if (
 		areBlocksBuilt.load(std::memory_order_acquire) ||
 		!isLoadedInWorld.load(std::memory_order_acquire)
@@ -1060,175 +1059,170 @@ void Chunk::updateMesh()
 		!isLoadedInWorld.load(std::memory_order_acquire) ||
 		!areBlocksBuilt.load(std::memory_order_acquire) ||
 		!isLightBuilt.load(std::memory_order_acquire) ||
-		!meshDirty.any()
+		!meshDirty
 		)
 	{
 		return;
 	}
 
-	auto localMeshDirty = meshDirty;
-	meshDirty.reset();
+	meshDirty = false;
 
 	ScopedProcessingFence scopedFence(processingFence);
-	ScopedProcessingFence scopedMeshFence(meshData.processingFence);
 
 	PROFILE_SCOPE("Update chunk mesh", ProfileCategory::ChunkMesh);
 
 	// Remove old dirty faces
-	removeDirtyBlockFaces(localMeshDirty);
 
 	// Collect visible faces
 	{
-		for (size_t index = 0; index < CHUNK_VOLUME; index++)
+		std::vector<BlockFaceInstance> opaqueInstances;
+		std::vector<BlockFaceInstance> transparentInstances;
+		for (int x = 0; x < CHUNK_SIZE; x++)
 		{
-			if (!localMeshDirty.test(index))
+			for (int y = 0; y < CHUNK_SIZE; y++)
 			{
-				continue; // Skip non-dirty blocks
-			}
-
-			glm::ivec3 pos = getPositionFromIndex(index);
-			int x = pos.x;
-			int y = pos.y;
-			int z = pos.z;
-
-			// Generate new faces for this block
-			Block block = getBlockAt(x, y, z);
-			const BlockData* blockData = GET_BLOCK_DATA(block);
-			if (!blockData->properties.hasFaces)
-			{
-				continue;
-			}
-
-			const auto& textureIDs = blockData->textures.textureIDs;
-			auto& instances = blockData->properties.areFacesTransparent ? meshData.transparentInstances : meshData.opaqueInstances;
-			const BlockData* neighborBlockData;
-
-			size_t neighborIndex;
-			const Chunk* neighborChunk;
-			Block neighborBlock;
-			LightLevel neighborLight;
-
-			// -X
-			neighborChunk = getChunkAndIndex_checkSideNeighbor(x - 1, y, z, 0, neighborIndex);
-			if (neighborChunk)
-			{
-				neighborBlock = neighborChunk->getBlockAt(neighborIndex);
-				if (block != neighborBlock && (neighborBlockData = GET_BLOCK_DATA(neighborBlock))->properties.areFacesTransparent)
+				for (int z = 0; z < CHUNK_SIZE; z++)
 				{
-					neighborLight = neighborChunk->getLightAt(neighborIndex);
-					unsigned int ao, light;
-					calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 0, neighborLight);
-					instances.emplace_back(
-						x, y, z,
-						0,
-						ao,
-						textureIDs[0],
-						blockData->textures.texturesTransformation & 3,
-						light
-					);
-				}
-			}
+					// Generate new faces for this block
+					Block block = getBlockAt(x, y, z);
+					const BlockData* blockData = GET_BLOCK_DATA(block);
+					if (!blockData->properties.hasFaces)
+					{
+						continue;
+					}
 
-			// +X
-			neighborChunk = getChunkAndIndex_checkSideNeighbor(x + 1, y, z, 1, neighborIndex);
-			if (neighborChunk)
-			{
-				neighborBlock = neighborChunk->getBlockAt(neighborIndex);
-				if (block != neighborBlock && (neighborBlockData = GET_BLOCK_DATA(neighborBlock))->properties.areFacesTransparent)
-				{
-					neighborLight = neighborChunk->getLightAt(neighborIndex);
-					unsigned int ao, light;
-					calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 1, neighborLight);
-					instances.emplace_back(
-						x, y, z,
-						1,
-						ao,
-						textureIDs[1],
-						(blockData->textures.texturesTransformation >> 2) & 3,
-						light);
-				}
-			}
+					const auto& textureIDs = blockData->textures.textureIDs;
+					auto& instances = blockData->properties.areFacesTransparent ? transparentInstances : opaqueInstances;
+					const BlockData* neighborBlockData;
 
-			// -Y
-			neighborChunk = getChunkAndIndex_checkSideNeighbor(x, y - 1, z, 2, neighborIndex);
-			if (neighborChunk)
-			{
-				neighborBlock = neighborChunk->getBlockAt(neighborIndex);
-				if (block != neighborBlock && (neighborBlockData = GET_BLOCK_DATA(neighborBlock))->properties.areFacesTransparent)
-				{
-					neighborLight = neighborChunk->getLightAt(neighborIndex);
-					unsigned int ao, light;
-					calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 2, neighborLight);
-					instances.emplace_back(
-						x, y, z,
-						2,
-						ao,
-						textureIDs[2],
-						(blockData->textures.texturesTransformation >> 4) & 3,
-						light
-					);
-				}
-			}
+					size_t neighborIndex;
+					const Chunk* neighborChunk;
+					Block neighborBlock;
+					LightLevel neighborLight;
 
-			// +Y
-			neighborChunk = getChunkAndIndex_checkSideNeighbor(x, y + 1, z, 3, neighborIndex);
-			if (neighborChunk)
-			{
-				neighborBlock = neighborChunk->getBlockAt(neighborIndex);
-				if (block != neighborBlock && (neighborBlockData = GET_BLOCK_DATA(neighborBlock))->properties.areFacesTransparent)
-				{
-					neighborLight = neighborChunk->getLightAt(neighborIndex);
-					unsigned int ao, light;
-					calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 3, neighborLight);
-					instances.emplace_back(
-						x, y, z,
-						3,
-						ao,
-						textureIDs[3],
-						(blockData->textures.texturesTransformation >> 6) & 3,
-						light
-					);
-				}
-			}
+					// -X
+					neighborChunk = getChunkAndIndex_checkSideNeighbor(x - 1, y, z, 0, neighborIndex);
+					if (neighborChunk)
+					{
+						neighborBlock = neighborChunk->getBlockAt(neighborIndex);
+						if (block != neighborBlock && (neighborBlockData = GET_BLOCK_DATA(neighborBlock))->properties.areFacesTransparent)
+						{
+							neighborLight = neighborChunk->getLightAt(neighborIndex);
+							unsigned int ao, light;
+							calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 0, neighborLight);
+							instances.emplace_back(
+								x, y, z,
+								0,
+								ao,
+								textureIDs[0],
+								blockData->textures.texturesTransformation & 3,
+								light
+							);
+						}
+					}
 
-			// -Z
-			neighborChunk = getChunkAndIndex_checkSideNeighbor(x, y, z - 1, 4, neighborIndex);
-			if (neighborChunk)
-			{
-				neighborBlock = neighborChunk->getBlockAt(neighborIndex);
-				if (block != neighborBlock && (neighborBlockData = GET_BLOCK_DATA(neighborBlock))->properties.areFacesTransparent)
-				{
-					neighborLight = neighborChunk->getLightAt(neighborIndex);
-					unsigned int ao, light;
-					calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 4, neighborLight);
-					instances.emplace_back(
-						x, y, z,
-						4,
-						ao,
-						textureIDs[4],
-						(blockData->textures.texturesTransformation >> 8) & 3,
-						light
-					);
-				}
-			}
+					// +X
+					neighborChunk = getChunkAndIndex_checkSideNeighbor(x + 1, y, z, 1, neighborIndex);
+					if (neighborChunk)
+					{
+						neighborBlock = neighborChunk->getBlockAt(neighborIndex);
+						if (block != neighborBlock && (neighborBlockData = GET_BLOCK_DATA(neighborBlock))->properties.areFacesTransparent)
+						{
+							neighborLight = neighborChunk->getLightAt(neighborIndex);
+							unsigned int ao, light;
+							calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 1, neighborLight);
+							instances.emplace_back(
+								x, y, z,
+								1,
+								ao,
+								textureIDs[1],
+								(blockData->textures.texturesTransformation >> 2) & 3,
+								light);
+						}
+					}
 
-			// +Z
-			neighborChunk = getChunkAndIndex_checkSideNeighbor(x, y, z + 1, 5, neighborIndex);
-			if (neighborChunk)
-			{
-				neighborBlock = neighborChunk->getBlockAt(neighborIndex);
-				if (block != neighborBlock && (neighborBlockData = GET_BLOCK_DATA(neighborBlock))->properties.areFacesTransparent)
-				{
-					neighborLight = neighborChunk->getLightAt(neighborIndex);
-					unsigned int ao, light;
-					calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 5, neighborLight);
-					instances.emplace_back(
-						x, y, z,
-						5,
-						ao,
-						textureIDs[5],
-						(blockData->textures.texturesTransformation >> 10) & 3,
-						light);
+					// -Y
+					neighborChunk = getChunkAndIndex_checkSideNeighbor(x, y - 1, z, 2, neighborIndex);
+					if (neighborChunk)
+					{
+						neighborBlock = neighborChunk->getBlockAt(neighborIndex);
+						if (block != neighborBlock && (neighborBlockData = GET_BLOCK_DATA(neighborBlock))->properties.areFacesTransparent)
+						{
+							neighborLight = neighborChunk->getLightAt(neighborIndex);
+							unsigned int ao, light;
+							calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 2, neighborLight);
+							instances.emplace_back(
+								x, y, z,
+								2,
+								ao,
+								textureIDs[2],
+								(blockData->textures.texturesTransformation >> 4) & 3,
+								light
+							);
+						}
+					}
+
+					// +Y
+					neighborChunk = getChunkAndIndex_checkSideNeighbor(x, y + 1, z, 3, neighborIndex);
+					if (neighborChunk)
+					{
+						neighborBlock = neighborChunk->getBlockAt(neighborIndex);
+						if (block != neighborBlock && (neighborBlockData = GET_BLOCK_DATA(neighborBlock))->properties.areFacesTransparent)
+						{
+							neighborLight = neighborChunk->getLightAt(neighborIndex);
+							unsigned int ao, light;
+							calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 3, neighborLight);
+							instances.emplace_back(
+								x, y, z,
+								3,
+								ao,
+								textureIDs[3],
+								(blockData->textures.texturesTransformation >> 6) & 3,
+								light
+							);
+						}
+					}
+
+					// -Z
+					neighborChunk = getChunkAndIndex_checkSideNeighbor(x, y, z - 1, 4, neighborIndex);
+					if (neighborChunk)
+					{
+						neighborBlock = neighborChunk->getBlockAt(neighborIndex);
+						if (block != neighborBlock && (neighborBlockData = GET_BLOCK_DATA(neighborBlock))->properties.areFacesTransparent)
+						{
+							neighborLight = neighborChunk->getLightAt(neighborIndex);
+							unsigned int ao, light;
+							calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 4, neighborLight);
+							instances.emplace_back(
+								x, y, z,
+								4,
+								ao,
+								textureIDs[4],
+								(blockData->textures.texturesTransformation >> 8) & 3,
+								light
+							);
+						}
+					}
+
+					// +Z
+					neighborChunk = getChunkAndIndex_checkSideNeighbor(x, y, z + 1, 5, neighborIndex);
+					if (neighborChunk)
+					{
+						neighborBlock = neighborChunk->getBlockAt(neighborIndex);
+						if (block != neighborBlock && (neighborBlockData = GET_BLOCK_DATA(neighborBlock))->properties.areFacesTransparent)
+						{
+							neighborLight = neighborChunk->getLightAt(neighborIndex);
+							unsigned int ao, light;
+							calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, 5, neighborLight);
+							instances.emplace_back(
+								x, y, z,
+								5,
+								ao,
+								textureIDs[5],
+								(blockData->textures.texturesTransformation >> 10) & 3,
+								light);
+						}
+					}
 				}
 			}
 		}
@@ -1240,8 +1234,12 @@ void Chunk::updateMesh()
 		}
 
 		// Set mesh data
+		ScopedProcessingFence scopedMeshFence(meshData.processingFence);
 		meshData.opaqueDirty = false;
 		meshData.transparentDirty = false;
+
+		meshData.opaqueInstances = std::move(opaqueInstances);
+		meshData.transparentInstances = std::move(transparentInstances);
 
 		meshData.opaqueFaceCount = meshData.opaqueInstances.size();
 		meshData.transparentFaceCount = meshData.transparentInstances.size();
@@ -1339,12 +1337,12 @@ bool Chunk::shouldMeshBeSorted(bool cameraMoved) const
 
 bool Chunk::isMeshDirty() const
 {
-	return meshDirty.any();
+	return meshDirty;
 }
 
 void Chunk::markWholeMeshDirty()
 {
-	meshDirty.set();
+	meshDirty = true;
 }
 
 void Chunk::askForMeshUpload()
@@ -1522,6 +1520,7 @@ void Chunk::setBlockAt(int x, int y, int z, Block block)
 	}
 
 	blocks[index] = block;
+
 	markBlockMeshDirty(x, y, z);
 
 	// Light update
@@ -1695,6 +1694,106 @@ void Chunk::addSkyLightRemovalNodeToQueue(int x, int y, int z, uint8_t lightLeve
 	skyLightRemovalBfsQueue.emplace(x, y, z, lightLevel);
 }
 
+void Chunk::markBlockMeshDirty(int x, int y, int z)
+{
+	meshDirty = true;
+
+	// Mark neighbors meshes as dirty
+
+	bool left = x == 0;
+	bool right = x == (CHUNK_SIZE - 1);
+	bool bottom = y == 0;
+	bool top = y == (CHUNK_SIZE - 1);
+	bool back = z == 0;
+	bool front = z == (CHUNK_SIZE - 1);
+
+	// Sides
+	Chunk* n0;
+	Chunk* n1;
+	Chunk* n2;
+
+	if (left   && (n0 = neighbors[0])) n0->meshDirty = true;
+	if (right  && (n0 = neighbors[1])) n0->meshDirty = true;
+	if (bottom && (n0 = neighbors[2])) n0->meshDirty = true;
+	if (top    && (n0 = neighbors[3])) n0->meshDirty = true;
+	if (back   && (n0 = neighbors[4])) n0->meshDirty = true;
+	if (front  && (n0 = neighbors[5])) n0->meshDirty = true;
+
+	// Edges
+	if (left   && bottom && (n0 = neighbors[0]) && (n1 = n0->neighbors[2])) n1->meshDirty = true;
+	if (left   && top    && (n0 = neighbors[0]) && (n1 = n0->neighbors[3])) n1->meshDirty = true;
+	if (right  && bottom && (n0 = neighbors[1]) && (n1 = n0->neighbors[2])) n1->meshDirty = true;
+	if (right  && top    && (n0 = neighbors[1]) && (n1 = n0->neighbors[3])) n1->meshDirty = true;
+	if (left   && back   && (n0 = neighbors[0]) && (n1 = n0->neighbors[4])) n1->meshDirty = true;
+
+	if (left   && front  && (n0 = neighbors[0]) && (n1 = n0->neighbors[5])) n1->meshDirty = true;
+	if (right  && back   && (n0 = neighbors[1]) && (n1 = n0->neighbors[4])) n1->meshDirty = true;
+	if (right  && front  && (n0 = neighbors[1]) && (n1 = n0->neighbors[5])) n1->meshDirty = true;
+
+	if (bottom && back   && (n0 = neighbors[2]) && (n1 = n0->neighbors[4])) n1->meshDirty = true;
+	if (bottom && front  && (n0 = neighbors[2]) && (n1 = n0->neighbors[5])) n1->meshDirty = true;
+	if (top    && back   && (n0 = neighbors[3]) && (n1 = n0->neighbors[4])) n1->meshDirty = true;
+	if (top    && front  && (n0 = neighbors[3]) && (n1 = n0->neighbors[5])) n1->meshDirty = true;
+
+	// Corners
+	if (left && bottom && back &&
+		(n0 = neighbors[0]) &&
+		(n1 = n0->neighbors[2]) &&
+		(n2 = n1->neighbors[4]))
+	{
+		n2->meshDirty = true;
+	}
+	if (left && bottom && front &&
+		(n0 = neighbors[0]) &&
+		(n1 = n0->neighbors[2]) &&
+		(n2 = n1->neighbors[5]))
+	{
+		n2->meshDirty = true;
+	}
+	if (left && top && back &&
+		(n0 = neighbors[0]) &&
+		(n1 = n0->neighbors[3]) &&
+		(n2 = n1->neighbors[4]))
+	{
+		n2->meshDirty = true;
+	}
+	if (left && top && front &&
+		(n0 = neighbors[0]) &&
+		(n1 = n0->neighbors[3]) &&
+		(n2 = n1->neighbors[5]))
+	{
+		n2->meshDirty = true;
+	}
+	if (right && bottom && back &&
+		(n0 = neighbors[1]) &&
+		(n1 = n0->neighbors[2]) &&
+		(n2 = n1->neighbors[4]))
+	{
+		n2->meshDirty = true;
+	}
+	if (right && bottom && front &&
+		(n0 = neighbors[1]) &&
+		(n1 = n0->neighbors[2]) &&
+		(n2 = n1->neighbors[5]))
+	{
+		n2->meshDirty = true;
+	}
+	if (right && top && back &&
+		(n0 = neighbors[1]) &&
+		(n1 = n0->neighbors[3]) &&
+		(n2 = n1->neighbors[4]))
+	{
+		n2->meshDirty = true;
+	}
+	if (right && top && front &&
+		(n0 = neighbors[1]) &&
+		(n1 = n0->neighbors[3]) &&
+		(n2 = n1->neighbors[5]))
+	{
+		n2->meshDirty = true;
+	}
+}
+
 void Chunk::calculateVertexAmbientOcclusionAndLight(unsigned int& ao, LightLevel& light, LightLevel centerLight, LightLevel side1Light, LightLevel side2Light, LightLevel cornerLight, bool side1Solid, bool side2Solid, bool cornerSolid) const
 {
 	// TODO: Maybe fix smoothlighting. It's strange when light values are in checkerboard.
@@ -1865,107 +1964,6 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(unsigned int& ao, unsigned int
 	//
 	ao = ao0 | (ao1 << 2) | (ao2 << 4) | (ao3 << 6);
 	light = *((unsigned int*)lightLevels);
-}
-
-void Chunk::markBlockMeshDirty(int x, int y, int z)
-{
-	// TODO: Maybe find a better way to mark neighboring chunks as dirty, because light propagating calls this method a lot.
-	// Old version: 2535ms
-	
-	// 27 (3x3x3 grid)
-	// 27 and not 7 because changing a block may affect faces diagonally too, because of ambient occlusion and smooth-lighting
-	/*for (int dx = -1; dx <= 1; dx++)
-	{
-		for (int dy = -1; dy <= 1; dy++)
-		{
-			for (int dz = -1; dz <= 1; dz++)
-			{
-				int nx = x + dx;
-				int ny = y + dy;
-				int nz = z + dz;
-
-				size_t neighborIndex;
-				Chunk* neighborChunk = getChunkAndIndex_checkNeighborsTraverse(nx, ny, nz, neighborIndex);
-				if (neighborChunk)
-				{
-					neighborChunk->meshDirty.set(neighborIndex, true);
-				}
-			}
-		}
-	}*/
-
-	// Unrolling loop
-	// New version: 2205ms
-
-	// Center
-	meshDirty.set(getIndex(x, y, z), true);
-
-	//
-	size_t neighborIndex;
-	Chunk* neighborChunk;
-
-	// TODO: Try creating 'smarter' getChunkAndIndex_checkNeighborsTraverse. Pass sides to check instead of method computating it itself.
-
-	// Sides
-	neighborChunk = getChunkAndIndex_checkSideNeighbor(x - 1, y, z, 0, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
-	neighborChunk = getChunkAndIndex_checkSideNeighbor(x + 1, y, z, 1, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
-	neighborChunk = getChunkAndIndex_checkSideNeighbor(x, y - 1, z, 2, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
-	neighborChunk = getChunkAndIndex_checkSideNeighbor(x, y + 1, z, 3, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
-	neighborChunk = getChunkAndIndex_checkSideNeighbor(x, y, z - 1, 4, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
-	neighborChunk = getChunkAndIndex_checkSideNeighbor(x, y, z + 1, 5, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
-
-	// Edges
-	neighborChunk = getChunkAndIndex_checkNeighborsTraverse(x - 1, y - 1, z, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
-	neighborChunk = getChunkAndIndex_checkNeighborsTraverse(x - 1, y + 1, z, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
-	neighborChunk = getChunkAndIndex_checkNeighborsTraverse(x + 1, y - 1, z, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
-	neighborChunk = getChunkAndIndex_checkNeighborsTraverse(x + 1, y + 1, z, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
-
-	neighborChunk = getChunkAndIndex_checkNeighborsTraverse(x - 1, y, z - 1, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
-	neighborChunk = getChunkAndIndex_checkNeighborsTraverse(x - 1, y, z + 1, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
-	neighborChunk = getChunkAndIndex_checkNeighborsTraverse(x + 1, y, z - 1, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
-	neighborChunk = getChunkAndIndex_checkNeighborsTraverse(x + 1, y, z + 1, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
-
-	neighborChunk = getChunkAndIndex_checkNeighborsTraverse(x, y - 1, z - 1, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
-	neighborChunk = getChunkAndIndex_checkNeighborsTraverse(x, y - 1, z + 1, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
-	neighborChunk = getChunkAndIndex_checkNeighborsTraverse(x, y + 1, z - 1, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
-	neighborChunk = getChunkAndIndex_checkNeighborsTraverse(x, y + 1, z + 1, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
-
-	// Corners
-	neighborChunk = getChunkAndIndex_checkNeighborsTraverse(x - 1, y - 1, z - 1, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
-	neighborChunk = getChunkAndIndex_checkNeighborsTraverse(x - 1, y - 1, z + 1, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
-	neighborChunk = getChunkAndIndex_checkNeighborsTraverse(x - 1, y + 1, z - 1, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
-	neighborChunk = getChunkAndIndex_checkNeighborsTraverse(x - 1, y + 1, z + 1, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
-	neighborChunk = getChunkAndIndex_checkNeighborsTraverse(x + 1, y - 1, z - 1, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
-	neighborChunk = getChunkAndIndex_checkNeighborsTraverse(x + 1, y - 1, z + 1, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
-	neighborChunk = getChunkAndIndex_checkNeighborsTraverse(x + 1, y + 1, z - 1, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
-	neighborChunk = getChunkAndIndex_checkNeighborsTraverse(x + 1, y + 1, z + 1, neighborIndex); if (neighborChunk) neighborChunk->meshDirty.set(neighborIndex, true);
-}
-
-void Chunk::removeDirtyBlockFaces(const std::bitset<CHUNK_VOLUME>& localMeshDirty)
-{
-	auto removeFaces = [&localMeshDirty](std::vector<BlockFaceInstance>& instances) {
-		instances.erase(
-			std::remove_if(instances.begin(), instances.end(),
-				[&localMeshDirty](const BlockFaceInstance& instance)
-				{
-					glm::ivec3 pos;
-					instance.decodePosition(pos.x, pos.y, pos.z);
-					size_t index = getIndex(pos.x, pos.y, pos.z);
-					return localMeshDirty.test(index);
-				}
-				),
-			instances.end());
-		};
-
-	if (!meshData.opaqueInstances.empty())
-	{
-		removeFaces(meshData.opaqueInstances);
-	}
-
-	if (!meshData.transparentInstances.empty())
-	{
-		removeFaces(meshData.transparentInstances);
-	}
 }
 
 int Chunk::getX() const

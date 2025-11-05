@@ -11,7 +11,7 @@ layout(binding = 0) restrict readonly buffer chunkPositionSSBO
 uniform mat4 view;
 uniform mat4 projection;
 uniform float CHUNK_SIZE;
-uniform int skyLightSub = 0;
+uniform int skyLightSub = 15;
 
 out vec2 uv;
 out vec2 texCoords;
