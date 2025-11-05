@@ -12,7 +12,7 @@ uniform mat4 view;
 uniform mat4 projection;
 uniform ivec3 cameraChunkPosition;
 uniform int CHUNK_SIZE;
-uniform int skyLightSub = -15;
+uniform int skyLightSub = 0;
 
 out vec2 uv;
 out vec2 texCoords;

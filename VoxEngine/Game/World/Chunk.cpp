@@ -418,8 +418,6 @@ void Chunk::computeConnectivity()
 
 void Chunk::buildLight()
 {
-	isLightBuilt.store(true, std::memory_order_release);
-	return;
 	if (
 		!isLoadedInWorld.load(std::memory_order_acquire) ||
 		!areBlocksBuilt.load(std::memory_order_acquire)

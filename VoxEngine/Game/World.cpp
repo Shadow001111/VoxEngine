@@ -107,11 +107,11 @@ void World::preparation()
 	chunkPool.allocate(chunkCount + 10);
 	chunks.reserve(chunkCount + 10);
 
-	size_t maxFacesCount = chunkCount * (size_t)(CHUNK_VOLUME + CHUNK_AREA) * (size_t)3;
+	/*size_t maxFacesCount = chunkCount * size_t(CHUNK_VOLUME * 6);
 	ChunkMeshManager::getInstance().preallocateMemory(maxFacesCount);
 
 	chunkDrawCommandBuffer->allocateMemory(chunkCount * sizeof(DrawArraysIndirectCommand));
-	chunkPositionSSBO->allocateMemory(chunkCount * sizeof(glm::vec3));
+	chunkPositionSSBO->allocateMemory(chunkCount * sizeof(glm::vec3));*/
 }
 
 void World::loadChunksAroundPlayer(const glm::vec3& loaderPos)
