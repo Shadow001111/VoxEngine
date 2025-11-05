@@ -4,6 +4,7 @@
 #include "Chunk/Metrics.h"
 
 #include "Core/Multithreading/ProcessingFence.h"
+#include "Core/AtomicFlags.h"
 
 #include <vector>
 #include <queue>
@@ -11,7 +12,6 @@
 #include <atomic>
 #include <cstdint>
 #include <glm/glm.hpp>
-#include <bitset>
 
 struct LightLevel
 {
@@ -67,16 +67,20 @@ public:
 		Ready
 	};
 private:
+	enum Flag : uint8_t
+	{
+		IsLoadedInWorld = 0,
+		IsLoadedChunkColumnData = 1,
+		AreBlocksBuilt = 2,
+		IsLightBuilt = 3
+	};
+	
 	glm::ivec3 position; // Chunk coordinates
 
 	uint16_t cameraClosestBlockPosForSortingMesh; // 5 bits per axis
 
 	std::atomic<State> state;
-	// TODO: Maybe use atomic bitset?
-	std::atomic<bool> isLoadedInWorld{ false };
-	std::atomic<bool> isLoadedChunkColumnData { false };
-	std::atomic<bool> areBlocksBuilt{ false };
-	std::atomic<bool> isLightBuilt{ false };
+	AtomicFlags<uint8_t> chunkFlags;
 	bool meshDirty;
 
 	bool shouldSortMeshAfterBuild;

@@ -224,6 +224,9 @@
     <ClInclude Include="Game\World\RaycastResult.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
+    <ClInclude Include="Core\AtomicFlags.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CopyFileToFolders Include="..\Libraries\bin\FastNoise.dll">

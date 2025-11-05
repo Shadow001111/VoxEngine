@@ -60,10 +60,9 @@ void Chunk::init(int x, int y, int z, Chunk** neighbors)
 
 	// Reset
 	setState(Chunk::State::NeedsBlocks);
-	isLoadedInWorld.store(true, std::memory_order_release);
-	isLoadedChunkColumnData.store(false, std::memory_order_release);
-	areBlocksBuilt.store(false, std::memory_order_release);
-	isLightBuilt.store(false, std::memory_order_release);
+
+	chunkFlags.reset();
+	chunkFlags.set(Flag::IsLoadedInWorld, true);
 
 	meshData.resetFaceCount();
 	meshData.opaqueDirty = false;
@@ -90,14 +89,14 @@ void Chunk::destroy()
 	}
 
 	//
-	isLoadedInWorld.store(false, std::memory_order_release);
+	chunkFlags.set(Flag::IsLoadedInWorld, false);
 	meshData.opaqueInstances.clear();
 	meshData.transparentInstances.clear();
 
 	// Release chunk column data
-	if (isLoadedChunkColumnData.load(std::memory_order_acquire))
+	if (chunkFlags.read(Flag::IsLoadedChunkColumnData))
 	{
-		isLoadedChunkColumnData.store(false, std::memory_order_release);
+		chunkFlags.set(Flag::IsLoadedChunkColumnData, false);
 		TerrainGenerator::getInstance().unloadChunkColumnData(position.x, position.z);
 	}
 
@@ -136,8 +135,8 @@ void Chunk::destroy()
 void Chunk::buildBlocks()
 {
 	if (
-		areBlocksBuilt.load(std::memory_order_acquire) ||
-		!isLoadedInWorld.load(std::memory_order_acquire)
+		chunkFlags.read(Flag::AreBlocksBuilt) ||
+		!chunkFlags.read(Flag::IsLoadedInWorld)
 	)
 	{
 		return;
@@ -149,8 +148,8 @@ void Chunk::buildBlocks()
 
 	// Load chunk column data
 	const ChunkColumnData* chunkColumnData = TerrainGenerator::getInstance().loadChunkColumnData(position.x, position.z);
+	chunkFlags.set(Flag::IsLoadedChunkColumnData, true);
 	const int* heightMap = chunkColumnData->heightMapRead();
-	isLoadedChunkColumnData.store(true, std::memory_order_release);
 
 	// Terrain
 	bool computeCaveMask = false;
@@ -211,7 +210,7 @@ void Chunk::buildBlocks()
 		}
 	}
 
-	areBlocksBuilt.store(true, std::memory_order_release);
+	chunkFlags.set(Flag::AreBlocksBuilt, true);
 
 	// Mark itself and neighbors as mesh dirty
 	{
@@ -419,8 +418,8 @@ void Chunk::computeConnectivity()
 void Chunk::buildLight()
 {
 	if (
-		!isLoadedInWorld.load(std::memory_order_acquire) ||
-		!areBlocksBuilt.load(std::memory_order_acquire)
+		!chunkFlags.read(Flag::IsLoadedInWorld) ||
+		!chunkFlags.read(Flag::AreBlocksBuilt)
 		)
 	{
 		return;
@@ -782,15 +781,14 @@ void Chunk::buildLight()
 		}
 	}
 
-	isLightBuilt.store(true, std::memory_order_release);
+	chunkFlags.set(Flag::IsLightBuilt, true);
 }
 
 void Chunk::updateLight()
 {
 	if (
-		!isLoadedInWorld.load(std::memory_order_acquire) ||
-		!areBlocksBuilt.load(std::memory_order_acquire) ||
-		!isLightBuilt.load(std::memory_order_acquire)
+		chunkFlags.read(Flag::IsLightBuilt) ||
+		!chunkFlags.read(Flag::IsLoadedInWorld)
 		)
 	{
 		return;
@@ -1134,9 +1132,9 @@ bool Chunk::hasLightUpdates() const
 void Chunk::updateMesh()
 {
 	if (
-		!isLoadedInWorld.load(std::memory_order_acquire) ||
-		!areBlocksBuilt.load(std::memory_order_acquire) ||
-		!isLightBuilt.load(std::memory_order_acquire) ||
+		!chunkFlags.read(Flag::IsLoadedInWorld) ||
+		!chunkFlags.read(Flag::AreBlocksBuilt) ||
+		!chunkFlags.read(Flag::IsLightBuilt) ||
 		!meshDirty
 		)
 	{
@@ -1306,7 +1304,7 @@ void Chunk::updateMesh()
 		}
 
 		// Check if chunk got unloaded by the time we were building mesh
-		if (!isLoadedInWorld.load(std::memory_order_acquire))
+		if (!chunkFlags.read(Flag::IsLoadedInWorld))
 		{
 			return;
 		}
@@ -1319,17 +1317,14 @@ void Chunk::updateMesh()
 		meshData.opaqueInstances = std::move(opaqueInstances);
 		meshData.transparentInstances = std::move(transparentInstances);
 
-		meshData.opaqueFaceCount = meshData.opaqueInstances.size();
-		meshData.transparentFaceCount = meshData.transparentInstances.size();
-
-		if (meshData.opaqueFaceCount > 0)
+		if (meshData.getOpaqueFaceCount() > 0)
 		{
 			meshData.opaqueDirty = true;
 		}
-		if (meshData.transparentFaceCount > 0)
+		if (meshData.getTransparentFaceCount() > 0)
 		{
 			meshData.transparentDirty = true;
-			if (meshData.transparentFaceCount > 1)
+			if (meshData.getTransparentFaceCount() > 1)
 			{
 				shouldSortMeshAfterBuild = true;
 				cameraClosestBlockPosForSortingMesh = -1;
@@ -1410,7 +1405,7 @@ void Chunk::sortMesh(const glm::ivec3& cameraBlockPos)
 
 bool Chunk::shouldMeshBeSorted(bool cameraMoved) const
 {
-	return meshData.transparentFaceCount > 1 && (cameraMoved || shouldSortMeshAfterBuild);
+	return meshData.getTransparentFaceCount() > 1 && (cameraMoved || shouldSortMeshAfterBuild);
 }
 
 bool Chunk::isMeshDirty() const
@@ -1874,7 +1869,6 @@ void Chunk::markBlockMeshDirty(int x, int y, int z)
 
 void Chunk::calculateVertexAmbientOcclusionAndLight(unsigned int& ao, LightLevel& light, LightLevel centerLight, LightLevel side1Light, LightLevel side2Light, LightLevel cornerLight, bool side1Solid, bool side2Solid, bool cornerSolid) const
 {
-	// TODO: Maybe fix smoothlighting. It's strange when light values are in checkerboard.
 	unsigned int blockLightSum = centerLight.blockLight;
 	unsigned int skyLightSum = centerLight.skyLight;
 	unsigned int count = 1;
@@ -2091,7 +2085,7 @@ bool Chunk::getIsProcessing() const
 
 bool Chunk::getIsLoadedInWorld() const
 {
-	return isLoadedInWorld.load(std::memory_order_acquire);
+	return chunkFlags.read(Flag::IsLoadedInWorld);
 }
 
 void Chunk::sendMeshesToGPU()
@@ -2138,8 +2132,8 @@ void Chunk::sendMeshesToGPU()
 			continue;
 		}
 
-		size_t opaqueFaceCount = chunkMesh->opaqueFaceCount;
-		size_t transparentFaceCount = chunkMesh->transparentFaceCount;
+		size_t opaqueFaceCount = chunkMesh->getOpaqueFaceCount();
+		size_t transparentFaceCount = chunkMesh->getTransparentFaceCount();
 
 		size_t offset = chunkMesh->allocatedBlock.offset * sizeof(BlockFaceInstance);
 

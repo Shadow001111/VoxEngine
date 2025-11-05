@@ -11,10 +11,6 @@ struct MeshData
 {
 	BlockAllocator::Block allocatedBlock;
 
-	// TODO: Maybe remove these counts and just use opaqueInstances.size() and transparentInstances.size()?
-	uint16_t opaqueFaceCount = 0;
-	uint16_t transparentFaceCount = 0;
-
 	uint16_t renderOpaqueFaceCount = 0;
 	uint16_t renderTransparentFaceCount = 0;
 
@@ -33,7 +29,9 @@ struct MeshData
 	void resetFaceCount();
 	void updateRenderFaceCount();
 
-	size_t getFaceCount() const { return opaqueFaceCount + transparentFaceCount; };
+	size_t getOpaqueFaceCount() const { return opaqueInstances.size(); }
+	size_t getTransparentFaceCount() const { return transparentInstances.size(); }
+	size_t getFaceCount() const { return opaqueInstances.size() + transparentInstances.size(); };
 	size_t getRenderFaceCount() const { return renderOpaqueFaceCount + renderTransparentFaceCount; };
 	size_t getFaceCapacity() const { return allocatedBlock.size; };
 };
