@@ -439,8 +439,7 @@ RaycastResult World::raycast(const glm::dvec3& origin, const glm::dvec3& directi
 	const glm::dvec3 dir = glm::normalize(direction);
 
 	// DDA algorithm for voxel traversal
-	glm::dvec3 currentPos = origin;
-	glm::ivec3 blockPos = glm::ivec3(glm::floor(currentPos));
+	glm::ivec3 blockPos = glm::ivec3(glm::floor(origin));
 
 	// Step direction for each axis
 	const glm::ivec3 step = glm::sign(dir);
@@ -459,20 +458,20 @@ RaycastResult World::raycast(const glm::dvec3& origin, const glm::dvec3& directi
 		else
 		{
 			double invDir = 1.0 / dir[i];
-			double delta = fabsf(invDir);
+			double delta = abs(invDir);
 			tDelta[i] = delta;
 			if (step[i] > 0)
 			{
-				tMax[i] = (1.0 - glm::fract(currentPos[i])) * delta;
+				tMax[i] = (1.0 - glm::fract(origin[i])) * delta;
 			}
 			else
 			{
-				tMax[i] = glm::fract(currentPos[i]) * delta;
+				tMax[i] = glm::fract(origin[i]) * delta;
 			}
 		}
 	}
 
-	float distanceTraveled = 0.0f;
+	double distanceTraveled = 0.0;
 	int lastAxis = -1;
 
 	// Cache chunk

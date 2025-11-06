@@ -33,6 +33,9 @@ public:
 	//
 	Id getId() const noexcept { return id; }
 private:
+	void moveAndCheckForCollisions(const glm::dvec3& dpos);
+	void moveAndCheckForCollisions_DDA(const glm::dvec3& dpos);
+	bool isAnyBlocksSolidAt(const glm::ivec3& min, const glm::ivec3& max, glm::ivec3& outPos);
 	bool isBlockSolidAt(const glm::ivec3 pos) const;
 };
 

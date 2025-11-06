@@ -12,7 +12,7 @@
 #include <sstream>
 #include <iomanip>
 
-constexpr int CHUNK_LOAD_DISTANCE = 12;
+constexpr int CHUNK_LOAD_DISTANCE = 4;
 
 
 std::string formatSize(size_t value)
@@ -232,7 +232,7 @@ int main()
         world.preparation();
 
         // Player
-        Player* player = world.createEntity<Player>(glm::vec3(0.0, 10.0, 0.0), glm::radians(180.0f), 0.0f);
+        Player* player = world.createEntity<Player>(glm::vec3(0.0, 20.0, 0.0), glm::radians(180.0f), 0.0f);
         player->getCamera().setAspectRatio(wnd.getAspectRatio());
         player->getCamera().setFarPlane(CAMERA_FAR_PLANE);
 
