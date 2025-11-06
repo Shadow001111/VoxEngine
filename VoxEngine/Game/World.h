@@ -16,10 +16,6 @@
 
 #include <mutex>
 
-// Forward declarations
-class Camera;
-
-//
 class World
 {
 	struct ChunkRenderInfo

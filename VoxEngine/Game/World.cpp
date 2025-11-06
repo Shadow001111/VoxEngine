@@ -8,6 +8,8 @@
 #include "Core/Profiler.h"
 #include "Core/Multithreading/ThreadPool.h"
 
+#include <stdexcept>
+
 World::World()
 {
 	// Visual settings
@@ -39,7 +41,6 @@ World::World()
 	std::vector<std::string> blockTextureNames;
 	BlockDataBase::loadBlockDataBase(blockTextureNames);
 
-
 	// Block textures
 	{
 		PROFILE_SCOPE("Block texture array creation", ProfileCategory::General);
@@ -70,6 +71,26 @@ World::World()
 
 	// Entities
 	Entity::world = this;
+
+	// World directory
+	try
+	{
+		const std::string worldName = "Test1";
+		std::filesystem::path worldPath = std::filesystem::path("Worlds") / worldName;
+		if (!std::filesystem::exists(worldPath))
+		{
+			if (!std::filesystem::create_directories(worldPath / "Chunks"))
+			{
+				throw std::runtime_error("Failed to create world directory: " + worldPath.string());
+			}
+		}
+
+		Chunk::WORLD_PATH = worldPath;
+	}
+	catch (const std::filesystem::filesystem_error& e)
+	{
+		throw std::runtime_error("Filesystem error creating world: " + std::string(e.what()));
+	}
 }
 
 World::~World()

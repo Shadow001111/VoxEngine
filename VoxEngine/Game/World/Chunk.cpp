@@ -8,10 +8,13 @@
 
 #include <cassert>
 #include <vector>
+#include <format>
+#include <fstream>
 
 #define CHUNK_SMOOTH_LIGHTING 1
 
 std::vector<MeshData*> Chunk::pendingMeshUploads;
+std::filesystem::path Chunk::WORLD_PATH;
 
 inline size_t Chunk::getIndex(int x, int y, int z)
 {
@@ -72,6 +75,8 @@ void Chunk::init(int x, int y, int z, Chunk** neighbors)
 
 	cameraClosestBlockPosForSortingMesh = -1;
 	shouldSortMeshAfterBuild = false;
+	
+	assert(changedBlocks.empty());
 }
 
 // Cleans up resources
@@ -129,6 +134,10 @@ void Chunk::destroy()
 			skyLightRemovalBfsQueue.pop();
 		}
 	}
+
+	// TODO: Make it async. Mark chunk as processing.
+	saveBlocks();
+	changedBlocks.clear();
 }
 
 // Fills 'blocks' array
@@ -142,9 +151,7 @@ void Chunk::buildBlocks()
 		return;
 	}
 
-	Profiler::beginProfile("Build chunk blocks: wait", ProfileCategory::ChunkBlocks);
 	ScopedProcessingFence scopedFence(processingFence);
-	Profiler::endProfile();
 
 	// Load chunk column data
 	const ChunkColumnData* chunkColumnData = TerrainGenerator::getInstance().loadChunkColumnData(position.x, position.z);
@@ -210,9 +217,12 @@ void Chunk::buildBlocks()
 		}
 	}
 
+	// Load blocks
+	loadBlocks();
+
+	// Mark itself and neighbors meshes as dirty
 	chunkFlags.set(Flag::AreBlocksBuilt, true);
 
-	// Mark itself and neighbors as mesh dirty
 	{
 		meshDirty = true;
 
@@ -290,6 +300,105 @@ void Chunk::buildBlocks()
 		{
 			n2->meshDirty = true;
 		}
+	}
+}
+
+void Chunk::loadBlocks()
+{
+	assert(changedBlocks.empty());
+	PROFILE_SCOPE("Load chunk blocks", ProfileCategory::ChunkBlocks);
+
+	namespace fs = std::filesystem;
+	std::string name = std::format("{}_{}_{}.bin", position.x, position.y, position.z);
+	fs::path chunkPath = WORLD_PATH / "Chunks" / name;
+
+	if (!fs::exists(chunkPath))
+	{
+		return;
+	}
+
+	// TODO: Maybe add exceptions
+
+	std::ifstream in(chunkPath, std::ios::binary);
+	if (!in) return;
+
+	// Load data from file
+	uint16_t mapSize = 0;
+	in.read(reinterpret_cast<char*>(&mapSize), sizeof(mapSize));
+
+	for (uint16_t i = 0; i < mapSize; i++)
+	{
+		Block block;
+		uint16_t count;
+		in.read(reinterpret_cast<char*>(&block), sizeof(block));
+		in.read(reinterpret_cast<char*>(&count), sizeof(count));
+
+		std::vector<uint16_t> indices(count);
+		in.read(reinterpret_cast<char*>(indices.data()), count * sizeof(uint16_t));
+
+		changedBlocks[block] = std::move(indices);
+	}
+
+	// Apply loaded data
+	// Remove unnecessary changes
+	for (auto it = changedBlocks.begin(); it != changedBlocks.end();)
+	{
+		Block block = it->first;
+		auto& indices = it->second;
+
+		// We’ll remove redundant ones during iteration
+		size_t writeIndex = 0;
+
+		for (uint16_t index : indices)
+		{
+			if (blocks[index] == block) 
+			{
+				continue;
+			}
+
+			// Apply the change
+			blocks[index] = block;
+			indices[writeIndex++] = index; // keep this index as still changed
+		}
+
+		if (writeIndex == 0)
+		{
+			// no valid indices left, erase this block type entirely
+			it = changedBlocks.erase(it);
+		}
+		else
+		{
+			indices.resize(writeIndex);
+			++it;
+		}
+	}
+}
+
+void Chunk::saveBlocks() const
+{
+	if (changedBlocks.empty())
+	{
+		return;
+	}
+
+	// TODO: If changedBlocks is empty and files exists, maybe delete file?
+
+	PROFILE_SCOPE("Save chunk blocks", ProfileCategory::ChunkBlocks);
+
+	namespace fs = std::filesystem;
+	std::string name = std::format("{}_{}_{}.bin", position.x, position.y, position.z);
+	fs::path chunkPath = WORLD_PATH / "Chunks" / name;
+
+	std::ofstream out(chunkPath, std::ios::binary);
+	uint16_t mapSize = static_cast<uint16_t>(changedBlocks.size());
+	out.write(reinterpret_cast<const char*>(&mapSize), sizeof(mapSize));
+
+	for (const auto& [block, indices] : changedBlocks)
+	{
+		uint16_t count = static_cast<uint16_t>(indices.size());
+		out.write(reinterpret_cast<const char*>(&block), sizeof(block));
+		out.write(reinterpret_cast<const char*>(&count), sizeof(count));
+		out.write(reinterpret_cast<const char*>(indices.data()), count * sizeof(uint16_t));
 	}
 }
 
@@ -413,6 +522,25 @@ void Chunk::computeConnectivity()
 	}
 
 	// Check flood fill mask if it filled all the space
+}
+
+void Chunk::removeIndexFromMap(Block block, uint16_t idx)
+{
+	auto it = changedBlocks.find(block);
+	if (it == changedBlocks.end()) return;
+
+	auto& vec = it->second;
+
+	for (size_t i = 0; i < vec.size(); i++)
+	{
+		if (vec[i] == idx) {
+			vec[i] = vec.back();  // swap with last
+			vec.pop_back();       // remove last
+			break;
+		}
+	}
+
+	if (vec.empty()) changedBlocks.erase(it);
 }
 
 void Chunk::buildLight()
@@ -1592,8 +1720,14 @@ void Chunk::setBlockAt(int x, int y, int z, Block block)
 		return;
 	}
 
+	// Update array
 	blocks[index] = block;
 
+	// Update changedBlocks map
+	removeIndexFromMap(previousBlock, static_cast<uint16_t>(index));
+	changedBlocks[block].push_back(static_cast<uint16_t>(index));
+
+	// Mark meshes as dirty
 	markBlockMeshDirty(x, y, z);
 
 	// Light update

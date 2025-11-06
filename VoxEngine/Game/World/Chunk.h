@@ -12,6 +12,8 @@
 #include <atomic>
 #include <cstdint>
 #include <glm/glm.hpp>
+#include <filesystem>
+#include <unordered_map>
 
 struct LightLevel
 {
@@ -102,6 +104,8 @@ private:
 
 	MeshData meshData;
 	ProcessingFence processingFence;
+	
+	std::unordered_map<Block, std::vector<uint16_t>> changedBlocks;
 
 	static std::vector<MeshData*> pendingMeshUploads;
 
@@ -109,6 +113,8 @@ private:
 	static glm::ivec3 getPositionFromIndex(size_t index);
 public:
 	Chunk* neighbors[6]; // Pointers to neighboring chunks for easier access
+	
+	static std::filesystem::path WORLD_PATH;
 
 	Chunk();
 	~Chunk();
@@ -125,8 +131,12 @@ public:
 
 	void buildBlocks();
 private:
+	void loadBlocks();
+	void saveBlocks() const;
+private:
 	bool findFloodFillStartIndex(uint16_t& startIndex, const bool* floodFillMask) const;
 	void computeConnectivity();
+	void removeIndexFromMap(Block block, uint16_t idx);
 public:
 	void buildLight();
 	void updateLight();
