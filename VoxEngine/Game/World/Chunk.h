@@ -173,8 +173,6 @@ public:
 	void setBlockLightAt(int x, int y, int z, uint8_t lightLevel);
 	void setSkyLightAt(int x, int y, int z, uint8_t lightLevel);
 
-	void setBlockAt(size_t index, Block block);
-	//void setBlockAt_update(size_t index, Block block);
 	void setLightAt(size_t index, LightLevel lightValue);
 	void setBlockLightAt(size_t index, uint8_t lightLevel);
 	void setSkyLightAt(size_t index, uint8_t lightLevel);

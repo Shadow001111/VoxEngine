@@ -915,7 +915,7 @@ void Chunk::buildLight()
 void Chunk::updateLight()
 {
 	if (
-		chunkFlags.read(Flag::IsLightBuilt) ||
+		!chunkFlags.read(Flag::IsLightBuilt) ||
 		!chunkFlags.read(Flag::IsLoadedInWorld)
 		)
 	{
@@ -1842,12 +1842,6 @@ void Chunk::setSkyLightAt(int x, int y, int z, uint8_t lightLevel)
 	assert(z >= 0 && z < CHUNK_SIZE);
 	lightLevels[getIndex(x, y, z)].skyLight = lightLevel;
 	markBlockMeshDirty(x, y, z);
-}
-
-void Chunk::setBlockAt(size_t index, Block block)
-{
-	assert(index < CHUNK_VOLUME);
-	blocks[index] = block;
 }
 
 void Chunk::setLightAt(size_t index, LightLevel lightValue)

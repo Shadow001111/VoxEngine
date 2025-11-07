@@ -12,7 +12,7 @@
 #include <sstream>
 #include <iomanip>
 
-constexpr int CHUNK_LOAD_DISTANCE = 4;
+constexpr int CHUNK_LOAD_DISTANCE = 6;
 
 
 std::string formatSize(size_t value)
