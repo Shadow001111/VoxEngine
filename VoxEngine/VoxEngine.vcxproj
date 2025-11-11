@@ -180,6 +180,7 @@
     <ClCompile Include="Game\World\WorldVisualSettings.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Core\Assert.h" />
     <ClInclude Include="Core\AtomicFlags.h" />
     <ClInclude Include="Core\SymmetricBitMatrix.h" />
     <ClInclude Include="Game\World\Entity.h" />

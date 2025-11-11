@@ -718,7 +718,7 @@ void World::startBuildingChunkBlocks()
 			{
 				continue;
 			}
-			assert(!chunk->areBlocksBuilt());
+			ASSERT(!chunk->areBlocksBuilt());
 			chunk->setState(Chunk::State::BuildingBlocks);
 			chunksToProcess.push_back(chunk);
 		}
@@ -776,8 +776,8 @@ void World::startBuildingChunkLights()
 				continue;
 			}
 
-			assert(chunk->areBlocksBuilt());
-			assert(!chunk->isLightBuilt());
+			ASSERT(chunk->areBlocksBuilt());
+			ASSERT(!chunk->isLightBuilt());
 
 			// Check if all neighbors have blocks built
 			bool allNeighborsReady = true;

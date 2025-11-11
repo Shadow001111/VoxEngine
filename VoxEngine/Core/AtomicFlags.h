@@ -1,6 +1,6 @@
 #include <atomic>
 #include <type_traits>
-#include <cassert>
+#include "Core/ASSERT.h"
 
 template <typename T>
     requires (std::is_unsigned_v<T>)
@@ -11,7 +11,7 @@ private:
 public:
     void set(unsigned index, bool value) noexcept 
     {
-        assert(index < sizeof(T) * 8);
+        ASSERT(index < sizeof(T) * 8);
         T mask = static_cast<T>(T(1) << index);
         if (value)
         {
@@ -30,7 +30,7 @@ public:
 
     bool read(unsigned index) const noexcept
     {
-        assert(index < sizeof(T) * 8);
+        ASSERT(index < sizeof(T) * 8);
         T mask = static_cast<T>(T(1) << index);
         return (bits.load(std::memory_order_acquire) & mask) != 0;
     }

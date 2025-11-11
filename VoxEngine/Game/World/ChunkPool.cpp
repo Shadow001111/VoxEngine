@@ -1,6 +1,6 @@
 #include "ChunkPool.h"
 
-#include <cassert>
+#include "Core/ASSERT.h"
 
 std::unique_ptr<Chunk> ChunkPool::acquire()
 {
@@ -25,7 +25,7 @@ std::unique_ptr<Chunk> ChunkPool::acquire()
 
 void ChunkPool::release(std::unique_ptr<Chunk> chunk)
 {
-	assert(chunk->getIsLoadedInWorld());
+	ASSERT(chunk->getIsLoadedInWorld());
 
 	chunk->destroy();
 

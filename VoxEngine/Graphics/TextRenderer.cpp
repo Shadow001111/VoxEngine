@@ -5,6 +5,7 @@
 #include "Core/Profiler.h"
 
 #include <iostream>
+#include "Core/Assert.h"
 
 Glyph::Glyph(uint32_t textureID, const glm::ivec2& size, const glm::ivec2& bearing, GLuint advance) :
     textureID(textureID), size(size), bearing(bearing), advance(advance)
@@ -195,7 +196,7 @@ void TextRenderer::flushGlyphs()
 
 void TextRenderer::pushGlyph(const GlyphInstance& glyph)
 {
-    assert(glyphInstanceCount < GLYPH_INSTANCE_BATCH_SIZE);
+    ASSERT(glyphInstanceCount < GLYPH_INSTANCE_BATCH_SIZE);
     glyphInstances[glyphInstanceCount++] = glyph;
     if (glyphInstanceCount >= GLYPH_INSTANCE_BATCH_SIZE)
     {
@@ -346,7 +347,7 @@ bool TextRenderer::loadFont(const std::string& fontName, GLuint fontSize)
 
     // Load glyphs
     loadGlyphs(face, font);
-    assert(glyphCount == font.glyphs.size());
+    ASSERT(glyphCount == font.glyphs.size());
 
     // Done
     std::cout << "[TextRenderer]: Loaded font: '" << fontName << "' (" << fontPath << "). Character count: " << font.glyphs.size() << ". Max glyph size: (" << font.maxGlyphSize.x << ", " << font.maxGlyphSize.y << ")." << std::endl;

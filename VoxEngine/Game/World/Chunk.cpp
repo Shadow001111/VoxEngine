@@ -6,7 +6,7 @@
 #include "Core/Profiler.h"
 #include "Core/SymmetricBitMatrix.h"
 
-#include <cassert>
+#include "Core/ASSERT.h"
 #include <vector>
 #include <format>
 #include <fstream>
@@ -76,7 +76,7 @@ void Chunk::init(int x, int y, int z, Chunk** neighbors)
 	cameraClosestBlockPosForSortingMesh = -1;
 	shouldSortMeshAfterBuild = false;
 	
-	assert(changedBlocks.empty());
+	ASSERT(changedBlocks.empty());
 }
 
 // Cleans up resources
@@ -311,7 +311,7 @@ void Chunk::buildBlocks()
 
 void Chunk::loadBlocks()
 {
-	assert(changedBlocks.empty());
+	ASSERT(changedBlocks.empty());
 	PROFILE_SCOPE("Load chunk blocks", ProfileCategory::ChunkBlocks);
 
 	namespace fs = std::filesystem;
@@ -1669,52 +1669,52 @@ Chunk* Chunk::getChunkAndIndex_checkNeighborsTraverse(int x, int y, int z, size_
 
 Block Chunk::getBlockAt(int x, int y, int z) const
 {
-	assert(x >= 0 && x < CHUNK_SIZE);
-	assert(y >= 0 && y < CHUNK_SIZE);
-	assert(z >= 0 && z < CHUNK_SIZE);
+	ASSERT(x >= 0 && x < CHUNK_SIZE);
+	ASSERT(y >= 0 && y < CHUNK_SIZE);
+	ASSERT(z >= 0 && z < CHUNK_SIZE);
 	return blocks[getIndex(x, y, z)];
 }
 
 LightLevel Chunk::getLightAt(int x, int y, int z) const
 {
-	assert(x >= 0 && x < CHUNK_SIZE);
-	assert(y >= 0 && y < CHUNK_SIZE);
-	assert(z >= 0 && z < CHUNK_SIZE);
+	ASSERT(x >= 0 && x < CHUNK_SIZE);
+	ASSERT(y >= 0 && y < CHUNK_SIZE);
+	ASSERT(z >= 0 && z < CHUNK_SIZE);
 	return lightLevels[getIndex(x, y, z)];
 }
 
 std::pair<Block, LightLevel> Chunk::getBlockAndLightAt(int x, int y, int z) const
 {
-	assert(x >= 0 && x < CHUNK_SIZE);
-	assert(y >= 0 && y < CHUNK_SIZE);
-	assert(z >= 0 && z < CHUNK_SIZE);
+	ASSERT(x >= 0 && x < CHUNK_SIZE);
+	ASSERT(y >= 0 && y < CHUNK_SIZE);
+	ASSERT(z >= 0 && z < CHUNK_SIZE);
 	size_t index = getIndex(x, y, z);
 	return std::make_pair(blocks[index], lightLevels[index]);
 }
 
 Block Chunk::getBlockAt(size_t index) const
 {
-	assert(index < CHUNK_VOLUME);
+	ASSERT(index < CHUNK_VOLUME);
 	return blocks[index];
 }
 
 LightLevel Chunk::getLightAt(size_t index) const
 {
-	assert(index < CHUNK_VOLUME);
+	ASSERT(index < CHUNK_VOLUME);
 	return lightLevels[index];
 }
 
 std::pair<Block, LightLevel> Chunk::getBlockAndLightAt(size_t index) const
 {
-	assert(index < CHUNK_VOLUME);
+	ASSERT(index < CHUNK_VOLUME);
 	return std::make_pair(blocks[index], lightLevels[index]);
 }
 
 void Chunk::setBlockAt(int x, int y, int z, Block block)
 {
-	assert(x >= 0 && x < CHUNK_SIZE);
-	assert(y >= 0 && y < CHUNK_SIZE);
-	assert(z >= 0 && z < CHUNK_SIZE);
+	ASSERT(x >= 0 && x < CHUNK_SIZE);
+	ASSERT(y >= 0 && y < CHUNK_SIZE);
+	ASSERT(z >= 0 && z < CHUNK_SIZE);
 
 	size_t index = getIndex(x, y, z);
 
@@ -1823,34 +1823,34 @@ void Chunk::setBlockAt(int x, int y, int z, Block block)
 
 void Chunk::setLightAt(int x, int y, int z, LightLevel lightValue)
 {
-	assert(x >= 0 && x < CHUNK_SIZE);
-	assert(y >= 0 && y < CHUNK_SIZE);
-	assert(z >= 0 && z < CHUNK_SIZE);
+	ASSERT(x >= 0 && x < CHUNK_SIZE);
+	ASSERT(y >= 0 && y < CHUNK_SIZE);
+	ASSERT(z >= 0 && z < CHUNK_SIZE);
 	lightLevels[getIndex(x, y, z)] = lightValue;
 	markBlockMeshDirty(x, y, z);
 }
 
 void Chunk::setBlockLightAt(int x, int y, int z, uint8_t lightLevel)
 {
-	assert(x >= 0 && x < CHUNK_SIZE);
-	assert(y >= 0 && y < CHUNK_SIZE);
-	assert(z >= 0 && z < CHUNK_SIZE);
+	ASSERT(x >= 0 && x < CHUNK_SIZE);
+	ASSERT(y >= 0 && y < CHUNK_SIZE);
+	ASSERT(z >= 0 && z < CHUNK_SIZE);
 	lightLevels[getIndex(x, y, z)].blockLight = lightLevel;
 	markBlockMeshDirty(x, y, z);
 }
 
 void Chunk::setSkyLightAt(int x, int y, int z, uint8_t lightLevel)
 {
-	assert(x >= 0 && x < CHUNK_SIZE);
-	assert(y >= 0 && y < CHUNK_SIZE);
-	assert(z >= 0 && z < CHUNK_SIZE);
+	ASSERT(x >= 0 && x < CHUNK_SIZE);
+	ASSERT(y >= 0 && y < CHUNK_SIZE);
+	ASSERT(z >= 0 && z < CHUNK_SIZE);
 	lightLevels[getIndex(x, y, z)].skyLight = lightLevel;
 	markBlockMeshDirty(x, y, z);
 }
 
 void Chunk::setLightAt(size_t index, LightLevel lightValue)
 {
-	assert(index < CHUNK_VOLUME);
+	ASSERT(index < CHUNK_VOLUME);
 	lightLevels[index] = lightValue;
 
 	glm::ivec3 pos = getPositionFromIndex(index);
@@ -1859,7 +1859,7 @@ void Chunk::setLightAt(size_t index, LightLevel lightValue)
 
 void Chunk::setBlockLightAt(size_t index, uint8_t lightLevel)
 {
-	assert(index < CHUNK_VOLUME);
+	ASSERT(index < CHUNK_VOLUME);
 	lightLevels[index].blockLight = lightLevel;
 
 	glm::ivec3 pos = getPositionFromIndex(index);
@@ -1868,7 +1868,7 @@ void Chunk::setBlockLightAt(size_t index, uint8_t lightLevel)
 
 void Chunk::setSkyLightAt(size_t index, uint8_t lightLevel)
 {
-	assert(index < CHUNK_VOLUME);
+	ASSERT(index < CHUNK_VOLUME);
 	lightLevels[index].skyLight = lightLevel;
 
 	glm::ivec3 pos = getPositionFromIndex(index);
@@ -2038,8 +2038,8 @@ void Chunk::calculateVertexAmbientOcclusionAndLight(unsigned int& ao, LightLevel
 	unsigned int avgBlockLight = blockLightSum / count;
 	unsigned int avgSkyLight = skyLightSum / count;
 
-	assert(avgBlockLight >= 0 && avgBlockLight <= 15);
-	assert(avgSkyLight >= 0 && avgSkyLight <= 15);
+	ASSERT(avgBlockLight >= 0 && avgBlockLight <= 15);
+	ASSERT(avgSkyLight >= 0 && avgSkyLight <= 15);
 
 	ao = 3 - (side1Solid + side2Solid + cornerSolid);
 	light.blockLight = avgBlockLight;
