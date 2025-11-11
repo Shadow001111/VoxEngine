@@ -714,6 +714,11 @@ void World::startBuildingChunkBlocks()
 		chunksToProcess.reserve(buildBlocksContainer.size());
 		for (Chunk* chunk : buildBlocksContainer)
 		{
+			if (chunk->getState() != Chunk::State::NotInitialized_NeedsBlocks)
+			{
+				continue;
+			}
+			assert(!chunk->areBlocksBuilt());
 			chunk->setState(Chunk::State::BuildingBlocks);
 			chunksToProcess.push_back(chunk);
 		}
@@ -765,25 +770,24 @@ void World::startBuildingChunkLights()
 		chunksToProcess.reserve(buildLightContainer.size());
 		for (Chunk* chunk : buildLightContainer)
 		{
+			// Should always pass the test, but sometimes it doesn't
 			if (chunk->getState() != Chunk::State::NeedsLight)
 			{
 				continue;
 			}
 
+			assert(chunk->areBlocksBuilt());
+			assert(!chunk->isLightBuilt());
+
 			// Check if all neighbors have blocks built
 			bool allNeighborsReady = true;
 			for (int i = 0; i < 6; i++)
 			{
-				Chunk* neighbor = chunk->neighbors[i];
-				if (neighbor)
+				const Chunk* neighbor = chunk->neighbors[i];
+				if (neighbor && !neighbor->areBlocksBuilt())
 				{
-					Chunk::State neighborState = neighbor->getState();
-					if (neighborState == Chunk::State::NeedsBlocks ||
-						neighborState == Chunk::State::BuildingBlocks)
-					{
-						allNeighborsReady = false;
-						break;
-					}
+					allNeighborsReady = false;
+					break;
 				}
 			}
 
@@ -812,13 +816,10 @@ void World::startBuildingChunkLights()
 			pool.enqueue([this, chunk]()
 				{
 					chunk->buildLight();
-
 					if (!chunk->getIsLoadedInWorld())
 					{
 						return;
 					}
-
-					chunk->setState(Chunk::State::NeedsMesh);
 				});
 		}
 	}
@@ -872,6 +873,8 @@ void World::collectChunksNeedingLightUpdate()
 			lightUpdateContainer.push_back(chunk);
 		}
 	}
+
+	// TODO: Collect chunks directly to groups A and B
 }
 
 void World::updateChunkMeshes()
@@ -880,7 +883,7 @@ void World::updateChunkMeshes()
 	for (const auto& pair : chunks)
 	{
 		Chunk* chunk = pair.second.get();
-		if (chunk->isMeshDirty())
+		if (chunk->shouldMeshBeUpdated())
 		{
 			pool.enqueue([chunk]()
 				{

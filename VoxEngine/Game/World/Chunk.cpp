@@ -62,7 +62,7 @@ void Chunk::init(int x, int y, int z, Chunk** neighbors)
 	}
 
 	// Reset
-	setState(Chunk::State::NeedsBlocks);
+	setState(Chunk::State::NotInitialized_NeedsBlocks);
 
 	chunkFlags.reset();
 	chunkFlags.set(Flag::IsLoadedInWorld, true);
@@ -92,6 +92,9 @@ void Chunk::destroy()
 			neighbors[i] = nullptr;
 		}
 	}
+
+	//
+	setState(Chunk::State::NotInitialized_NeedsBlocks);
 
 	//
 	chunkFlags.set(Flag::IsLoadedInWorld, false);
@@ -144,7 +147,7 @@ void Chunk::destroy()
 void Chunk::buildBlocks()
 {
 	if (
-		chunkFlags.read(Flag::AreBlocksBuilt) ||
+		areBlocksBuilt() ||
 		!chunkFlags.read(Flag::IsLoadedInWorld)
 	)
 	{
@@ -172,13 +175,14 @@ void Chunk::buildBlocks()
 				for (int y = 0; y < CHUNK_SIZE; y++)
 				{
 					int globalY = globalChunkY + y;
+					bool ocean = globalY <= 0;
 
 					size_t index = getIndex(x, y, z);
 
 					Block block = Block::Air;
 					if (globalY > globalHeight)
 					{
-						block = Block::Air;
+						block = ocean ? Block::Water : Block::Air;
 					}
 					else if (globalY == globalHeight)
 					{
@@ -220,8 +224,10 @@ void Chunk::buildBlocks()
 	// Load blocks
 	loadBlocks();
 
+	//
+	setState(State::BlocksBuilt);
+
 	// Mark itself and neighbors meshes as dirty
-	chunkFlags.set(Flag::AreBlocksBuilt, true);
 
 	{
 		meshDirty = true;
@@ -546,8 +552,9 @@ void Chunk::removeIndexFromMap(Block block, uint16_t idx)
 void Chunk::buildLight()
 {
 	if (
-		!chunkFlags.read(Flag::IsLoadedInWorld) ||
-		!chunkFlags.read(Flag::AreBlocksBuilt)
+		isLightBuilt() ||
+		!areBlocksBuilt() ||
+		!chunkFlags.read(Flag::IsLoadedInWorld)
 		)
 	{
 		return;
@@ -686,7 +693,7 @@ void Chunk::buildLight()
 
 		// -X
 		const Chunk* neighbor = neighbors[0];
-		if (neighbor && neighbor->getState() > State::BuildingLight)
+		if (neighbor && neighbor->isLightBuilt())
 		{
 			const int x = 0;
 			const int neighborX = CHUNK_SIZE - 1;
@@ -701,7 +708,7 @@ void Chunk::buildLight()
 
 		// +X
 		neighbor = neighbors[1];
-		if (neighbor && neighbor->getState() > State::BuildingLight)
+		if (neighbor && neighbor->isLightBuilt())
 		{
 			const int x = CHUNK_SIZE - 1;
 			const int neighborX = 0;
@@ -716,7 +723,7 @@ void Chunk::buildLight()
 
 		// -Y
 		neighbor = neighbors[2];
-		if (neighbor && neighbor->getState() > State::BuildingLight)
+		if (neighbor && neighbor->isLightBuilt())
 		{
 			const int y = 0;
 			const int neighborY = CHUNK_SIZE - 1;
@@ -731,7 +738,7 @@ void Chunk::buildLight()
 
 		// +Y. Sky light shouldn't be gropagated if 'top' chunk isn't nullptr, but I don't care much.
 		neighbor = neighbors[3];
-		if (neighbor && neighbor->getState() > State::BuildingLight)
+		if (neighbor && neighbor->isLightBuilt())
 		{
 			const int y = CHUNK_SIZE - 1;
 			const int neighborY = 0;
@@ -746,7 +753,7 @@ void Chunk::buildLight()
 
 		// -Z
 		neighbor = neighbors[4];
-		if (neighbor && neighbor->getState() > State::BuildingLight)
+		if (neighbor && neighbor->isLightBuilt())
 		{
 			const int z = 0;
 			const int neighborZ = CHUNK_SIZE - 1;
@@ -761,7 +768,7 @@ void Chunk::buildLight()
 
 		// +Z
 		neighbor = neighbors[5];
-		if (neighbor && neighbor->getState() > State::BuildingLight)
+		if (neighbor && neighbor->isLightBuilt())
 		{
 			const int z = CHUNK_SIZE - 1;
 			const int neighborZ = 0;
@@ -909,13 +916,13 @@ void Chunk::buildLight()
 		}
 	}
 
-	chunkFlags.set(Flag::IsLightBuilt, true);
+	setState(State::LightsBuilt);
 }
 
 void Chunk::updateLight()
 {
 	if (
-		!chunkFlags.read(Flag::IsLightBuilt) ||
+		!isLightBuilt() ||
 		!chunkFlags.read(Flag::IsLoadedInWorld)
 		)
 	{
@@ -1261,8 +1268,7 @@ void Chunk::updateMesh()
 {
 	if (
 		!chunkFlags.read(Flag::IsLoadedInWorld) ||
-		!chunkFlags.read(Flag::AreBlocksBuilt) ||
-		!chunkFlags.read(Flag::IsLightBuilt) ||
+		!isLightBuilt() ||
 		!meshDirty
 		)
 	{
@@ -1274,8 +1280,6 @@ void Chunk::updateMesh()
 	ScopedProcessingFence scopedFence(processingFence);
 
 	PROFILE_SCOPE("Update chunk mesh", ProfileCategory::ChunkMesh);
-
-	// Remove old dirty faces
 
 	// Collect visible faces
 	{
@@ -1536,9 +1540,9 @@ bool Chunk::shouldMeshBeSorted(bool cameraMoved) const
 	return meshData.getTransparentFaceCount() > 1 && (cameraMoved || shouldSortMeshAfterBuild);
 }
 
-bool Chunk::isMeshDirty() const
+bool Chunk::shouldMeshBeUpdated() const
 {
-	return meshDirty;
+	return meshDirty && isLightBuilt();
 }
 
 void Chunk::markMeshDirty()
@@ -2216,6 +2220,16 @@ bool Chunk::getIsLoadedInWorld() const
 	return chunkFlags.read(Flag::IsLoadedInWorld);
 }
 
+bool Chunk::areBlocksBuilt() const
+{
+	return getState() >= State::BlocksBuilt;
+}
+
+bool Chunk::isLightBuilt() const
+{
+	return getState() >= State::LightsBuilt;
+}
+
 void Chunk::sendMeshesToGPU()
 {
 	if (pendingMeshUploads.empty())
@@ -2234,6 +2248,7 @@ void Chunk::sendMeshesToGPU()
 	std::vector<MeshData*> allocateMemoryMeshRequests;
 	for (MeshData* chunkMesh : pendingMeshUploads)
 	{
+		// TODO: Maybe first check is redundant
 		if (!chunkMesh->created)
 		{
 			// No mesh

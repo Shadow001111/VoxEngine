@@ -10,5 +10,6 @@ enum class Block : uint8_t
 	//GlowStone,
 	Glass,
 	ColoredGlass,
+	Water,
 	__BlockCount__
 };

@@ -15,7 +15,7 @@
 constexpr int CHUNK_LOAD_DISTANCE = 6;
 
 
-std::string formatSize(size_t value)
+static std::string formatSize(size_t value)
 {
     static const char* suffixes[] = { "", "k", "M", "G", "T", "P", "E" };
     constexpr size_t sufffixCount = sizeof(suffixes) / sizeof(suffixes[0]);
@@ -34,7 +34,7 @@ std::string formatSize(size_t value)
     return oss.str();
 }
 
-std::string formatSizeBinary(size_t value)
+static std::string formatSizeBinary(size_t value)
 {
     static const char* suffixes[] = { "", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB" };
     constexpr size_t sufffixCount = sizeof(suffixes) / sizeof(suffixes[0]);
@@ -54,7 +54,7 @@ std::string formatSizeBinary(size_t value)
 }
 
 
-void setupFramebuffer(GLuint& rectVAO, std::unique_ptr<Shader>& shader)
+static void setupFramebuffer(GLuint& rectVAO, std::unique_ptr<Shader>& shader)
 {
     // Mesh
     const float rectangleVertices[] = {
@@ -88,7 +88,7 @@ void setupFramebuffer(GLuint& rectVAO, std::unique_ptr<Shader>& shader)
     shader->setInt("depthTexture", 1);
 }
 
-void setupOpenGLStates()
+static void setupOpenGLStates()
 {
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
@@ -96,7 +96,7 @@ void setupOpenGLStates()
 }
 
 
-void collectPlayerInput(PlayerInput& input, const WindowManager& wnd, glm::vec2& previousMousePos)
+static void collectPlayerInput(PlayerInput& input, const WindowManager& wnd, glm::vec2& previousMousePos)
 {
     input.moveForward |= wnd.isKeyPressed(GLFW_KEY_W);
     input.moveBackward |= wnd.isKeyPressed(GLFW_KEY_S);
@@ -135,7 +135,7 @@ void collectPlayerInput(PlayerInput& input, const WindowManager& wnd, glm::vec2&
     previousMousePos = glm::vec2(mouseX, mouseY);
 }
 
-void renderDebugData(const World::DebugData& debug, const WindowManager& wnd, Player* player, float FPS)
+static void renderDebugData(const World::DebugData& debug, const WindowManager& wnd, Player* player, float FPS)
 {
     float rowHeight = 24.0f;
     std::ostringstream ss;

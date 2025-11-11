@@ -20,48 +20,96 @@ Player::Player(const glm::dvec3& position, float yaw, float pitch) :
 	Entity(position, yaw, pitch, glm::dvec3(0.0), glm::dvec3(0.6, 1.7, 0.6) * 0.5, true),
 	camera(position, yaw, pitch, glm::radians(90.0f), 1.0f, 0.1f, 1.0f)
 {
+	setGameMode(GameMode::Fly);
 }
 
 void Player::update(double deltaTime)
 {
 	Entity::update(deltaTime);
 
-	// Jump
-	if (onGround && input.jump)
+	if (gameMode == GameMode::Normal)
 	{
-		velocity.y = 10.0;
-		onGround = false;
-	}
+		// Jump
+		if (onGround && input.jump)
+		{
+			velocity.y = 10.0;
+			onGround = false;
+		}
 
-	// Position and velocity
+		// Position and velocity
+		{
+			double friction, maxSpeed, maxAcceleration;
+			getMovingValues(friction, maxSpeed, maxAcceleration);
+
+			// Apply friction
+			{
+				double frictionForce = friction * deltaTime;
+				glm::dvec3 flatVelocity = glm::dvec3(velocity.x, 0.0, velocity.z);
+				if (frictionForce > glm::length(flatVelocity))
+				{
+					velocity.x = 0.0;
+					velocity.z = 0.0;
+				}
+				else
+				{
+					velocity -= glm::normalize(flatVelocity) * frictionForce;
+				}
+			}
+
+			// Get flat vectors
+			glm::dvec3 right = makeVectorFlatNormalized(camera.getRight());
+			glm::dvec3 forward = makeVectorFlatNormalized(camera.getForward());
+
+			// Get wishDir
+			double leftRight = input.moveRight - input.moveLeft;
+			double forwardBackward = input.moveForward - input.moveBackward;
+			glm::dvec3 wishDir = right * leftRight + forward * forwardBackward;
+
+			if (glm::dot(wishDir, wishDir) > 0.0)
+			{
+				wishDir = glm::normalize(wishDir);
+
+				double currentSpeed = glm::dot(velocity, wishDir);
+
+				double acceleration = fmax(0.0, fmin(maxAcceleration * deltaTime, maxSpeed - currentSpeed));
+
+				// Apply acceleration
+				velocity += wishDir * acceleration;
+			}
+		}
+	}
+	else if (gameMode == GameMode::Fly)
 	{
-		double friction, maxSpeed, maxAcceleration;
-		getMovingValues(friction, maxSpeed, maxAcceleration);
+		double friction = 50.0, maxSpeed = 100.0, maxAcceleration = 100.0;
 
 		// Apply friction
 		{
 			double frictionForce = friction * deltaTime;
-			glm::dvec3 flatVelocity = glm::dvec3(velocity.x, 0.0, velocity.z);
-			if (frictionForce > glm::length(flatVelocity))
+			if (frictionForce > glm::length(velocity))
 			{
 				velocity.x = 0.0;
 				velocity.z = 0.0;
 			}
 			else
 			{
-				velocity -= glm::normalize(flatVelocity) * frictionForce;
+				velocity -= glm::normalize(velocity) * frictionForce;
 			}
 		}
 
 		// Get flat vectors
-		glm::dvec3 right = makeVectorFlatNormalized(camera.getRight());
-		glm::dvec3 forward = makeVectorFlatNormalized(camera.getForward());
+		glm::dvec3 right = camera.getRight();
+		glm::dvec3 forward = camera.getForward();
 
 		// Get wishDir
 		double leftRight = input.moveRight - input.moveLeft;
 		double forwardBackward = input.moveForward - input.moveBackward;
+
 		glm::dvec3 wishDir = right * leftRight + forward * forwardBackward;
-		
+		if (input.jump)
+		{
+			wishDir += glm::dvec3(0.0f, 1.0f, 0.0f);
+		}
+
 		if (glm::dot(wishDir, wishDir) > 0.0)
 		{
 			wishDir = glm::normalize(wishDir);
@@ -192,6 +240,19 @@ void Player::setTransform(const Transform& transform)
 {
 	this->transform = transform;
 	this->transform.pitch = glm::clamp(this->transform.pitch, -1.5707f, 1.5707f);
+}
+
+void Player::setGameMode(GameMode gameMode)
+{
+	this->gameMode = gameMode;
+	if (gameMode == GameMode::Normal)
+	{
+		Entity::hasGravity = true;
+	}
+	else if (gameMode == GameMode::Fly)
+	{
+		Entity::hasGravity = false;
+	}
 }
 
 void Player::move(const glm::vec3& delta)

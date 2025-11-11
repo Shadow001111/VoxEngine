@@ -27,6 +27,12 @@ struct PlayerInput
 	glm::vec2 mouseDelta = glm::vec2(0.0f);
 };
 
+enum class GameMode : uint8_t
+{
+	Normal,
+	Fly
+};
+
 constexpr int PLAYER_HOTBAR_SIZE = 5;
 
 class Player : public Entity
@@ -41,6 +47,7 @@ class Player : public Entity
 		Block::ColoredGlass
 	};
 	uint8_t selectedItemIndex = 0;
+	GameMode gameMode = GameMode::Normal;
 public:
 	PlayerInput input;
 
@@ -60,6 +67,8 @@ public:
 	void setPitch(float pitch);
 	void setYawPitch(float yaw, float pitch);
 	void setTransform(const Transform& transform);
+
+	void setGameMode(GameMode gameMode);
 
 	void move(const glm::vec3& delta);
 	void rotate(float deltaYaw, float deltaPitch);

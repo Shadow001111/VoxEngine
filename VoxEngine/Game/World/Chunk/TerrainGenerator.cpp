@@ -9,21 +9,72 @@
 float continentalSpline(float x)
 {
 	return x;
-
-	float y1 = 10.0f * (1.0f - 20.0f * x);
-	float y3 = 10.0f * (x - 0.25f);
-	float y5 = 10.0f * (x - 0.5f);
-	float y6 = 1.0f + 0.1f * (x - 1.0f);
-	
-	float r1 = fminf(y3, 0.5f);
-	float r2 = fmaxf(r1, y5);
-	float r3 = fminf(r2, y6);
-	float r4 = fmaxf(y1, 0.0f);
-	float r5 = fmaxf(r4, r3);
-	float r6 = fminf(r5, 1.0f);
-
-	return r6;
 }
+
+
+//float continentalSpline(float x)
+//{
+//	constexpr float power = 5.0f;
+//
+//	x = (x + 1.0f) * 0.5f;
+//	float t = power * x + 0.5f * (1.0f - power);
+//	t = fminf(1.0f, fmaxf(0.0, t));
+//	return 3.0f * t * t - 2.0f * t * t * t;
+//
+//	float y1 = 10.0f * (1.0f - 20.0f * x);
+//	float y3 = 10.0f * (x - 0.25f);
+//	float y5 = 10.0f * (x - 0.5f);
+//	float y6 = 1.0f + 0.1f * (x - 1.0f);
+//	
+//	float r1 = fminf(y3, 0.5f);
+//	float r2 = fmaxf(r1, y5);
+//	float r3 = fminf(r2, y6);
+//	float r4 = fmaxf(y1, 0.0f);
+//	float r5 = fmaxf(r4, r3);
+//	float r6 = fminf(r5, 1.0f);
+//
+//	return r6;
+//}
+
+//float continentalSpline(float x)
+//{
+//	constexpr float a = 0.5f;
+//	constexpr float b = 0.07f;
+//	constexpr float s = 3.0f;
+//
+//	auto f = [](float t)
+//		{
+//			return sqrtf(t);
+//		};
+//	auto g = [](float t)
+//		{
+//			return floorf(t * s) / s;
+//		};
+//
+//	float t = (x + 1.0f) * 0.5f;
+//	float value;
+//	if (t >= a)
+//	{
+//		value = f((t - a) / (1.0f - a)) * b + 1.0f - b;
+//	}
+//	else
+//	{
+//		value = g(t / a) * (1.0f - b);
+//	}
+//	return value;
+//}
+
+//float continentalSpline(float x)
+//{
+//	constexpr float N = 3.0f;
+//
+//	x = (x + 1.0f) * 0.5f;
+//	float scaled = x * N;
+//	float f = floorf(scaled);
+//	float t = scaled - f;
+//	float s = t * t * (3.0f - 2.0f * t);
+//	return (f + s) / N;
+//}
 
 //============================================================================
 //ChunkColumnData
@@ -285,27 +336,42 @@ void TerrainGenerator::initChunkColumnData(ChunkColumnData* column, int chunkX, 
 float TerrainGenerator::calculateHeight(float continentalNoise, float erosionNoise, float weirdnessNoise)
 {
 	// Params
-	const float continentalAmplitude = 200.0f;
-	const float erosionAmplitude = 10.0f;
-	const float erosionThreshold = 0.8f;
-	const float weirdnessAmplitude = 20.0f;
+	constexpr float continentalAmplitude = 100.0f;
+	constexpr float erosionAmplitude = 10.0f;
+	constexpr float erosionThreshold = 0.8f;
+	constexpr float weirdnessAmplitude = 20.0f;
+	constexpr float beachThreshold = 10.0f / continentalAmplitude;
 
 	// Continental
-	float continentalNoiseSpline = continentalSpline((continentalNoise + 1.0f) * 0.5f);
-	float continentalHeight = (continentalNoiseSpline * 2.0f - 1.0f) * continentalAmplitude;
+	float continentalNoiseSpline = continentalSpline(continentalNoise);
+	float continentalHeight = continentalNoiseSpline * continentalAmplitude;
 	float height = continentalHeight;
+
+	float beachOcean;
+	if (continentalNoiseSpline < 0.0f)
+	{
+		beachOcean = 1.0f;
+	}
+	else if (continentalNoiseSpline > beachThreshold)
+	{
+		beachOcean = 0.0f;
+	}
+	else
+	{
+		beachOcean = 1.0 - continentalNoiseSpline / beachThreshold;
+	}
 
 	// Erosion
 	erosionNoise = (erosionNoise + 1.0f) * 0.5f;
 	if (erosionNoise > erosionThreshold)
 	{
 		float erosionNormalized = (erosionNoise - erosionThreshold) / (1.0f - erosionThreshold);
-		height -= erosionNormalized * erosionAmplitude;
+		height -= erosionNormalized * erosionAmplitude * (1.0f - beachOcean);
 	}
 
 	// Weirdness
 	weirdnessNoise = (weirdnessNoise + 1.0f) * 0.5f;
-	float weirdnessHeight = (1.0f - fabsf(3.0f * weirdnessNoise - 2.0f)) * weirdnessAmplitude;
+	float weirdnessHeight = (1.0f - fabsf(3.0f * weirdnessNoise - 2.0f)) * weirdnessAmplitude * (1.0f - beachOcean);
 	height += weirdnessHeight;
 
 	return height;
@@ -335,15 +401,14 @@ void TerrainGenerator::computeInitialHeightMap(int* heightMap, int chunkX, int c
 	float weirdnessNoiseArray[CHUNK_AREA];
 	{
 		NoiseParams params;
-		params.frequency = 0.0025f * 0.5f;
+		params.frequency = 0.005f;
 		params.layerCount = 3;
 		params.amplitudeFactor = 0.25f;
 		params.frequencyFactor = 4.0f;
 		computeLayeredNoise_2D(weirdnessNoiseArray, chunkX, chunkZ, params);
 	}
 
-	// Fill height map. Calaculate new values. Flip X and Z because FastNoise does wrong orientation.
-	// TODO: Add spline for continental noise
+	// Fill height map. Calculate new values. Flip X and Z because FastNoise does wrong orientation.
 	for (int x = 0; x < CHUNK_SIZE; x++)
 	{
 		for (int z = 0; z < CHUNK_SIZE; z++)

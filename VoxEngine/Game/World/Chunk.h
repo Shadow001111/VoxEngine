@@ -57,14 +57,13 @@ class Chunk
 public:
 	enum class State : uint8_t
 	{
-		NeedsBlocks = 0,
+		NotInitialized_NeedsBlocks = 0,
 		BuildingBlocks,
+		BlocksBuilt,
 
 		NeedsLight,
 		BuildingLight,
-
-		NeedsMesh,
-		BuildingMesh,
+		LightsBuilt,
 
 		Ready
 	};
@@ -72,9 +71,7 @@ private:
 	enum Flag : uint8_t
 	{
 		IsLoadedInWorld = 0,
-		IsLoadedChunkColumnData = 1,
-		AreBlocksBuilt = 2,
-		IsLightBuilt = 3
+		IsLoadedChunkColumnData
 	};
 	
 	glm::ivec3 position; // Chunk coordinates
@@ -146,7 +143,7 @@ public:
 
 	void sortMesh(const glm::ivec3& cameraBlockPos);
 	bool shouldMeshBeSorted(bool cameraMoved) const;
-	bool isMeshDirty() const;
+	bool shouldMeshBeUpdated() const;
 	void markMeshDirty();
 	void askForMeshUpload();
 
@@ -201,6 +198,9 @@ public:
 	bool getIsProcessing() const;
 
 	bool getIsLoadedInWorld() const;
+
+	bool areBlocksBuilt() const;
+	bool isLightBuilt() const;
 
 	//
 	static void sendMeshesToGPU();

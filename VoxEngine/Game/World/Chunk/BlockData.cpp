@@ -119,6 +119,14 @@ void BlockDataBase::loadBlockDataBase(std::vector<std::string>& textureNames)
 			TextureTransformation::None, TextureTransformation::None, TextureTransformation::None)
 	);
 
+	registerBlock(Block::Water,
+		{ false, 0, true,  true, false },
+		{ "water", "water", "water", "water", "water", "water" },
+		packTransformations(
+			TextureTransformation::None, TextureTransformation::None, TextureTransformation::None,
+			TextureTransformation::None, TextureTransformation::None, TextureTransformation::None)
+	);
+
 	BlockDataBase::buildTextureIDs(textureNames);
 }
 
