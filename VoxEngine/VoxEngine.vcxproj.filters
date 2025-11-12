@@ -114,6 +114,15 @@
     <ClCompile Include="Game\World\Entity.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
+    <ClCompile Include="Game\World\ChunkLoaders\BaseChunkLoader.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\World\ChunkLoaders\SphericalChunkLoader.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\Hashes\ivec3Hasher.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="WindowManager.h">
@@ -228,6 +237,15 @@
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Core\Assert.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\World\ChunkLoaders\BaseChunkLoader.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\World\ChunkLoaders\SphericalChunkLoader.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\Hashes\ivec3Hasher.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
   </ItemGroup>

@@ -69,6 +69,9 @@ World::World()
 	chunkPositionSSBO = std::make_unique<OpenGL_SSBO>(0);
 	chunkPositionSSBO->bindBase();
 
+	// Chunk loaders
+	createChunkLoader<SphericalChunkLoader>();
+
 	// Entities
 	Entity::world = this;
 
@@ -135,57 +138,49 @@ void World::preparation()
 	chunkPositionSSBO->allocateMemory(chunkCount * sizeof(glm::vec3));*/
 }
 
-void World::loadChunksAroundPlayer(const glm::vec3& loaderPos)
+void World::loadChunks(const glm::vec3& playerPos)
 {
-	glm::ivec3 chunkLoaderPos = glm::ivec3(glm::floor(loaderPos)) >> CHUNK_SIZE_LOG2;
-	if (lastChunkLoaderPos == chunkLoaderPos)
-    {
-        return;
-    }
+	// Check if player chunk position changed
+	glm::ivec3 chunkLoaderPos = glm::ivec3(glm::floor(playerPos)) >> CHUNK_SIZE_LOG2;
+	if (lastChunkLoaderPos == chunkLoaderPos && lastChunkLoadingDistance == chunkLoadingDistance)
+	{
+		return;
+	}
 	lastChunkLoaderPos = chunkLoaderPos;
+	lastChunkLoadingDistance = chunkLoadingDistance;
 
-	// Unload chunks that are out of range
-	unloadChunksOutsideRange();
-
-	// Load chunks in a spherical area around the lastChunkLoaderPos
-
-	static std::vector<Chunk*> chunksToSend;
-	chunksToSend.clear();
-
+	// Update chunk loaders
+	{
+		PROFILE_SCOPE("Update chunk loaders", ProfileCategory::ChunkLoadUnload);
+		for (auto& chunkLoader : chunkLoaders)
+		{
+			chunkLoader->update(chunkLoaderPos, chunkLoadingDistance);
+		}
+	}
+	
+	// Load chunks
 	{
 		PROFILE_SCOPE("Load chunks", ProfileCategory::ChunkLoadUnload);
-
-		int renderDistanceSquared = chunkLoadingDistance * chunkLoadingDistance;
-		for (int x = -chunkLoadingDistance; x <= chunkLoadingDistance; x++)
+		for (auto& chunkLoader : chunkLoaders)
 		{
-			int chunkX = chunkLoaderPos.x + x;
-
-			int D1 = renderDistanceSquared - x * x;
-			int yRange = (int)sqrtf(D1);
-
-			for (int y = -yRange; y <= yRange; y++)
+			const auto& positions = chunkLoader->getChunksToLoad();
+			for (const auto& pos : positions)
 			{
-				int chunkY = chunkLoaderPos.y + y;
-
-				int D2 = D1 - y * y;
-				int zRange = (int)sqrtf(D2);
-
-				for (int z = -zRange; z <= zRange; z++)
-				{
-					int chunkZ = chunkLoaderPos.z + z;
-
-					loadChunk(chunkX, chunkY, chunkZ, chunksToSend);
-				}
+				loadChunk(pos);
 			}
 		}
 	}
 
+	// Unload chunks
 	{
-		// TODO: Maybe use vectors instead of unordered sets? Then I could use std::vector.insert to insert the whole vector.
-		std::lock_guard<std::mutex> lock(buildBlocksMutex);
-		for (Chunk* chunkPtr : chunksToSend)
+		PROFILE_SCOPE("Unload chunks", ProfileCategory::ChunkLoadUnload);
+		for (auto& chunkLoader : chunkLoaders)
 		{
-			buildBlocksContainer.insert(chunkPtr);
+			const auto& positions = chunkLoader->getChunksToUnload();
+			for (const auto& pos : positions)
+			{
+				unloadChunk(pos);
+			}
 		}
 	}
 }
@@ -630,72 +625,49 @@ bool World::chunkExistsAt(const glm::ivec3& position) const
 	return chunks.find(position) != chunks.end();
 }
 
-void World::unloadChunksOutsideRange()
-{
-	std::vector<glm::ivec3> chunksToUnload;
-	{
-		PROFILE_SCOPE("Unload chunks: collect", ProfileCategory::ChunkLoadUnload);
-
-		const int x = lastChunkLoaderPos.x;
-		const int y = lastChunkLoaderPos.y;
-		const int z = lastChunkLoaderPos.z;
-
-		int renderDistanceSquared = chunkLoadingDistance * chunkLoadingDistance;
-
-		for (const auto& pair : chunks)
-		{
-			const glm::ivec3& pos = pair.first;
-			
-			// Calculate squared distance from chunk loader position
-			int dx = pos.x - x;
-			int dy = pos.y - y;
-			int dz = pos.z - z;
-			int distanceSquared = dx * dx + dy * dy + dz * dz;
-			
-			// Unload if outside spherical range
-			if (distanceSquared > renderDistanceSquared)
-			{
-				chunksToUnload.push_back(pos);
-			}
-		}
-	}
-	{
-		PROFILE_SCOPE("Unload chunks: unload", ProfileCategory::ChunkLoadUnload);
-		for (const glm::ivec3& pos : chunksToUnload)
-		{
-			auto it = chunks.find(pos);
-
-			Chunk* chunk = it->second.get();
-			chunkPool.release(std::move(it->second));
-			chunks.erase(it);
-		}
-	}
-}
-
-void World::loadChunk(int chunkX, int chunkY, int chunkZ, std::vector<Chunk*>& chunksToSend)
+void World::loadChunk(const glm::ivec3& position)
 {
 	// Check if chunk already exists
-	glm::ivec3 chunkPosition = { chunkX, chunkY, chunkZ };
-	if (chunkExistsAt(chunkPosition))
+	if (chunkExistsAt(position))
 	{
+		std::cerr << "[LoadChunk]: Chunk is already loaded.\n";
 		return;
 	}
 
 	// Find existing neighbors
 	Chunk* neighbors[6] = {
-		getChunkAt({ chunkX - 1, chunkY, chunkZ }),
-		getChunkAt({ chunkX + 1, chunkY, chunkZ }),
-		getChunkAt({ chunkX, chunkY - 1, chunkZ }),
-		getChunkAt({ chunkX, chunkY + 1, chunkZ }),
-		getChunkAt({ chunkX, chunkY, chunkZ - 1 }),
-		getChunkAt({ chunkX, chunkY, chunkZ + 1 })
+		getChunkAt({ position.x - 1, position.y,	 position.z		}),
+		getChunkAt({ position.x + 1, position.y,	 position.z		}),
+		getChunkAt({ position.x,	 position.y - 1, position.z		}),
+		getChunkAt({ position.x,	 position.y + 1, position.z		}),
+		getChunkAt({ position.x,	 position.y,	 position.z - 1 }),
+		getChunkAt({ position.x,	 position.y,	 position.z + 1 })
 	};
 
 	// Create and initialize chunk
 	std::unique_ptr<Chunk> chunk = chunkPool.acquire();
-	chunk->init(chunkX, chunkY, chunkZ, neighbors);
-	chunksToSend.push_back(chunk.get());
-	chunks.emplace(chunkPosition, std::move(chunk));
+	chunk->addLoader();
+	chunk->init(position, neighbors);
+
+	{
+		std::lock_guard<std::mutex> lock(buildBlocksMutex);
+		buildBlocksContainer.insert(chunk.get());
+	}
+
+	chunks.emplace(position, std::move(chunk));
+}
+
+void World::unloadChunk(const glm::ivec3& position)
+{
+	const auto& it = chunks.find(position);
+	if (it == chunks.end())
+	{
+		std::cerr << "[UnloadChunk]: Chunk isn't in map.\n";
+		return;
+	}
+	it->second->removeLoader();
+	chunkPool.release(std::move(it->second));
+	chunks.erase(it);
 }
 
 void World::startBuildingChunkBlocks()

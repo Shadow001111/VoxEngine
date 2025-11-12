@@ -4,11 +4,14 @@
 #include "World/VoxelMarkerMesh.h"
 #include "World/Entity.h"
 #include "World/RaycastResult.h"
+#include "World/ChunkLoaders/SphericalChunkLoader.h"
 
 #include "Graphics/Shader.h"
 #include "Graphics/Camera.h"
 #include "Graphics/BlockTextureArray.h"
 #include "Graphics/OpenGL_SSBO.h"
+
+#include "Core/Hashes/ivec3Hasher.h"
 
 #include <unordered_map>
 #include <unordered_set>
@@ -46,7 +49,7 @@ private:
 
 	//
 	ChunkPool chunkPool;
-	std::unordered_map<glm::ivec3, std::unique_ptr<Chunk>, Int3Hasher> chunks;
+	std::unordered_map<glm::ivec3, std::unique_ptr<Chunk>, ivec3Hasher> chunks;
 	
 	std::unordered_set<Chunk*> buildBlocksContainer;
 	std::mutex buildBlocksMutex;
@@ -57,6 +60,8 @@ private:
 	std::vector<Chunk*> lightUpdateContainer;
 
 	glm::ivec3 lastChunkLoaderPos = { INT_MAX, INT_MAX, INT_MAX };
+	int lastChunkLoadingDistance = -1;
+
 	glm::ivec3 lastChunkMeshSortPos = { INT_MAX, INT_MAX, INT_MAX };
 
 	// Resources
@@ -76,6 +81,9 @@ private:
 	// Visual settings
 	WorldVisualSettings visualSettings;
 
+	// Chunk loaders
+	std::vector<std::unique_ptr<BaseChunkLoader>> chunkLoaders;
+
 	// Entities
 	std::unordered_map<Entity::Id, std::unique_ptr<Entity>> entities;
 public:
@@ -88,7 +96,7 @@ public:
 	World& operator=(World&&) = delete;
 
 	void preparation();
-	void loadChunksAroundPlayer(const glm::vec3& loaderPos);
+	void loadChunks(const glm::vec3& playerPos);
 	void update(float deltaTime);
 	void sortChunkMeshes(const glm::vec3& cameraPos);
 	void sendChunkMeshesToGPU();
@@ -102,8 +110,9 @@ public:
 	template<typename T, typename... Args>
 	T* createEntity(Args&&... args) {
 		static_assert(std::is_base_of<Entity, T>::value, "T must derive from Entity");
+		static_assert(!std::is_same_v<Entity, T>, "T mustn't be Entity");
 
-		auto e = std::make_unique<T>(std::forward<Args>(args)...);
+		std::unique_ptr<T> e = std::make_unique<T>(std::forward<Args>(args)...);
 		T* raw = e.get();
 		entities.emplace(e->getId(), std::move(e));
 		return raw;
@@ -115,12 +124,24 @@ public:
 
 	const DebugData& getDebugData() const;
 private:
+	template<typename T, typename... Args>
+	T* createChunkLoader(Args&&... args)
+	{
+		static_assert(std::is_base_of<BaseChunkLoader, T>::value, "T must derive from BaseChunkLoader");
+		static_assert(!std::is_same_v<BaseChunkLoader, T>, "T mustn't be BaseChunkLoader");
+
+		std::unique_ptr<T> chl = std::make_unique<T>(std::forward<Args>(args)...);
+		T* raw = chl.get();
+		chunkLoaders.push_back(std::move(chl));
+		return raw;
+	}
+private:
 	Chunk* getChunkAt(const glm::ivec3& position) const;
 
 	bool chunkExistsAt(const glm::ivec3& position) const;
 
-	void unloadChunksOutsideRange();
-	void loadChunk(int chunkX, int chunkY, int chunkZ, std::vector<Chunk*>& chunksToSend);
+	void loadChunk(const glm::ivec3& position);
+	void unloadChunk(const glm::ivec3& position);
 
 	void startBuildingChunkBlocks();
 	void startBuildingChunkLights();

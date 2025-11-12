@@ -12,7 +12,7 @@
 #include <sstream>
 #include <iomanip>
 
-constexpr int CHUNK_LOAD_DISTANCE = 6;
+constexpr int CHUNK_LOAD_DISTANCE = 12;
 
 
 static std::string formatSize(size_t value)
@@ -277,12 +277,15 @@ int main()
             collectPlayerInput(player->input, wnd, previousMousePos);
 
             // World
-            while (worldUpdateTimer.shouldUpdate())
+            if (worldUpdateTimer.peek())
             {
-				glm::vec3 playerPos = player->getPosition();
-				world.loadChunksAroundPlayer(playerPos);
+                glm::vec3 playerPos = player->getPosition();
+                world.loadChunks(playerPos);
 
-				world.update(worldUpdateTimer.getUpdateInterval());
+                while (worldUpdateTimer.shouldUpdate())
+                {
+                    world.update(worldUpdateTimer.getUpdateInterval());
+                }
 
                 if (wnd.isKeyPressed(GLFW_KEY_P))
                 {

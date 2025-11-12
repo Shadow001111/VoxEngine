@@ -145,6 +145,7 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Game\World\ChunkLoaders\BaseChunkLoader.cpp" />
     <ClCompile Include="Game\World\Entity.cpp" />
     <ClCompile Include="Game\World\Chunk\ChunkMeshManager.cpp" />
     <ClCompile Include="Core\BlockAllocator.cpp" />
@@ -166,6 +167,7 @@
     <ClCompile Include="Graphics\Camera.cpp" />
     <ClCompile Include="glad.c" />
     <ClCompile Include="Graphics\Shader.cpp" />
+    <ClCompile Include="Core\Hashes\ivec3Hasher.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Core\UpdateTimer.cpp" />
     <ClCompile Include="Core\Transform.cpp" />
@@ -175,11 +177,13 @@
     <ClCompile Include="Game\World\VoxelMarkerMesh.cpp" />
     <ClCompile Include="Graphics\TextRenderer.cpp" />
     <ClCompile Include="Graphics\OpenGL_FBO.cpp" />
+    <ClCompile Include="Game\World\ChunkLoaders\SphericalChunkLoader.cpp" />
     <ClCompile Include="WindowManager.cpp" />
     <ClCompile Include="Game\World.cpp" />
     <ClCompile Include="Game\World\WorldVisualSettings.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Game\World\ChunkLoaders\BaseChunkLoader.h" />
     <ClInclude Include="Core\Assert.h" />
     <ClInclude Include="Core\AtomicFlags.h" />
     <ClInclude Include="Core\SymmetricBitMatrix.h" />
@@ -215,6 +219,8 @@
     <ClInclude Include="Graphics\TextRenderer.h" />
     <ClInclude Include="Graphics\OpenGL_FBO.h" />
     <ClInclude Include="Game\World\RaycastResult.h" />
+    <ClInclude Include="Game\World\ChunkLoaders\SphericalChunkLoader.h" />
+    <ClInclude Include="Core\Hashes\ivec3Hasher.h" />
     <ClInclude Include="WindowManager.h" />
     <ClInclude Include="Game\World.h" />
     <ClInclude Include="Game\World\WorldVisualSettings.h" />

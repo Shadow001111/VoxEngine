@@ -5,8 +5,8 @@
 
 #include "Core/Profiler.h"
 #include "Core/SymmetricBitMatrix.h"
-
 #include "Core/ASSERT.h"
+
 #include <vector>
 #include <format>
 #include <fstream>
@@ -18,15 +18,15 @@ std::filesystem::path Chunk::WORLD_PATH;
 
 inline size_t Chunk::getIndex(int x, int y, int z)
 {
-	return (x << 8) | (y << 4) | z;
+	return (x << (CHUNK_SIZE_LOG2 * 2)) | (y << CHUNK_SIZE_LOG2) | z;
 }
 
 glm::ivec3 Chunk::getPositionFromIndex(size_t index)
 {
 	return {
-		(index >> 8) & 15,
-		(index >> 4) & 15,
-		index & 15
+		(index >> (CHUNK_SIZE_LOG2 * 2)) & CHUNK_LOWER_BITS_MASK,
+		(index >> CHUNK_SIZE_LOG2) & CHUNK_LOWER_BITS_MASK,
+		index & CHUNK_LOWER_BITS_MASK
 	};
 }
 
@@ -45,10 +45,10 @@ inline bool Chunk::operator==(const Chunk& other) const
 }
 
 // Prepares chunk for use
-void Chunk::init(int x, int y, int z, Chunk** neighbors)
+void Chunk::init(const glm::ivec3& position, Chunk** neighbors)
 {
 	// Set position
-	position = { x, y, z };
+	this->position = position;
 
 	// Set neighbours
 	for (int i = 0; i < 6; i++)
@@ -62,6 +62,8 @@ void Chunk::init(int x, int y, int z, Chunk** neighbors)
 	}
 
 	// Reset
+	ASSERT(loaderCount > 0);
+
 	setState(Chunk::State::NotInitialized_NeedsBlocks);
 
 	chunkFlags.reset();
@@ -92,6 +94,9 @@ void Chunk::destroy()
 			neighbors[i] = nullptr;
 		}
 	}
+
+	//
+	ASSERT(loaderCount == 0);
 
 	//
 	setState(Chunk::State::NotInitialized_NeedsBlocks);
@@ -1560,6 +1565,87 @@ void Chunk::askForMeshUpload()
 	pendingMeshUploads.push_back(&meshData);
 }
 
+void Chunk::sendMeshesToGPU()
+{
+	if (pendingMeshUploads.empty())
+	{
+		return;
+	}
+
+	for (MeshData* chunkMesh : pendingMeshUploads)
+	{
+		chunkMesh->processingFence.startProcessing();
+	}
+
+	PROFILE_SCOPE("Send chunk meshes to GPU", ProfileCategory::ChunkMesh);
+
+	// Allocate memory for meshes
+	std::vector<MeshData*> allocateMemoryMeshRequests;
+	for (MeshData* chunkMesh : pendingMeshUploads)
+	{
+		// TODO: Maybe first check is redundant
+		if (!chunkMesh->created)
+		{
+			// No mesh
+			allocateMemoryMeshRequests.push_back(chunkMesh);
+		}
+		else if (chunkMesh->getFaceCount() > chunkMesh->getFaceCapacity())
+		{
+			// Asking for more place
+			allocateMemoryMeshRequests.push_back(chunkMesh);
+		}
+	}
+
+	auto& inst = ChunkMeshManager::getInstance();
+	inst.processMeshRequests(allocateMemoryMeshRequests);
+
+	// Write meshes data
+	auto& instanceVBO = inst.getInstanceVBO();
+	instanceVBO.bind();
+
+	for (MeshData* chunkMesh : pendingMeshUploads)
+	{
+		if (!chunkMesh->created)
+		{
+			continue;
+		}
+
+		size_t opaqueFaceCount = chunkMesh->getOpaqueFaceCount();
+		size_t transparentFaceCount = chunkMesh->getTransparentFaceCount();
+
+		size_t offset = chunkMesh->allocatedBlock.offset * sizeof(BlockFaceInstance);
+
+		if (chunkMesh->opaqueDirty)
+		{
+			instanceVBO.write(
+				chunkMesh->opaqueInstances.data(),
+				opaqueFaceCount * sizeof(BlockFaceInstance),
+				offset
+			);
+			chunkMesh->opaqueDirty = false;
+		}
+
+		if (chunkMesh->transparentDirty)
+		{
+			instanceVBO.write(
+				chunkMesh->transparentInstances.data(),
+				transparentFaceCount * sizeof(BlockFaceInstance),
+				offset + opaqueFaceCount * sizeof(BlockFaceInstance)
+			);
+			chunkMesh->transparentDirty = false;
+		}
+
+		chunkMesh->updateRenderFaceCount();
+	}
+
+	//
+	for (MeshData* chunkMesh : pendingMeshUploads)
+	{
+		chunkMesh->processingFence.stopProcessing();
+	}
+	pendingMeshUploads.clear();
+}
+
 void Chunk::collectOpaqueRenderData(std::vector<DrawArraysIndirectCommand>& drawCommands, std::vector<glm::ivec3>& positions) const
 {
 	size_t faceCount = meshData.renderOpaqueFaceCount;
@@ -2170,21 +2256,6 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(unsigned int& ao, unsigned int
 	light = *((unsigned int*)lightLevels);
 }
 
-int Chunk::getX() const
-{
-	return position.x;
-}
-
-int Chunk::getY() const
-{
-	return position.y;
-}
-
-int Chunk::getZ() const
-{
-	return position.z;
-}
-
 glm::ivec3 Chunk::getPosition() const
 {
 	return position;
@@ -2230,85 +2301,19 @@ bool Chunk::isLightBuilt() const
 	return getState() >= State::LightsBuilt;
 }
 
-void Chunk::sendMeshesToGPU()
+void Chunk::addLoader()
 {
-	if (pendingMeshUploads.empty())
-	{
-		return;
-	}
+	loaderCount++;
+}
 
-	for (MeshData* chunkMesh : pendingMeshUploads)
-	{
-		chunkMesh->processingFence.startProcessing();
-	}
+void Chunk::removeLoader()
+{
+	loaderCount--;
+}
 
-	PROFILE_SCOPE("Send chunk meshes to GPU", ProfileCategory::ChunkMesh);
-
-	// Allocate memory for meshes
-	std::vector<MeshData*> allocateMemoryMeshRequests;
-	for (MeshData* chunkMesh : pendingMeshUploads)
-	{
-		// TODO: Maybe first check is redundant
-		if (!chunkMesh->created)
-		{
-			// No mesh
-			allocateMemoryMeshRequests.push_back(chunkMesh);
-		}
-		else if (chunkMesh->getFaceCount() > chunkMesh->getFaceCapacity())
-		{
-			// Asking for more place
-			allocateMemoryMeshRequests.push_back(chunkMesh);
-		}
-	}
-
-	auto& inst = ChunkMeshManager::getInstance();
-	inst.processMeshRequests(allocateMemoryMeshRequests);
-	
-	// Write meshes data
-	auto& instanceVBO = inst.getInstanceVBO();
-	instanceVBO.bind();
-
-	for (MeshData* chunkMesh : pendingMeshUploads)
-	{
-		if (!chunkMesh->created)
-		{
-			continue;
-		}
-
-		size_t opaqueFaceCount = chunkMesh->getOpaqueFaceCount();
-		size_t transparentFaceCount = chunkMesh->getTransparentFaceCount();
-
-		size_t offset = chunkMesh->allocatedBlock.offset * sizeof(BlockFaceInstance);
-
-		if (chunkMesh->opaqueDirty)
-		{
-			instanceVBO.write(
-				chunkMesh->opaqueInstances.data(),
-				opaqueFaceCount * sizeof(BlockFaceInstance),
-				offset
-			);
-			chunkMesh->opaqueDirty = false;
-		}
-
-		if (chunkMesh->transparentDirty)
-		{
-			instanceVBO.write(
-				chunkMesh->transparentInstances.data(),
-				transparentFaceCount * sizeof(BlockFaceInstance),
-				offset + opaqueFaceCount * sizeof(BlockFaceInstance)
-			);
-			chunkMesh->transparentDirty = false;
-		}
-
-		chunkMesh->updateRenderFaceCount();
-	}
-
-	//
-	for (MeshData* chunkMesh : pendingMeshUploads)
-	{
-		chunkMesh->processingFence.stopProcessing();
-	}
-	pendingMeshUploads.clear();
+uint8_t Chunk::getLoaderCount() const
+{
+	return loaderCount;
 }
 
 //============================================================================
@@ -2350,18 +2355,6 @@ LightNode::LightNode(int x, int y, int z) :
 LightRemovalNode::LightRemovalNode(int x, int y, int z, uint8_t lightLevel) :
 	x(x), y(y), z(z), lightLevel(lightLevel)
 {
-}
-
-//============================================================================
-//Int3Hasher
-
-size_t Int3Hasher::operator()(const glm::ivec3& other) const
-{
-	constexpr size_t addConst = 0x9e3779b97f4a7c15;
-	size_t h = (size_t)other.x + addConst;
-	h ^= (size_t)other.y + addConst + (h << 6) + (h >> 2);
-	h ^= (size_t)other.z + addConst + (h << 6) + (h >> 2);
-	return h;
 }
 
 //============================================================================
