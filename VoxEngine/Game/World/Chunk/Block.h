@@ -11,5 +11,7 @@ enum class Block : uint8_t
 	Glass,
 	ColoredGlass,
 	Water,
+	LogOak,
+	LeavesOak,
 	__BlockCount__
 };

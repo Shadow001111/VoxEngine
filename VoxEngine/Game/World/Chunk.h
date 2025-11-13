@@ -142,6 +142,8 @@ public:
 
 	void buildBlocks();
 private:
+	void generateTree(const glm::ivec3& position);
+private:
 	// IO
 	void loadBlocks();
 	void saveBlocks() const;

@@ -127,6 +127,22 @@ void BlockDataBase::loadBlockDataBase(std::vector<std::string>& textureNames)
 			TextureTransformation::None, TextureTransformation::None, TextureTransformation::None)
 	);
 
+	registerBlock(Block::LogOak,
+		{ true, 0,  true,  false, true },
+		{ "log_oak", "log_oak", "log_oak_top", "log_oak_top", "log_oak", "log_oak" },
+		packTransformations(
+			TextureTransformation::None, TextureTransformation::None, TextureTransformation::None,
+			TextureTransformation::None, TextureTransformation::None, TextureTransformation::None)
+	);
+
+	registerBlock(Block::LeavesOak,
+		{ false, 0,  true,  true, true },
+		{ "leaves_oak", "leaves_oak", "leaves_oak", "leaves_oak", "leaves_oak", "leaves_oak" },
+		packTransformations(
+			TextureTransformation::None, TextureTransformation::None, TextureTransformation::None,
+			TextureTransformation::None, TextureTransformation::None, TextureTransformation::None)
+	);
+
 	BlockDataBase::buildTextureIDs(textureNames);
 }
 

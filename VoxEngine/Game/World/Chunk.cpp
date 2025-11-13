@@ -6,6 +6,7 @@
 #include "Core/Profiler.h"
 #include "Core/SymmetricBitMatrix.h"
 #include "Core/ASSERT.h"
+#include "Core/Hashes/ivec2Hasher.h"
 
 #include <vector>
 #include <format>
@@ -36,7 +37,7 @@ Chunk::Chunk()
 
 Chunk::~Chunk()
 {
-	destroy(); // Just in case
+	saveBlocks();
 }
 
 inline bool Chunk::operator==(const Chunk& other) const
@@ -148,7 +149,6 @@ void Chunk::destroy()
 	changedBlocks.clear();
 }
 
-// Fills 'blocks' array
 void Chunk::buildBlocks()
 {
 	if (
@@ -215,13 +215,55 @@ void Chunk::buildBlocks()
 		bool caveMask[CHUNK_VOLUME];
 		TerrainGenerator::getInstance().computeCaveMask(caveMask, position.x, position.y, position.z);
 
-		PROFILE_SCOPE("Build chunk blocks: caves", ProfileCategory::ChunkBlocks);
+		PROFILE_SCOPE("Generate caves", ProfileCategory::ChunkBlocks);
 
 		for (int i = 0; i < CHUNK_VOLUME; i++)
 		{
 			if (blocks[i] == Block::Stone && caveMask[i])
 			{
 				blocks[i] = Block::Air;
+			}
+		}
+	}
+
+	// Trees
+	{
+		PROFILE_SCOPE("Generate trees", ProfileCategory::ChunkBlocks);
+	
+		const ivec2Hasher hasher;
+
+		const glm::ivec3 globalChunkPosition = position * CHUNK_SIZE;
+
+		const glm::ivec2 globalChunkXZ = { globalChunkPosition.x, globalChunkPosition.z };
+
+		for (int x = 0; x < CHUNK_SIZE; x += 2)
+		{
+			for (int z = 0; z < CHUNK_SIZE; z += 2)
+			{
+				int treeRootHeight = heightMap[z + x * CHUNK_SIZE] + 1;
+				int localY = treeRootHeight - globalChunkPosition.y;
+
+				if (localY < 0 || localY >= CHUNK_SIZE)
+				{
+					continue;
+				}
+
+				size_t rootIndex = getIndex(x, localY, z);
+				if (blocks[rootIndex] != Block::Air)
+				{
+					continue;
+				}
+
+				glm::ivec2 worldPos = globalChunkXZ + glm::ivec2(x, z);
+
+				size_t hashValue = hasher(worldPos);
+
+				if ((hashValue % 100) >= 2)
+				{
+					continue;
+				}
+
+				generateTree({ x, localY, z });
 			}
 		}
 	}
@@ -312,6 +354,73 @@ void Chunk::buildBlocks()
 			n2->meshDirty = true;
 		}
 	}
+}
+
+void Chunk::generateTree(const glm::ivec3& position)
+{
+	const int treeHeight = 4;
+
+	// Check if there's enough space for the tree
+	if (position.y + treeHeight + 3 >= CHUNK_SIZE)
+	{
+		return; // Not enough vertical space
+	}
+
+	// Trunk
+	for (int i = 0; i < treeHeight; i++)
+	{
+		size_t index = getIndex(position.x, position.y + i, position.z);
+		blocks[index] = Block::LogOak;
+	}
+	
+	// Leaves - create a spherical canopy
+	int leavesStart = position.y + treeHeight - 2;
+	int leavesEnd = position.y + treeHeight + 2;
+
+	for (int ly = leavesStart; ly <= leavesEnd; ly++)
+	{
+		for (int lx = position.x - 2; lx <= position.x + 2; lx++)
+		{
+			for (int lz = position.z - 2; lz <= position.z + 2; lz++)
+			{
+				// Skip positions outside chunk bounds
+				if (lx < 0 || lx >= CHUNK_SIZE || lz < 0 || lz >= CHUNK_SIZE || ly < 0 || ly >= CHUNK_SIZE)
+				{
+					continue;
+				}
+
+				// Create spherical leaf pattern
+				int dx = lx - position.x;
+				int dz = lz - position.z;
+				int dy = ly - (position.y + treeHeight);
+
+				float distance = sqrtf(dx * dx + dz * dz + dy * dy * 0.8f); // Slightly elliptical
+
+				if (distance <= 2.0f)
+				{
+					size_t index = getIndex(lx, ly, lz);
+					if (blocks[index] == Block::Air)
+					{
+						blocks[index] = Block::LeavesOak;
+					}
+				}
+			}
+		}
+	}
+
+	// Add some random leaves at the top for variation
+	/*if (y + treeHeight + 1 < CHUNK_SIZE) {
+		for (int lx = x - 1; lx <= x + 1; lx++) {
+			for (int lz = z - 1; lz <= z + 1; lz++) {
+				if (lx >= 0 && lx < CHUNK_SIZE && lz >= 0 && lz < CHUNK_SIZE) {
+					size_t index = getIndex(lx, y + treeHeight + 1, lz);
+					if (blocks[index] != Block::OakLog) {
+						blocks[index] = Block::OakLeaves;
+					}
+				}
+			}
+		}
+	}*/
 }
 
 void Chunk::loadBlocks()

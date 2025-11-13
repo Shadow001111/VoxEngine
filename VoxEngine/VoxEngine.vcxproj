@@ -168,6 +168,7 @@
     <ClCompile Include="glad.c" />
     <ClCompile Include="Graphics\Shader.cpp" />
     <ClCompile Include="Core\Hashes\ivec3Hasher.cpp" />
+    <ClCompile Include="Core\Hashes\ivec2Hasher.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Core\UpdateTimer.cpp" />
     <ClCompile Include="Core\Transform.cpp" />
@@ -221,6 +222,7 @@
     <ClInclude Include="Game\World\RaycastResult.h" />
     <ClInclude Include="Game\World\ChunkLoaders\SphericalChunkLoader.h" />
     <ClInclude Include="Core\Hashes\ivec3Hasher.h" />
+    <ClInclude Include="Core\Hashes\ivec2Hasher.h" />
     <ClInclude Include="WindowManager.h" />
     <ClInclude Include="Game\World.h" />
     <ClInclude Include="Game\World\WorldVisualSettings.h" />

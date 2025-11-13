@@ -87,8 +87,7 @@ void Player::update(double deltaTime)
 			double frictionForce = friction * deltaTime;
 			if (frictionForce > glm::length(velocity))
 			{
-				velocity.x = 0.0;
-				velocity.z = 0.0;
+				velocity = { 0.0, 0.0, 0.0 };
 			}
 			else
 			{

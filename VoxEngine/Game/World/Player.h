@@ -33,7 +33,7 @@ enum class GameMode : uint8_t
 	Fly
 };
 
-constexpr int PLAYER_HOTBAR_SIZE = 5;
+constexpr int PLAYER_HOTBAR_SIZE = 7;
 
 class Player : public Entity
 {
@@ -44,7 +44,9 @@ class Player : public Entity
 		Block::Dirt,
 		Block::Stone,
 		Block::Glass,
-		Block::ColoredGlass
+		Block::ColoredGlass,
+		Block::LogOak,
+		Block::LeavesOak
 	};
 	uint8_t selectedItemIndex = 0;
 	GameMode gameMode = GameMode::Normal;
