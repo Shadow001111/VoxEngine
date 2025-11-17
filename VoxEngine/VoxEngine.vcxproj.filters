@@ -126,6 +126,9 @@
     <ClCompile Include="Core\Hashes\ivec2Hasher.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
+    <ClCompile Include="Game\World\Chunk\StructureBlockChanges.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="WindowManager.h">
@@ -252,6 +255,9 @@
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Core\Hashes\ivec2Hasher.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\World\Chunk\StructureBlockChanges.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
   </ItemGroup>

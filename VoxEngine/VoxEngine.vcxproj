@@ -146,6 +146,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Game\World\ChunkLoaders\BaseChunkLoader.cpp" />
+    <ClCompile Include="Game\World\Chunk\StructureBlockChanges.cpp" />
     <ClCompile Include="Game\World\Entity.cpp" />
     <ClCompile Include="Game\World\Chunk\ChunkMeshManager.cpp" />
     <ClCompile Include="Core\BlockAllocator.cpp" />
@@ -188,6 +189,7 @@
     <ClInclude Include="Core\Assert.h" />
     <ClInclude Include="Core\AtomicFlags.h" />
     <ClInclude Include="Core\SymmetricBitMatrix.h" />
+    <ClInclude Include="Game\World\Chunk\StructureBlockChanges.h" />
     <ClInclude Include="Game\World\Entity.h" />
     <ClInclude Include="Game\World\Chunk\ChunkMeshManager.h" />
     <ClInclude Include="Core\BlockAllocator.h" />

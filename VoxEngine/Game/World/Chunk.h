@@ -2,6 +2,7 @@
 #include "Chunk/MeshData.h"
 #include "Chunk/Block.h"
 #include "Chunk/Metrics.h"
+#include "Chunk/StructureBlockChanges.h"
 
 #include "Core/Multithreading/ProcessingFence.h"
 #include "Core/AtomicFlags.h"
@@ -55,6 +56,8 @@ struct DrawArraysIndirectCommand
 	DrawArraysIndirectCommand(unsigned int count, unsigned int instanceCount, unsigned int first, unsigned int baseInstance);
 };
 
+// TODO: Keep often-acessed data closer
+// TODO: Move chunk map to Chunk file, so they can access it too
 class Chunk
 {
 public:
@@ -116,6 +119,8 @@ private:
 	
 	// Changed blocks
 	std::unordered_map<Block, std::vector<uint16_t>> changedBlocks;
+	
+	static StructureBlockChangeManager structureBlockChangeManager;
 
 	// Helper index functions
 	static size_t getIndex(int x, int y, int z);
@@ -225,6 +230,8 @@ public:
 
 	bool areBlocksBuilt() const;
 	bool isLightBuilt() const;
+
+	void setBlocksBuiltToFalse(); // TODO: Delete
 
 	// Getters and setters for loaderCount
 	void addLoader();

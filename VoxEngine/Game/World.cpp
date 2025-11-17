@@ -587,7 +587,14 @@ void World::rebuildAllChunkMeshes()
 
 void World::debugMethod()
 {
-	
+	for (const auto& pair : chunks)
+	{
+		Chunk* chunk = pair.second.get();
+		chunk->setBlocksBuiltToFalse();
+
+		std::lock_guard<std::mutex> lock(buildBlocksMutex);
+		buildBlocksContainer.insert(chunk);
+	}
 }
 
 const World::DebugData& World::getDebugData() const

@@ -15,6 +15,7 @@
 #define CHUNK_SMOOTH_LIGHTING 1
 
 std::vector<MeshData*> Chunk::pendingMeshUploads;
+StructureBlockChangeManager Chunk::structureBlockChangeManager;
 std::filesystem::path Chunk::WORLD_PATH;
 
 inline size_t Chunk::getIndex(int x, int y, int z)
@@ -268,6 +269,18 @@ void Chunk::buildBlocks()
 		}
 	}
 
+	// Incoming structures
+	{
+		PROFILE_SCOPE("Apply incoming structural changes", ProfileCategory::ChunkBlocks);
+
+		auto pendingChanges = structureBlockChangeManager.retrieveAndClearChanges(position);
+		for (const auto& change : pendingChanges)
+		{
+			ASSERT(change.index < CHUNK_VOLUME);
+			blocks[change.index] = change.block;
+		}
+	}
+
 	// Load blocks
 	loadBlocks();
 
@@ -356,12 +369,12 @@ void Chunk::buildBlocks()
 	}
 }
 
-void Chunk::generateTree(const glm::ivec3& position)
+void Chunk::generateTree(const glm::ivec3& rootPosition)
 {
 	const int treeHeight = 4;
 
 	// Check if there's enough space for the tree
-	if (position.y + treeHeight + 3 >= CHUNK_SIZE)
+	if (rootPosition.y + treeHeight + 3 >= CHUNK_SIZE)
 	{
 		return; // Not enough vertical space
 	}
@@ -369,58 +382,61 @@ void Chunk::generateTree(const glm::ivec3& position)
 	// Trunk
 	for (int i = 0; i < treeHeight; i++)
 	{
-		size_t index = getIndex(position.x, position.y + i, position.z);
+		size_t index = getIndex(rootPosition.x, rootPosition.y + i, rootPosition.z);
 		blocks[index] = Block::LogOak;
 	}
 	
 	// Leaves - create a spherical canopy
-	int leavesStart = position.y + treeHeight - 2;
-	int leavesEnd = position.y + treeHeight + 2;
+	int leavesStart = rootPosition.y + treeHeight - 2;
+	int leavesEnd = rootPosition.y + treeHeight + 2;
 
 	for (int ly = leavesStart; ly <= leavesEnd; ly++)
 	{
-		for (int lx = position.x - 2; lx <= position.x + 2; lx++)
+		for (int lx = rootPosition.x - 2; lx <= rootPosition.x + 2; lx++)
 		{
-			for (int lz = position.z - 2; lz <= position.z + 2; lz++)
+			for (int lz = rootPosition.z - 2; lz <= rootPosition.z + 2; lz++)
 			{
-				// Skip positions outside chunk bounds
-				if (lx < 0 || lx >= CHUNK_SIZE || lz < 0 || lz >= CHUNK_SIZE || ly < 0 || ly >= CHUNK_SIZE)
+				// Create spherical leaf pattern
+				int dx = lx - rootPosition.x;
+				int dz = lz - rootPosition.z;
+				int dy = ly - (rootPosition.y + treeHeight);
+
+				float distance = sqrtf(dx * dx + dz * dz + dy * dy * 0.8f); // Slightly elliptical
+
+				if (distance > 2.0f)
 				{
 					continue;
 				}
 
-				// Create spherical leaf pattern
-				int dx = lx - position.x;
-				int dz = lz - position.z;
-				int dy = ly - (position.y + treeHeight);
-
-				float distance = sqrtf(dx * dx + dz * dz + dy * dy * 0.8f); // Slightly elliptical
-
-				if (distance <= 2.0f)
+				if (((lx | ly | lz) & CHUNK_UPPER_BITS_MASK) == 0)
 				{
 					size_t index = getIndex(lx, ly, lz);
-					if (blocks[index] == Block::Air)
-					{
-						blocks[index] = Block::LeavesOak;
-					}
+					blocks[index] = Block::LeavesOak;
+				}
+				else
+				{
+					glm::ivec3 chunkPos = position;
+
+					if (lx < 0) chunkPos.x--;
+					else if (lx >= CHUNK_SIZE) chunkPos.x++;
+
+					if (ly < 0) chunkPos.y--;
+					else if (ly >= CHUNK_SIZE) chunkPos.y++;
+
+					if (lz < 0) chunkPos.z--;
+					else if (lz >= CHUNK_SIZE) chunkPos.z++;
+
+					int nx = lx & CHUNK_LOWER_BITS_MASK;
+					int ny = ly & CHUNK_LOWER_BITS_MASK;
+					int nz = lz & CHUNK_LOWER_BITS_MASK;
+					size_t index = getIndex(nx, ny, nz);
+
+					// TODO: If chunk blocks are built, set them directly. (Though it can break light building)
+					structureBlockChangeManager.addChange(chunkPos, index, Block::Water);
 				}
 			}
 		}
 	}
-
-	// Add some random leaves at the top for variation
-	/*if (y + treeHeight + 1 < CHUNK_SIZE) {
-		for (int lx = x - 1; lx <= x + 1; lx++) {
-			for (int lz = z - 1; lz <= z + 1; lz++) {
-				if (lx >= 0 && lx < CHUNK_SIZE && lz >= 0 && lz < CHUNK_SIZE) {
-					size_t index = getIndex(lx, y + treeHeight + 1, lz);
-					if (blocks[index] != Block::OakLog) {
-						blocks[index] = Block::OakLeaves;
-					}
-				}
-			}
-		}
-	}*/
 }
 
 void Chunk::loadBlocks()
@@ -1792,11 +1808,8 @@ bool Chunk::canBeRendered() const
 
 const Chunk* Chunk::getChunkAndIndex_checkSideNeighbor(int x, int y, int z, int side, size_t& outIndex) const
 {
-	int nx = x & CHUNK_UPPER_BITS_MASK;
-	int ny = y & CHUNK_UPPER_BITS_MASK;
-	int nz = z & CHUNK_UPPER_BITS_MASK;
-
-	if (nx == 0 && ny == 0 && nz == 0)
+	int check = (x | y | z) & CHUNK_UPPER_BITS_MASK;
+	if (check == 0)
 	{
 		outIndex = getIndex(x, y, z);
 		return this;
@@ -1864,25 +1877,19 @@ Chunk* Chunk::getChunkAndIndex_checkNeighborsTraverse(int x, int y, int z, size_
 
 Block Chunk::getBlockAt(int x, int y, int z) const
 {
-	ASSERT(x >= 0 && x < CHUNK_SIZE);
-	ASSERT(y >= 0 && y < CHUNK_SIZE);
-	ASSERT(z >= 0 && z < CHUNK_SIZE);
+	ASSERT(((x | y | z) & CHUNK_UPPER_BITS_MASK) == 0);
 	return blocks[getIndex(x, y, z)];
 }
 
 LightLevel Chunk::getLightAt(int x, int y, int z) const
 {
-	ASSERT(x >= 0 && x < CHUNK_SIZE);
-	ASSERT(y >= 0 && y < CHUNK_SIZE);
-	ASSERT(z >= 0 && z < CHUNK_SIZE);
+	ASSERT(((x | y | z) & CHUNK_UPPER_BITS_MASK) == 0);
 	return lightLevels[getIndex(x, y, z)];
 }
 
 std::pair<Block, LightLevel> Chunk::getBlockAndLightAt(int x, int y, int z) const
 {
-	ASSERT(x >= 0 && x < CHUNK_SIZE);
-	ASSERT(y >= 0 && y < CHUNK_SIZE);
-	ASSERT(z >= 0 && z < CHUNK_SIZE);
+	ASSERT(((x | y | z) & CHUNK_UPPER_BITS_MASK) == 0);
 	size_t index = getIndex(x, y, z);
 	return std::make_pair(blocks[index], lightLevels[index]);
 }
@@ -1907,9 +1914,7 @@ std::pair<Block, LightLevel> Chunk::getBlockAndLightAt(size_t index) const
 
 void Chunk::setBlockAt(int x, int y, int z, Block block)
 {
-	ASSERT(x >= 0 && x < CHUNK_SIZE);
-	ASSERT(y >= 0 && y < CHUNK_SIZE);
-	ASSERT(z >= 0 && z < CHUNK_SIZE);
+	ASSERT(((x | y | z) & CHUNK_UPPER_BITS_MASK) == 0);
 
 	size_t index = getIndex(x, y, z);
 
@@ -2018,27 +2023,21 @@ void Chunk::setBlockAt(int x, int y, int z, Block block)
 
 void Chunk::setLightAt(int x, int y, int z, LightLevel lightValue)
 {
-	ASSERT(x >= 0 && x < CHUNK_SIZE);
-	ASSERT(y >= 0 && y < CHUNK_SIZE);
-	ASSERT(z >= 0 && z < CHUNK_SIZE);
+	ASSERT(((x | y | z) & CHUNK_UPPER_BITS_MASK) == 0);
 	lightLevels[getIndex(x, y, z)] = lightValue;
 	markBlockMeshDirty(x, y, z);
 }
 
 void Chunk::setBlockLightAt(int x, int y, int z, uint8_t lightLevel)
 {
-	ASSERT(x >= 0 && x < CHUNK_SIZE);
-	ASSERT(y >= 0 && y < CHUNK_SIZE);
-	ASSERT(z >= 0 && z < CHUNK_SIZE);
+	ASSERT(((x | y | z) & CHUNK_UPPER_BITS_MASK) == 0);
 	lightLevels[getIndex(x, y, z)].blockLight = lightLevel;
 	markBlockMeshDirty(x, y, z);
 }
 
 void Chunk::setSkyLightAt(int x, int y, int z, uint8_t lightLevel)
 {
-	ASSERT(x >= 0 && x < CHUNK_SIZE);
-	ASSERT(y >= 0 && y < CHUNK_SIZE);
-	ASSERT(z >= 0 && z < CHUNK_SIZE);
+	ASSERT(((x | y | z) & CHUNK_UPPER_BITS_MASK) == 0);
 	lightLevels[getIndex(x, y, z)].skyLight = lightLevel;
 	markBlockMeshDirty(x, y, z);
 }
@@ -2408,6 +2407,12 @@ bool Chunk::areBlocksBuilt() const
 bool Chunk::isLightBuilt() const
 {
 	return getState() >= State::LightsBuilt;
+}
+
+void Chunk::setBlocksBuiltToFalse()
+{
+	setState(State::NotInitialized_NeedsBlocks);
+	changedBlocks.clear();
 }
 
 void Chunk::addLoader()
