@@ -276,8 +276,10 @@ void Chunk::buildBlocks()
 		auto pendingChanges = structureBlockChangeManager.retrieveAndClearChanges(position);
 		for (const auto& change : pendingChanges)
 		{
-			ASSERT(change.index < CHUNK_VOLUME);
-			blocks[change.index] = change.block;
+			if (!change.placeIfBlockIsAir || blocks[change.index] == Block::Air)
+			{
+				blocks[change.index] = change.block;
+			}
 		}
 	}
 
@@ -369,6 +371,26 @@ void Chunk::buildBlocks()
 	}
 }
 
+bool Chunk::hasStructureBlockUpdates() const
+{
+	return structureBlockChangeManager.hasPendingChanges(position);
+}
+
+void Chunk::updateStructureBlocks()
+{
+	ScopedProcessingFence scopedFence(processingFence);
+
+	auto pendingChanges = structureBlockChangeManager.retrieveAndClearChanges(position);
+	for (const auto& change : pendingChanges)
+	{
+		if (!change.placeIfBlockIsAir || blocks[change.index] == Block::Air)
+		{
+			auto pos = getPositionFromIndex(change.index);
+			setBlockAt(pos.x, pos.y, pos.z, change.block, false);
+		}
+	}
+}
+
 void Chunk::generateTree(const glm::ivec3& rootPosition)
 {
 	const int treeHeight = 4;
@@ -411,7 +433,10 @@ void Chunk::generateTree(const glm::ivec3& rootPosition)
 				if (((lx | ly | lz) & CHUNK_UPPER_BITS_MASK) == 0)
 				{
 					size_t index = getIndex(lx, ly, lz);
-					blocks[index] = Block::LeavesOak;
+					if (blocks[index] == Block::Air)
+					{
+						blocks[index] = Block::LeavesOak;
+					}
 				}
 				else
 				{
@@ -431,8 +456,7 @@ void Chunk::generateTree(const glm::ivec3& rootPosition)
 					int nz = lz & CHUNK_LOWER_BITS_MASK;
 					size_t index = getIndex(nx, ny, nz);
 
-					// TODO: If chunk blocks are built, set them directly. (Though it can break light building)
-					structureBlockChangeManager.addChange(chunkPos, index, Block::Water);
+					structureBlockChangeManager.addChange(chunkPos, Block::LeavesOak, index, true);
 				}
 			}
 		}
@@ -1912,7 +1936,7 @@ std::pair<Block, LightLevel> Chunk::getBlockAndLightAt(size_t index) const
 	return std::make_pair(blocks[index], lightLevels[index]);
 }
 
-void Chunk::setBlockAt(int x, int y, int z, Block block)
+void Chunk::setBlockAt(int x, int y, int z, Block block, bool saveBlockChanges)
 {
 	ASSERT(((x | y | z) & CHUNK_UPPER_BITS_MASK) == 0);
 
@@ -1928,8 +1952,11 @@ void Chunk::setBlockAt(int x, int y, int z, Block block)
 	blocks[index] = block;
 
 	// Update changedBlocks map
-	removeIndexFromMap(previousBlock, static_cast<uint16_t>(index));
-	changedBlocks[block].push_back(static_cast<uint16_t>(index));
+	if (saveBlockChanges)
+	{
+		removeIndexFromMap(previousBlock, static_cast<uint16_t>(index));
+		changedBlocks[block].push_back(static_cast<uint16_t>(index));
+	}
 
 	// Mark meshes as dirty
 	markBlockMeshDirty(x, y, z);

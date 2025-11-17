@@ -196,6 +196,20 @@ void World::update(float deltaTime)
 		startBuildingChunkBlocks();
 	}
 
+	{
+		PROFILE_SCOPE("Update chunk blocks", ProfileCategory::ChunkBlocks);
+
+		for (const auto& pair : chunks)
+		{
+			Chunk* chunk = pair.second.get();
+			
+			if (chunk->areBlocksBuilt() && chunk->hasStructureBlockUpdates())
+			{
+				chunk->updateStructureBlocks();
+			}
+		}
+	}
+
 	if (!buildLightContainer.empty())
 	{
 		startBuildingChunkLights();
@@ -959,6 +973,7 @@ void World::updateBlockAt(const glm::ivec3& worldPos, Block block)
 	}
 
 	// Update the block
+	// Can possibly break something if chunk is in the middle of processing
 	chunk->setBlockAt(localPos.x, localPos.y, localPos.z, block);
 }
 

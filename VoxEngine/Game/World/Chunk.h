@@ -146,6 +146,8 @@ public:
 	void destroy();
 
 	void buildBlocks();
+	bool hasStructureBlockUpdates() const;
+	void updateStructureBlocks();
 private:
 	void generateTree(const glm::ivec3& position);
 private:
@@ -177,12 +179,13 @@ public:
 	bool canBeRendered() const;
 
 	// Chunk traverse
+private:
 	const Chunk* getChunkAndIndex_checkSideNeighbor(int x, int y, int z, int side, size_t& outIndex) const;
 	Chunk* getChunkAndIndex_checkSideNeighbor(int x, int y, int z, int side, size_t& outIndex);
 
 	const Chunk* getChunkAndIndex_checkNeighborsTraverse(int x, int y, int z, size_t& outIndex) const;
 	Chunk* getChunkAndIndex_checkNeighborsTraverse(int x, int y, int z, size_t& outIndex);
-
+public:
 	// Grid getters
 	Block getBlockAt(int x, int y, int z) const;
 	LightLevel getLightAt(int x, int y, int z) const;
@@ -193,7 +196,7 @@ public:
 	std::pair<Block, LightLevel> getBlockAndLightAt(size_t index) const;
 
 	// Grid setters
-	void setBlockAt(int x, int y, int z, Block block);
+	void setBlockAt(int x, int y, int z, Block block, bool saveBlockChanges = true);
 	void setLightAt(int x, int y, int z, LightLevel lightLevel);
 	void setBlockLightAt(int x, int y, int z, uint8_t lightLevel);
 	void setSkyLightAt(int x, int y, int z, uint8_t lightLevel);

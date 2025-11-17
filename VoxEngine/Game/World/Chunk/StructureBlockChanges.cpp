@@ -2,12 +2,12 @@
 
 #include <iostream>
 
-void StructureBlockChangeManager::addChange(const glm::ivec3& chunkPos, uint16_t index, Block block)
+void StructureBlockChangeManager::addChange(const glm::ivec3& chunkPos, Block block, uint16_t index, bool placeIfBlockIsAir)
 {
     std::lock_guard<std::mutex> lock(changesMutex);
 
     // Add change to the vector for this chunk
-    pendingChanges[chunkPos].emplace_back(index, block);
+    pendingChanges[chunkPos].emplace_back(block, index, placeIfBlockIsAir);
 }
 
 std::vector<StructureBlockChange> StructureBlockChangeManager::retrieveAndClearChanges(const glm::ivec3& chunkPos)
