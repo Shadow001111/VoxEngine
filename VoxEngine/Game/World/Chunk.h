@@ -82,7 +82,7 @@ private:
 	glm::ivec3 position;
 
 	//
-	uint16_t cameraClosestBlockPosForSortingMesh; // 5 bits per axis
+	uint16_t cameraClosestBlockPosForSortingMesh; // 4 bits per axis
 
 	// States and flags
 	std::atomic<State> state;

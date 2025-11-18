@@ -244,7 +244,7 @@ void World::update(float deltaTime)
 
 void World::sortChunkMeshes(const glm::vec3& cameraPos)
 {
-	// No multithreading for now
+	// TODO: Add multithreading
 	const glm::ivec3 cameraBlockPos = glm::floor(cameraPos);
 	const bool cameraMoved = cameraBlockPos != lastChunkMeshSortPos;
 	lastChunkMeshSortPos = cameraBlockPos;
@@ -601,14 +601,7 @@ void World::rebuildAllChunkMeshes()
 
 void World::debugMethod()
 {
-	for (const auto& pair : chunks)
-	{
-		Chunk* chunk = pair.second.get();
-		chunk->setBlocksBuiltToFalse();
-
-		std::lock_guard<std::mutex> lock(buildBlocksMutex);
-		buildBlocksContainer.insert(chunk);
-	}
+	
 }
 
 const World::DebugData& World::getDebugData() const
@@ -973,7 +966,7 @@ void World::updateBlockAt(const glm::ivec3& worldPos, Block block)
 	}
 
 	// Update the block
-	// Can possibly break something if chunk is in the middle of processing
+	// TODO: Can possibly break something if chunk is in the middle of processing
 	chunk->setBlockAt(localPos.x, localPos.y, localPos.z, block);
 }
 

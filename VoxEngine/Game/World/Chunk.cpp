@@ -172,7 +172,7 @@ void Chunk::buildBlocks()
 	{
 		PROFILE_SCOPE("Build chunk blocks", ProfileCategory::ChunkBlocks);
 
-		const int globalChunkY = position.y * CHUNK_SIZE;
+		/*const int globalChunkY = position.y * CHUNK_SIZE;
 		for (int x = 0; x < CHUNK_SIZE; x++)
 		{
 			for (int z = 0; z < CHUNK_SIZE; z++)
@@ -205,6 +205,23 @@ void Chunk::buildBlocks()
 					}
 
 					blocks[index] = block;
+				}
+			}
+		}*/
+
+		for (size_t x = 0; x < CHUNK_SIZE; x++)
+		{
+			for (size_t y = 0; y < CHUNK_SIZE; y++)
+			{
+				for (size_t z = 0; z < CHUNK_SIZE; z++)
+				{
+					size_t index = getIndex(x, y, z);
+
+					size_t x2 = x >> 1;
+					size_t y2 = y >> 1;
+					size_t z2 = z >> 1;
+
+					blocks[index] = ((x2 + y2 + z2) & 1) ? Block::Air : Block::ColoredGlass;
 				}
 			}
 		}
@@ -1641,51 +1658,45 @@ void Chunk::sortMesh(const glm::ivec3& cameraBlockPos)
 	}
 	cameraClosestBlockPosForSortingMesh = compare;
 
-	Profiler::beginProfile("Sort chunk mesh: wait", ProfileCategory::ChunkMesh);
 	ScopedProcessingFence scopedFence(meshData.processingFence);
-	Profiler::endProfile();
 
-	PROFILE_SCOPE("Sort chunk mesh", ProfileCategory::ChunkMesh);
+	//PROFILE_SCOPE("Sort chunk mesh", ProfileCategory::ChunkMesh);
 
 	// Sorting only transparent faces for now
 	// If GL_CULL_FACE is disabled, sorting must be adjusted. If faces have same position, they should be sorted by prioritized normal(something opposite to camera direction).
 	// TODO: Consider sorting opaque faces to reduce overdraw
 
-	const size_t instanceCount = meshData.transparentInstances.size();
-	std::vector<std::pair<uint8_t, uint16_t>> distanceIndexPairs;
-	distanceIndexPairs.reserve(instanceCount);
+	// Create buckets
+	constexpr int BUCKETS_COUNT = CHUNK_SIZE * 3 - 2; // (CHUNK_SIZE - 1) * 3 + 1
+	std::vector<BlockFaceInstance> buckets[BUCKETS_COUNT];
 
-	// Collect
-	for (size_t i = 0; i < instanceCount; ++i)
+	// Fill buckets
 	{
-		const auto& instance = meshData.transparentInstances[i];
-
-		glm::ivec3 pos;
-		instance.decodePosition(pos.x, pos.y, pos.z);
-
-		glm::ivec3 delta = glm::abs(pos - calculateDistanceFrom);
-		unsigned int manhattanDistance = delta.x + delta.y + delta.z;
-
-		distanceIndexPairs.emplace_back(manhattanDistance, i);
-	}
-
-	// Sorting faces in descending order, so furthest transparent faces will be rendered first, for blending
-	std::sort(distanceIndexPairs.begin(), distanceIndexPairs.end(),
-		[](const auto& a, const auto& b)
+		PROFILE_SCOPE("Sort chunk mesh: fill buckets", ProfileCategory::ChunkMesh);
+		for (const auto& instance : meshData.transparentInstances)
 		{
-			return a.first > b.first;
-		});
+			glm::ivec3 pos;
+			instance.decodePosition(pos.x, pos.y, pos.z);
 
-	// Reordering instances
-	std::vector<BlockFaceInstance> reordered;
-	reordered.reserve(instanceCount);
+			glm::ivec3 delta = glm::abs(pos - calculateDistanceFrom);
+			uint8_t manhattanDistance = delta.x + delta.y + delta.z;
 
-	for (const auto& pair : distanceIndexPairs)
-	{
-		reordered.push_back(std::move(meshData.transparentInstances[pair.second]));
+			buckets[manhattanDistance].push_back(instance);
+		}
 	}
 
-	meshData.transparentInstances = std::move(reordered);
+	// Collect elements from buckets back into array
+	{
+		PROFILE_SCOPE("Sort chunk mesh: combine buckets", ProfileCategory::ChunkMesh);
+		size_t index = 0;
+		for (size_t bucketIndex = 0; bucketIndex < BUCKETS_COUNT; bucketIndex++)
+		{
+			for (const auto& instance : buckets[bucketIndex])
+			{
+				meshData.transparentInstances[index++] = instance;
+			}
+		}
+	}
 	meshData.transparentDirty = true;
 }
 
