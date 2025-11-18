@@ -244,24 +244,28 @@ void World::update(float deltaTime)
 
 void World::sortChunkMeshes(const glm::vec3& cameraPos)
 {
-	// TODO: Add multithreading
 	const glm::ivec3 cameraBlockPos = glm::floor(cameraPos);
 	const bool cameraMoved = cameraBlockPos != lastChunkMeshSortPos;
 	lastChunkMeshSortPos = cameraBlockPos;
+
+	ThreadPool& pool = ParallelUtils::getGlobalThreadPool();
 
 	for (auto& pair : chunks)
 	{
 		Chunk* chunk = pair.second.get();
 		if (chunk->shouldMeshBeSorted(cameraMoved))
 		{
-			chunk->sortMesh(lastChunkMeshSortPos);
+			pool.enqueue([this, chunk]()
+				{
+					chunk->sortMesh(lastChunkMeshSortPos);
+				});
 		}
 	}
 }
 
 void World::sendChunkMeshesToGPU()
 {
-	// Sends only dirty meshes
+	// Send only dirty meshes
 	for (auto& pair : chunks)
 	{
 		Chunk* chunk = pair.second.get();
@@ -904,6 +908,7 @@ void World::collectChunksToRender(std::vector<ChunkRenderInfo>& chunksToRender, 
 		glm::dvec3 chunkWorldPosition = glm::dvec3(chunkPosition * CHUNK_SIZE);
 
 		chunkShape.center = chunkWorldPosition + chunkShape.halfExtents;
+		// TODO: Frustum doesn't work properly
 		if (!frustum.checkBox(chunkShape))
 		{
 			continue;

@@ -1667,23 +1667,21 @@ void Chunk::sortMesh(const glm::ivec3& cameraBlockPos)
 	// TODO: Consider sorting opaque faces to reduce overdraw
 
 	// Create buckets
-	constexpr int BUCKETS_COUNT = CHUNK_SIZE * 3 - 2; // (CHUNK_SIZE - 1) * 3 + 1
-	std::vector<size_t> bucketOffsets(BUCKETS_COUNT + 1, 0);
+	constexpr int BUCKET_COUNT = (CHUNK_SIZE - 1) * 3 + 1;
+	size_t bucketOffsets[BUCKET_COUNT + 1];
+	std::fill(bucketOffsets, bucketOffsets + BUCKET_COUNT + 1, 0);
 
+	for (const auto& instance : meshData.transparentInstances)
 	{
-		//PROFILE_SCOPE("Sort chunk mesh: buckets", ProfileCategory::ChunkMesh);
-		for (const auto& instance : meshData.transparentInstances)
-		{
-			glm::ivec3 pos;
-			instance.decodePosition(pos.x, pos.y, pos.z);
-			glm::ivec3 delta = glm::abs(pos - calculateDistanceFrom);
-			uint8_t manhattanDistance = delta.x + delta.y + delta.z;
-			bucketOffsets[manhattanDistance + 1]++;
-		}
+		glm::ivec3 pos;
+		instance.decodePosition(pos.x, pos.y, pos.z);
+		glm::ivec3 delta = glm::abs(pos - calculateDistanceFrom);
+		uint8_t manhattanDistance = delta.x + delta.y + delta.z;
+		bucketOffsets[manhattanDistance + 1]++;
 	}
 
-	// Prefix sum
-	for (size_t i = 1; i <= BUCKETS_COUNT; i++)
+	// Prefix sum (Last elemnt isn't needed, so don't change it)
+	for (size_t i = 1; i < BUCKET_COUNT; i++)
 	{
 		bucketOffsets[i] += bucketOffsets[i - 1];
 	}
@@ -1699,8 +1697,6 @@ void Chunk::sortMesh(const glm::ivec3& cameraBlockPos)
 		sorted[bucketOffsets[manhattanDistance]++] = instance;
 	}
 	meshData.transparentInstances = std::move(sorted);
-
-	//
 	meshData.transparentDirty = true;
 }
 
@@ -1721,12 +1717,10 @@ void Chunk::markMeshDirty()
 
 void Chunk::askForMeshUpload()
 {
-	if (!(meshData.opaqueDirty || meshData.transparentDirty))
+	if (meshData.opaqueDirty || meshData.transparentDirty)
 	{
-		return;
+		pendingMeshUploads.push_back(&meshData);
 	}
-
-	pendingMeshUploads.push_back(&meshData);
 }
 
 void Chunk::sendMeshesToGPU()
