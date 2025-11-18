@@ -1660,7 +1660,7 @@ void Chunk::sortMesh(const glm::ivec3& cameraBlockPos)
 
 	ScopedProcessingFence scopedFence(meshData.processingFence);
 
-	//PROFILE_SCOPE("Sort chunk mesh", ProfileCategory::ChunkMesh);
+	PROFILE_SCOPE("Sort chunk mesh", ProfileCategory::ChunkMesh);
 
 	// Sorting only transparent faces for now
 	// If GL_CULL_FACE is disabled, sorting must be adjusted. If faces have same position, they should be sorted by prioritized normal(something opposite to camera direction).
@@ -1668,35 +1668,39 @@ void Chunk::sortMesh(const glm::ivec3& cameraBlockPos)
 
 	// Create buckets
 	constexpr int BUCKETS_COUNT = CHUNK_SIZE * 3 - 2; // (CHUNK_SIZE - 1) * 3 + 1
-	std::vector<BlockFaceInstance> buckets[BUCKETS_COUNT];
+	std::vector<size_t> bucketOffsets(BUCKETS_COUNT + 1, 0);
 
-	// Fill buckets
 	{
-		PROFILE_SCOPE("Sort chunk mesh: fill buckets", ProfileCategory::ChunkMesh);
+		//PROFILE_SCOPE("Sort chunk mesh: buckets", ProfileCategory::ChunkMesh);
 		for (const auto& instance : meshData.transparentInstances)
 		{
 			glm::ivec3 pos;
 			instance.decodePosition(pos.x, pos.y, pos.z);
-
 			glm::ivec3 delta = glm::abs(pos - calculateDistanceFrom);
 			uint8_t manhattanDistance = delta.x + delta.y + delta.z;
-
-			buckets[manhattanDistance].push_back(instance);
+			bucketOffsets[manhattanDistance + 1]++;
 		}
 	}
 
-	// Collect elements from buckets back into array
+	// Prefix sum
+	for (size_t i = 1; i <= BUCKETS_COUNT; i++)
 	{
-		PROFILE_SCOPE("Sort chunk mesh: combine buckets", ProfileCategory::ChunkMesh);
-		size_t index = 0;
-		for (size_t bucketIndex = 0; bucketIndex < BUCKETS_COUNT; bucketIndex++)
-		{
-			for (const auto& instance : buckets[bucketIndex])
-			{
-				meshData.transparentInstances[index++] = instance;
-			}
-		}
+		bucketOffsets[i] += bucketOffsets[i - 1];
 	}
+
+	// Second pass: place instances directly in final positions
+	std::vector<BlockFaceInstance> sorted(meshData.transparentInstances.size());
+	for (const auto& instance : meshData.transparentInstances)
+	{
+		glm::ivec3 pos;
+		instance.decodePosition(pos.x, pos.y, pos.z);
+		glm::ivec3 delta = glm::abs(pos - calculateDistanceFrom);
+		uint8_t manhattanDistance = delta.x + delta.y + delta.z;
+		sorted[bucketOffsets[manhattanDistance]++] = instance;
+	}
+	meshData.transparentInstances = std::move(sorted);
+
+	//
 	meshData.transparentDirty = true;
 }
 
