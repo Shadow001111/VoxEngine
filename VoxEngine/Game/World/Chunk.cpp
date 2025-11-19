@@ -20,13 +20,13 @@ std::filesystem::path Chunk::WORLD_PATH;
 
 inline size_t Chunk::getIndex(int x, int y, int z)
 {
-	return (x << (CHUNK_SIZE_LOG2 * 2)) | (y << CHUNK_SIZE_LOG2) | z;
+	return (x << (CHUNK_SIZE_LOG2 << 1)) | (y << CHUNK_SIZE_LOG2) | z;
 }
 
 glm::ivec3 Chunk::getPositionFromIndex(size_t index)
 {
 	return {
-		(index >> (CHUNK_SIZE_LOG2 * 2)) & CHUNK_LOWER_BITS_MASK,
+		(index >> (CHUNK_SIZE_LOG2 << 1)) & CHUNK_LOWER_BITS_MASK,
 		(index >> CHUNK_SIZE_LOG2) & CHUNK_LOWER_BITS_MASK,
 		index & CHUNK_LOWER_BITS_MASK
 	};
@@ -172,7 +172,7 @@ void Chunk::buildBlocks()
 	{
 		PROFILE_SCOPE("Build chunk blocks", ProfileCategory::ChunkBlocks);
 
-		/*const int globalChunkY = position.y * CHUNK_SIZE;
+		const int globalChunkY = position.y * CHUNK_SIZE;
 		for (int x = 0; x < CHUNK_SIZE; x++)
 		{
 			for (int z = 0; z < CHUNK_SIZE; z++)
@@ -205,23 +205,6 @@ void Chunk::buildBlocks()
 					}
 
 					blocks[index] = block;
-				}
-			}
-		}*/
-
-		for (size_t x = 0; x < CHUNK_SIZE; x++)
-		{
-			for (size_t y = 0; y < CHUNK_SIZE; y++)
-			{
-				for (size_t z = 0; z < CHUNK_SIZE; z++)
-				{
-					size_t index = getIndex(x, y, z);
-
-					size_t x2 = x >> 1;
-					size_t y2 = y >> 1;
-					size_t z2 = z >> 1;
-
-					blocks[index] = ((x2 + y2 + z2) & 1) ? Block::Air : Block::ColoredGlass;
 				}
 			}
 		}
@@ -1828,15 +1811,7 @@ void Chunk::collectTransparentRenderData(std::vector<DrawArraysIndirectCommand>&
 
 bool Chunk::canBeRendered() const
 {
-	if (!meshData.created)
-	{
-		return false;
-	}
-
-	const size_t faceCount = meshData.getRenderFaceCount();
-	return
-		faceCount > 0 &&
-		faceCount <= meshData.getFaceCapacity();
+	return meshData.created && meshData.getRenderFaceCount() > 0;
 }
 
 const Chunk* Chunk::getChunkAndIndex_checkSideNeighbor(int x, int y, int z, int side, size_t& outIndex) const

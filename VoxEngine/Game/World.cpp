@@ -220,15 +220,15 @@ void World::update(float deltaTime)
 	{
 		size_t iterations = 0;
 		collectChunksNeedingLightUpdate();
-		while (!lightUpdateContainer.empty())
+		while (!lightUpdateContainerA.empty() && !lightUpdateContainerB.empty())
 		{
 			updateChunkLights();
-			collectChunksNeedingLightUpdate();
 			iterations++;
 			if (iterations >= 10)
 			{
 				break;
 			}
+			collectChunksNeedingLightUpdate();
 		}
 	}
 
@@ -281,6 +281,42 @@ void World::clearFrambuffer() const
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
+void World::collectChunksToRender(std::vector<ChunkRenderInfo>& chunksToRender, const Camera& camera) const
+{
+	chunksToRender.reserve(chunks.size());
+
+	const Frustum& frustum = camera.getFrustum();
+	Box chunkShape(glm::dvec3(0.0), glm::dvec3(CHUNK_SIZE >> 1));
+
+	const glm::dvec3 cameraPosition = camera.getPosition();
+	const glm::ivec3 cameraChunkPosition = glm::ivec3(glm::floor(cameraPosition / (double)CHUNK_SIZE));
+
+	for (const auto& pair : chunks)
+	{
+		const Chunk* chunk = pair.second.get();
+
+		if (!chunk->canBeRendered())
+		{
+			continue;
+		}
+
+		// Check is chunk is on frustum
+		glm::ivec3 chunkPosition = chunk->getPosition();
+		glm::dvec3 chunkWorldPosition = chunkPosition << CHUNK_SIZE_LOG2;
+
+		chunkShape.center = chunkWorldPosition + chunkShape.halfExtents;
+		if (!frustum.checkBox(chunkShape))
+		{
+			continue;
+		}
+
+		glm::ivec3 delta = glm::abs(chunkPosition - cameraChunkPosition);
+
+		unsigned int manhattanDistance = delta.x + delta.y + delta.z;
+		chunksToRender.emplace_back(chunk, manhattanDistance);
+	}
+}
+
 void World::renderChunks(const Camera& camera) const
 {
 	faceShader->use();
@@ -328,8 +364,11 @@ void World::renderChunks(const Camera& camera) const
 	glDepthFunc(GL_LESS);
 	glEnable(GL_CULL_FACE);
 
+	//
+	const size_t renderChunkCount = chunksToRender.size();
+
 	// Debug data
-	debugData.renderedChunks = chunksToRender.size();
+	debugData.renderedChunks = renderChunkCount;
 	debugData.renderedFaceCount = 0;
 
 	// Opaque
@@ -339,8 +378,9 @@ void World::renderChunks(const Camera& camera) const
 		{
 			PROFILE_SCOPE("Render: collect draw commands", ProfileCategory::Render);
 
-			for (const auto& info : chunksToRender)
+			for (size_t i = 0; i < renderChunkCount; i++)
 			{
+				const auto& info = chunksToRender[i];
 				info.chunk->collectOpaqueRenderData(chunkDrawCommands, chunkPositions);
 			}
 		}
@@ -366,15 +406,15 @@ void World::renderChunks(const Camera& camera) const
 	}
 
 	// Transparent
-	std::reverse(chunksToRender.begin(), chunksToRender.end());
 	chunkDrawCommands.clear();
 	chunkPositions.clear();
 	{
 		{
 			PROFILE_SCOPE("Render: collect draw commands", ProfileCategory::Render);
 
-			for (const auto& info : chunksToRender)
+			for (size_t i = renderChunkCount; i-- > 0;)
 			{
+				const auto& info = chunksToRender[i];
 				info.chunk->collectTransparentRenderData(chunkDrawCommands, chunkPositions);
 			}
 		}
@@ -816,42 +856,6 @@ void World::startBuildingChunkLights()
 	}
 }
 
-void World::updateChunkLights()
-{
-	// Using parallelForEach because it will assure that all tasks are done before returning
-	
-	// Split chunks into two groups in checkboard pattern and update them in two separate passes to avoid racing conditions
-	std::vector<Chunk*> groupA;
-	groupA.reserve(lightUpdateContainer.size() / 2);
-
-	std::vector<Chunk*> groupB;
-	groupB.reserve(lightUpdateContainer.size() / 2);
-
-	for (Chunk* chunk : lightUpdateContainer)
-	{
-		glm::ivec3 pos = chunk->getPosition();
-		if ((pos.x + pos.y + pos.z) & 1)
-		{
-			groupA.push_back(chunk);
-		}
-		else
-		{
-			groupB.push_back(chunk);
-		}
-	}
-
-	lightUpdateContainer.clear();
-
-	ParallelUtils::parallelForEach(groupA, 1, [](Chunk* chunk)
-		{
-			chunk->updateLight();
-		});
-	ParallelUtils::parallelForEach(groupB, 1, [](Chunk* chunk)
-		{
-			chunk->updateLight();
-		});
-}
-
 void World::collectChunksNeedingLightUpdate()
 {
 	PROFILE_SCOPE("Collect chunks needing light update", ProfileCategory::ChunkLight);
@@ -861,11 +865,34 @@ void World::collectChunksNeedingLightUpdate()
 		Chunk* chunk = pair.second.get();
 		if (chunk->hasLightUpdates())
 		{
-			lightUpdateContainer.push_back(chunk);
+			glm::ivec3 pos = chunk->getPosition();
+			if ((pos.x & 1) ^ (pos.y & 1) ^ (pos.z & 1))
+			{
+				lightUpdateContainerA.push_back(chunk);
+			}
+			else
+			{
+				lightUpdateContainerB.push_back(chunk);
+			}
 		}
 	}
+}
 
-	// TODO: Collect chunks directly to groups A and B
+void World::updateChunkLights()
+{
+	// Using parallelForEach because it will assure that all tasks are done before returning
+	// Update chunks in two separate passes in checkboard pattern to avoid racing conditions
+	ParallelUtils::parallelForEach(lightUpdateContainerA, 1, [](Chunk* chunk)
+		{
+			chunk->updateLight();
+		});
+	ParallelUtils::parallelForEach(lightUpdateContainerB, 1, [](Chunk* chunk)
+		{
+			chunk->updateLight();
+		});
+
+	lightUpdateContainerA.clear();
+	lightUpdateContainerB.clear();
 }
 
 void World::updateChunkMeshes()
@@ -881,43 +908,6 @@ void World::updateChunkMeshes()
 					chunk->updateMesh();
 				});
 		}
-	}
-}
-
-void World::collectChunksToRender(std::vector<ChunkRenderInfo>& chunksToRender, const Camera& camera) const
-{
-	chunksToRender.reserve(chunks.size());
-
-	const Frustum& frustum = camera.getFrustum();
-	Box chunkShape(glm::dvec3(0.0), glm::dvec3(CHUNK_SIZE >> 1));
-
-	const glm::dvec3 cameraPosition = camera.getPosition();
-	const glm::ivec3 cameraChunkPosition = glm::ivec3(cameraPosition) >> CHUNK_SIZE_LOG2;
-
-	for (const auto& pair : chunks)
-	{
-		const Chunk* chunk = pair.second.get();
-
-		if (!chunk->canBeRendered())
-		{
-			continue;
-		}
-
-		// Check is chunk is on frustum
-		glm::ivec3 chunkPosition = chunk->getPosition();
-		glm::dvec3 chunkWorldPosition = glm::dvec3(chunkPosition * CHUNK_SIZE);
-
-		chunkShape.center = chunkWorldPosition + chunkShape.halfExtents;
-		// TODO: Frustum doesn't work properly
-		if (!frustum.checkBox(chunkShape))
-		{
-			continue;
-		}
-
-		glm::ivec3 delta = glm::abs(chunkPosition - cameraChunkPosition);
-
-		unsigned int manhattanDistance = delta.x + delta.y + delta.z;
-		chunksToRender.emplace_back(chunk, manhattanDistance);
 	}
 }
 

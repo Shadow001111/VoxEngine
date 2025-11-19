@@ -57,7 +57,8 @@ private:
 	std::unordered_set<Chunk*> buildLightContainer;
 	std::mutex buildLightMutex;
 
-	std::vector<Chunk*> lightUpdateContainer;
+	std::vector<Chunk*> lightUpdateContainerA;
+	std::vector<Chunk*> lightUpdateContainerB;
 
 	glm::ivec3 lastChunkLoaderPos = { INT_MAX, INT_MAX, INT_MAX };
 	int lastChunkLoadingDistance = -1;
@@ -102,6 +103,7 @@ public:
 	void sendChunkMeshesToGPU();
 
 	void clearFrambuffer() const;
+	void collectChunksToRender(std::vector<ChunkRenderInfo>& chunksToRender, const Camera& camera) const;
 	void renderChunks(const Camera& camera) const;
 	void renderVoxelMarker(const Camera& camera, const RaycastResult& raycast) const;
 
@@ -146,12 +148,10 @@ private:
 	void startBuildingChunkBlocks();
 	void startBuildingChunkLights();
 
-	void updateChunkLights();
 	void collectChunksNeedingLightUpdate();
+	void updateChunkLights();
 
 	void updateChunkMeshes();
-
-	void collectChunksToRender(std::vector<ChunkRenderInfo>& chunksToRender, const Camera& camera) const;
 public:
 	bool placeBlock(const RaycastResult& raycast, Block block);
 	bool breakBlock(const RaycastResult& raycast);
