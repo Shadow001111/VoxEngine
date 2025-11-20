@@ -408,6 +408,8 @@ void World::renderChunks(const Camera& camera) const
 	// Transparent
 	chunkDrawCommands.clear();
 	chunkPositions.clear();
+	//glDisable(GL_CULL_FACE);
+	//glDisable(GL_DEPTH_TEST);
 	{
 		{
 			PROFILE_SCOPE("Render: collect draw commands", ProfileCategory::Render);
@@ -483,9 +485,8 @@ void World::renderVoxelMarker(const Camera& camera, const RaycastResult& raycast
 		break;
 	}*/
 
-	glEnable(GL_DEPTH_TEST);
+	glDisable(GL_DEPTH_TEST);
 	glDisable(GL_BLEND);
-	glDepthFunc(GL_LEQUAL);
 	glEnable(GL_CULL_FACE);
 
 	{
@@ -866,7 +867,7 @@ void World::collectChunksNeedingLightUpdate()
 		if (chunk->hasLightUpdates())
 		{
 			glm::ivec3 pos = chunk->getPosition();
-			if ((pos.x & 1) ^ (pos.y & 1) ^ (pos.z & 1))
+			if ((pos.x ^ pos.y ^ pos.z) & 1)
 			{
 				lightUpdateContainerA.push_back(chunk);
 			}

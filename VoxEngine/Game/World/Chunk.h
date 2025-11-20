@@ -234,8 +234,6 @@ public:
 	bool areBlocksBuilt() const;
 	bool isLightBuilt() const;
 
-	void setBlocksBuiltToFalse(); // TODO: Delete
-
 	// Getters and setters for loaderCount
 	void addLoader();
 	void removeLoader();

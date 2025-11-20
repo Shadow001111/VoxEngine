@@ -1,6 +1,7 @@
 #include "TerrainGenerator.h"
 
 #include "Core/Profiler.h"
+#include "Core/Assert.h"
 
 #include <iostream>
 #include <cmath>
@@ -126,12 +127,14 @@ void ChunkColumnData::setToInitialized()
 
 std::unique_ptr<ChunkColumnData> TerrainGenerator::ChunkColumnDataPool::acquire()
 {
-	std::lock_guard<std::mutex> lock(poolMutex);
-	if (!pool.empty())
 	{
-		std::unique_ptr<ChunkColumnData> chunkColumnData = std::move(pool.back());
-		pool.pop_back();
-		return chunkColumnData;
+		std::lock_guard<std::mutex> lock(poolMutex);
+		if (!pool.empty())
+		{
+			std::unique_ptr<ChunkColumnData> chunkColumnData = std::move(pool.back());
+			pool.pop_back();
+			return chunkColumnData;
+		}
 	}
 	return std::make_unique<ChunkColumnData>();
 }
@@ -168,65 +171,65 @@ void TerrainGenerator::initThread()
 
 const ChunkColumnData* TerrainGenerator::loadChunkColumnData(int chunkX, int chunkZ)
 {
-	Profiler::beginProfile("Load ChunkColumnData", ProfileCategory::ChunkColumnData);
-
-	glm::ivec2 pos(chunkX, chunkZ);
-
-	// Check if column already exists
+	ChunkColumnData* columnPtr;
 	{
-		ChunkColumnData* foundColumn = nullptr;
-		bool isColumnFound = false;
+		PROFILE_SCOPE("Load ChunkColumnData", ProfileCategory::ChunkColumnData);
+
+		glm::ivec2 pos(chunkX, chunkZ);
+
+		// Check if column already exists
 		{
+			ChunkColumnData* foundColumn = nullptr;
+			bool isColumnFound = false;
+			{
+				std::lock_guard<std::mutex> lock(dataMutex);
+				auto it = chunkColumnData.find(pos);
+				isColumnFound = it != chunkColumnData.end();
+				if (isColumnFound)
+				{
+					foundColumn = it->second.get();
+				}
+			}
+			if (isColumnFound)
+			{
+				foundColumn->referenceCount.fetch_add(1, std::memory_order_acq_rel);
+				return foundColumn;
+			}
+		}
+
+		// Create column
+		std::unique_ptr<ChunkColumnData> column = chunkColumnDataPool.acquire();
+		column->referenceCount = 1;
+		columnPtr = column.get();
+
+		{
+			// Check again in case another thread created it while we were acquiring from pool
 			std::lock_guard<std::mutex> lock(dataMutex);
-			auto it = chunkColumnData.find(pos);
-			isColumnFound = it != chunkColumnData.end();
+
+			ChunkColumnData* foundColumn = nullptr;
+			bool isColumnFound = false;
+			{
+				auto it = chunkColumnData.find(pos);
+				isColumnFound = it != chunkColumnData.end();
+				if (isColumnFound)
+				{
+					foundColumn = it->second.get();
+				}
+			}
+			// Mutex could be unlocked here, but I think it will cause problems, creating a gap when other thread checks the stuff.
+			// This thread must book the place for itself for creating the column.
 			if (isColumnFound)
 			{
-				foundColumn = it->second.get();
+				// Another thread beat us to it, return the column to the pool
+				chunkColumnDataPool.release(std::move(column));
+				foundColumn->referenceCount.fetch_add(1, std::memory_order_acq_rel);
+				return foundColumn;
 			}
-		}
-		if (isColumnFound)
-		{
-			foundColumn->referenceCount.fetch_add(1, std::memory_order_acq_rel);
-			Profiler::endProfile();
-			return foundColumn;
+
+			// Move column into the map
+			chunkColumnData.emplace(pos, std::move(column));
 		}
 	}
-
-	// Create column
-	std::unique_ptr<ChunkColumnData> column = chunkColumnDataPool.acquire();
-	column->referenceCount = 1;
-	ChunkColumnData* columnPtr = column.get();
-
-	{
-		// Check again in case another thread created it while we were acquiring from pool
-		std::lock_guard<std::mutex> lock(dataMutex);
-
-		ChunkColumnData* foundColumn = nullptr;
-		bool isColumnFound = false;
-		{
-			auto it = chunkColumnData.find(pos);
-			isColumnFound = it != chunkColumnData.end();
-			if (isColumnFound)
-			{
-				foundColumn = it->second.get();
-			}
-		}
-		// Mutex could be unlocked here, but I think it will cause problems, creating a gap when other thread checks the stuff.
-		// This thread must book the place for itself for creating the column.
-		if (isColumnFound)
-		{
-			// Another thread beat us to it, return the column to the pool
-			chunkColumnDataPool.release(std::move(column));
-			foundColumn->referenceCount.fetch_add(1, std::memory_order_acq_rel);
-			Profiler::endProfile();
-			return foundColumn;
-		}
-
-		// Move column into the map
-		chunkColumnData.emplace(pos, std::move(column));
-	}
-	Profiler::endProfile();
 	{
 		initChunkColumnData(columnPtr, chunkX, chunkZ);
 		columnPtr->setToInitialized();
@@ -240,26 +243,22 @@ const ChunkColumnData* TerrainGenerator::getChunkColumnData(int chunkX, int chun
 
 	glm::ivec2 pos(chunkX, chunkZ);
 
-	ChunkColumnData* foundColumn = nullptr;
+	std::lock_guard<std::mutex> lock(dataMutex);
+	const auto& it = chunkColumnData.find(pos);
+	if (it != chunkColumnData.end())
 	{
-		std::lock_guard<std::mutex> lock(dataMutex);
-		auto it = chunkColumnData.find(pos);
-		bool isColumnFound = it != chunkColumnData.end();
-		if (isColumnFound)
-		{
-			foundColumn = it->second.get();
-		}
+		return it->second.get();
 	}
-	return foundColumn;
+	return nullptr;
 }
 
 void TerrainGenerator::unloadChunkColumnData(int chunkX, int chunkZ)
 {
 	// TODO: (When moving down) Chunks on edge of render area may unload, they are last, destroying the column.
-	// Maybe get rid of unused columns in loop after creating chunks. Maybe use time or distance to determine lifetime of unused column.
+	// Posible solution: Load chunk column data in Chunk::init, not in Chunk::buildBlocks.
+	// Problems: Chunk::init is on main thread.
 	PROFILE_SCOPE("Unload ChunkColumnData", ProfileCategory::ChunkColumnData);
 
-	// TODO: Try to use mutex only when reading map and erasing from the map, not when loading referenceCount. Though, maybe it will produce bugs.
 	std::unique_ptr<ChunkColumnData> columnToRelease;
 	{
 		std::lock_guard<std::mutex> lock(dataMutex);
@@ -276,7 +275,7 @@ void TerrainGenerator::unloadChunkColumnData(int chunkX, int chunkZ)
 		// 'oldReferenceCount' has value of referenceCount before decrement operation.
 
 		// If no more references, unload the column
-		if (oldReferenceCount - 1 <= 0)
+		if (oldReferenceCount <= 1) // if (oldReferenceCount - 1 <= 0)
 		{
 			columnToRelease = std::move(it->second);
 			chunkColumnData.erase(it);

@@ -163,7 +163,8 @@ void Chunk::buildBlocks()
 	ScopedProcessingFence scopedFence(processingFence);
 
 	// Load chunk column data
-	const ChunkColumnData* chunkColumnData = TerrainGenerator::getInstance().loadChunkColumnData(position.x, position.z);
+	const ChunkColumnData* chunkColumnData;
+	chunkColumnData = TerrainGenerator::getInstance().loadChunkColumnData(position.x, position.z);
 	chunkFlags.set(Flag::IsLoadedChunkColumnData, true);
 	const int* heightMap = chunkColumnData->heightMapRead();
 
@@ -477,8 +478,6 @@ void Chunk::loadBlocks()
 		return;
 	}
 
-	// TODO: Maybe add exceptions
-
 	std::ifstream in(chunkPath, std::ios::binary);
 	if (!in) return;
 
@@ -541,7 +540,7 @@ void Chunk::saveBlocks() const
 		return;
 	}
 
-	// TODO: If changedBlocks is empty and files exists, maybe delete file?
+	// TODO: If changedBlocks is empty and files exists, maybe delete file? Better do that when world loads. Should seek files with size of sizeof(mapSize)
 
 	PROFILE_SCOPE("Save chunk blocks", ProfileCategory::ChunkBlocks);
 
@@ -1003,7 +1002,6 @@ void Chunk::buildLight()
 
 	// Step 5: Propagate sky light using flood-fill
 	{
-		// TODO: Consider using vector to speed up. Must remove front element!
 		while (!localSkyLightBfsQueue.empty())
 		{
 			// Get node data
@@ -1112,8 +1110,6 @@ void Chunk::updateLight()
 	const int dx[] = { -1, 1, 0, 0, 0, 0 };
 	const int dy[] = { 0, 0, -1, 1, 0, 0 };
 	const int dz[] = { 0, 0, 0, 0, -1, 1 };
-
-	//TODO: Instead of immediate neighbor calls, collect and batch
 
 	// Remove block light
 	while (!localBlockLightRemovalBfsQueue.empty())
@@ -1647,7 +1643,6 @@ void Chunk::sortMesh(const glm::ivec3& cameraBlockPos)
 
 	// Sorting only transparent faces for now
 	// If GL_CULL_FACE is disabled, sorting must be adjusted. If faces have same position, they should be sorted by prioritized normal(something opposite to camera direction).
-	// TODO: Consider sorting opaque faces to reduce overdraw
 
 	// Create buckets
 	constexpr int BUCKET_COUNT = (CHUNK_SIZE - 1) * 3 + 1;
@@ -1722,17 +1717,11 @@ void Chunk::sendMeshesToGPU()
 
 	// Allocate memory for meshes
 	std::vector<MeshData*> allocateMemoryMeshRequests;
+	allocateMemoryMeshRequests.reserve(pendingMeshUploads.size() >> 1);
 	for (MeshData* chunkMesh : pendingMeshUploads)
 	{
-		// TODO: Maybe first check is redundant
-		if (!chunkMesh->created)
+		if (chunkMesh->getFaceCount() > chunkMesh->getFaceCapacity())
 		{
-			// No mesh
-			allocateMemoryMeshRequests.push_back(chunkMesh);
-		}
-		else if (chunkMesh->getFaceCount() > chunkMesh->getFaceCapacity())
-		{
-			// Asking for more place
 			allocateMemoryMeshRequests.push_back(chunkMesh);
 		}
 	}
@@ -1743,6 +1732,9 @@ void Chunk::sendMeshesToGPU()
 	// Write meshes data
 	auto& instanceVBO = inst.getInstanceVBO();
 	instanceVBO.bind();
+
+	// Potential bug: If meshData.opaqueDirty and it will require more data then it was previously, then it will overwrite previous transparent data
+	// But for now, both opaque and transparent parts are dirty, so this bug won't happen
 
 	for (MeshData* chunkMesh : pendingMeshUploads)
 	{
@@ -2418,12 +2410,6 @@ bool Chunk::areBlocksBuilt() const
 bool Chunk::isLightBuilt() const
 {
 	return getState() >= State::LightsBuilt;
-}
-
-void Chunk::setBlocksBuiltToFalse()
-{
-	setState(State::NotInitialized_NeedsBlocks);
-	changedBlocks.clear();
 }
 
 void Chunk::addLoader()
