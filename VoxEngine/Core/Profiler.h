@@ -6,6 +6,7 @@
 #include <limits>
 #include <mutex>
 #include <sstream>
+#include "Debug.h"
 
 enum class ProfileCategory
 {
@@ -75,10 +76,6 @@ public:
     ScopedProfiler(const char* profileName, ProfileCategory category);
     ~ScopedProfiler();
 };
-
-#ifndef PROFILING_ENABLED
-#define PROFILING_ENABLED 1
-#endif
 
 #if PROFILING_ENABLED
     #define PROFILE_SCOPE(name, category) ScopedProfiler _prof(name, category)

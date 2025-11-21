@@ -10,6 +10,7 @@
 #include "Graphics/Camera.h"
 #include "Graphics/BlockTextureArray.h"
 #include "Graphics/OpenGL_SSBO.h"
+#include "Graphics/OpenGL_FBO.h"
 
 #include "Core/Hashes/ivec3Hasher.h"
 
@@ -66,7 +67,9 @@ private:
 	glm::ivec3 lastChunkMeshSortPos = { INT_MAX, INT_MAX, INT_MAX };
 
 	// Resources
-	std::unique_ptr<Shader> faceShader;
+	std::unique_ptr<Shader> opaqueFaceShader;
+	std::unique_ptr<Shader> translucentFaceShader;
+	std::unique_ptr<Shader> compositeFaceShader;
 
 	std::unique_ptr<Shader> voxelMarkerShader;
 	VoxelMarkerMesh voxelMarkerMesh;
@@ -75,6 +78,8 @@ private:
 
 	std::unique_ptr<OpenGL_Buffer> chunkDrawCommandBuffer;
 	std::unique_ptr<OpenGL_SSBO> chunkPositionSSBO;
+
+	GLuint quadVAO, quadVBO;
 
 	// Debug
 	mutable DebugData debugData;
@@ -95,16 +100,28 @@ public:
 	World& operator=(const World&) = delete;
 	World(World&&) = delete;
 	World& operator=(World&&) = delete;
-
+private:
+	void createFullscreenQuad();
+	void destroyFullscreenQuad();
+public:
 	void preparation();
 	void loadChunks(const glm::vec3& playerPos);
 	void update(float deltaTime);
 	void sortChunkMeshes(const glm::vec3& cameraPos);
 	void sendChunkMeshesToGPU();
-
-	void clearFrambuffer() const;
-	void collectChunksToRender(std::vector<ChunkRenderInfo>& chunksToRender, const Camera& camera) const;
-	void renderChunks(const Camera& camera) const;
+private:
+	void collectChunksToRenderAndSortThem(std::vector<ChunkRenderInfo>& chunksToRender, const Camera& camera) const;
+public:
+	void renderChunks(const Camera& camera, const OpenGL_FBO* opaqueFBO, const OpenGL_FBO* translucentFBO) const;
+private:
+	void renderOpaqueChunks(const std::vector<ChunkRenderInfo>& chunksToRender,
+		std::vector<DrawArraysIndirectCommand>& chunkDrawCommands,
+		std::vector<glm::ivec3>& chunkPositions) const;
+	void renderTranslucentChunks(const std::vector<ChunkRenderInfo>& chunksToRender,
+		std::vector<DrawArraysIndirectCommand>& chunkDrawCommands,
+		std::vector<glm::ivec3>& chunkPositions) const;
+	void compositePass(GLuint accumTex, GLuint revTex, GLuint colorTex) const;
+public:
 	void renderVoxelMarker(const Camera& camera, const RaycastResult& raycast) const;
 
 	RaycastResult raycast(const glm::dvec3& origin, const glm::dvec3& direction, float maxDistance = 100.0f) const;

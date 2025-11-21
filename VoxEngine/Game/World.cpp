@@ -7,6 +7,9 @@
 
 #include "Core/Profiler.h"
 #include "Core/Multithreading/ThreadPool.h"
+#include "Core/Debug.h"
+
+#include "Graphics/quad_vertices.h"
 
 #include <stdexcept>
 
@@ -18,14 +21,30 @@ World::World()
 
 	// Shaders
 	{
-		std::vector<Shader::ShaderSource> faceShaderSources =
+		std::vector<Shader::ShaderSource> opaqueFaceShaderSources =
 		{
 			{GL_VERTEX_SHADER, "res/Shaders/face.vert"},
-			{GL_FRAGMENT_SHADER, "res/Shaders/face.frag"}
+			{GL_FRAGMENT_SHADER, "res/Shaders/faceOpaque.frag"}
 		};
-		faceShader = std::make_unique<Shader>(faceShaderSources);
-		faceShader->use();
-		faceShader->setInt("CHUNK_SIZE", CHUNK_SIZE);
+		opaqueFaceShader = std::make_unique<Shader>(opaqueFaceShaderSources);
+		opaqueFaceShader->use();
+		opaqueFaceShader->setInt("CHUNK_SIZE", CHUNK_SIZE);
+
+		std::vector<Shader::ShaderSource> translucentFaceShaderSources =
+		{
+			{GL_VERTEX_SHADER, "res/Shaders/face.vert"},
+			{GL_FRAGMENT_SHADER, "res/Shaders/faceTranslucent.frag"}
+		};
+		translucentFaceShader = std::make_unique<Shader>(translucentFaceShaderSources);
+		translucentFaceShader->use();
+		translucentFaceShader->setInt("CHUNK_SIZE", CHUNK_SIZE);
+
+		std::vector<Shader::ShaderSource> compositeFaceShaderSources =
+		{
+			{GL_VERTEX_SHADER, "res/Shaders/quad.vert"},
+			{GL_FRAGMENT_SHADER, "res/Shaders/faceComposite.frag"}
+		};
+		compositeFaceShader = std::make_unique<Shader>(compositeFaceShaderSources);
 
 		std::vector<Shader::ShaderSource> voxelMarkerShaderSources =
 		{
@@ -47,8 +66,11 @@ World::World()
 		blockTextureArray = std::make_unique<BlockTextureArray>("res/Textures", blockTextureNames, 0, 16);
 	}
 	blockTextureArray->bind();
-	faceShader->use();
-	faceShader->setInt("blockTextures", blockTextureArray->getUnit());
+	opaqueFaceShader->use();
+	opaqueFaceShader->setInt("blockTextures", blockTextureArray->getUnit());
+
+	// Framebuffer quad
+	createFullscreenQuad();
 
 	// Terrain generator
 	{
@@ -98,7 +120,30 @@ World::World()
 
 World::~World()
 {
-	
+	destroyFullscreenQuad();
+}
+
+void World::createFullscreenQuad()
+{
+	glGenVertexArrays(1, &quadVAO);
+	glGenBuffers(1, &quadVBO);
+	OPENGL_LOG_BUFFER_CREATED(1, &quadVBO);
+
+	glBindVertexArray(quadVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+
+	glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
+
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+
+	glBindVertexArray(0);
+}
+
+void World::destroyFullscreenQuad()
+{
+	if (quadVAO) glDeleteVertexArrays(1, &quadVAO);
+	if (quadVBO) glDeleteBuffers(1, &quadVBO);
 }
 
 void World::preparation()
@@ -274,15 +319,10 @@ void World::sendChunkMeshesToGPU()
 	Chunk::sendMeshesToGPU();
 }
 
-void World::clearFrambuffer() const
+void World::collectChunksToRenderAndSortThem(std::vector<ChunkRenderInfo>& chunksToRender, const Camera& camera) const
 {
-	const auto& bg = visualSettings.backgroundColor;
-	glClearColor(bg.r, bg.g, bg.b, 1.0f);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-}
+	PROFILE_SCOPE("Render: collect and sort chunks", ProfileCategory::Render);
 
-void World::collectChunksToRender(std::vector<ChunkRenderInfo>& chunksToRender, const Camera& camera) const
-{
 	chunksToRender.reserve(chunks.size());
 
 	const Frustum& frustum = camera.getFrustum();
@@ -315,43 +355,49 @@ void World::collectChunksToRender(std::vector<ChunkRenderInfo>& chunksToRender, 
 		unsigned int manhattanDistance = delta.x + delta.y + delta.z;
 		chunksToRender.emplace_back(chunk, manhattanDistance);
 	}
+
+	// Maybe use radix sort? I doesn't take long now anyway.
+	std::sort(chunksToRender.begin(), chunksToRender.end(),
+		[](const ChunkRenderInfo& a, const ChunkRenderInfo& b)
+		{
+			return a.manhattanDistance < b.manhattanDistance;
+		});
 }
 
-void World::renderChunks(const Camera& camera) const
+void World::renderChunks(const Camera& camera, const OpenGL_FBO* opaqueFBO, const OpenGL_FBO* translucentFBO) const
 {
-	faceShader->use();
 	{
-		// Camera chunk position
 		const glm::ivec3 cameraChunkPos = glm::ivec3(glm::floor(camera.getPosition())) >> CHUNK_SIZE_LOG2;
-		faceShader->setIvec3("cameraChunkPosition", cameraChunkPos.x, cameraChunkPos.y, cameraChunkPos.z);
-
-		// Matrices
-		faceShader->setMat4("view", camera.getViewMatrixModified(glm::dvec3(CHUNK_SIZE)));
-		faceShader->setMat4("projection", camera.getProjectionMatrix());
-	
-		// Fog
 		const auto& fogColor = visualSettings.backgroundColor;
-		faceShader->setVec3("fogColor", fogColor.r, fogColor.g, fogColor.b);
-		faceShader->setFloat("fogDensity", visualSettings.fogDensity);
-		faceShader->setFloat("fogGradient", visualSettings.fogGradient);
+
+		//
+		opaqueFaceShader->use();
+
+		opaqueFaceShader->setIvec3("cameraChunkPosition", cameraChunkPos.x, cameraChunkPos.y, cameraChunkPos.z);
+
+		opaqueFaceShader->setMat4("view", camera.getViewMatrixModified(glm::dvec3(CHUNK_SIZE)));
+		opaqueFaceShader->setMat4("projection", camera.getProjectionMatrix());
+	
+		opaqueFaceShader->setVec3("fogColor", fogColor.r, fogColor.g, fogColor.b);
+		opaqueFaceShader->setFloat("fogDensity", visualSettings.fogDensity);
+		opaqueFaceShader->setFloat("fogGradient", visualSettings.fogGradient);
+
+		//
+		translucentFaceShader->use();
+
+		translucentFaceShader->setIvec3("cameraChunkPosition", cameraChunkPos.x, cameraChunkPos.y, cameraChunkPos.z);
+
+		translucentFaceShader->setMat4("view", camera.getViewMatrixModified(glm::dvec3(CHUNK_SIZE)));
+		translucentFaceShader->setMat4("projection", camera.getProjectionMatrix());
+
+		translucentFaceShader->setVec3("fogColor", fogColor.r, fogColor.g, fogColor.b);
+		translucentFaceShader->setFloat("fogDensity", visualSettings.fogDensity);
+		translucentFaceShader->setFloat("fogGradient", visualSettings.fogGradient);
 	}
 
 	// Collect chunks to render
 	std::vector<ChunkRenderInfo> chunksToRender;
-	{
-		PROFILE_SCOPE("Render: collect chunks", ProfileCategory::Render);
-		collectChunksToRender(chunksToRender, camera);
-	}
-
-	// Sort chunks by distance
-	{
-		PROFILE_SCOPE("Render: sort chunks", ProfileCategory::Render);
-		std::sort(chunksToRender.begin(), chunksToRender.end(),
-			[](const ChunkRenderInfo& a, const ChunkRenderInfo& b)
-			{
-				return a.manhattanDistance < b.manhattanDistance;
-			});
-	}
+	collectChunksToRenderAndSortThem(chunksToRender, camera);
 
 	// Bind resources
 	ChunkMeshManager::getInstance().bindVAO();
@@ -362,85 +408,172 @@ void World::renderChunks(const Camera& camera) const
 	// Set shared opengl states
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
-	glEnable(GL_CULL_FACE);
-
-	//
-	const size_t renderChunkCount = chunksToRender.size();
 
 	// Debug data
-	debugData.renderedChunks = renderChunkCount;
+	debugData.renderedChunks = chunksToRender.size();
 	debugData.renderedFaceCount = 0;
 
-	// Opaque
+	// TODO: Maybe make them global
 	std::vector<DrawArraysIndirectCommand> chunkDrawCommands;
 	std::vector<glm::ivec3> chunkPositions;
+
+	// Opaque
+	opaqueFBO->bind();
+	if (!opaqueFBO->isComplete())
 	{
-		{
-			PROFILE_SCOPE("Render: collect draw commands", ProfileCategory::Render);
-
-			for (size_t i = 0; i < renderChunkCount; i++)
-			{
-				const auto& info = chunksToRender[i];
-				info.chunk->collectOpaqueRenderData(chunkDrawCommands, chunkPositions);
-			}
-		}
-
-		const size_t drawCount = chunkDrawCommands.size();
-		if (drawCount > 0)
-		{
-			for (const auto& command : chunkDrawCommands)
-			{
-				debugData.renderedFaceCount += command.instanceCount;
-			}
-
-			glDisable(GL_BLEND);
-
-			chunkDrawCommandBuffer->allocateMemory(drawCount * sizeof(DrawArraysIndirectCommand));
-			chunkDrawCommandBuffer->write(chunkDrawCommands.data(), drawCount * sizeof(DrawArraysIndirectCommand));
-
-			chunkPositionSSBO->allocateMemory(drawCount * sizeof(glm::ivec3));
-			chunkPositionSSBO->write(chunkPositions.data(), drawCount * sizeof(glm::ivec3));
-		
-			glMultiDrawArraysIndirect(GL_TRIANGLE_FAN, NULL, drawCount, 0);
-		}
+		std::cerr << "[Render]: Opaque FBO is not complete!" << std::endl;
+		opaqueFBO->unbind();
+		return;
 	}
+	const auto& bg = visualSettings.backgroundColor;
+	float bgColor[4] = { bg.r, bg.g, bg.b, 1.0f };
+	opaqueFBO->clear();
+	opaqueFBO->clearAttachment("color", bgColor);
+	renderOpaqueChunks(chunksToRender, chunkDrawCommands, chunkPositions);
+	opaqueFBO->unbind();
 
 	// Transparent
-	chunkDrawCommands.clear();
-	chunkPositions.clear();
-	//glDisable(GL_CULL_FACE);
-	//glDisable(GL_DEPTH_TEST);
+	translucentFBO->bind();
+	if(!translucentFBO->isComplete())
 	{
+		std::cerr << "[Render]: Translucent FBO is not complete!" << std::endl;
+		translucentFBO->unbind();
+		return;
+	}
+
+	float clearAccumulation[] = { 0.0f, 0.0f, 0.0f, 0.0f };
+	float clearRevealage[] = { 1.0f, 0.0f, 0.0f, 0.0f };
+	translucentFBO->clearAttachment("accumulation", clearAccumulation);
+	translucentFBO->clearAttachment("revealage", clearRevealage);
+
+	renderTranslucentChunks(chunksToRender, chunkDrawCommands, chunkPositions);
+	translucentFBO->unbind();
+
+	// Composite
+	opaqueFBO->bind();
+	compositePass(
+		translucentFBO->getTexture("accumulation"),
+		translucentFBO->getTexture("revealage"),
+		opaqueFBO->getTexture("color")
+	);
+	opaqueFBO->unbind();
+}
+
+void World::renderOpaqueChunks(
+	const std::vector<ChunkRenderInfo>& chunksToRender,
+	std::vector<DrawArraysIndirectCommand>& chunkDrawCommands,
+	std::vector<glm::ivec3>& chunkPositions
+	) const
+{
+	const size_t renderChunkCount = chunksToRender.size();
+
+	{
+		PROFILE_SCOPE("Render: collect draw commands", ProfileCategory::Render);
+
+		chunkDrawCommands.clear();
+		chunkPositions.clear();
+		for (size_t i = 0; i < renderChunkCount; i++)
 		{
-			PROFILE_SCOPE("Render: collect draw commands", ProfileCategory::Render);
-
-			for (size_t i = renderChunkCount; i-- > 0;)
-			{
-				const auto& info = chunksToRender[i];
-				info.chunk->collectTransparentRenderData(chunkDrawCommands, chunkPositions);
-			}
-		}
-
-		const size_t drawCount = chunkDrawCommands.size();
-		if (drawCount > 0)
-		{
-			for (const auto& command : chunkDrawCommands)
-			{
-				debugData.renderedFaceCount += command.instanceCount;
-			}
-
-			glEnable(GL_BLEND);
-			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-			chunkDrawCommandBuffer->allocateMemory(drawCount * sizeof(DrawArraysIndirectCommand));
-			chunkDrawCommandBuffer->write(chunkDrawCommands.data(), drawCount * sizeof(DrawArraysIndirectCommand));
-
-			chunkPositionSSBO->allocateMemory(drawCount * sizeof(glm::ivec3));
-			chunkPositionSSBO->write(chunkPositions.data(), drawCount * sizeof(glm::ivec3));
-
-			glMultiDrawArraysIndirect(GL_TRIANGLE_FAN, NULL, drawCount, 0);
+			const auto& info = chunksToRender[i];
+			info.chunk->collectOpaqueRenderData(chunkDrawCommands, chunkPositions);
 		}
 	}
+
+	const size_t drawCount = chunkDrawCommands.size();
+	if (drawCount > 0)
+	{
+		glEnable(GL_CULL_FACE);
+		glDisable(GL_BLEND);
+
+		for (const auto& command : chunkDrawCommands)
+		{
+			debugData.renderedFaceCount += command.instanceCount;
+		}
+
+		chunkDrawCommandBuffer->allocateMemory(drawCount * sizeof(DrawArraysIndirectCommand));
+		chunkDrawCommandBuffer->write(chunkDrawCommands.data(), drawCount * sizeof(DrawArraysIndirectCommand));
+
+		chunkPositionSSBO->allocateMemory(drawCount * sizeof(glm::ivec3));
+		chunkPositionSSBO->write(chunkPositions.data(), drawCount * sizeof(glm::ivec3));
+
+		opaqueFaceShader->use();
+		glMultiDrawArraysIndirect(GL_TRIANGLE_FAN, NULL, drawCount, 0);
+	}
+}
+
+void World::renderTranslucentChunks(const std::vector<ChunkRenderInfo>& chunksToRender, std::vector<DrawArraysIndirectCommand>& chunkDrawCommands, std::vector<glm::ivec3>& chunkPositions) const
+{
+	const size_t renderChunkCount = chunksToRender.size();
+
+	{
+		PROFILE_SCOPE("Render: collect draw commands", ProfileCategory::Render);
+
+		// TODO; If WOIT will workout, this won't have any difference, better remove it then.
+		chunkDrawCommands.clear();
+		chunkPositions.clear();
+		for (size_t i = renderChunkCount; i-- > 0;)
+		{
+			const auto& info = chunksToRender[i];
+			info.chunk->collectTransparentRenderData(chunkDrawCommands, chunkPositions);
+		}
+	}
+
+	const size_t drawCount = chunkDrawCommands.size();
+	if (drawCount > 0)
+	{
+		glDisable(GL_CULL_FACE);
+		glDepthMask(GL_FALSE);
+		glEnable(GL_BLEND);
+		glBlendFunci(0, GL_ONE, GL_ONE);					// accumulation buffer
+		glBlendFunci(1, GL_ZERO, GL_ONE_MINUS_SRC_COLOR);	// revealage buffer
+		glBlendEquation(GL_FUNC_ADD);
+
+		for (const auto& command : chunkDrawCommands)
+		{
+			debugData.renderedFaceCount += command.instanceCount;
+		}
+
+		chunkDrawCommandBuffer->allocateMemory(drawCount * sizeof(DrawArraysIndirectCommand));
+		chunkDrawCommandBuffer->write(chunkDrawCommands.data(), drawCount * sizeof(DrawArraysIndirectCommand));
+
+		chunkPositionSSBO->allocateMemory(drawCount * sizeof(glm::ivec3));
+		chunkPositionSSBO->write(chunkPositions.data(), drawCount * sizeof(glm::ivec3));
+
+		translucentFaceShader->use();
+		glMultiDrawArraysIndirect(GL_TRIANGLE_FAN, NULL, drawCount, 0);
+		glDepthMask(GL_TRUE);
+	}
+}
+
+void World::compositePass(GLuint accumTex, GLuint revTex, GLuint colorTex) const
+{
+	ASSERT(accumTex);
+	ASSERT(revTex);
+	ASSERT(colorTex);
+
+	compositeFaceShader->use();
+
+	glDisable(GL_DEPTH_TEST);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+	// Bind textures
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, accumTex);
+
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, revTex);
+
+	glActiveTexture(GL_TEXTURE2);
+	glBindTexture(GL_TEXTURE_2D, colorTex);
+
+	compositeFaceShader->setInt("accumulationTex", 0);
+	compositeFaceShader->setInt("revealageTex", 1);
+	compositeFaceShader->setInt("opaqueTex", 2);
+
+	// Render fullscreen quad
+	glBindVertexArray(quadVAO);
+	glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
 }
 
 void World::renderVoxelMarker(const Camera& camera, const RaycastResult& raycast) const

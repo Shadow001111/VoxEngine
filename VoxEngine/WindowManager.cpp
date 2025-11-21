@@ -1,7 +1,6 @@
 #include "WindowManager.h"
 
 #include <stdexcept>
-#include <iostream>
 
 WindowManager::WindowManager(const WindowParams& params)
 {
@@ -12,7 +11,8 @@ WindowManager::WindowManager(const WindowParams& params)
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    glfwWindowHint(GLFW_RESIZABLE, params.resizable ? GLFW_TRUE : GLFW_FALSE);
+    glfwWindowHint(GLFW_RESIZABLE, params.resizable);
+    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, params.openglDebug);
 
     // Create window
     window = glfwCreateWindow(params.width, params.height, params.title.c_str(), nullptr, nullptr);
@@ -50,8 +50,16 @@ WindowManager::WindowManager(const WindowParams& params)
 
     //this->monitor = glfwGetPrimaryMonitor();
 
-    //
-    framebuffer = std::make_unique<OpenGL_FBO>(width, height);
+    opaqueFramebuffer = std::make_unique<OpenGL_FBO>(width, height);
+    opaqueFramebuffer->bind();
+    opaqueFramebuffer->createColorAttachment("color", GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE);
+    opaqueFramebuffer->createDepthAttachment("depth", GL_DEPTH_COMPONENT32F, GL_DEPTH_COMPONENT, GL_FLOAT);
+
+    translucentFramebuffer = std::make_unique<OpenGL_FBO>(width, height);
+    translucentFramebuffer->bind();
+    translucentFramebuffer->createColorAttachment("accumulation", GL_RGBA16F, GL_RGBA, GL_FLOAT);
+    translucentFramebuffer->createColorAttachment("revealage", GL_R8, GL_RED, GL_FLOAT);
+    translucentFramebuffer->linkDepthTexture("depth", opaqueFramebuffer->getTexture("depth"));
 }
 
 WindowManager::~WindowManager()
@@ -108,9 +116,14 @@ bool WindowManager::getVSYNC() const
     return vsync;
 }
 
-OpenGL_FBO* WindowManager::getFBO() const
+OpenGL_FBO* WindowManager::getOpaqueFBO() const
 {
-    return framebuffer.get();
+    return opaqueFramebuffer.get();
+}
+
+OpenGL_FBO* WindowManager::getTranslucentFBO() const
+{
+    return translucentFramebuffer.get();
 }
 
 bool WindowManager::isKeyPressed(int key) const
@@ -151,7 +164,8 @@ void WindowManager::onResize(int width, int height)
     this->height = height;
     this->aspectRatio = static_cast<float>(width) / static_cast<float>(height);
 
-    framebuffer->resize(width, height);
+    opaqueFramebuffer->resize(width, height);
+    translucentFramebuffer->resize(width, height);
 }
 
 void WindowManager::onKey(int key, int scancode, int action, int mods)

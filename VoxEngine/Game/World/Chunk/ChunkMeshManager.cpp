@@ -2,6 +2,8 @@
 
 #include <iostream>
 
+#include "Core/Debug.h"
+
 ChunkMeshManager::ChunkMeshManager() :
 	vao(0), vbo(0), instanceVBO(GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW), chunkBlockAllocator(0)
 {
@@ -16,6 +18,7 @@ ChunkMeshManager::ChunkMeshManager() :
 
 	glGenVertexArrays(1, &vao);
 	glGenBuffers(1, &vbo);
+	OPENGL_LOG_BUFFER_CREATED(1, &vbo);
 
 	// Bind VAO
 	glBindVertexArray(vao);
@@ -134,6 +137,7 @@ void ChunkMeshManager::processMeshRequests(std::vector<MeshData*>& meshRequests)
 	else if (needNewBuffer)
 	{
 		// Create new buffer
+		// TODO: Debug message (131186): Buffer performance warning: Buffer object 11 (bound to GL_VERTEX_ATTRIB_ARRAY_BUFFER_BINDING_ARB (1), GL_ARRAY_BUFFER_ARB, and GL_COPY_WRITE_BUFFER_BINDING_EXT, usage hint is GL_DYNAMIC_DRAW) is being copied/moved from VIDEO memory to HOST memory.
 		OpenGL_Buffer newBuffer(GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW);
 		newBuffer.allocateMemory(newCapacity * sizeof(BlockFaceInstance));
 
@@ -160,7 +164,7 @@ void ChunkMeshManager::processMeshRequests(std::vector<MeshData*>& meshRequests)
 		auto result = chunkBlockAllocator.allocate(chunkMesh->getFaceCount());
 		if (!result.has_value())
 		{
-			std::cout << "[ChunkMeshManager]: processMeshRequests: mesh wasn't created." << std::endl;
+			std::cerr << "[ChunkMeshManager]: processMeshRequests: mesh wasn't created." << std::endl;
 			break;
 		}
 

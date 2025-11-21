@@ -3,9 +3,10 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "Core/Profiler.h"
+#include "Core/Assert.h"
+#include "Core/Debug.h"
 
 #include <iostream>
-#include "Core/Assert.h"
 
 Glyph::Glyph(uint32_t textureID, const glm::ivec2& size, const glm::ivec2& bearing, GLuint advance) :
     textureID(textureID), size(size), bearing(bearing), advance(advance)
@@ -142,6 +143,9 @@ TextRenderer::TextRenderer()
     glGenVertexArrays(1, &textVAO);
     glGenBuffers(1, &textVBO);
     glGenBuffers(1, &textInstanceVBO);
+
+    OPENGL_LOG_BUFFER_CREATED(1, &textVBO);
+    OPENGL_LOG_BUFFER_CREATED(1, &textInstanceVBO);
 
     // Bind VAO
     glBindVertexArray(textVAO);

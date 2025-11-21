@@ -3,11 +3,14 @@
 #include <stdexcept>
 #include <string>
 
+#include "Core/Debug.h"
+
 OpenGL_Buffer::OpenGL_Buffer(GLenum target, GLenum usage) :
 	target(target), usage(usage),
 	id(0), capacity(0)
 {
 	glGenBuffers(1, &id);
+	OPENGL_LOG_BUFFER_CREATED(1, &id);
 }
 
 OpenGL_Buffer::~OpenGL_Buffer()

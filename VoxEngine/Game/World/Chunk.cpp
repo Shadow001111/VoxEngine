@@ -173,102 +173,123 @@ void Chunk::buildBlocks()
 	{
 		PROFILE_SCOPE("Build chunk blocks", ProfileCategory::ChunkBlocks);
 
-		const int globalChunkY = position.y * CHUNK_SIZE;
-		for (int x = 0; x < CHUNK_SIZE; x++)
+		if (position.x >= 0)
 		{
-			for (int z = 0; z < CHUNK_SIZE; z++)
+			const int globalChunkY = position.y * CHUNK_SIZE;
+			for (int x = 0; x < CHUNK_SIZE; x++)
 			{
-				int globalHeight = heightMap[z + x * CHUNK_SIZE];
+				for (int z = 0; z < CHUNK_SIZE; z++)
+				{
+					int globalHeight = heightMap[z + x * CHUNK_SIZE];
+					for (int y = 0; y < CHUNK_SIZE; y++)
+					{
+						int globalY = globalChunkY + y;
+						bool ocean = globalY <= 0;
+
+						size_t index = getIndex(x, y, z);
+
+						Block block = Block::Air;
+						if (globalY > globalHeight)
+						{
+							block = ocean ? Block::Water : Block::Air;
+						}
+						else if (globalY == globalHeight)
+						{
+							block = Block::GrassBlock;
+						}
+						else if (globalY > globalHeight - 4)
+						{
+							block = Block::Dirt;
+						}
+						else
+						{
+							block = Block::Stone;
+							computeCaveMask = true;
+						}
+
+						blocks[index] = block;
+					}
+				}
+			}
+		}
+		else
+		{
+			for (int x = 0; x < CHUNK_SIZE; x++)
+			{
 				for (int y = 0; y < CHUNK_SIZE; y++)
 				{
-					int globalY = globalChunkY + y;
-					bool ocean = globalY <= 0;
-
-					size_t index = getIndex(x, y, z);
-
-					Block block = Block::Air;
-					if (globalY > globalHeight)
+					for (int z = 0; z < CHUNK_SIZE; z++)
 					{
-						block = ocean ? Block::Water : Block::Air;
+						int x2 = x >> 2;
+						int y2 = y >> 2;
+						int z2 = z >> 2;
+						bool b = (x2 ^ y2 ^ z2) & 1;
+						size_t index = getIndex(x, y, z);
+						blocks[index] = b ? Block::ColoredGlass : Block::Air;
 					}
-					else if (globalY == globalHeight)
-					{
-						block = Block::GrassBlock;
-					}
-					else if (globalY > globalHeight - 4)
-					{
-						block = Block::Dirt;
-					}
-					else
-					{
-						block = Block::Stone;
-						computeCaveMask = true;
-					}
-
-					blocks[index] = block;
 				}
 			}
 		}
 	}
 
-	// Caves
-	if (computeCaveMask)
-	{
-		bool caveMask[CHUNK_VOLUME];
-		TerrainGenerator::getInstance().computeCaveMask(caveMask, position.x, position.y, position.z);
+	//// Caves
+	//if (computeCaveMask)
+	//{
+	//	bool caveMask[CHUNK_VOLUME];
+	//	TerrainGenerator::getInstance().computeCaveMask(caveMask, position.x, position.y, position.z);
 
-		PROFILE_SCOPE("Generate caves", ProfileCategory::ChunkBlocks);
+	//	PROFILE_SCOPE("Generate caves", ProfileCategory::ChunkBlocks);
 
-		for (int i = 0; i < CHUNK_VOLUME; i++)
-		{
-			if (blocks[i] == Block::Stone && caveMask[i])
-			{
-				blocks[i] = Block::Air;
-			}
-		}
-	}
+	//	for (int i = 0; i < CHUNK_VOLUME; i++)
+	//	{
+	//		if (blocks[i] == Block::Stone && caveMask[i])
+	//		{
+	//			blocks[i] = Block::Air;
+	//		}
+	//	}
+	//}
 
-	// Trees
-	{
-		PROFILE_SCOPE("Generate trees", ProfileCategory::ChunkBlocks);
-	
-		const ivec2Hasher hasher;
+	//// Trees
+	//{
+	//	PROFILE_SCOPE("Generate trees", ProfileCategory::ChunkBlocks);
+	//
+	//	const ivec2Hasher hasher;
 
-		const glm::ivec3 globalChunkPosition = position * CHUNK_SIZE;
+	//	const glm::ivec3 globalChunkPosition = position * CHUNK_SIZE;
 
-		const glm::ivec2 globalChunkXZ = { globalChunkPosition.x, globalChunkPosition.z };
+	//	const glm::ivec2 globalChunkXZ = { globalChunkPosition.x, globalChunkPosition.z };
 
-		for (int x = 0; x < CHUNK_SIZE; x += 2)
-		{
-			for (int z = 0; z < CHUNK_SIZE; z += 2)
-			{
-				int treeRootHeight = heightMap[z + x * CHUNK_SIZE] + 1;
-				int localY = treeRootHeight - globalChunkPosition.y;
+	//	for (int x = 0; x < CHUNK_SIZE; x += 2)
+	//	{
+	//		for (int z = 0; z < CHUNK_SIZE; z += 2)
+	//		{
+	//			int treeRootHeight = heightMap[z + x * CHUNK_SIZE] + 1;
+	//			int localY = treeRootHeight - globalChunkPosition.y;
 
-				if (localY < 0 || localY >= CHUNK_SIZE)
-				{
-					continue;
-				}
+	//			if (localY < 0 || localY >= CHUNK_SIZE)
+	//			{
+	//				continue;
+	//			}
 
-				size_t rootIndex = getIndex(x, localY, z);
-				if (blocks[rootIndex] != Block::Air)
-				{
-					continue;
-				}
+	//			size_t rootIndex = getIndex(x, localY, z);
+	//			if (blocks[rootIndex] != Block::Air)
+	//			{
+	//				continue;
+	//			}
 
-				glm::ivec2 worldPos = globalChunkXZ + glm::ivec2(x, z);
+	//			glm::ivec2 worldPos = globalChunkXZ + glm::ivec2(x, z);
 
-				size_t hashValue = hasher(worldPos);
+	//			size_t hashValue = hasher(worldPos);
 
-				if ((hashValue % 100) >= 2)
-				{
-					continue;
-				}
+	//			if ((hashValue % 100) >= 2)
+	//			{
+	//				continue;
+	//			}
 
-				generateTree({ x, localY, z });
-			}
-		}
-	}
+	//			generateTree({ x, localY, z });
+	//		}
+	//	}
+	//}
 
 	// Incoming structures
 	{

@@ -185,6 +185,7 @@
     <ClCompile Include="Game\World\WorldVisualSettings.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Core\Debug.h" />
     <ClInclude Include="Game\World\ChunkLoaders\BaseChunkLoader.h" />
     <ClInclude Include="Core\Assert.h" />
     <ClInclude Include="Core\AtomicFlags.h" />
@@ -212,6 +213,7 @@
     <ClInclude Include="Core\Shapes\Box.h" />
     <ClInclude Include="Graphics\Frustum.h" />
     <ClInclude Include="Graphics\Camera.h" />
+    <ClInclude Include="Graphics\quad_vertices.h" />
     <ClInclude Include="Graphics\Shader.h" />
     <ClInclude Include="Core\UpdateTimer.h" />
     <ClInclude Include="Core\Transform.h" />

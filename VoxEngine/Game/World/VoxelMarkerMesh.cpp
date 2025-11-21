@@ -3,6 +3,8 @@
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 
+#include "Core/Debug.h"
+
 VoxelMarkerMesh::VoxelMarkerMesh()
 {
     const float vertices[] = {
@@ -71,6 +73,9 @@ VoxelMarkerMesh::VoxelMarkerMesh()
 	glGenVertexArrays(1, &vao);
 	glGenBuffers(1, &vbo);
     glGenBuffers(1, &ebo);
+
+    OPENGL_LOG_BUFFER_CREATED(1, &vbo);
+    OPENGL_LOG_BUFFER_CREATED(1, &ebo);
 
 	// Bind VAO
 	glBindVertexArray(vao);

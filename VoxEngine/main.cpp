@@ -7,12 +7,13 @@
 #include "Game/World/Player.h"
 
 #include "Graphics/TextRenderer.h"
+#include "Graphics/quad_vertices.h"
 
 #include <iostream>
 #include <sstream>
 #include <iomanip>
 
-constexpr int CHUNK_LOAD_DISTANCE = 12;
+constexpr int CHUNK_LOAD_DISTANCE = 8;
 
 
 static std::string formatSize(size_t value)
@@ -53,25 +54,18 @@ static std::string formatSizeBinary(size_t value)
     return oss.str();
 }
 
-
 static void setupFramebuffer(GLuint& rectVAO, std::unique_ptr<Shader>& shader)
 {
     // Mesh
-    const float rectangleVertices[] = {
-        -1, -1,  0, 0,
-         1, -1,  1, 0,
-         1,  1,  1, 1,
-        -1,  1,  0, 1
-    };
-
     GLuint rectVBO;
     glGenVertexArrays(1, &rectVAO);
     glGenBuffers(1, &rectVBO);
+    OPENGL_LOG_BUFFER_CREATED(1, &rectVBO);
 
     glBindVertexArray(rectVAO);
 
     glBindBuffer(GL_ARRAY_BUFFER, rectVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(rectangleVertices), rectangleVertices, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
 
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
@@ -79,13 +73,15 @@ static void setupFramebuffer(GLuint& rectVAO, std::unique_ptr<Shader>& shader)
     // Shader
     std::vector<Shader::ShaderSource> fboShaderSources =
     {
-        {GL_VERTEX_SHADER, "res/Shaders/fbo.vert"},
+        {GL_VERTEX_SHADER, "res/Shaders/quad.vert"},
         {GL_FRAGMENT_SHADER, "res/Shaders/fbo.frag"}
     };
     shader = std::make_unique<Shader>(fboShaderSources);
     shader->use();
     shader->setInt("colorTexture", 0);
     shader->setInt("depthTexture", 1);
+
+    // TODO: Delete the quad opengl objects
 }
 
 static void setupOpenGLStates()
@@ -202,6 +198,54 @@ static void renderDebugData(const World::DebugData& debug, const WindowManager& 
 }
 
 
+void APIENTRY glDebugOutput(GLenum source,
+    GLenum type,
+    unsigned int id,
+    GLenum severity,
+    GLsizei length,
+    const char* message,
+    const void* userParam)
+{
+    // ignore non-significant error/warning codes
+    if (id == 131169 || id == 131185 || id == 131218 || id == 131204) return;
+
+    std::cout << "---------------" << std::endl;
+    std::cout << "Debug message (" << id << "): " << message << std::endl;
+
+    switch (source)
+    {
+    case GL_DEBUG_SOURCE_API:             std::cout << "Source: API"; break;
+    case GL_DEBUG_SOURCE_WINDOW_SYSTEM:   std::cout << "Source: Window System"; break;
+    case GL_DEBUG_SOURCE_SHADER_COMPILER: std::cout << "Source: Shader Compiler"; break;
+    case GL_DEBUG_SOURCE_THIRD_PARTY:     std::cout << "Source: Third Party"; break;
+    case GL_DEBUG_SOURCE_APPLICATION:     std::cout << "Source: Application"; break;
+    case GL_DEBUG_SOURCE_OTHER:           std::cout << "Source: Other"; break;
+    } std::cout << std::endl;
+
+    switch (type)
+    {
+    case GL_DEBUG_TYPE_ERROR:               std::cout << "Type: Error"; break;
+    case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: std::cout << "Type: Deprecated Behaviour"; break;
+    case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:  std::cout << "Type: Undefined Behaviour"; break;
+    case GL_DEBUG_TYPE_PORTABILITY:         std::cout << "Type: Portability"; break;
+    case GL_DEBUG_TYPE_PERFORMANCE:         std::cout << "Type: Performance"; break;
+    case GL_DEBUG_TYPE_MARKER:              std::cout << "Type: Marker"; break;
+    case GL_DEBUG_TYPE_PUSH_GROUP:          std::cout << "Type: Push Group"; break;
+    case GL_DEBUG_TYPE_POP_GROUP:           std::cout << "Type: Pop Group"; break;
+    case GL_DEBUG_TYPE_OTHER:               std::cout << "Type: Other"; break;
+    } std::cout << std::endl;
+
+    switch (severity)
+    {
+    case GL_DEBUG_SEVERITY_HIGH:         std::cout << "Severity: high"; break;
+    case GL_DEBUG_SEVERITY_MEDIUM:       std::cout << "Severity: medium"; break;
+    case GL_DEBUG_SEVERITY_LOW:          std::cout << "Severity: low"; break;
+    case GL_DEBUG_SEVERITY_NOTIFICATION: std::cout << "Severity: notification"; break;
+    } std::cout << std::endl;
+    std::cout << std::endl;
+}
+
+
 // TODO: Modern OpenGl
 int main()
 {
@@ -210,10 +254,23 @@ int main()
     try
     {
         // Window
-        WindowManager wnd({ 1280, 720, "VoxEngine", true, true });
+        WindowManager wnd({ 1280, 720, "VoxEngine", true, true, true });
+
+        // OpenGL debug
+        glEnable(GL_DEBUG_OUTPUT);
+        glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+        glDebugMessageCallback(glDebugOutput, nullptr);
+        glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_TRUE);
+        glDebugMessageControl(
+            GL_DONT_CARE,          // any source
+            GL_DEBUG_TYPE_OTHER,   // filter this type
+            GL_DONT_CARE,          // any severity
+            0, NULL,               // no specific IDs
+            GL_FALSE               // disable
+        );
 
         // Framebuffer
-        auto* FBO = wnd.getFBO();
+        auto* FBO = wnd.getOpaqueFBO();
         GLuint rectVAO;
         std::unique_ptr<Shader> fboShader;
         setupFramebuffer(rectVAO, fboShader);
@@ -305,19 +362,18 @@ int main()
             world.sendChunkMeshesToGPU();
 
             // Rendering to FBO
-            FBO->bind();
-
-            world.clearFrambuffer();
-            world.renderChunks(player->getCamera());
-            world.renderVoxelMarker(player->getCamera(), player->raycastResult);
+            world.renderChunks(player->getCamera(), wnd.getOpaqueFBO(), wnd.getTranslucentFBO());
+            //world.renderVoxelMarker(player->getCamera(), player->raycastResult);
 
             // Rendering to screen
-            FBO->unbind();
+            // TODO: Maybe we are rendering same FBO twice. Avoid that.
             glBindVertexArray(rectVAO);
             glDisable(GL_DEPTH_TEST);
             glDisable(GL_BLEND);
 
-            FBO->bindTextures();
+            //FBO->bind();
+            FBO->bindTexture("color", 0);
+            FBO->bindTexture("depth", 1);
 
             fboShader->use();
 
@@ -349,7 +405,7 @@ int main()
 
         while (GLenum err = glGetError() != GL_NO_ERROR)
         {
-            std::cerr << err << "\n";
+            std::cerr << "[OpenGl Error]: " << err << "\n";
         }
     }
     catch (const std::exception& e)
