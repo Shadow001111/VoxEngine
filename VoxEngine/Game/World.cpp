@@ -474,9 +474,8 @@ void World::renderOpaqueChunks(
 
 		chunkDrawCommands.clear();
 		chunkPositions.clear();
-		for (size_t i = 0; i < renderChunkCount; i++)
+		for (const auto& info : chunksToRender)
 		{
-			const auto& info = chunksToRender[i];
 			info.chunk->collectOpaqueRenderData(chunkDrawCommands, chunkPositions);
 		}
 	}
@@ -510,12 +509,10 @@ void World::renderTranslucentChunks(const std::vector<ChunkRenderInfo>& chunksTo
 	{
 		PROFILE_SCOPE("Render: collect draw commands", ProfileCategory::Render);
 
-		// TODO; If WOIT will workout, this won't have any difference, better remove it then.
 		chunkDrawCommands.clear();
 		chunkPositions.clear();
-		for (size_t i = renderChunkCount; i-- > 0;)
+		for (const auto& info : chunksToRender)
 		{
-			const auto& info = chunksToRender[i];
 			info.chunk->collectTransparentRenderData(chunkDrawCommands, chunkPositions);
 		}
 	}

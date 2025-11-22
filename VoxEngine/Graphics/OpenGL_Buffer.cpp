@@ -79,7 +79,7 @@ void OpenGL_Buffer::allocateMemory(size_t newSize)
 	if (newSize > capacity)
 	{
 		capacity = newSize;
-		glBindBuffer(target, id);
+		glBindBuffer(target, id); // TODO: Maybe remove bind
 		glBufferData(target, capacity, nullptr, usage);
 	}
 }
