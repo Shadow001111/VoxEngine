@@ -265,7 +265,7 @@ void World::update(float deltaTime)
 	{
 		size_t iterations = 0;
 		collectChunksNeedingLightUpdate();
-		while (!lightUpdateContainerA.empty() && !lightUpdateContainerB.empty())
+		while (!lightUpdateContainerA.empty() || !lightUpdateContainerB.empty())
 		{
 			updateChunkLights();
 			iterations++;
@@ -637,7 +637,7 @@ void World::renderVoxelMarker(const Camera& camera, const RaycastResult& raycast
 	}
 }
 
-// Make raycast undependable of float precision. Or do the same for voxel marker rendering.
+// TODO: Make raycast undependable of float precision. Or do the same for voxel marker rendering.
 RaycastResult World::raycast(const glm::dvec3& origin, const glm::dvec3& direction, float maxDistance) const
 {
 	PROFILE_SCOPE("Raycast", ProfileCategory::General);

@@ -12,7 +12,7 @@ uniform mat4 view;
 uniform mat4 projection;
 uniform ivec3 cameraChunkPosition;
 uniform int CHUNK_SIZE;
-uniform int skyLightSub = 0;
+uniform int skyLightSub = 15; // TODO: Maybe make it float
 
 out vec2 uv;
 out vec2 texCoords;
@@ -95,6 +95,7 @@ const vec2 texCoordsOffsets[4] = vec2[4](
 
 const float INV_LIGHT_SCALE = 1.0 / 15.0;
 const float INV_AO_SCALE = 1.0 / 3.0;
+const float AO_RANGE = 0.9; // [0; 1]
 
 uint hash3(ivec3 sv)
 {
@@ -117,36 +118,38 @@ void main()
 
     int normal = (instanceData.x >> 12) & 7;
 
-    int faceAO = (instanceData.x >> 15) & 255;
-    int ao0 = faceAO & 3;
-    int ao1 = (faceAO >> 2) & 3;
-    int ao2 = (faceAO >> 4) & 3;
-    int ao3 = faceAO >> 6;
+    int faceAOData = (instanceData.x >> 15) & 255;
+    vec4 faceAO = vec4(
+        faceAOData & 3,
+        (faceAOData >> 2) & 3,
+        (faceAOData >> 4) & 3,
+        faceAOData >> 6
+    );
 
     textureID = (instanceData.x >> 23) & 127;
     
     uint textureTransformation = (instanceData.x >> 30) & 3;
 
-    int blockLight0 = (instanceData.y >> 0)  & 15;
-    int skyLight0   = (instanceData.y >> 4)  & 15;
-    int blockLight1 = (instanceData.y >> 8)  & 15;
-    int skyLight1   = (instanceData.y >> 12) & 15;
-    int blockLight2 = (instanceData.y >> 16) & 15;
-    int skyLight2   = (instanceData.y >> 20) & 15;
-    int blockLight3 = (instanceData.y >> 24) & 15;
-    int skyLight3   = (instanceData.y >> 28) & 15;
+    ivec4 blockLight = ivec4(
+        (instanceData.y >> 0)  & 15,
+        (instanceData.y >> 8)  & 15,
+        (instanceData.y >> 16) & 15,
+        (instanceData.y >> 24) & 15
+    );
+
+    ivec4 skyLight = ivec4(
+        (instanceData.y >> 4)  & 15,
+        (instanceData.y >> 12)  & 15,
+        (instanceData.y >> 20) & 15,
+        (instanceData.y >> 28) & 15
+    );
+    skyLight = max(ivec4(0), skyLight - ivec4(skyLightSub));
     
     // AO
-    ao.x = ao0 * INV_AO_SCALE;
-    ao.y = ao1 * INV_AO_SCALE;
-    ao.z = ao2 * INV_AO_SCALE;
-    ao.w = ao3 * INV_AO_SCALE;
+    ao = vec4(1.0 - AO_RANGE) + faceAO * INV_AO_SCALE * AO_RANGE;
 
     // Light
-    light.x = max(blockLight0, max(0, skyLight0 - skyLightSub)) * INV_LIGHT_SCALE;
-    light.y = max(blockLight1, max(0, skyLight1 - skyLightSub)) * INV_LIGHT_SCALE;
-    light.z = max(blockLight2, max(0, skyLight2 - skyLightSub)) * INV_LIGHT_SCALE;
-    light.w = max(blockLight3, max(0, skyLight3 - skyLightSub)) * INV_LIGHT_SCALE;
+    light = max(blockLight, skyLight) * INV_LIGHT_SCALE;
 
     // Transform vertex and uv
     vec3 vertexPos = vertexRotations[normal] * vec3(aPos, 0.0) + vertexOffsets[normal];
