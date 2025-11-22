@@ -113,7 +113,7 @@ void BlockDataBase::loadBlockDataBase(std::vector<std::string>& textureNames)
 
 	registerBlock(Block::ColoredGlass,
 		{ false, 15, true,  true, true },
-		{ "glass_red", "glass_green", "glass_blue", "glass_cyan", "glass_pink", "glass_yellow" },
+		{ "glass_red", "glass_red", "glass_green", "glass_green", "glass_blue", "glass_blue" },
 		packTransformations(
 			TextureTransformation::None, TextureTransformation::None, TextureTransformation::None,
 			TextureTransformation::None, TextureTransformation::None, TextureTransformation::None)

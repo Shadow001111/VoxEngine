@@ -393,6 +393,8 @@ void World::renderChunks(const Camera& camera, const OpenGL_FBO* opaqueFBO, cons
 		translucentFaceShader->setVec3("fogColor", fogColor.r, fogColor.g, fogColor.b);
 		translucentFaceShader->setFloat("fogDensity", visualSettings.fogDensity);
 		translucentFaceShader->setFloat("fogGradient", visualSettings.fogGradient);
+
+		translucentFaceShader->setFloat("farPlane", chunkLoadingDistance * CHUNK_SIZE);
 	}
 
 	// Collect chunks to render
@@ -1106,6 +1108,7 @@ const WorldVisualSettings& World::getWorldVisualSettings() const
 
 void World::setChunkLoadingDistance(int renderDistance)
 {
+	// TODO: Set camera far plane dynamicly
 	chunkLoadingDistance = renderDistance;
 
 	float fogDistance = (chunkLoadingDistance - 0.5f) * CHUNK_SIZE;

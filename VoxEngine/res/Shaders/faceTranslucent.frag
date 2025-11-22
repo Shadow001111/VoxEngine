@@ -2,6 +2,7 @@
 
 uniform sampler2DArray blockTextures;
 
+uniform float farPlane;
 uniform vec3 fogColor;
 uniform float fogDensity;
 uniform float fogGradient;
@@ -41,10 +42,9 @@ float interpolateLight_Quad()
     return mix(v0, v1, uv.y);
 }
 
-// TODO: Pass far plane to calculate normalized distance. Or just use glFragCoord.
 float weight(float z, float alpha)
 {
-    return alpha * max(1e-2, 3e3 * pow(1.0 - z, 3.0));
+    return alpha * max(1e-2, 3e3 * pow(1.0 - z * 0.9, 10.0));
 }
 
 void main()
@@ -60,8 +60,7 @@ void main()
     fogFactor = clamp(fogFactor, 0.0, 1.0);
     vec3 colorWithFog = mix(fogColor, shadedColor, fogFactor);
 
-    // TODO: remove max depth constant
-    float w = weight(depth / 128.0, textureColor.a);
+    float w = weight(depth / farPlane, textureColor.a);
 
     accumulation = vec4(colorWithFog, 1.0) * (textureColor.a * w);
     revealage = textureColor.a;

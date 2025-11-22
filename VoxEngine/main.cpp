@@ -358,7 +358,7 @@ int main()
 
             player->interpolateCameraTransform(worldUpdateTimer.getAccumulatedTimeInPercent());
 
-            world.sortChunkMeshes(player->getCamera().getPosition());
+            //world.sortChunkMeshes(player->getCamera().getPosition());
             world.sendChunkMeshesToGPU();
 
             // Rendering to FBO
