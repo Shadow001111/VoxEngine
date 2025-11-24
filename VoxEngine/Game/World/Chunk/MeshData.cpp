@@ -1,23 +1,45 @@
 #include "MeshData.h"
 
-#include <glm/vec2.hpp>
-#include <iostream>
-
-MeshData::MeshData()
+ChunkMeshData::ChunkMeshData()
 {
 }
 
-MeshData::~MeshData()
+ChunkMeshData::~ChunkMeshData()
 {}
 
-void MeshData::resetFaceCount()
+void ChunkMeshData::resetRenderFaceCount()
 {
-	renderOpaqueFaceCount = 0;
-	renderTransparentFaceCount = 0;
+	renderAlignedOpaqueFaceCount = 0;
+	renderAlignedTranslucentFaceCount = 0;
+	renderNonAlignedOpaqueFaceCount = 0;
+	renderNonAlignedTranslucentFaceCount = 0;
 }
 
-void MeshData::updateRenderFaceCount()
+void ChunkMeshData::updateRenderFaceCount()
 {
-	renderOpaqueFaceCount = getOpaqueFaceCount();
-	renderTransparentFaceCount = getTransparentFaceCount();
+	renderAlignedOpaqueFaceCount = instancesStorage.alignedOpaque.size();
+	renderAlignedTranslucentFaceCount = instancesStorage.alignedTranslucent.size();
+	renderNonAlignedOpaqueFaceCount = instancesStorage.nonAlignedOpaque.size();
+	renderNonAlignedTranslucentFaceCount = instancesStorage.nonAlignedTranslucent.size();
+}
+
+void ChunkMeshData::clearInstances()
+{
+	instancesStorage.alignedOpaque.clear();
+	instancesStorage.alignedTranslucent.clear();
+	instancesStorage.nonAlignedOpaque.clear();
+	instancesStorage.nonAlignedTranslucent.clear();
+}
+
+ChunkMeshData::InstancesStorage& ChunkMeshData::InstancesStorage::operator=(InstancesStorage&& other) noexcept
+{
+	if (this != &other)
+	{
+		alignedOpaque = std::move(other.alignedOpaque);
+		alignedTranslucent = std::move(other.alignedTranslucent);
+
+		nonAlignedOpaque = std::move(other.nonAlignedOpaque);
+		nonAlignedTranslucent = std::move(other.nonAlignedTranslucent);
+	}
+	return *this;
 }

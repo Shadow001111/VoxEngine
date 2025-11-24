@@ -21,39 +21,68 @@ World::World()
 
 	// Shaders
 	{
-		std::vector<Shader::ShaderSource> opaqueFaceShaderSources =
+		std::vector<Shader::ShaderSource> sources =
 		{
-			{GL_VERTEX_SHADER, "res/Shaders/face.vert"},
-			{GL_FRAGMENT_SHADER, "res/Shaders/faceOpaque.frag"}
+			{GL_VERTEX_SHADER, "res/Shaders/alignedFace.vert"},
+			{GL_FRAGMENT_SHADER, "res/Shaders/alignedOpaqueFace.frag"}
 		};
-		opaqueFaceShader = std::make_unique<Shader>(opaqueFaceShaderSources);
-		opaqueFaceShader->use();
-		opaqueFaceShader->setInt("CHUNK_SIZE", CHUNK_SIZE);
-
-		std::vector<Shader::ShaderSource> translucentFaceShaderSources =
+		auto& shader = alignedOpaqueFaceShader;
+		shader = std::make_unique<Shader>(sources);
+		shader->use();
+		shader->setInt("CHUNK_SIZE", CHUNK_SIZE);
+	}
+	{
+		std::vector<Shader::ShaderSource> sources =
 		{
-			{GL_VERTEX_SHADER, "res/Shaders/face.vert"},
-			{GL_FRAGMENT_SHADER, "res/Shaders/faceTranslucent.frag"}
+			{GL_VERTEX_SHADER, "res/Shaders/alignedFace.vert"},
+			{GL_FRAGMENT_SHADER, "res/Shaders/alignedTranslucentFace.frag"}
 		};
-		translucentFaceShader = std::make_unique<Shader>(translucentFaceShaderSources);
-		translucentFaceShader->use();
-		translucentFaceShader->setInt("CHUNK_SIZE", CHUNK_SIZE);
-
-		std::vector<Shader::ShaderSource> compositeFaceShaderSources =
+		auto& shader = alignedTranslucentFaceShader;
+		shader = std::make_unique<Shader>(sources);
+		shader->use();
+		shader->setInt("CHUNK_SIZE", CHUNK_SIZE);
+	}
+	{
+		std::vector<Shader::ShaderSource> sources =
+		{
+			{GL_VERTEX_SHADER, "res/Shaders/nonAlignedFace.vert"},
+			{GL_FRAGMENT_SHADER, "res/Shaders/nonAlignedOpaqueFace.frag"}
+		};
+		auto& shader = nonAlignedOpaqueFaceShader;
+		shader = std::make_unique<Shader>(sources);
+		shader->use();
+		shader->setInt("CHUNK_SIZE", CHUNK_SIZE);
+	}
+	{
+		std::vector<Shader::ShaderSource> sources =
+		{
+			{GL_VERTEX_SHADER, "res/Shaders/nonAlignedFace.vert"},
+			{GL_FRAGMENT_SHADER, "res/Shaders/nonAlignedTranslucentFace.frag"}
+		};
+		auto& shader = nonAlignedTranslucentFaceShader;
+		shader = std::make_unique<Shader>(sources);
+		shader->use();
+		shader->setInt("CHUNK_SIZE", CHUNK_SIZE);
+	}
+	{
+		std::vector<Shader::ShaderSource> sources =
 		{
 			{GL_VERTEX_SHADER, "res/Shaders/quad.vert"},
 			{GL_FRAGMENT_SHADER, "res/Shaders/faceComposite.frag"}
 		};
-		compositeFaceShader = std::make_unique<Shader>(compositeFaceShaderSources);
-
-		std::vector<Shader::ShaderSource> voxelMarkerShaderSources =
+		auto& shader = compositeFaceShader;
+		shader = std::make_unique<Shader>(sources);
+	}
+	{
+		std::vector<Shader::ShaderSource> sources =
 		{
 			{GL_VERTEX_SHADER, "res/Shaders/voxelMarker.vert"},
 			{GL_FRAGMENT_SHADER, "res/Shaders/voxelMarker.frag"}
 		};
-		voxelMarkerShader = std::make_unique<Shader>(voxelMarkerShaderSources);
-		voxelMarkerShader->use();
-		voxelMarkerShader->setInt("CHUNK_SIZE", CHUNK_SIZE);
+		auto& shader = voxelMarkerShader;
+		shader = std::make_unique<Shader>(sources);
+		shader->use();
+		shader->setInt("CHUNK_SIZE", CHUNK_SIZE);
 	}
 
 	// Block data base
@@ -65,9 +94,15 @@ World::World()
 		PROFILE_SCOPE("Block texture array creation", ProfileCategory::General);
 		blockTextureArray = std::make_unique<BlockTextureArray>("res/Textures", blockTextureNames, 0, 16);
 	}
-	blockTextureArray->bind();
-	opaqueFaceShader->use();
-	opaqueFaceShader->setInt("blockTextures", blockTextureArray->getUnit());
+
+	alignedOpaqueFaceShader->use();
+	alignedOpaqueFaceShader->setInt("blockTextures", blockTextureArray->getUnit());
+	alignedTranslucentFaceShader->use();
+	alignedTranslucentFaceShader->setInt("blockTextures", blockTextureArray->getUnit());
+	nonAlignedOpaqueFaceShader->use();
+	nonAlignedOpaqueFaceShader->setInt("blockTextures", blockTextureArray->getUnit());
+	nonAlignedTranslucentFaceShader->use();
+	nonAlignedTranslucentFaceShader->setInt("blockTextures", blockTextureArray->getUnit());
 
 	// Framebuffer quad
 	createFullscreenQuad();
@@ -287,27 +322,6 @@ void World::update(float deltaTime)
 	}
 }
 
-void World::sortChunkMeshes(const glm::vec3& cameraPos)
-{
-	const glm::ivec3 cameraBlockPos = glm::floor(cameraPos);
-	const bool cameraMoved = cameraBlockPos != lastChunkMeshSortPos;
-	lastChunkMeshSortPos = cameraBlockPos;
-
-	ThreadPool& pool = ParallelUtils::getGlobalThreadPool();
-
-	for (auto& pair : chunks)
-	{
-		Chunk* chunk = pair.second.get();
-		if (chunk->shouldMeshBeSorted(cameraMoved))
-		{
-			pool.enqueue([this, chunk]()
-				{
-					chunk->sortMesh(lastChunkMeshSortPos);
-				});
-		}
-	}
-}
-
 void World::sendChunkMeshesToGPU()
 {
 	// Send only dirty meshes
@@ -370,31 +384,32 @@ void World::renderChunks(const Camera& camera, const OpenGL_FBO* opaqueFBO, cons
 		const glm::ivec3 cameraChunkPos = glm::ivec3(glm::floor(camera.getPosition())) >> CHUNK_SIZE_LOG2;
 		const auto& fogColor = visualSettings.backgroundColor;
 
-		//
-		opaqueFaceShader->use();
+		auto viewMatrix = camera.getViewMatrixModified(glm::dvec3(CHUNK_SIZE));
+		auto projectioMatrix = camera.getProjectionMatrix();
 
-		opaqueFaceShader->setIvec3("cameraChunkPosition", cameraChunkPos.x, cameraChunkPos.y, cameraChunkPos.z);
+		Shader* shaders[4] =
+		{
+			alignedOpaqueFaceShader.get(),
+			alignedTranslucentFaceShader.get(),
+			nonAlignedOpaqueFaceShader.get(),
+			nonAlignedTranslucentFaceShader.get()
+		};
 
-		opaqueFaceShader->setMat4("view", camera.getViewMatrixModified(glm::dvec3(CHUNK_SIZE)));
-		opaqueFaceShader->setMat4("projection", camera.getProjectionMatrix());
-	
-		opaqueFaceShader->setVec3("fogColor", fogColor.r, fogColor.g, fogColor.b);
-		opaqueFaceShader->setFloat("fogDensity", visualSettings.fogDensity);
-		opaqueFaceShader->setFloat("fogGradient", visualSettings.fogGradient);
+		for (const Shader* shader : shaders)
+		{
+			shader->use();
 
-		//
-		translucentFaceShader->use();
+			shader->setIvec3("cameraChunkPosition", cameraChunkPos.x, cameraChunkPos.y, cameraChunkPos.z);
 
-		translucentFaceShader->setIvec3("cameraChunkPosition", cameraChunkPos.x, cameraChunkPos.y, cameraChunkPos.z);
+			shader->setMat4("view", viewMatrix);
+			shader->setMat4("projection", projectioMatrix);
 
-		translucentFaceShader->setMat4("view", camera.getViewMatrixModified(glm::dvec3(CHUNK_SIZE)));
-		translucentFaceShader->setMat4("projection", camera.getProjectionMatrix());
+			shader->setVec3("fogColor", fogColor.r, fogColor.g, fogColor.b);
+			shader->setFloat("fogDensity", visualSettings.fogDensity);
+			shader->setFloat("fogGradient", visualSettings.fogGradient);
 
-		translucentFaceShader->setVec3("fogColor", fogColor.r, fogColor.g, fogColor.b);
-		translucentFaceShader->setFloat("fogDensity", visualSettings.fogDensity);
-		translucentFaceShader->setFloat("fogGradient", visualSettings.fogGradient);
-
-		translucentFaceShader->setFloat("farPlane", chunkLoadingDistance * CHUNK_SIZE);
+			shader->setFloat("farPlane", chunkLoadingDistance * CHUNK_SIZE);
+		}
 	}
 
 	// Collect chunks to render
@@ -402,7 +417,6 @@ void World::renderChunks(const Camera& camera, const OpenGL_FBO* opaqueFBO, cons
 	collectChunksToRenderAndSortThem(chunksToRender, camera);
 
 	// Bind resources
-	ChunkMeshManager::getInstance().bindVAO();
 	blockTextureArray->bind();
 	chunkDrawCommandBuffer->bind();
 	chunkPositionSSBO->bind();
@@ -467,8 +481,11 @@ void World::renderOpaqueChunks(
 	std::vector<glm::ivec3>& chunkPositions
 	) const
 {
-	const size_t renderChunkCount = chunksToRender.size();
+	glEnable(GL_CULL_FACE);
+	glDisable(GL_BLEND);
 
+	// Aligned
+	ChunkMeshManager::getInstance().bindAlignedVAO();
 	{
 		PROFILE_SCOPE("Render: collect draw commands", ProfileCategory::Render);
 
@@ -476,36 +493,75 @@ void World::renderOpaqueChunks(
 		chunkPositions.clear();
 		for (const auto& info : chunksToRender)
 		{
-			info.chunk->collectOpaqueRenderData(chunkDrawCommands, chunkPositions);
+			info.chunk->collectAlignedOpaqueRenderData(chunkDrawCommands, chunkPositions);
 		}
 	}
 
-	const size_t drawCount = chunkDrawCommands.size();
-	if (drawCount > 0)
 	{
-		glEnable(GL_CULL_FACE);
-		glDisable(GL_BLEND);
-
-		for (const auto& command : chunkDrawCommands)
+		const size_t drawCount = chunkDrawCommands.size();
+		if (drawCount > 0)
 		{
-			debugData.renderedFaceCount += command.instanceCount;
+			for (const auto& command : chunkDrawCommands)
+			{
+				debugData.renderedFaceCount += command.instanceCount;
+			}
+
+			chunkDrawCommandBuffer->allocateMemory(drawCount * sizeof(DrawArraysIndirectCommand));
+			chunkDrawCommandBuffer->write(chunkDrawCommands.data(), drawCount * sizeof(DrawArraysIndirectCommand));
+
+			chunkPositionSSBO->allocateMemory(drawCount * sizeof(glm::ivec3));
+			chunkPositionSSBO->write(chunkPositions.data(), drawCount * sizeof(glm::ivec3));
+
+			alignedOpaqueFaceShader->use();
+			glMultiDrawArraysIndirect(GL_TRIANGLE_FAN, NULL, drawCount, 0);
 		}
+	}
 
-		chunkDrawCommandBuffer->allocateMemory(drawCount * sizeof(DrawArraysIndirectCommand));
-		chunkDrawCommandBuffer->write(chunkDrawCommands.data(), drawCount * sizeof(DrawArraysIndirectCommand));
+	// Non-aligned
+	ChunkMeshManager::getInstance().bindNonAlignedVAO();
+	{
+		PROFILE_SCOPE("Render: collect draw commands", ProfileCategory::Render);
 
-		chunkPositionSSBO->allocateMemory(drawCount * sizeof(glm::ivec3));
-		chunkPositionSSBO->write(chunkPositions.data(), drawCount * sizeof(glm::ivec3));
+		chunkDrawCommands.clear();
+		chunkPositions.clear();
+		for (const auto& info : chunksToRender)
+		{
+			info.chunk->collectNonAlignedOpaqueRenderData(chunkDrawCommands, chunkPositions);
+		}
+	}
 
-		opaqueFaceShader->use();
-		glMultiDrawArraysIndirect(GL_TRIANGLE_FAN, NULL, drawCount, 0);
+	{
+		const size_t drawCount = chunkDrawCommands.size();
+		if (drawCount > 0)
+		{
+			for (const auto& command : chunkDrawCommands)
+			{
+				debugData.renderedFaceCount += command.instanceCount;
+			}
+
+			chunkDrawCommandBuffer->allocateMemory(drawCount * sizeof(DrawArraysIndirectCommand));
+			chunkDrawCommandBuffer->write(chunkDrawCommands.data(), drawCount * sizeof(DrawArraysIndirectCommand));
+
+			chunkPositionSSBO->allocateMemory(drawCount * sizeof(glm::ivec3));
+			chunkPositionSSBO->write(chunkPositions.data(), drawCount * sizeof(glm::ivec3));
+
+			nonAlignedOpaqueFaceShader->use();
+			glMultiDrawArraysIndirect(GL_TRIANGLE_FAN, NULL, drawCount, 0);
+		}
 	}
 }
 
 void World::renderTranslucentChunks(const std::vector<ChunkRenderInfo>& chunksToRender, std::vector<DrawArraysIndirectCommand>& chunkDrawCommands, std::vector<glm::ivec3>& chunkPositions) const
 {
-	const size_t renderChunkCount = chunksToRender.size();
+	glDisable(GL_CULL_FACE);
+	glDepthMask(GL_FALSE);
+	glEnable(GL_BLEND);
+	glBlendFunci(0, GL_ONE, GL_ONE);					// accumulation buffer
+	glBlendFunci(1, GL_ZERO, GL_ONE_MINUS_SRC_COLOR);	// revealage buffer
+	glBlendEquation(GL_FUNC_ADD);
 
+	// Aligned
+	ChunkMeshManager::getInstance().bindAlignedVAO();
 	{
 		PROFILE_SCOPE("Render: collect draw commands", ProfileCategory::Render);
 
@@ -513,35 +569,64 @@ void World::renderTranslucentChunks(const std::vector<ChunkRenderInfo>& chunksTo
 		chunkPositions.clear();
 		for (const auto& info : chunksToRender)
 		{
-			info.chunk->collectTransparentRenderData(chunkDrawCommands, chunkPositions);
+			info.chunk->collectAlignedTranslucentRenderData(chunkDrawCommands, chunkPositions);
 		}
 	}
 
-	const size_t drawCount = chunkDrawCommands.size();
-	if (drawCount > 0)
 	{
-		glDisable(GL_CULL_FACE);
-		glDepthMask(GL_FALSE);
-		glEnable(GL_BLEND);
-		glBlendFunci(0, GL_ONE, GL_ONE);					// accumulation buffer
-		glBlendFunci(1, GL_ZERO, GL_ONE_MINUS_SRC_COLOR);	// revealage buffer
-		glBlendEquation(GL_FUNC_ADD);
-
-		for (const auto& command : chunkDrawCommands)
+		const size_t drawCount = chunkDrawCommands.size();
+		if (drawCount > 0)
 		{
-			debugData.renderedFaceCount += command.instanceCount;
+			for (const auto& command : chunkDrawCommands)
+			{
+				debugData.renderedFaceCount += command.instanceCount;
+			}
+
+			chunkDrawCommandBuffer->allocateMemory(drawCount * sizeof(DrawArraysIndirectCommand));
+			chunkDrawCommandBuffer->write(chunkDrawCommands.data(), drawCount * sizeof(DrawArraysIndirectCommand));
+
+			chunkPositionSSBO->allocateMemory(drawCount * sizeof(glm::ivec3));
+			chunkPositionSSBO->write(chunkPositions.data(), drawCount * sizeof(glm::ivec3));
+
+			alignedTranslucentFaceShader->use();
+			glMultiDrawArraysIndirect(GL_TRIANGLE_FAN, NULL, drawCount, 0);
 		}
-
-		chunkDrawCommandBuffer->allocateMemory(drawCount * sizeof(DrawArraysIndirectCommand));
-		chunkDrawCommandBuffer->write(chunkDrawCommands.data(), drawCount * sizeof(DrawArraysIndirectCommand));
-
-		chunkPositionSSBO->allocateMemory(drawCount * sizeof(glm::ivec3));
-		chunkPositionSSBO->write(chunkPositions.data(), drawCount * sizeof(glm::ivec3));
-
-		translucentFaceShader->use();
-		glMultiDrawArraysIndirect(GL_TRIANGLE_FAN, NULL, drawCount, 0);
-		glDepthMask(GL_TRUE);
 	}
+
+	// Non-aligned
+	ChunkMeshManager::getInstance().bindNonAlignedVAO();
+	{
+		PROFILE_SCOPE("Render: collect draw commands", ProfileCategory::Render);
+
+		chunkDrawCommands.clear();
+		chunkPositions.clear();
+		for (const auto& info : chunksToRender)
+		{
+			info.chunk->collectNonAlignedTranslucentRenderData(chunkDrawCommands, chunkPositions);
+		}
+	}
+
+	{
+		const size_t drawCount = chunkDrawCommands.size();
+		if (drawCount > 0)
+		{
+			for (const auto& command : chunkDrawCommands)
+			{
+				debugData.renderedFaceCount += command.instanceCount;
+			}
+
+			chunkDrawCommandBuffer->allocateMemory(drawCount * sizeof(DrawArraysIndirectCommand));
+			chunkDrawCommandBuffer->write(chunkDrawCommands.data(), drawCount * sizeof(DrawArraysIndirectCommand));
+
+			chunkPositionSSBO->allocateMemory(drawCount * sizeof(glm::ivec3));
+			chunkPositionSSBO->write(chunkPositions.data(), drawCount * sizeof(glm::ivec3));
+
+			nonAlignedTranslucentFaceShader->use();
+			glMultiDrawArraysIndirect(GL_TRIANGLE_FAN, NULL, drawCount, 0);
+		}
+	}
+
+	glDepthMask(GL_TRUE);
 }
 
 void World::compositePass(GLuint accumTex, GLuint revTex, GLuint colorTex) const
@@ -790,11 +875,12 @@ const World::DebugData& World::getDebugData() const
 
 		debugData.totalFaces += chunk->getFaceCount();
 	}
-	debugData.totalFaceCapacity = ChunkMeshManager::getInstance().getInstanceVBO().getCapacity() / sizeof(BlockFaceInstance);
+	debugData.totalFaceCapacityInBytes = (
+		ChunkMeshManager::getInstance().getAlignedInstanceVBO().getCapacity() +
+		ChunkMeshManager::getInstance().getNonAlignedInstanceVBO().getCapacity()
+		);
 
 	debugData.loadedChunksCount = chunks.size();
-
-	debugData.chunkMeshesGaps = ChunkMeshManager::getInstance().getGaps();
 
 	debugData.chunkDrawCommandBufferSizeInBytes = chunkDrawCommandBuffer->getCapacity();
 	debugData.chunkPositionBufferSizeInBytes = chunkPositionSSBO->getCapacity();

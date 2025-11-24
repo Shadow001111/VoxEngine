@@ -1,5 +1,6 @@
 #pragma once
-#include "BlockFaceInstance.h"
+#include "MeshTemplates/AlignedBlockFace.h"
+#include "MeshTemplates/NonAlignedBlockFace.h"
 
 #include "Core/BlockAllocator.h"
 #include "Core/Multithreading/ProcessingFence.h"
@@ -7,31 +8,73 @@
 #include <cstdint>
 #include <vector>
 
-struct MeshData
+struct ChunkMeshData
 {
-	BlockAllocator::Block allocatedBlock;
+	struct InstancesStorage
+	{
+		std::vector<AlignedBlockFace> alignedOpaque;
+		std::vector<AlignedBlockFace> alignedTranslucent;
 
-	uint16_t renderOpaqueFaceCount = 0;
-	uint16_t renderTransparentFaceCount = 0;
+		std::vector<NonAlignedBlockFace> nonAlignedOpaque;
+		std::vector<NonAlignedBlockFace> nonAlignedTranslucent;
 
-	bool created = false;
-	bool opaqueDirty = false;
-	bool transparentDirty = false;
+		InstancesStorage& operator=(InstancesStorage&& other) noexcept;
+	};
 
-	std::vector<BlockFaceInstance> opaqueInstances;
-	std::vector<BlockFaceInstance> transparentInstances;
+	BlockAllocator::Block allocatedBlock_alignedFaces{};
+	BlockAllocator::Block allocatedBlock_nonAlignedFaces{};
+
+	uint16_t renderAlignedOpaqueFaceCount = 0;
+	uint16_t renderAlignedTranslucentFaceCount = 0;
+	uint32_t renderNonAlignedOpaqueFaceCount = 0;
+	uint32_t renderNonAlignedTranslucentFaceCount = 0;
+
+	// TODO: Use flags to reduce memory usage
+	bool alignedCreated = false;
+	bool nonAlignedCreated = false;
+	bool dirty = false;
+
+	InstancesStorage instancesStorage;
 
 	ProcessingFence processingFence;
 
-	MeshData();
-	~MeshData();
+	ChunkMeshData();
+	~ChunkMeshData();
 
-	void resetFaceCount();
+	void resetRenderFaceCount();
 	void updateRenderFaceCount();
 
-	size_t getOpaqueFaceCount() const { return opaqueInstances.size(); }
-	size_t getTransparentFaceCount() const { return transparentInstances.size(); }
-	size_t getFaceCount() const { return opaqueInstances.size() + transparentInstances.size(); };
-	size_t getRenderFaceCount() const { return renderOpaqueFaceCount + renderTransparentFaceCount; };
-	size_t getFaceCapacity() const { return allocatedBlock.size; };
+	void clearInstances();
+
+	size_t getAlignedOpaqueFaceCount() const { return instancesStorage.alignedOpaque.size(); }
+	size_t getAlignedTranslucentFaceCount() const { return instancesStorage.alignedTranslucent.size(); }
+	size_t getNonAlignedOpaqueFaceCount() const { return instancesStorage.nonAlignedOpaque.size(); }
+	size_t getNonAlignedTranslucentFaceCount() const { return instancesStorage.nonAlignedTranslucent.size(); }
+
+	size_t getAlignedFaceCount() const { return 
+		instancesStorage.alignedOpaque.size() +
+		instancesStorage.alignedTranslucent.size()
+		;};
+	size_t getNonAlignedFaceCount() const {
+		return
+			instancesStorage.nonAlignedOpaque.size() +
+			instancesStorage.nonAlignedTranslucent.size()
+		;};
+
+	size_t getAllFaceCount() const {
+		return
+			instancesStorage.alignedOpaque.size() +
+			instancesStorage.alignedTranslucent.size() +
+			instancesStorage.nonAlignedOpaque.size() +
+			instancesStorage.nonAlignedTranslucent.size()
+		;};
+
+	size_t getRenderFaceCount() const { return
+		(size_t)renderAlignedOpaqueFaceCount +
+		(size_t)renderAlignedTranslucentFaceCount +
+		(size_t)renderNonAlignedOpaqueFaceCount +
+		(size_t)renderNonAlignedTranslucentFaceCount
+		;};
+	size_t getAlignedFaceCapacity() const { return allocatedBlock_alignedFaces.size; };
+	size_t getNonAlignedFaceCapacity() const { return allocatedBlock_nonAlignedFaces.size; };
 };

@@ -16,8 +16,6 @@
 #include <filesystem>
 #include <unordered_map>
 
-// Forward declarations
-
 //
 struct LightLevel
 {
@@ -53,6 +51,7 @@ struct DrawArraysIndirectCommand
 	unsigned int first;        // Starting vertex index in the vertex array
 	unsigned int baseInstance; // Base instance ID
 
+	DrawArraysIndirectCommand() = default;
 	DrawArraysIndirectCommand(unsigned int count, unsigned int instanceCount, unsigned int first, unsigned int baseInstance);
 };
 
@@ -81,14 +80,10 @@ private:
 	// Chunk coordinates
 	glm::ivec3 position;
 
-	//
-	uint16_t cameraClosestBlockPosForSortingMesh; // 4 bits per axis
-
 	// States and flags
 	std::atomic<State> state;
 	AtomicFlags<uint8_t> chunkFlags;
 	bool meshDirty;
-	bool shouldSortMeshAfterBuild;
 
 	// Loaders count
 	uint8_t loaderCount;
@@ -111,8 +106,8 @@ private:
 	mutable std::mutex skyLightRemovalBfsMutex;
 
 	// Mesh
-	MeshData meshData;
-	static std::vector<MeshData*> pendingMeshUploads;
+	ChunkMeshData meshData;
+	static std::vector<ChunkMeshData*> pendingMeshUploads;
 
 	// Processing fence
 	ProcessingFence processingFence;
@@ -166,16 +161,16 @@ public:
 
 	// Mesh
 	void updateMesh();
-	void sortMesh(const glm::ivec3& cameraBlockPos);
-	bool shouldMeshBeSorted(bool cameraMoved) const;
 	bool shouldMeshBeUpdated() const;
 	void markMeshDirty();
 	void askForMeshUpload();
 	static void sendMeshesToGPU();
 
 	// Render
-	void collectOpaqueRenderData(std::vector<DrawArraysIndirectCommand>& drawCommands, std::vector<glm::ivec3>& positions) const;
-	void collectTransparentRenderData(std::vector<DrawArraysIndirectCommand>& drawCommands, std::vector<glm::ivec3>& positions) const;
+	void collectAlignedOpaqueRenderData(std::vector<DrawArraysIndirectCommand>& drawCommands, std::vector<glm::ivec3>& positions) const;
+	void collectAlignedTranslucentRenderData(std::vector<DrawArraysIndirectCommand>& drawCommands, std::vector<glm::ivec3>& positions) const;
+	void collectNonAlignedOpaqueRenderData(std::vector<DrawArraysIndirectCommand>& drawCommands, std::vector<glm::ivec3>& positions) const;
+	void collectNonAlignedTranslucentRenderData(std::vector<DrawArraysIndirectCommand>& drawCommands, std::vector<glm::ivec3>& positions) const;
 	bool canBeRendered() const;
 
 	// Chunk traverse

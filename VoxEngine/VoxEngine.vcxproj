@@ -154,7 +154,7 @@
     <ClCompile Include="Graphics\OpenGL_SSBO.cpp" />
     <ClCompile Include="Game\World\ChunkPool.cpp" />
     <ClCompile Include="Game\World\Chunk\MeshData.cpp" />
-    <ClCompile Include="Game\World\Chunk\BlockFaceInstance.cpp" />
+    <ClCompile Include="Game\World\Chunk\MeshTemplates\AlignedBlockFace.cpp" />
     <ClCompile Include="Graphics\BlockTextureArray.cpp" />
     <ClCompile Include="Core\StringIndexer.cpp" />
     <ClCompile Include="Core\Multithreading\ProcessingFence.cpp" />
@@ -180,6 +180,7 @@
     <ClCompile Include="Graphics\TextRenderer.cpp" />
     <ClCompile Include="Graphics\OpenGL_FBO.cpp" />
     <ClCompile Include="Game\World\ChunkLoaders\SphericalChunkLoader.cpp" />
+    <ClCompile Include="Game\World\Chunk\MeshTemplates\NonAlignedBlockFace.cpp" />
     <ClCompile Include="WindowManager.cpp" />
     <ClCompile Include="Game\World.cpp" />
     <ClCompile Include="Game\World\WorldVisualSettings.cpp" />
@@ -198,7 +199,7 @@
     <ClInclude Include="Graphics\OpenGL_SSBO.h" />
     <ClInclude Include="Game\World\ChunkPool.h" />
     <ClInclude Include="Game\World\Chunk\MeshData.h" />
-    <ClInclude Include="Game\World\Chunk\BlockFaceInstance.h" />
+    <ClInclude Include="Game\World\Chunk\MeshTemplates\AlignedBlockFace.h" />
     <ClInclude Include="Game\World\Chunk\Metrics.h" />
     <ClInclude Include="Graphics\BlockTextureArray.h" />
     <ClInclude Include="Core\StringIndexer.h" />
@@ -227,6 +228,7 @@
     <ClInclude Include="Game\World\ChunkLoaders\SphericalChunkLoader.h" />
     <ClInclude Include="Core\Hashes\ivec3Hasher.h" />
     <ClInclude Include="Core\Hashes\ivec2Hasher.h" />
+    <ClInclude Include="Game\World\Chunk\MeshTemplates\NonAlignedBlockFace.h" />
     <ClInclude Include="WindowManager.h" />
     <ClInclude Include="Game\World.h" />
     <ClInclude Include="Game\World\WorldVisualSettings.h" />

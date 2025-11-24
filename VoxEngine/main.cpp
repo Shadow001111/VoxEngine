@@ -37,7 +37,7 @@ static std::string formatSize(size_t value)
 
 static std::string formatSizeBinary(size_t value)
 {
-    static const char* suffixes[] = { "", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB" };
+    static const char* suffixes[] = { "B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB" };
     constexpr size_t sufffixCount = sizeof(suffixes) / sizeof(suffixes[0]);
     double scaled = static_cast<double>(value);
     size_t suffixIndex = 0;
@@ -150,12 +150,11 @@ static void renderDebugData(const World::DebugData& debug, const WindowManager& 
 
     // Faces
     ss << "\nFaces: " << formatSize(debug.totalFaces)
-        << "/" << formatSize(debug.totalFaceCapacity)
+        << "/" << formatSize(debug.totalFaceCapacityInBytes)
         << ", Rendered: " << formatSize(debug.renderedFaceCount);
 
     // Meshes
-    ss << "\nChunk meshes: Capacity: " << formatSizeBinary(debug.totalFaceCapacity * sizeof(BlockFaceInstance))
-        << ", Gaps: " << formatSizeBinary(debug.chunkMeshesGaps * sizeof(BlockFaceInstance));
+    ss << "\nChunk meshes: Capacity: " << formatSizeBinary(debug.totalFaceCapacityInBytes);
 
     // Buffer sizes
     ss << "\nChunk draw command buffer: " << formatSizeBinary(debug.chunkDrawCommandBufferSizeInBytes);
@@ -247,6 +246,7 @@ void APIENTRY glDebugOutput(GLenum source,
 
 
 // TODO: Modern OpenGl
+// TODO: Rename transparent to translucent
 int main()
 {
     constexpr float CAMERA_FAR_PLANE = (CHUNK_LOAD_DISTANCE + 0.5f) * (CHUNK_SIZE * 1.41f);

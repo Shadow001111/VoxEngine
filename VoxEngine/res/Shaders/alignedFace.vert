@@ -12,7 +12,7 @@ uniform mat4 view;
 uniform mat4 projection;
 uniform ivec3 cameraChunkPosition;
 uniform int CHUNK_SIZE;
-uniform int skyLightSub = 15; // TODO: Maybe make it float
+uniform int skyLightSub = 0; // TODO: Maybe make it float for smooth sky light transition
 
 out vec2 uv;
 out vec2 texCoords;

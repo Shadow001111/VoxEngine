@@ -30,16 +30,15 @@ class World
 		ChunkRenderInfo(const Chunk* chunk, unsigned int manhattanDistance);
 	};
 public:
+	// TODO: Make it for non-aligned
 	struct DebugData
 	{
 		size_t loadedChunksCount = 0;
 		size_t renderedChunks = 0;
 
 		size_t totalFaces = 0;
-		size_t totalFaceCapacity = 0;
+		size_t totalFaceCapacityInBytes = 0;
 		size_t renderedFaceCount = 0;
-
-		size_t chunkMeshesGaps = 0;
 
 		size_t chunkDrawCommandBufferSizeInBytes = 0;
 		size_t chunkPositionBufferSizeInBytes = 0;
@@ -67,8 +66,10 @@ private:
 	glm::ivec3 lastChunkMeshSortPos = { INT_MAX, INT_MAX, INT_MAX };
 
 	// Resources
-	std::unique_ptr<Shader> opaqueFaceShader;
-	std::unique_ptr<Shader> translucentFaceShader;
+	std::unique_ptr<Shader> alignedOpaqueFaceShader;
+	std::unique_ptr<Shader> alignedTranslucentFaceShader;
+	std::unique_ptr<Shader> nonAlignedOpaqueFaceShader;
+	std::unique_ptr<Shader> nonAlignedTranslucentFaceShader;
 	std::unique_ptr<Shader> compositeFaceShader;
 
 	std::unique_ptr<Shader> voxelMarkerShader;
@@ -107,7 +108,6 @@ public:
 	void preparation();
 	void loadChunks(const glm::vec3& playerPos);
 	void update(float deltaTime);
-	void sortChunkMeshes(const glm::vec3& cameraPos);
 	void sendChunkMeshesToGPU();
 private:
 	void collectChunksToRenderAndSortThem(std::vector<ChunkRenderInfo>& chunksToRender, const Camera& camera) const;

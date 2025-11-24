@@ -78,7 +78,7 @@
     <ClCompile Include="Core\Multithreading\ProcessingFence.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="Game\World\Chunk\BlockFaceInstance.cpp">
+    <ClCompile Include="Game\World\Chunk\MeshTemplates\AlignedBlockFace.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
     <ClCompile Include="Game\World\Chunk\MeshData.cpp">
@@ -127,6 +127,9 @@
       <Filter>Исходные файлы</Filter>
     </ClCompile>
     <ClCompile Include="Game\World\Chunk\StructureBlockChanges.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\World\Chunk\MeshTemplates\NonAlignedBlockFace.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
   </ItemGroup>
@@ -194,7 +197,7 @@
     <ClInclude Include="Core\Multithreading\ProcessingFence.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="Game\World\Chunk\BlockFaceInstance.h">
+    <ClInclude Include="Game\World\Chunk\MeshTemplates\AlignedBlockFace.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Game\World\Chunk\MeshData.h">
@@ -264,6 +267,9 @@
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Core\Debug.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\World\Chunk\MeshTemplates\NonAlignedBlockFace.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
   </ItemGroup>

@@ -14,7 +14,7 @@
 
 #define CHUNK_SMOOTH_LIGHTING 1
 
-std::vector<MeshData*> Chunk::pendingMeshUploads;
+std::vector<ChunkMeshData*> Chunk::pendingMeshUploads;
 StructureBlockChangeManager Chunk::structureBlockChangeManager;
 std::filesystem::path Chunk::WORLD_PATH;
 
@@ -71,14 +71,11 @@ void Chunk::init(const glm::ivec3& position, Chunk** neighbors)
 	chunkFlags.reset();
 	chunkFlags.set(Flag::IsLoadedInWorld, true);
 
-	meshData.resetFaceCount();
-	meshData.opaqueDirty = false;
-	meshData.transparentDirty = false;
+	meshData.resetRenderFaceCount();
+	meshData.dirty = false;
 
+	// Should be separate from meshData.dirty
 	meshDirty = false;
-
-	cameraClosestBlockPosForSortingMesh = -1;
-	shouldSortMeshAfterBuild = false;
 	
 	ASSERT(changedBlocks.empty());
 }
@@ -105,8 +102,7 @@ void Chunk::destroy()
 
 	//
 	chunkFlags.set(Flag::IsLoadedInWorld, false);
-	meshData.opaqueInstances.clear();
-	meshData.transparentInstances.clear();
+	meshData.clearInstances();
 
 	// Release chunk column data
 	if (chunkFlags.read(Flag::IsLoadedChunkColumnData))
@@ -173,123 +169,102 @@ void Chunk::buildBlocks()
 	{
 		PROFILE_SCOPE("Build chunk blocks", ProfileCategory::ChunkBlocks);
 
-		if (position.x >= 0)
+		const int globalChunkY = position.y * CHUNK_SIZE;
+		for (int x = 0; x < CHUNK_SIZE; x++)
 		{
-			const int globalChunkY = position.y * CHUNK_SIZE;
-			for (int x = 0; x < CHUNK_SIZE; x++)
+			for (int z = 0; z < CHUNK_SIZE; z++)
 			{
-				for (int z = 0; z < CHUNK_SIZE; z++)
-				{
-					int globalHeight = heightMap[z + x * CHUNK_SIZE];
-					for (int y = 0; y < CHUNK_SIZE; y++)
-					{
-						int globalY = globalChunkY + y;
-						bool ocean = globalY <= 0;
-
-						size_t index = getIndex(x, y, z);
-
-						Block block = Block::Air;
-						if (globalY > globalHeight)
-						{
-							block = ocean ? Block::Water : Block::Air;
-						}
-						else if (globalY == globalHeight)
-						{
-							block = Block::GrassBlock;
-						}
-						else if (globalY > globalHeight - 4)
-						{
-							block = Block::Dirt;
-						}
-						else
-						{
-							block = Block::Stone;
-							computeCaveMask = true;
-						}
-
-						blocks[index] = block;
-					}
-				}
-			}
-		}
-		else
-		{
-			for (int x = 0; x < CHUNK_SIZE; x++)
-			{
+				int globalHeight = heightMap[z + x * CHUNK_SIZE];
 				for (int y = 0; y < CHUNK_SIZE; y++)
 				{
-					for (int z = 0; z < CHUNK_SIZE; z++)
+					int globalY = globalChunkY + y;
+					bool ocean = globalY <= 0;
+
+					size_t index = getIndex(x, y, z);
+
+					Block block = Block::Air;
+					if (globalY > globalHeight)
 					{
-						int x2 = x >> 2;
-						int y2 = y >> 2;
-						int z2 = z >> 2;
-						bool b = (x2 ^ y2 ^ z2) & 1;
-						size_t index = getIndex(x, y, z);
-						blocks[index] = b ? Block::ColoredGlass : Block::Air;
+						block = ocean ? Block::Water : Block::Air;
 					}
+					else if (globalY == globalHeight)
+					{
+						block = Block::GrassBlock;
+					}
+					else if (globalY > globalHeight - 4)
+					{
+						block = Block::Dirt;
+					}
+					else
+					{
+						block = Block::Stone;
+						computeCaveMask = true;
+					}
+
+					blocks[index] = block;
 				}
 			}
 		}
 	}
 
-	//// Caves
-	//if (computeCaveMask)
-	//{
-	//	bool caveMask[CHUNK_VOLUME];
-	//	TerrainGenerator::getInstance().computeCaveMask(caveMask, position.x, position.y, position.z);
+	// Caves
+	if (computeCaveMask)
+	{
+		bool caveMask[CHUNK_VOLUME];
+		TerrainGenerator::getInstance().computeCaveMask(caveMask, position.x, position.y, position.z);
 
-	//	PROFILE_SCOPE("Generate caves", ProfileCategory::ChunkBlocks);
+		PROFILE_SCOPE("Generate caves", ProfileCategory::ChunkBlocks);
 
-	//	for (int i = 0; i < CHUNK_VOLUME; i++)
-	//	{
-	//		if (blocks[i] == Block::Stone && caveMask[i])
-	//		{
-	//			blocks[i] = Block::Air;
-	//		}
-	//	}
-	//}
+		for (int i = 0; i < CHUNK_VOLUME; i++)
+		{
+			if (blocks[i] == Block::Stone && caveMask[i])
+			{
+				blocks[i] = Block::Air;
+			}
+		}
+	}
 
-	//// Trees
-	//{
-	//	PROFILE_SCOPE("Generate trees", ProfileCategory::ChunkBlocks);
-	//
-	//	const ivec2Hasher hasher;
+	// Trees
+	{
+		PROFILE_SCOPE("Generate trees", ProfileCategory::ChunkBlocks);
+	
+		const ivec2Hasher hasher;
 
-	//	const glm::ivec3 globalChunkPosition = position * CHUNK_SIZE;
+		const glm::ivec3 globalChunkPosition = position * CHUNK_SIZE;
 
-	//	const glm::ivec2 globalChunkXZ = { globalChunkPosition.x, globalChunkPosition.z };
+		const glm::ivec2 globalChunkXZ = { globalChunkPosition.x, globalChunkPosition.z };
 
-	//	for (int x = 0; x < CHUNK_SIZE; x += 2)
-	//	{
-	//		for (int z = 0; z < CHUNK_SIZE; z += 2)
-	//		{
-	//			int treeRootHeight = heightMap[z + x * CHUNK_SIZE] + 1;
-	//			int localY = treeRootHeight - globalChunkPosition.y;
+		for (int x = 0; x < CHUNK_SIZE; x += 2)
+		{
+			for (int z = 0; z < CHUNK_SIZE; z += 2)
+			{
+				int treeRootHeight = heightMap[z + x * CHUNK_SIZE] + 1;
+				int localY = treeRootHeight - globalChunkPosition.y;
 
-	//			if (localY < 0 || localY >= CHUNK_SIZE)
-	//			{
-	//				continue;
-	//			}
+				if (localY < 0 || localY >= CHUNK_SIZE)
+				{
+					continue;
+				}
 
-	//			size_t rootIndex = getIndex(x, localY, z);
-	//			if (blocks[rootIndex] != Block::Air)
-	//			{
-	//				continue;
-	//			}
+				size_t rootIndex = getIndex(x, localY, z);
+				if (blocks[rootIndex] != Block::Air)
+				{
+					continue;
+				}
 
-	//			glm::ivec2 worldPos = globalChunkXZ + glm::ivec2(x, z);
+				glm::ivec2 worldPos = globalChunkXZ + glm::ivec2(x, z);
 
-	//			size_t hashValue = hasher(worldPos);
+				size_t hashValue = hasher(worldPos);
 
-	//			if ((hashValue % 100) >= 2)
-	//			{
-	//				continue;
-	//			}
+				if ((hashValue % 100) >= 2)
+				{
+					continue;
+				}
 
-	//			generateTree({ x, localY, z });
-	//		}
-	//	}
-	//}
+				generateTree({ x, localY, z });
+			}
+		}
+	}
 
 	// Incoming structures
 	{
@@ -1454,8 +1429,7 @@ void Chunk::updateMesh()
 
 	// Collect visible faces
 	{
-		std::vector<BlockFaceInstance> opaqueInstances;
-		std::vector<BlockFaceInstance> transparentInstances;
+		ChunkMeshData::InstancesStorage newInstances;
 		for (int x = 0; x < CHUNK_SIZE; x++)
 		{
 			for (int y = 0; y < CHUNK_SIZE; y++)
@@ -1471,7 +1445,7 @@ void Chunk::updateMesh()
 					}
 
 					const auto& textureIDs = blockData->textures.textureIDs;
-					auto& instances = blockData->properties.areFacesTransparent ? transparentInstances : opaqueInstances;
+					auto& instances = blockData->properties.areFacesTransparent ? newInstances.alignedTranslucent : newInstances.alignedOpaque;
 					const BlockData* neighborBlockData;
 
 					size_t neighborIndex;
@@ -1606,6 +1580,167 @@ void Chunk::updateMesh()
 			}
 		}
 
+		// Stairs: Back face
+		{
+			NonAlignedBlockFace testFace;
+			testFace.x0 = 0.0f; testFace.y0 = 1.0f; testFace.z0 = 0.0f;
+			testFace.x1 = 1.0f; testFace.y1 = 1.0f; testFace.z1 = 0.0f;
+			testFace.x2 = 1.0f; testFace.y2 = 0.0f; testFace.z2 = 0.0f;
+			testFace.x3 = 0.0f; testFace.y3 = 0.0f; testFace.z3 = 0.0f;
+
+			testFace.u0 = 0.0f; testFace.v0 = 1.0f;
+			testFace.u1 = 1.0f; testFace.v1 = 1.0f;
+			testFace.u2 = 1.0f; testFace.v2 = 0.0f;
+			testFace.u3 = 0.0f; testFace.v3 = 0.0f;
+			
+			testFace.textureID = 0;
+			newInstances.nonAlignedOpaque.push_back(testFace);
+		}
+		// Stairs: Front face 1
+		{
+			NonAlignedBlockFace testFace;
+			testFace.x0 = 1.0f; testFace.y0 = 0.5f; testFace.z0 = 1.0f;
+			testFace.x1 = 0.0f; testFace.y1 = 0.5f; testFace.z1 = 1.0f;
+			testFace.x2 = 0.0f; testFace.y2 = 0.0f; testFace.z2 = 1.0f;
+			testFace.x3 = 1.0f; testFace.y3 = 0.0f; testFace.z3 = 1.0f;
+
+			testFace.u0 = 0.0f; testFace.v0 = 0.5f;
+			testFace.u1 = 1.0f; testFace.v1 = 0.5f;
+			testFace.u2 = 1.0f; testFace.v2 = 0.0f;
+			testFace.u3 = 0.0f; testFace.v3 = 0.0f;
+
+			testFace.textureID = 0;
+			newInstances.nonAlignedOpaque.push_back(testFace);
+		}
+		// Stairs: Front face 2
+		{
+			NonAlignedBlockFace testFace;
+			testFace.x0 = 1.0f; testFace.y0 = 1.0f; testFace.z0 = 0.5f;
+			testFace.x1 = 0.0f; testFace.y1 = 1.0f; testFace.z1 = 0.5f;
+			testFace.x2 = 0.0f; testFace.y2 = 0.5f; testFace.z2 = 0.5f;
+			testFace.x3 = 1.0f; testFace.y3 = 0.5f; testFace.z3 = 0.5f;
+
+			testFace.u0 = 0.0f; testFace.v0 = 0.5f;
+			testFace.u1 = 1.0f; testFace.v1 = 0.5f;
+			testFace.u2 = 1.0f; testFace.v2 = 0.0f;
+			testFace.u3 = 0.0f; testFace.v3 = 0.0f;
+
+			testFace.textureID = 0;
+			newInstances.nonAlignedOpaque.push_back(testFace);
+		}
+		// Stairs: Bottom face
+		{
+			NonAlignedBlockFace testFace;
+			testFace.x0 = 0.0f; testFace.y0 = 0.0f; testFace.z0 = 0.0f;
+			testFace.x1 = 1.0f; testFace.y1 = 0.0f; testFace.z1 = 0.0f;
+			testFace.x2 = 1.0f; testFace.y2 = 0.0f; testFace.z2 = 1.0f;
+			testFace.x3 = 0.0f; testFace.y3 = 0.0f; testFace.z3 = 1.0f;
+
+			testFace.u0 = 0.0f; testFace.v0 = 1.0f;
+			testFace.u1 = 1.0f; testFace.v1 = 1.0f;
+			testFace.u2 = 1.0f; testFace.v2 = 0.0f;
+			testFace.u3 = 0.0f; testFace.v3 = 0.0f;
+
+			testFace.textureID = 0;
+			newInstances.nonAlignedOpaque.push_back(testFace);
+		}
+		// Stairs: Up face 1
+		{
+			NonAlignedBlockFace testFace;
+			testFace.x0 = 0.0f; testFace.y0 = 1.0f; testFace.z0 = 0.5f;
+			testFace.x1 = 1.0f; testFace.y1 = 1.0f; testFace.z1 = 0.5f;
+			testFace.x2 = 1.0f; testFace.y2 = 1.0f; testFace.z2 = 0.0f;
+			testFace.x3 = 0.0f; testFace.y3 = 1.0f; testFace.z3 = 0.0f;
+
+			testFace.u0 = 0.0f; testFace.v0 = 1.0f;
+			testFace.u1 = 1.0f; testFace.v1 = 1.0f;
+			testFace.u2 = 1.0f; testFace.v2 = 0.0f;
+			testFace.u3 = 0.0f; testFace.v3 = 0.0f;
+
+			testFace.textureID = 0;
+			newInstances.nonAlignedOpaque.push_back(testFace);
+		}
+		// Stairs: Up face 2
+		{
+			NonAlignedBlockFace testFace;
+			testFace.x0 = 0.0f; testFace.y0 = 0.5f; testFace.z0 = 1.0f;
+			testFace.x1 = 1.0f; testFace.y1 = 0.5f; testFace.z1 = 1.0f;
+			testFace.x2 = 1.0f; testFace.y2 = 0.5f; testFace.z2 = 0.5f;
+			testFace.x3 = 0.0f; testFace.y3 = 0.5f; testFace.z3 = 0.5f;
+
+			testFace.u0 = 0.0f; testFace.v0 = 1.0f;
+			testFace.u1 = 1.0f; testFace.v1 = 1.0f;
+			testFace.u2 = 1.0f; testFace.v2 = 0.0f;
+			testFace.u3 = 0.0f; testFace.v3 = 0.0f;
+
+			testFace.textureID = 0;
+			newInstances.nonAlignedOpaque.push_back(testFace);
+		}
+		// Stairs: Left face 1
+		{
+			NonAlignedBlockFace testFace;
+			testFace.x0 = 1.0f; testFace.y0 = 0.5f; testFace.z0 = 0.0f;
+			testFace.x1 = 1.0f; testFace.y1 = 0.5f; testFace.z1 = 1.0f;
+			testFace.x2 = 1.0f; testFace.y2 = 0.0f; testFace.z2 = 1.0f;
+			testFace.x3 = 1.0f; testFace.y3 = 0.0f; testFace.z3 = 0.0f;
+
+			testFace.u0 = 0.0f; testFace.v0 = 1.0f;
+			testFace.u1 = 1.0f; testFace.v1 = 1.0f;
+			testFace.u2 = 1.0f; testFace.v2 = 0.0f;
+			testFace.u3 = 0.0f; testFace.v3 = 0.0f;
+
+			testFace.textureID = 0;
+			newInstances.nonAlignedOpaque.push_back(testFace);
+		}
+		// Stairs: Left face 1
+		{
+			NonAlignedBlockFace testFace;
+			testFace.x0 = 1.0f; testFace.y0 = 1.0f; testFace.z0 = 0.0f;
+			testFace.x1 = 1.0f; testFace.y1 = 1.0f; testFace.z1 = 0.5f;
+			testFace.x2 = 1.0f; testFace.y2 = 0.5f; testFace.z2 = 0.5f;
+			testFace.x3 = 1.0f; testFace.y3 = 0.5f; testFace.z3 = 0.0f;
+
+			testFace.u0 = 0.0f; testFace.v0 = 1.0f;
+			testFace.u1 = 1.0f; testFace.v1 = 1.0f;
+			testFace.u2 = 1.0f; testFace.v2 = 0.0f;
+			testFace.u3 = 0.0f; testFace.v3 = 0.0f;
+
+			testFace.textureID = 0;
+			newInstances.nonAlignedOpaque.push_back(testFace);
+		}
+		// Stairs: Right face 1
+		{
+			NonAlignedBlockFace testFace;
+			testFace.x0 = 0.0f; testFace.y0 = 0.5f; testFace.z0 = 1.0f;
+			testFace.x1 = 0.0f; testFace.y1 = 0.5f; testFace.z1 = 0.0f;
+			testFace.x2 = 0.0f; testFace.y2 = 0.0f; testFace.z2 = 0.0f;
+			testFace.x3 = 0.0f; testFace.y3 = 0.0f; testFace.z3 = 1.0f;
+
+			testFace.u0 = 0.0f; testFace.v0 = 1.0f;
+			testFace.u1 = 1.0f; testFace.v1 = 1.0f;
+			testFace.u2 = 1.0f; testFace.v2 = 0.0f;
+			testFace.u3 = 0.0f; testFace.v3 = 0.0f;
+
+			testFace.textureID = 0;
+			newInstances.nonAlignedOpaque.push_back(testFace);
+		}
+		// Stairs: Right face 1
+		{
+			NonAlignedBlockFace testFace;
+			testFace.x0 = 0.0f; testFace.y0 = 1.0f; testFace.z0 = 0.5f;
+			testFace.x1 = 0.0f; testFace.y1 = 1.0f; testFace.z1 = 0.0f;
+			testFace.x2 = 0.0f; testFace.y2 = 0.5f; testFace.z2 = 0.0f;
+			testFace.x3 = 0.0f; testFace.y3 = 0.5f; testFace.z3 = 0.5f;
+
+			testFace.u0 = 0.0f; testFace.v0 = 1.0f;
+			testFace.u1 = 1.0f; testFace.v1 = 1.0f;
+			testFace.u2 = 1.0f; testFace.v2 = 0.0f;
+			testFace.u3 = 0.0f; testFace.v3 = 0.0f;
+
+			testFace.textureID = 0;
+			newInstances.nonAlignedOpaque.push_back(testFace);
+		}
+
 		// Check if chunk got unloaded by the time we were building mesh
 		if (!chunkFlags.read(Flag::IsLoadedInWorld))
 		{
@@ -1614,94 +1749,22 @@ void Chunk::updateMesh()
 
 		// Set mesh data
 		ScopedProcessingFence scopedMeshFence(meshData.processingFence);
-		meshData.opaqueDirty = false;
-		meshData.transparentDirty = false;
 
-		meshData.opaqueInstances = std::move(opaqueInstances);
-		meshData.transparentInstances = std::move(transparentInstances);
+		meshData.instancesStorage = std::move(newInstances);
 
-		if (meshData.getOpaqueFaceCount() > 0)
+		size_t faceCount = meshData.getAllFaceCount();
+		if (faceCount == 0)
 		{
-			meshData.opaqueDirty = true;
-		}
-		if (meshData.getTransparentFaceCount() > 0)
-		{
-			meshData.transparentDirty = true;
-			if (meshData.getTransparentFaceCount() > 1)
-			{
-				shouldSortMeshAfterBuild = true;
-				cameraClosestBlockPosForSortingMesh = -1;
-			}
-		}
+			meshData.dirty = false;
 
-		// Update render face count if no changes (means no faces at all)
-		if (!(meshData.opaqueDirty || meshData.transparentDirty))
-		{
+			// Update render face count if no changes (means no faces at all)
 			meshData.updateRenderFaceCount();
 		}
+		else
+		{
+			meshData.dirty = true;
+		}
 	}
-}
-
-void Chunk::sortMesh(const glm::ivec3& cameraBlockPos)
-{
-	shouldSortMeshAfterBuild = false;
-
-	const glm::ivec3 chunkGlobalPos = position * CHUNK_SIZE;
-
-	const glm::ivec3 calculateDistanceFrom = glm::clamp(cameraBlockPos - chunkGlobalPos, glm::ivec3(0), glm::ivec3(CHUNK_SIZE - 1));
-	const uint16_t compare = calculateDistanceFrom.x |
-							 (calculateDistanceFrom.y << CHUNK_SIZE_LOG2) |
-							 (calculateDistanceFrom.z << (CHUNK_SIZE_LOG2 << 1));
-	if (compare == cameraClosestBlockPosForSortingMesh)
-	{
-		return;
-	}
-	cameraClosestBlockPosForSortingMesh = compare;
-
-	ScopedProcessingFence scopedFence(meshData.processingFence);
-
-	PROFILE_SCOPE("Sort chunk mesh", ProfileCategory::ChunkMesh);
-
-	// Sorting only transparent faces for now
-	// If GL_CULL_FACE is disabled, sorting must be adjusted. If faces have same position, they should be sorted by prioritized normal(something opposite to camera direction).
-
-	// Create buckets
-	constexpr int BUCKET_COUNT = (CHUNK_SIZE - 1) * 3 + 1;
-	size_t bucketOffsets[BUCKET_COUNT + 1];
-	std::fill(bucketOffsets, bucketOffsets + BUCKET_COUNT + 1, 0);
-
-	for (const auto& instance : meshData.transparentInstances)
-	{
-		glm::ivec3 pos;
-		instance.decodePosition(pos.x, pos.y, pos.z);
-		glm::ivec3 delta = glm::abs(pos - calculateDistanceFrom);
-		uint8_t manhattanDistance = delta.x + delta.y + delta.z;
-		bucketOffsets[manhattanDistance + 1]++;
-	}
-
-	// Prefix sum (Last elemnt isn't needed, so don't change it)
-	for (size_t i = 1; i < BUCKET_COUNT; i++)
-	{
-		bucketOffsets[i] += bucketOffsets[i - 1];
-	}
-
-	// Second pass: place instances directly in final positions
-	std::vector<BlockFaceInstance> sorted(meshData.transparentInstances.size());
-	for (const auto& instance : meshData.transparentInstances)
-	{
-		glm::ivec3 pos;
-		instance.decodePosition(pos.x, pos.y, pos.z);
-		glm::ivec3 delta = glm::abs(pos - calculateDistanceFrom);
-		uint8_t manhattanDistance = delta.x + delta.y + delta.z;
-		sorted[bucketOffsets[manhattanDistance]++] = instance;
-	}
-	meshData.transparentInstances = std::move(sorted);
-	meshData.transparentDirty = true;
-}
-
-bool Chunk::shouldMeshBeSorted(bool cameraMoved) const
-{
-	return meshData.getTransparentFaceCount() > 1 && (cameraMoved || shouldSortMeshAfterBuild);
 }
 
 bool Chunk::shouldMeshBeUpdated() const
@@ -1716,7 +1779,7 @@ void Chunk::markMeshDirty()
 
 void Chunk::askForMeshUpload()
 {
-	if (meshData.opaqueDirty || meshData.transparentDirty)
+	if (meshData.dirty)
 	{
 		pendingMeshUploads.push_back(&meshData);
 	}
@@ -1729,7 +1792,7 @@ void Chunk::sendMeshesToGPU()
 		return;
 	}
 
-	for (MeshData* chunkMesh : pendingMeshUploads)
+	for (ChunkMeshData* chunkMesh : pendingMeshUploads)
 	{
 		chunkMesh->processingFence.startProcessing();
 	}
@@ -1737,94 +1800,148 @@ void Chunk::sendMeshesToGPU()
 	PROFILE_SCOPE("Send chunk meshes to GPU", ProfileCategory::ChunkMesh);
 
 	// Allocate memory for meshes
-	std::vector<MeshData*> allocateMemoryMeshRequests;
+	std::vector<ChunkMeshData*> allocateMemoryMeshRequests;
 	allocateMemoryMeshRequests.reserve(pendingMeshUploads.size() >> 1);
-	for (MeshData* chunkMesh : pendingMeshUploads)
+	for (ChunkMeshData* chunkMesh : pendingMeshUploads)
 	{
-		if (chunkMesh->getFaceCount() > chunkMesh->getFaceCapacity())
+		if (
+			chunkMesh->getAlignedFaceCount() > chunkMesh->getAlignedFaceCapacity() ||
+			chunkMesh->getNonAlignedFaceCount() > chunkMesh->getNonAlignedFaceCapacity()
+			)
 		{
 			allocateMemoryMeshRequests.push_back(chunkMesh);
 		}
 	}
 
-	auto& inst = ChunkMeshManager::getInstance();
-	inst.processMeshRequests(allocateMemoryMeshRequests);
+	auto& chunkMeshManager = ChunkMeshManager::getInstance();
+	chunkMeshManager.processMeshRequests(allocateMemoryMeshRequests);
 
 	// Write meshes data
-	auto& instanceVBO = inst.getInstanceVBO();
-	instanceVBO.bind();
+	auto& alignedInstancesVBO = chunkMeshManager.getAlignedInstanceVBO();
+	auto& nonAlignedInstancesVBO = chunkMeshManager.getNonAlignedInstanceVBO();
 
 	// Potential bug: If meshData.opaqueDirty and it will require more data then it was previously, then it will overwrite previous transparent data
 	// But for now, both opaque and transparent parts are dirty, so this bug won't happen
 
-	for (MeshData* chunkMesh : pendingMeshUploads)
+	// Write aligned instances data
+	alignedInstancesVBO.bind();
+	for (ChunkMeshData* chunkMesh : pendingMeshUploads)
 	{
-		if (!chunkMesh->created)
+		if (!chunkMesh->alignedCreated)
 		{
 			continue;
 		}
 
-		size_t opaqueFaceCount = chunkMesh->getOpaqueFaceCount();
-		size_t transparentFaceCount = chunkMesh->getTransparentFaceCount();
+		size_t opaqueFaceCount = chunkMesh->getAlignedOpaqueFaceCount();
+		size_t translucentFaceCount = chunkMesh->getAlignedTranslucentFaceCount();
 
-		size_t offset = chunkMesh->allocatedBlock.offset * sizeof(BlockFaceInstance);
-
-		if (chunkMesh->opaqueDirty)
+		if (opaqueFaceCount > 0)
 		{
-			instanceVBO.write(
-				chunkMesh->opaqueInstances.data(),
-				opaqueFaceCount * sizeof(BlockFaceInstance),
-				offset
+			alignedInstancesVBO.write(
+				chunkMesh->instancesStorage.alignedOpaque.data(),
+				opaqueFaceCount * sizeof(AlignedBlockFace),
+				chunkMesh->allocatedBlock_alignedFaces.offset * sizeof(AlignedBlockFace)
 			);
-			chunkMesh->opaqueDirty = false;
 		}
 
-		if (chunkMesh->transparentDirty)
+		if (translucentFaceCount > 0)
 		{
-			instanceVBO.write(
-				chunkMesh->transparentInstances.data(),
-				transparentFaceCount * sizeof(BlockFaceInstance),
-				offset + opaqueFaceCount * sizeof(BlockFaceInstance)
+			alignedInstancesVBO.write(
+				chunkMesh->instancesStorage.alignedTranslucent.data(),
+				translucentFaceCount * sizeof(AlignedBlockFace),
+				(chunkMesh->allocatedBlock_alignedFaces.offset + opaqueFaceCount) * sizeof(AlignedBlockFace)
 			);
-			chunkMesh->transparentDirty = false;
+		}
+	}
+
+	// Write aligned instances data
+	nonAlignedInstancesVBO.bind();
+	for (ChunkMeshData* chunkMesh : pendingMeshUploads)
+	{
+		if (!chunkMesh->nonAlignedCreated)
+		{
+			continue;
 		}
 
-		chunkMesh->updateRenderFaceCount();
+		size_t opaqueFaceCount = chunkMesh->getNonAlignedOpaqueFaceCount();
+		size_t translucentFaceCount = chunkMesh->getNonAlignedTranslucentFaceCount();
+
+		if (opaqueFaceCount > 0)
+		{
+			nonAlignedInstancesVBO.write(
+				chunkMesh->instancesStorage.nonAlignedOpaque.data(),
+				opaqueFaceCount * sizeof(NonAlignedBlockFace),
+				chunkMesh->allocatedBlock_nonAlignedFaces.offset * sizeof(NonAlignedBlockFace)
+			);
+		}
+
+		if (translucentFaceCount > 0)
+		{
+			nonAlignedInstancesVBO.write(
+				chunkMesh->instancesStorage.nonAlignedTranslucent.data(),
+				translucentFaceCount * sizeof(NonAlignedBlockFace),
+				(chunkMesh->allocatedBlock_nonAlignedFaces.offset + opaqueFaceCount) * sizeof(NonAlignedBlockFace)
+			);
+		}
 	}
 
 	//
-	for (MeshData* chunkMesh : pendingMeshUploads)
+	for (ChunkMeshData* chunkMesh : pendingMeshUploads)
 	{
+		chunkMesh->updateRenderFaceCount();
+		chunkMesh->dirty = false;
 		chunkMesh->processingFence.stopProcessing();
 	}
 	pendingMeshUploads.clear();
 }
 
-void Chunk::collectOpaqueRenderData(std::vector<DrawArraysIndirectCommand>& drawCommands, std::vector<glm::ivec3>& positions) const
+void Chunk::collectAlignedOpaqueRenderData(std::vector<DrawArraysIndirectCommand>& drawCommands, std::vector<glm::ivec3>& positions) const
 {
-	size_t faceCount = meshData.renderOpaqueFaceCount;
+	size_t faceCount = meshData.renderAlignedOpaqueFaceCount;
 	if (faceCount == 0)
 	{
 		return;
 	}
-	drawCommands.emplace_back(4, faceCount, 0, meshData.allocatedBlock.offset);
+	drawCommands.emplace_back(4, faceCount, 0, meshData.allocatedBlock_alignedFaces.offset);
 	positions.push_back(position);
 }
 
-void Chunk::collectTransparentRenderData(std::vector<DrawArraysIndirectCommand>& drawCommands, std::vector<glm::ivec3>& positions) const
+void Chunk::collectAlignedTranslucentRenderData(std::vector<DrawArraysIndirectCommand>& drawCommands, std::vector<glm::ivec3>& positions) const
 {
-	size_t faceCount = meshData.renderTransparentFaceCount;
+	size_t faceCount = meshData.renderAlignedTranslucentFaceCount;
 	if (faceCount == 0)
 	{
 		return;
 	}
-	drawCommands.emplace_back(4, faceCount, 0, meshData.allocatedBlock.offset + meshData.renderOpaqueFaceCount);
+	drawCommands.emplace_back(4, faceCount, 0, meshData.allocatedBlock_alignedFaces.offset + meshData.renderAlignedOpaqueFaceCount);
+	positions.push_back(position);
+}
+
+void Chunk::collectNonAlignedOpaqueRenderData(std::vector<DrawArraysIndirectCommand>& drawCommands, std::vector<glm::ivec3>& positions) const
+{
+	size_t faceCount = meshData.renderNonAlignedOpaqueFaceCount;
+	if (faceCount == 0)
+	{
+		return;
+	}
+	drawCommands.emplace_back(4, faceCount, 0, meshData.allocatedBlock_nonAlignedFaces.offset);
+	positions.push_back(position);
+}
+
+void Chunk::collectNonAlignedTranslucentRenderData(std::vector<DrawArraysIndirectCommand>& drawCommands, std::vector<glm::ivec3>& positions) const
+{
+	size_t faceCount = meshData.renderNonAlignedTranslucentFaceCount;
+	if (faceCount == 0)
+	{
+		return;
+	}
+	drawCommands.emplace_back(4, faceCount, 0, meshData.allocatedBlock_nonAlignedFaces.offset + meshData.renderNonAlignedOpaqueFaceCount);
 	positions.push_back(position);
 }
 
 bool Chunk::canBeRendered() const
 {
-	return meshData.created && meshData.getRenderFaceCount() > 0;
+	return (meshData.alignedCreated || meshData.nonAlignedCreated) && meshData.getRenderFaceCount() > 0;
 }
 
 const Chunk* Chunk::getChunkAndIndex_checkSideNeighbor(int x, int y, int z, int side, size_t& outIndex) const
@@ -2395,12 +2512,12 @@ glm::ivec3 Chunk::getPosition() const
 
 size_t Chunk::getFaceCount() const
 {
-	return meshData.getFaceCount();
+	return meshData.getAlignedFaceCount();
 }
 
 size_t Chunk::getFaceCapacity() const
 {
-	return meshData.getFaceCapacity();
+	return meshData.getAlignedFaceCapacity();
 }
 
 Chunk::State Chunk::getState() const

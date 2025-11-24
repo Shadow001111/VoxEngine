@@ -7,26 +7,31 @@
 
 class ChunkMeshManager
 {
-	GLuint vao, vbo;
-	OpenGL_Buffer instanceVBO;
+	GLuint alignedVAO, nonAlignedVAO;
+	OpenGL_Buffer vbo;
 
-	BlockAllocator chunkBlockAllocator;
+	OpenGL_Buffer alignedInstanceVBO;
+	OpenGL_Buffer nonAlignedInstanceVBO;
+
+	BlockAllocator alignedBlockAllocator;
+	BlockAllocator nonAlignedBlockAllocator;
 
 	ChunkMeshManager();
 	~ChunkMeshManager();
 
-	void configureInstanceVBO();
+	void configureAlignedInstanceVBO();
+	void configureNonAlignedInstanceVBO();
 public:
 	static ChunkMeshManager& getInstance();
 
-	void preallocateMemory(size_t instanceCount);
+	void processMeshRequests(std::vector<ChunkMeshData*>& meshRequests);
+private:
+	void processAlignedMeshRequests(std::vector<ChunkMeshData*>& meshRequests);
+	void processNonAlignedMeshRequests(std::vector<ChunkMeshData*>& meshRequests);
+public:
+	OpenGL_Buffer& getAlignedInstanceVBO() { return alignedInstanceVBO; };
+	OpenGL_Buffer& getNonAlignedInstanceVBO() { return nonAlignedInstanceVBO; };
 
-	void processMeshRequests(std::vector<MeshData*>& meshRequests);
-
-	OpenGL_Buffer& getInstanceVBO();
-
-	void bindVAO() const;
-
-	// Debug
-	size_t getGaps() const;
+	void bindAlignedVAO() const;
+	void bindNonAlignedVAO() const;
 };
