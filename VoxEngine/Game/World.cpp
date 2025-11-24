@@ -3,7 +3,7 @@
 #include "World/Chunk/TerrainGenerator.h"
 #include "World/Chunk/ChunkMeshManager.h"
 
-#include "World/Chunk/BlockData.h"
+#include "World/Chunk/BlockRegistry.h"
 
 #include "Core/Profiler.h"
 #include "Core/Multithreading/ThreadPool.h"

@@ -1,7 +1,7 @@
 #include "Chunk.h"
 #include "Chunk/TerrainGenerator.h"
 #include "Chunk/ChunkMeshManager.h"
-#include "Chunk/BlockData.h"
+#include "Chunk/BlockRegistry.h"
 
 #include "Core/Profiler.h"
 #include "Core/SymmetricBitMatrix.h"
@@ -1580,166 +1580,166 @@ void Chunk::updateMesh()
 			}
 		}
 
-		// Stairs: Back face
-		{
-			NonAlignedBlockFace testFace;
-			testFace.x0 = 0.0f; testFace.y0 = 1.0f; testFace.z0 = 0.0f;
-			testFace.x1 = 1.0f; testFace.y1 = 1.0f; testFace.z1 = 0.0f;
-			testFace.x2 = 1.0f; testFace.y2 = 0.0f; testFace.z2 = 0.0f;
-			testFace.x3 = 0.0f; testFace.y3 = 0.0f; testFace.z3 = 0.0f;
+		//// Stairs: Back face
+		//{
+		//	NonAlignedBlockFace testFace;
+		//	testFace.x0 = 0.0f; testFace.y0 = 1.0f; testFace.z0 = 0.0f;
+		//	testFace.x1 = 1.0f; testFace.y1 = 1.0f; testFace.z1 = 0.0f;
+		//	testFace.x2 = 1.0f; testFace.y2 = 0.0f; testFace.z2 = 0.0f;
+		//	testFace.x3 = 0.0f; testFace.y3 = 0.0f; testFace.z3 = 0.0f;
 
-			testFace.u0 = 0.0f; testFace.v0 = 1.0f;
-			testFace.u1 = 1.0f; testFace.v1 = 1.0f;
-			testFace.u2 = 1.0f; testFace.v2 = 0.0f;
-			testFace.u3 = 0.0f; testFace.v3 = 0.0f;
-			
-			testFace.textureID = 0;
-			newInstances.nonAlignedOpaque.push_back(testFace);
-		}
-		// Stairs: Front face 1
-		{
-			NonAlignedBlockFace testFace;
-			testFace.x0 = 1.0f; testFace.y0 = 0.5f; testFace.z0 = 1.0f;
-			testFace.x1 = 0.0f; testFace.y1 = 0.5f; testFace.z1 = 1.0f;
-			testFace.x2 = 0.0f; testFace.y2 = 0.0f; testFace.z2 = 1.0f;
-			testFace.x3 = 1.0f; testFace.y3 = 0.0f; testFace.z3 = 1.0f;
+		//	testFace.u0 = 0.0f; testFace.v0 = 1.0f;
+		//	testFace.u1 = 1.0f; testFace.v1 = 1.0f;
+		//	testFace.u2 = 1.0f; testFace.v2 = 0.0f;
+		//	testFace.u3 = 0.0f; testFace.v3 = 0.0f;
+		//	
+		//	testFace.textureID = 0;
+		//	newInstances.nonAlignedOpaque.push_back(testFace);
+		//}
+		//// Stairs: Front face 1
+		//{
+		//	NonAlignedBlockFace testFace;
+		//	testFace.x0 = 1.0f; testFace.y0 = 0.5f; testFace.z0 = 1.0f;
+		//	testFace.x1 = 0.0f; testFace.y1 = 0.5f; testFace.z1 = 1.0f;
+		//	testFace.x2 = 0.0f; testFace.y2 = 0.0f; testFace.z2 = 1.0f;
+		//	testFace.x3 = 1.0f; testFace.y3 = 0.0f; testFace.z3 = 1.0f;
 
-			testFace.u0 = 0.0f; testFace.v0 = 0.5f;
-			testFace.u1 = 1.0f; testFace.v1 = 0.5f;
-			testFace.u2 = 1.0f; testFace.v2 = 0.0f;
-			testFace.u3 = 0.0f; testFace.v3 = 0.0f;
+		//	testFace.u0 = 0.0f; testFace.v0 = 0.5f;
+		//	testFace.u1 = 1.0f; testFace.v1 = 0.5f;
+		//	testFace.u2 = 1.0f; testFace.v2 = 0.0f;
+		//	testFace.u3 = 0.0f; testFace.v3 = 0.0f;
 
-			testFace.textureID = 0;
-			newInstances.nonAlignedOpaque.push_back(testFace);
-		}
-		// Stairs: Front face 2
-		{
-			NonAlignedBlockFace testFace;
-			testFace.x0 = 1.0f; testFace.y0 = 1.0f; testFace.z0 = 0.5f;
-			testFace.x1 = 0.0f; testFace.y1 = 1.0f; testFace.z1 = 0.5f;
-			testFace.x2 = 0.0f; testFace.y2 = 0.5f; testFace.z2 = 0.5f;
-			testFace.x3 = 1.0f; testFace.y3 = 0.5f; testFace.z3 = 0.5f;
+		//	testFace.textureID = 0;
+		//	newInstances.nonAlignedOpaque.push_back(testFace);
+		//}
+		//// Stairs: Front face 2
+		//{
+		//	NonAlignedBlockFace testFace;
+		//	testFace.x0 = 1.0f; testFace.y0 = 1.0f; testFace.z0 = 0.5f;
+		//	testFace.x1 = 0.0f; testFace.y1 = 1.0f; testFace.z1 = 0.5f;
+		//	testFace.x2 = 0.0f; testFace.y2 = 0.5f; testFace.z2 = 0.5f;
+		//	testFace.x3 = 1.0f; testFace.y3 = 0.5f; testFace.z3 = 0.5f;
 
-			testFace.u0 = 0.0f; testFace.v0 = 0.5f;
-			testFace.u1 = 1.0f; testFace.v1 = 0.5f;
-			testFace.u2 = 1.0f; testFace.v2 = 0.0f;
-			testFace.u3 = 0.0f; testFace.v3 = 0.0f;
+		//	testFace.u0 = 0.0f; testFace.v0 = 0.5f;
+		//	testFace.u1 = 1.0f; testFace.v1 = 0.5f;
+		//	testFace.u2 = 1.0f; testFace.v2 = 0.0f;
+		//	testFace.u3 = 0.0f; testFace.v3 = 0.0f;
 
-			testFace.textureID = 0;
-			newInstances.nonAlignedOpaque.push_back(testFace);
-		}
-		// Stairs: Bottom face
-		{
-			NonAlignedBlockFace testFace;
-			testFace.x0 = 0.0f; testFace.y0 = 0.0f; testFace.z0 = 0.0f;
-			testFace.x1 = 1.0f; testFace.y1 = 0.0f; testFace.z1 = 0.0f;
-			testFace.x2 = 1.0f; testFace.y2 = 0.0f; testFace.z2 = 1.0f;
-			testFace.x3 = 0.0f; testFace.y3 = 0.0f; testFace.z3 = 1.0f;
+		//	testFace.textureID = 0;
+		//	newInstances.nonAlignedOpaque.push_back(testFace);
+		//}
+		//// Stairs: Bottom face
+		//{
+		//	NonAlignedBlockFace testFace;
+		//	testFace.x0 = 0.0f; testFace.y0 = 0.0f; testFace.z0 = 0.0f;
+		//	testFace.x1 = 1.0f; testFace.y1 = 0.0f; testFace.z1 = 0.0f;
+		//	testFace.x2 = 1.0f; testFace.y2 = 0.0f; testFace.z2 = 1.0f;
+		//	testFace.x3 = 0.0f; testFace.y3 = 0.0f; testFace.z3 = 1.0f;
 
-			testFace.u0 = 0.0f; testFace.v0 = 1.0f;
-			testFace.u1 = 1.0f; testFace.v1 = 1.0f;
-			testFace.u2 = 1.0f; testFace.v2 = 0.0f;
-			testFace.u3 = 0.0f; testFace.v3 = 0.0f;
+		//	testFace.u0 = 0.0f; testFace.v0 = 1.0f;
+		//	testFace.u1 = 1.0f; testFace.v1 = 1.0f;
+		//	testFace.u2 = 1.0f; testFace.v2 = 0.0f;
+		//	testFace.u3 = 0.0f; testFace.v3 = 0.0f;
 
-			testFace.textureID = 0;
-			newInstances.nonAlignedOpaque.push_back(testFace);
-		}
-		// Stairs: Up face 1
-		{
-			NonAlignedBlockFace testFace;
-			testFace.x0 = 0.0f; testFace.y0 = 1.0f; testFace.z0 = 0.5f;
-			testFace.x1 = 1.0f; testFace.y1 = 1.0f; testFace.z1 = 0.5f;
-			testFace.x2 = 1.0f; testFace.y2 = 1.0f; testFace.z2 = 0.0f;
-			testFace.x3 = 0.0f; testFace.y3 = 1.0f; testFace.z3 = 0.0f;
+		//	testFace.textureID = 0;
+		//	newInstances.nonAlignedOpaque.push_back(testFace);
+		//}
+		//// Stairs: Up face 1
+		//{
+		//	NonAlignedBlockFace testFace;
+		//	testFace.x0 = 0.0f; testFace.y0 = 1.0f; testFace.z0 = 0.5f;
+		//	testFace.x1 = 1.0f; testFace.y1 = 1.0f; testFace.z1 = 0.5f;
+		//	testFace.x2 = 1.0f; testFace.y2 = 1.0f; testFace.z2 = 0.0f;
+		//	testFace.x3 = 0.0f; testFace.y3 = 1.0f; testFace.z3 = 0.0f;
 
-			testFace.u0 = 0.0f; testFace.v0 = 1.0f;
-			testFace.u1 = 1.0f; testFace.v1 = 1.0f;
-			testFace.u2 = 1.0f; testFace.v2 = 0.0f;
-			testFace.u3 = 0.0f; testFace.v3 = 0.0f;
+		//	testFace.u0 = 0.0f; testFace.v0 = 1.0f;
+		//	testFace.u1 = 1.0f; testFace.v1 = 1.0f;
+		//	testFace.u2 = 1.0f; testFace.v2 = 0.0f;
+		//	testFace.u3 = 0.0f; testFace.v3 = 0.0f;
 
-			testFace.textureID = 0;
-			newInstances.nonAlignedOpaque.push_back(testFace);
-		}
-		// Stairs: Up face 2
-		{
-			NonAlignedBlockFace testFace;
-			testFace.x0 = 0.0f; testFace.y0 = 0.5f; testFace.z0 = 1.0f;
-			testFace.x1 = 1.0f; testFace.y1 = 0.5f; testFace.z1 = 1.0f;
-			testFace.x2 = 1.0f; testFace.y2 = 0.5f; testFace.z2 = 0.5f;
-			testFace.x3 = 0.0f; testFace.y3 = 0.5f; testFace.z3 = 0.5f;
+		//	testFace.textureID = 0;
+		//	newInstances.nonAlignedOpaque.push_back(testFace);
+		//}
+		//// Stairs: Up face 2
+		//{
+		//	NonAlignedBlockFace testFace;
+		//	testFace.x0 = 0.0f; testFace.y0 = 0.5f; testFace.z0 = 1.0f;
+		//	testFace.x1 = 1.0f; testFace.y1 = 0.5f; testFace.z1 = 1.0f;
+		//	testFace.x2 = 1.0f; testFace.y2 = 0.5f; testFace.z2 = 0.5f;
+		//	testFace.x3 = 0.0f; testFace.y3 = 0.5f; testFace.z3 = 0.5f;
 
-			testFace.u0 = 0.0f; testFace.v0 = 1.0f;
-			testFace.u1 = 1.0f; testFace.v1 = 1.0f;
-			testFace.u2 = 1.0f; testFace.v2 = 0.0f;
-			testFace.u3 = 0.0f; testFace.v3 = 0.0f;
+		//	testFace.u0 = 0.0f; testFace.v0 = 1.0f;
+		//	testFace.u1 = 1.0f; testFace.v1 = 1.0f;
+		//	testFace.u2 = 1.0f; testFace.v2 = 0.0f;
+		//	testFace.u3 = 0.0f; testFace.v3 = 0.0f;
 
-			testFace.textureID = 0;
-			newInstances.nonAlignedOpaque.push_back(testFace);
-		}
-		// Stairs: Left face 1
-		{
-			NonAlignedBlockFace testFace;
-			testFace.x0 = 1.0f; testFace.y0 = 0.5f; testFace.z0 = 0.0f;
-			testFace.x1 = 1.0f; testFace.y1 = 0.5f; testFace.z1 = 1.0f;
-			testFace.x2 = 1.0f; testFace.y2 = 0.0f; testFace.z2 = 1.0f;
-			testFace.x3 = 1.0f; testFace.y3 = 0.0f; testFace.z3 = 0.0f;
+		//	testFace.textureID = 0;
+		//	newInstances.nonAlignedOpaque.push_back(testFace);
+		//}
+		//// Stairs: Left face 1
+		//{
+		//	NonAlignedBlockFace testFace;
+		//	testFace.x0 = 1.0f; testFace.y0 = 0.5f; testFace.z0 = 0.0f;
+		//	testFace.x1 = 1.0f; testFace.y1 = 0.5f; testFace.z1 = 1.0f;
+		//	testFace.x2 = 1.0f; testFace.y2 = 0.0f; testFace.z2 = 1.0f;
+		//	testFace.x3 = 1.0f; testFace.y3 = 0.0f; testFace.z3 = 0.0f;
 
-			testFace.u0 = 0.0f; testFace.v0 = 1.0f;
-			testFace.u1 = 1.0f; testFace.v1 = 1.0f;
-			testFace.u2 = 1.0f; testFace.v2 = 0.0f;
-			testFace.u3 = 0.0f; testFace.v3 = 0.0f;
+		//	testFace.u0 = 0.0f; testFace.v0 = 1.0f;
+		//	testFace.u1 = 1.0f; testFace.v1 = 1.0f;
+		//	testFace.u2 = 1.0f; testFace.v2 = 0.0f;
+		//	testFace.u3 = 0.0f; testFace.v3 = 0.0f;
 
-			testFace.textureID = 0;
-			newInstances.nonAlignedOpaque.push_back(testFace);
-		}
-		// Stairs: Left face 1
-		{
-			NonAlignedBlockFace testFace;
-			testFace.x0 = 1.0f; testFace.y0 = 1.0f; testFace.z0 = 0.0f;
-			testFace.x1 = 1.0f; testFace.y1 = 1.0f; testFace.z1 = 0.5f;
-			testFace.x2 = 1.0f; testFace.y2 = 0.5f; testFace.z2 = 0.5f;
-			testFace.x3 = 1.0f; testFace.y3 = 0.5f; testFace.z3 = 0.0f;
+		//	testFace.textureID = 0;
+		//	newInstances.nonAlignedOpaque.push_back(testFace);
+		//}
+		//// Stairs: Left face 1
+		//{
+		//	NonAlignedBlockFace testFace;
+		//	testFace.x0 = 1.0f; testFace.y0 = 1.0f; testFace.z0 = 0.0f;
+		//	testFace.x1 = 1.0f; testFace.y1 = 1.0f; testFace.z1 = 0.5f;
+		//	testFace.x2 = 1.0f; testFace.y2 = 0.5f; testFace.z2 = 0.5f;
+		//	testFace.x3 = 1.0f; testFace.y3 = 0.5f; testFace.z3 = 0.0f;
 
-			testFace.u0 = 0.0f; testFace.v0 = 1.0f;
-			testFace.u1 = 1.0f; testFace.v1 = 1.0f;
-			testFace.u2 = 1.0f; testFace.v2 = 0.0f;
-			testFace.u3 = 0.0f; testFace.v3 = 0.0f;
+		//	testFace.u0 = 0.0f; testFace.v0 = 1.0f;
+		//	testFace.u1 = 1.0f; testFace.v1 = 1.0f;
+		//	testFace.u2 = 1.0f; testFace.v2 = 0.0f;
+		//	testFace.u3 = 0.0f; testFace.v3 = 0.0f;
 
-			testFace.textureID = 0;
-			newInstances.nonAlignedOpaque.push_back(testFace);
-		}
-		// Stairs: Right face 1
-		{
-			NonAlignedBlockFace testFace;
-			testFace.x0 = 0.0f; testFace.y0 = 0.5f; testFace.z0 = 1.0f;
-			testFace.x1 = 0.0f; testFace.y1 = 0.5f; testFace.z1 = 0.0f;
-			testFace.x2 = 0.0f; testFace.y2 = 0.0f; testFace.z2 = 0.0f;
-			testFace.x3 = 0.0f; testFace.y3 = 0.0f; testFace.z3 = 1.0f;
+		//	testFace.textureID = 0;
+		//	newInstances.nonAlignedOpaque.push_back(testFace);
+		//}
+		//// Stairs: Right face 1
+		//{
+		//	NonAlignedBlockFace testFace;
+		//	testFace.x0 = 0.0f; testFace.y0 = 0.5f; testFace.z0 = 1.0f;
+		//	testFace.x1 = 0.0f; testFace.y1 = 0.5f; testFace.z1 = 0.0f;
+		//	testFace.x2 = 0.0f; testFace.y2 = 0.0f; testFace.z2 = 0.0f;
+		//	testFace.x3 = 0.0f; testFace.y3 = 0.0f; testFace.z3 = 1.0f;
 
-			testFace.u0 = 0.0f; testFace.v0 = 1.0f;
-			testFace.u1 = 1.0f; testFace.v1 = 1.0f;
-			testFace.u2 = 1.0f; testFace.v2 = 0.0f;
-			testFace.u3 = 0.0f; testFace.v3 = 0.0f;
+		//	testFace.u0 = 0.0f; testFace.v0 = 1.0f;
+		//	testFace.u1 = 1.0f; testFace.v1 = 1.0f;
+		//	testFace.u2 = 1.0f; testFace.v2 = 0.0f;
+		//	testFace.u3 = 0.0f; testFace.v3 = 0.0f;
 
-			testFace.textureID = 0;
-			newInstances.nonAlignedOpaque.push_back(testFace);
-		}
-		// Stairs: Right face 1
-		{
-			NonAlignedBlockFace testFace;
-			testFace.x0 = 0.0f; testFace.y0 = 1.0f; testFace.z0 = 0.5f;
-			testFace.x1 = 0.0f; testFace.y1 = 1.0f; testFace.z1 = 0.0f;
-			testFace.x2 = 0.0f; testFace.y2 = 0.5f; testFace.z2 = 0.0f;
-			testFace.x3 = 0.0f; testFace.y3 = 0.5f; testFace.z3 = 0.5f;
+		//	testFace.textureID = 0;
+		//	newInstances.nonAlignedOpaque.push_back(testFace);
+		//}
+		//// Stairs: Right face 1
+		//{
+		//	NonAlignedBlockFace testFace;
+		//	testFace.x0 = 0.0f; testFace.y0 = 1.0f; testFace.z0 = 0.5f;
+		//	testFace.x1 = 0.0f; testFace.y1 = 1.0f; testFace.z1 = 0.0f;
+		//	testFace.x2 = 0.0f; testFace.y2 = 0.5f; testFace.z2 = 0.0f;
+		//	testFace.x3 = 0.0f; testFace.y3 = 0.5f; testFace.z3 = 0.5f;
 
-			testFace.u0 = 0.0f; testFace.v0 = 1.0f;
-			testFace.u1 = 1.0f; testFace.v1 = 1.0f;
-			testFace.u2 = 1.0f; testFace.v2 = 0.0f;
-			testFace.u3 = 0.0f; testFace.v3 = 0.0f;
+		//	testFace.u0 = 0.0f; testFace.v0 = 1.0f;
+		//	testFace.u1 = 1.0f; testFace.v1 = 1.0f;
+		//	testFace.u2 = 1.0f; testFace.v2 = 0.0f;
+		//	testFace.u3 = 0.0f; testFace.v3 = 0.0f;
 
-			testFace.textureID = 0;
-			newInstances.nonAlignedOpaque.push_back(testFace);
-		}
+		//	testFace.textureID = 0;
+		//	newInstances.nonAlignedOpaque.push_back(testFace);
+		//}
 
 		// Check if chunk got unloaded by the time we were building mesh
 		if (!chunkFlags.read(Flag::IsLoadedInWorld))

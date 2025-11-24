@@ -1,4 +1,5 @@
-#include "BlockData.h"
+#include "BlockRegistry.h"
+#include "TextureTransformations.h"
 
 #include "Core/StringIndexer.h"
 

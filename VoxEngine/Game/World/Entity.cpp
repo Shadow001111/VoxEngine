@@ -1,6 +1,6 @@
 #include "Entity.h"
 #include "../World.h"
-#include "Chunk/BlockData.h"
+#include "Chunk/BlockRegistry.h"
 
 Entity::Id Entity::globalEntityId = 0;
 World* Entity::world = nullptr;

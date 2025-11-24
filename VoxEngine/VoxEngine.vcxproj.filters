@@ -66,7 +66,7 @@
     <ClCompile Include="Graphics\Frustum.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="Game\World\Chunk\BlockData.cpp">
+    <ClCompile Include="Game\World\Chunk\BlockRegistry.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
     <ClCompile Include="Core\StringIndexer.cpp">
@@ -132,6 +132,9 @@
     <ClCompile Include="Game\World\Chunk\MeshTemplates\NonAlignedBlockFace.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
+    <ClCompile Include="Game\World\Chunk\BlockModelLoader.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="WindowManager.h">
@@ -185,7 +188,7 @@
     <ClInclude Include="Graphics\Frustum.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="Game\World\Chunk\BlockData.h">
+    <ClInclude Include="Game\World\Chunk\BlockRegistry.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Core\StringIndexer.h">
@@ -270,6 +273,12 @@
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Game\World\Chunk\MeshTemplates\NonAlignedBlockFace.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\World\Chunk\BlockModelLoader.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\World\Chunk\TextureTransformations.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
   </ItemGroup>

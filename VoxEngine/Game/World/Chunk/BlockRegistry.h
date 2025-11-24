@@ -16,13 +16,6 @@ struct BlockProperties
 	BlockProperties(bool absorbsLight, uint8_t lightEmission, bool hasFaces, bool areFacesTransparent, bool raycastable);
 };
 
-enum class TextureTransformation : uint8_t
-{
-	None = 0,
-	Flip = 1,
-	RotateAndFlip = 2
-};
-
 struct BlockTextures
 {
 	uint16_t textureIDs[6] = { 0, 0, 0, 0, 0, 0 };
@@ -56,6 +49,9 @@ struct BlockData
 
 	BlockData() = default;
 	BlockData(const BlockProperties& properties, const BlockTextures& texturs);
+
+	BlockData(const BlockData& other) = delete;
+	//BlockData& operator=(const BlockData& other) = delete;
 };
 
 class BlockDataBase
