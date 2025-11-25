@@ -2,8 +2,12 @@
 #include <iostream>
 #include <fstream>
 
+#include "Core/Assert.h"
+
+std::unordered_map<uint32_t, BlockModelLoader::BlockModel> BlockModelLoader::blockModelStorage;
+
 // TODO: Fall to default cube model if not found, with broken texture
-std::optional<BlockModel> BlockModelLoader::loadFromFile(const std::filesystem::path& filepath)
+std::optional<BlockModelLoader::BlockModel> BlockModelLoader::loadFromFile(const std::filesystem::path& filepath)
 {
     if (!std::filesystem::exists(filepath))
     {
@@ -11,31 +15,17 @@ std::optional<BlockModel> BlockModelLoader::loadFromFile(const std::filesystem::
         return std::nullopt;
     }
 
-    try
-    {
-        std::ifstream file(filepath);
-        json j;
-        file >> j;
-        return parseJson(j);
-    }
-    catch (const std::exception& e)
-    {
-        std::cerr << "[BlockModelLoader]: Error loading file " << filepath << ": " << e.what() << std::endl;
-        return std::nullopt;
-    }
+    std::ifstream file(filepath);
+    if (!file) return std::nullopt;
+
+    json j;
+    file >> j;
+    return parseJson(j);
 }
 
-std::optional<BlockModel> BlockModelLoader::parseJson(const json& j)
+std::optional<BlockModelLoader::BlockModel> BlockModelLoader::parseJson(const json& j)
 {
     BlockModel model;
-
-    // Check if texture_slots exists
-    if (!j.contains("texture_slots") || !j["texture_slots"].is_number_unsigned())
-    {
-        std::cerr << "[BlockModelLoader]: Missing or invalid texture_slots" << std::endl;
-        return std::nullopt;
-    }
-    model.texture_slots = j["texture_slots"];
 
     if (!j.contains("faces") || !j["faces"].is_array())
     {
@@ -55,16 +45,20 @@ std::optional<BlockModel> BlockModelLoader::parseJson(const json& j)
 
         if (type == "aligned")
         {
-            if (auto alignedFace = parseAlignedFace(faceJson))
+            auto result = parseAlignedFace(faceJson);
+            if (result.has_value())
             {
-                model.alignedFaces.push_back(*alignedFace);
+                const auto& face = result.value();
+                model.alignedFaces.push_back(face);
             }
         }
         else if (type == "non_aligned")
         {
-            if (auto nonAlignedFace = parseNonAlignedFace(faceJson))
+            auto result = parseNonAlignedFace(faceJson);
+            if (result.has_value())
             {
-                model.nonAlignedFaces.push_back(*nonAlignedFace);
+                const auto& face = result.value();
+                model.nonAlignedFaces.push_back(face);
             }
         }
         else
@@ -73,15 +67,12 @@ std::optional<BlockModel> BlockModelLoader::parseJson(const json& j)
         }
     }
 
-    std::cout << "[BlockModelLoader]: Model loaded successfully with " << j["faces"].size() << " faces" << std::endl;
-    std::cout << "[BlockModelLoader]: Texture slots: " << j["texture_slots"] << std::endl;
-
     return model;
 }
 
-std::optional<AlignedFace> BlockModelLoader::parseAlignedFace(const json& faceJson)
+std::optional<BlockModelLoader::ModelAlignedFace> BlockModelLoader::parseAlignedFace(const json& faceJson)
 {
-    AlignedFace face;
+    ModelAlignedFace face;
 
     if (!faceJson.contains("normal") || !faceJson["normal"].is_number_unsigned())
     {
@@ -95,14 +86,14 @@ std::optional<AlignedFace> BlockModelLoader::parseAlignedFace(const json& faceJs
         std::cerr << "[BlockModelLoader]: Aligned face missing or invalid texture_slot" << std::endl;
         return std::nullopt;
     }
-    face.texture_slot = faceJson["texture_slot"];
+    face.textureSlot = faceJson["texture_slot"];
 
     return face;
 }
 
-std::optional<NonAlignedFace> BlockModelLoader::parseNonAlignedFace(const json& faceJson)
+std::optional<BlockModelLoader::ModelNonAlignedFace> BlockModelLoader::parseNonAlignedFace(const json& faceJson)
 {
-    NonAlignedFace face;
+    ModelNonAlignedFace face;
 
     // Parse vertices
     if (!faceJson.contains("vertices") || !faceJson["vertices"].is_array() || faceJson["vertices"].size() != 4)
@@ -156,7 +147,37 @@ std::optional<NonAlignedFace> BlockModelLoader::parseNonAlignedFace(const json& 
         std::cerr << "[BlockModelLoader]: Non-aligned face missing or invalid texture_slot" << std::endl;
         return std::nullopt;
     }
-    face.texture_slot = faceJson["texture_slot"];
+    face.textureSlot = faceJson["texture_slot"];
 
     return face;
+}
+
+void BlockModelLoader::loadModels(const std::vector<std::string>& blockModelNames)
+{
+    uint32_t modelID = 0;
+    for (const auto& modelName : blockModelNames)
+    {
+        auto result = loadFromFile("res/BlockModels/" + modelName + ".json");
+        if (result.has_value())
+        {
+            blockModelStorage.emplace(modelID, result.value());
+        }
+        else
+        {
+            // TODO: Add fallback model
+        }
+        modelID++;
+    }
+}
+
+// TODO: Maybe maybe threadsafe? Though it should be already.
+const BlockModelLoader::BlockModel& BlockModelLoader::getBlockModelById(uint32_t id)
+{
+    auto it = blockModelStorage.find(id);
+    if (it != blockModelStorage.end())
+    {
+        return it->second;
+    }
+    // TODO: Add fallback model
+    ASSERT(false);
 }

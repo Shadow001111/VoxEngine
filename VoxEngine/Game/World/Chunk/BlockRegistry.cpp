@@ -10,22 +10,6 @@ inline uint8_t clamp(uint8_t v, uint8_t min, uint8_t max)
 	return std::min(max, std::max(min, v));
 }
 
-inline uint16_t packTransformations(
-	TextureTransformation nx, TextureTransformation px,
-	TextureTransformation ny, TextureTransformation py,
-	TextureTransformation nz, TextureTransformation pz)
-{
-	uint16_t result = 0u;
-	result |= uint16_t(nx);
-	result |= uint16_t(px) << 2u;
-	result |= uint16_t(ny) << 4u;
-	result |= uint16_t(py) << 6u;
-	result |= uint16_t(nz) << 8u;
-	result |= uint16_t(pz) << 10u;
-	return result;
-}
-
-
 BlockProperties::BlockProperties(bool absorbsLight, uint8_t lightEmission, bool hasFaces, bool areFacesTransparent, bool raycastable) :
 	absorbsLight(absorbsLight),
 	lightEmission(clamp(lightEmission, 0, 15)),
@@ -35,32 +19,25 @@ BlockProperties::BlockProperties(bool absorbsLight, uint8_t lightEmission, bool 
 {
 }
 
-BlockTextures::BlockTextures(uint16_t texturesTransformation) :
-	texturesTransformation(texturesTransformation)
-{
-}
-
-BlockTextureNames::BlockTextureNames(
-	const char* nxName, const char* pxName,
-	const char* nyName, const char* pyName,
-	const char* nzName, const char* pzName)
+BlockTempInfo::BlockTempInfo(
+	const char* modelName,
+	const std::vector<std::pair<std::string, TextureTransformation>>& textureSlots)
 	:
-	texName_negativeX(nxName), texName_positiveX(pxName),
-	texName_negativeY(nyName), texName_positiveY(pyName),
-	texName_negativeZ(nzName), texName_positiveZ(pzName)
+	modelName(modelName),
+	textureInfo(textureSlots)
 {
 }
 
-BlockData::BlockData(const BlockProperties& properties, const BlockTextures& textures) :
-	properties(properties), textures(textures)
+BlockData::BlockData(const BlockProperties& properties, const BlockVisuals& textures) :
+	properties(properties), visuals(textures)
 {
 }
 
-std::unordered_map<BlockID, BlockData> BlockRegistry::BLOCK_DATABASE;
-std::unordered_map<BlockID, BlockTextureNames> BlockRegistry::TEXTURE_NAMES;
+std::unordered_map<BlockID, BlockData> BlockRegistry::blockDataStorage;
+std::unordered_map<BlockID, BlockTempInfo> BlockRegistry::blockTempInfoStorage;
 StringIndexer BlockRegistry::blockIndexer;
 
-void BlockRegistry::registerBlock(const std::string& blockName, const BlockProperties& properties, const BlockTextureNames& textureNames, uint16_t texturesTransformation)
+void BlockRegistry::registerBlock(const std::string& blockName, const BlockProperties& properties, const BlockTempInfo& tempInfo)
 {
 	if (blockIndexer.isRegistered(blockName))
 	{
@@ -68,141 +45,185 @@ void BlockRegistry::registerBlock(const std::string& blockName, const BlockPrope
 		return;
 	}
 
-	// Maybe StringIndexer is unnecessary thing...
 	BlockID blockID = static_cast<BlockID>(blockIndexer.registerAndGetId(blockName));
-	BLOCK_DATABASE[blockID] = { properties, BlockTextures(texturesTransformation) };
-	TEXTURE_NAMES[blockID] = textureNames;
+	
+	std::vector<std::pair<uint32_t, TextureTransformation>> textureSlots;
+	for (const auto& [textureName, transformation] : tempInfo.textureInfo)
+	{
+		textureSlots.emplace_back(0, transformation); // ID will be set in buildIDs
+	}
+
+	blockDataStorage[blockID] = { properties, BlockVisuals() };
+	blockTempInfoStorage[blockID] = tempInfo;
 }
 
 // TODO: Import block data from some file. Store 'compiled' file in binary for fast loading. Check if file was updates by hashing.
-void BlockRegistry::registerBlocks(std::vector<std::string>& textureNames)
+void BlockRegistry::registerBlocks(
+	std::vector<std::string>& textureNames,
+	std::vector<std::string>& modelNames
+)
 {
 	registerBlock("core:air",
 		{ false,  0,  false, true, false },
-		{ "", "", "", "", "", "" },
-		packTransformations(
-			TextureTransformation::None, TextureTransformation::None, TextureTransformation::None,
-			TextureTransformation::None, TextureTransformation::None, TextureTransformation::None)
+		{ "", {} }
 	);
 
 	registerBlock("core:grass_block",
 		{ true, 0,  true,  false, true },
-		{ "grass_block_side", "grass_block_side", "dirt", "grass_block_top", "grass_block_side", "grass_block_side" },
-		packTransformations(
-			TextureTransformation::None, TextureTransformation::None, TextureTransformation::RotateAndFlip,
-			TextureTransformation::RotateAndFlip, TextureTransformation::None, TextureTransformation::None)
+		{ "cube", {
+			{"grass_block_side", TextureTransformation::None},
+			{"grass_block_side", TextureTransformation::None},
+			{"dirt", TextureTransformation::RotateAndFlip},
+			{"grass_block_top", TextureTransformation::RotateAndFlip},
+			{"grass_block_side", TextureTransformation::None},
+			{"grass_block_side", TextureTransformation::None}
+		} }
 	);
 
 	registerBlock("core:dirt",
 		{ true, 0,  true,  false, true },
-		{ "dirt", "dirt", "dirt", "dirt", "dirt", "dirt" },
-		packTransformations(
-			TextureTransformation::RotateAndFlip, TextureTransformation::RotateAndFlip, TextureTransformation::RotateAndFlip,
-			TextureTransformation::RotateAndFlip, TextureTransformation::RotateAndFlip, TextureTransformation::RotateAndFlip)
+		{ "cube", {
+			{"dirt", TextureTransformation::RotateAndFlip},
+			{"dirt", TextureTransformation::RotateAndFlip},
+			{"dirt", TextureTransformation::RotateAndFlip},
+			{"dirt", TextureTransformation::RotateAndFlip},
+			{"dirt", TextureTransformation::RotateAndFlip},
+			{"dirt", TextureTransformation::RotateAndFlip}
+		} }
 	);
 
 	registerBlock("core:stone",
 		{ true, 0,  true,  false, true },
-		{ "stone", "stone", "stone", "stone", "stone", "stone" },
-		packTransformations(
-			TextureTransformation::Flip, TextureTransformation::Flip, TextureTransformation::Flip,
-			TextureTransformation::Flip, TextureTransformation::Flip, TextureTransformation::Flip)
+		{ "cube", {
+			{"stone", TextureTransformation::Flip},
+			{"stone", TextureTransformation::Flip},
+			{"stone", TextureTransformation::Flip},
+			{"stone", TextureTransformation::Flip},
+			{"stone", TextureTransformation::Flip},
+			{"stone", TextureTransformation::Flip}
+		} }
 	);
 
 	registerBlock("core:glass",
 		{ false, 0, true,  true, true },
-		{ "glass", "glass", "glass", "glass", "glass", "glass" },
-		packTransformations(
-			TextureTransformation::None, TextureTransformation::None, TextureTransformation::None,
-			TextureTransformation::None, TextureTransformation::None, TextureTransformation::None)
+		{ "cube", {
+			{"glass", TextureTransformation::None},
+			{"glass", TextureTransformation::None},
+			{"glass", TextureTransformation::None},
+			{"glass", TextureTransformation::None},
+			{"glass", TextureTransformation::None},
+			{"glass", TextureTransformation::None}
+		} }
 	);
 
 	registerBlock("core:colored_glass",
 		{ false, 15, true,  true, true },
-		{ "glass_red", "glass_red", "glass_green", "glass_green", "glass_blue", "glass_blue" },
-		packTransformations(
-			TextureTransformation::None, TextureTransformation::None, TextureTransformation::None,
-			TextureTransformation::None, TextureTransformation::None, TextureTransformation::None)
+		{ "cube", {
+			{"glass_red", TextureTransformation::None},
+			{"glass_red", TextureTransformation::None},
+			{"glass_green", TextureTransformation::None},
+			{"glass_green", TextureTransformation::None},
+			{"glass_blue", TextureTransformation::None},
+			{"glass_blue", TextureTransformation::None}
+		} }
 	);
 
 	registerBlock("core:water",
 		{ false, 0, true,  true, false },
-		{ "water", "water", "water", "water", "water", "water" },
-		packTransformations(
-			TextureTransformation::None, TextureTransformation::None, TextureTransformation::None,
-			TextureTransformation::None, TextureTransformation::None, TextureTransformation::None)
+		{ "cube", {
+			{"water", TextureTransformation::None},
+			{"water", TextureTransformation::None},
+			{"water", TextureTransformation::None},
+			{"water", TextureTransformation::None},
+			{"water", TextureTransformation::None},
+			{"water", TextureTransformation::None}
+		} }
 	);
 
 	registerBlock("core:log_oak",
 		{ true, 0,  true,  false, true },
-		{ "log_oak", "log_oak", "log_oak_top", "log_oak_top", "log_oak", "log_oak" },
-		packTransformations(
-			TextureTransformation::None, TextureTransformation::None, TextureTransformation::None,
-			TextureTransformation::None, TextureTransformation::None, TextureTransformation::None)
+		{ "cube", {
+			{"log_oak", TextureTransformation::None},
+			{"log_oak", TextureTransformation::None},
+			{"log_oak_top", TextureTransformation::None},
+			{"log_oak_top", TextureTransformation::None},
+			{"log_oak", TextureTransformation::None},
+			{"log_oak", TextureTransformation::None}
+		} }
 	);
 
 	registerBlock("core:leaves_oak",
 		{ false, 0,  true,  true, true },
-		{ "leaves_oak", "leaves_oak", "leaves_oak", "leaves_oak", "leaves_oak", "leaves_oak" },
-		packTransformations(
-			TextureTransformation::None, TextureTransformation::None, TextureTransformation::None,
-			TextureTransformation::None, TextureTransformation::None, TextureTransformation::None)
+		{ "cube", {
+			{"leaves_oak", TextureTransformation::None},
+			{"leaves_oak", TextureTransformation::None},
+			{"leaves_oak", TextureTransformation::None},
+			{"leaves_oak", TextureTransformation::None},
+			{"leaves_oak", TextureTransformation::None},
+			{"leaves_oak", TextureTransformation::None}
+		} }
 	);
 
-	BlockRegistry::buildTextureIDs(textureNames);
+	BlockRegistry::buildIDs(textureNames, modelNames);
+	blockTempInfoStorage.clear();
 }
 
-void BlockRegistry::buildTextureIDs(std::vector<std::string>& textureNames)
+void BlockRegistry::buildIDs(
+	std::vector<std::string>& textureNames,
+	std::vector<std::string>& modelNames
+)
 {
-	StringIndexer strInd;
+	StringIndexer textureIndexer;
+	StringIndexer modelIndexer;
 
-	// First pass: index all texture names
-	for (auto& [blockID, blockData] : BLOCK_DATABASE)
+	// Assign IDs
+	for (auto& [blockID, blockData] : blockDataStorage)
 	{
+		// TODO: Add check for empty string
 		if (!blockData.properties.hasFaces)
 		{
 			continue;
 		}
 
-		const BlockTextureNames& names = TEXTURE_NAMES[blockID];
-		strInd.registerAndGetId(names.texName_negativeX);
-		strInd.registerAndGetId(names.texName_positiveX);
-		strInd.registerAndGetId(names.texName_negativeY);
-		strInd.registerAndGetId(names.texName_positiveY);
-		strInd.registerAndGetId(names.texName_negativeZ);
-		strInd.registerAndGetId(names.texName_positiveZ);
-	}
+		const auto& tempInfo = blockTempInfoStorage.find(blockID)->second;
 
-	// Second pass: assign IDs to BlockTextures
-	for (auto& [blockID, blockData] : BLOCK_DATABASE)
-	{
-		if (!blockData.properties.hasFaces)
+		blockData.visuals.modelID = modelIndexer.registerAndGetId(tempInfo.modelName);
+
+		for (const auto& [textureName, transformation] : tempInfo.textureInfo)
 		{
-			continue;
+			auto textureID = textureIndexer.registerAndGetId(textureName);
+			blockData.visuals.textureSlots.emplace_back(textureID, transformation);
 		}
-
-		const BlockTextureNames& names = TEXTURE_NAMES[blockID];
-		blockData.textures.textureIDs[0] = strInd.registerAndGetId(names.texName_negativeX);
-		blockData.textures.textureIDs[1] = strInd.registerAndGetId(names.texName_positiveX);
-		blockData.textures.textureIDs[2] = strInd.registerAndGetId(names.texName_negativeY);
-		blockData.textures.textureIDs[3] = strInd.registerAndGetId(names.texName_positiveY);
-		blockData.textures.textureIDs[4] = strInd.registerAndGetId(names.texName_negativeZ);
-		blockData.textures.textureIDs[5] = strInd.registerAndGetId(names.texName_positiveZ);
 	}
 
-	// Collect names
-	textureNames.clear();
-	const auto& nameToIDMap = strInd.getNameToIDMap();
-	for (const auto& pair : nameToIDMap)
+	// Collect and sort
 	{
-		textureNames.push_back(pair.first);
+		textureNames.clear();
+		const auto& nameToIDMap = textureIndexer.getNameToIDMap();
+		for (const auto& pair : nameToIDMap)
+		{
+			textureNames.push_back(pair.first);
+		}
+		std::sort(textureNames.begin(), textureNames.end(), [&nameToIDMap](const std::string& a, const std::string& b)
+			{
+				return nameToIDMap.find(a)->second < nameToIDMap.find(b)->second;
+			});
 	}
 
-	// Sort names by index
-	std::sort(textureNames.begin(), textureNames.end(), [&nameToIDMap](const std::string& a, const std::string& b)
+	{
+		modelNames.clear();
+		const auto& nameToIDMap = modelIndexer.getNameToIDMap();
+		for (const auto& pair : nameToIDMap)
 		{
-			return nameToIDMap.find(a)->second < nameToIDMap.find(b)->second;
-		});
+			modelNames.push_back(pair.first);
+		}
+		std::sort(modelNames.begin(), modelNames.end(), [&nameToIDMap](const std::string& a, const std::string& b)
+			{
+				return nameToIDMap.find(a)->second < nameToIDMap.find(b)->second;
+			});
+	}
+
+	// TODO: Find better way to sort this, without look ups. Maybe flatten and the sort then collect?
 }
 
 BlockID BlockRegistry::getBlockID(const std::string& blockName)
@@ -218,14 +239,14 @@ const BlockData* BlockRegistry::getBlockDataByName(const std::string& blockName)
 	auto result = blockIndexer.getId(blockName);
 	if (result.has_value())
 	{
-		return &BLOCK_DATABASE[result.value()];
+		return &blockDataStorage[result.value()];
 	}
 	ASSERT(false);
 
 	auto fallbackId = blockIndexer.getId("core:air");
 	if (fallbackId.has_value())
 	{
-		return &BLOCK_DATABASE[fallbackId.value()];
+		return &blockDataStorage[fallbackId.value()];
 	}
 
 	throw std::runtime_error("[BlockRegistry]: BlockName: " + blockName + " doesn't exist.");
@@ -233,8 +254,8 @@ const BlockData* BlockRegistry::getBlockDataByName(const std::string& blockName)
 
 const BlockData* BlockRegistry::getBlockDataByID(BlockID id)
 {
-	auto it = BLOCK_DATABASE.find(id);
-	if (it != BLOCK_DATABASE.end())
+	auto it = blockDataStorage.find(id);
+	if (it != blockDataStorage.end())
 	{
 		return &it->second;
 	}
@@ -246,5 +267,5 @@ const BlockData* BlockRegistry::getBlockDataByID(BlockID id)
 		throw std::runtime_error("[BlockRegistry]: Id: " + std::to_string(static_cast<size_t>(id)) + " doesn't exist.");
 	}
 
-	return &BLOCK_DATABASE[fallbackId.value()];
+	return &blockDataStorage[fallbackId.value()];
 }

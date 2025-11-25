@@ -4,15 +4,18 @@
 // TODO: Pack data
 struct NonAlignedBlockFace
 {
-    float x0, y0, z0;
-    float x1, y1, z1;
-    float x2, y2, z2;
-    float x3, y3, z3;
+    struct Vertex
+    {
+        float x, y, z;
+    };
 
-    float u0, v0;
-    float u1, v1;
-    float u2, v2;
-    float u3, v3;
+    struct UV
+    {
+        float u, v;
+    };
+
+    Vertex vertices[4];
+    UV uv[4];
 
     uint32_t textureID;
 

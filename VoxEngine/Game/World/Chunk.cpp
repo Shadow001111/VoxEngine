@@ -2,6 +2,7 @@
 #include "Chunk/TerrainGenerator.h"
 #include "Chunk/ChunkMeshManager.h"
 #include "Chunk/BlockRegistry.h"
+#include "Chunk/BlockModelLoader.h"
 
 #include "Core/Profiler.h"
 #include "Core/SymmetricBitMatrix.h"
@@ -1452,7 +1453,7 @@ void Chunk::updateMesh()
 
 	// Collect visible faces
 	{
-		ChunkMeshData::InstancesStorage newInstances;
+		/*ChunkMeshData::InstancesStorage newInstances;
 		for (int x = 0; x < CHUNK_SIZE; x++)
 		{
 			for (int y = 0; y < CHUNK_SIZE; y++)
@@ -1467,7 +1468,7 @@ void Chunk::updateMesh()
 						continue;
 					}
 
-					const auto& textureIDs = blockData->textures.textureIDs;
+					const auto& textureIDs = blockData->visuals.textureIDs;
 					auto& instances = blockData->properties.areFacesTransparent ? newInstances.alignedTranslucent : newInstances.alignedOpaque;
 					const BlockData* neighborBlockData;
 
@@ -1491,7 +1492,7 @@ void Chunk::updateMesh()
 								0,
 								ao,
 								textureIDs[0],
-								blockData->textures.texturesTransformation & 3,
+								blockData->visuals.texturesTransformation & 3,
 								light
 							);
 						}
@@ -1512,7 +1513,7 @@ void Chunk::updateMesh()
 								1,
 								ao,
 								textureIDs[1],
-								(blockData->textures.texturesTransformation >> 2) & 3,
+								(blockData->visuals.texturesTransformation >> 2) & 3,
 								light);
 						}
 					}
@@ -1532,7 +1533,7 @@ void Chunk::updateMesh()
 								2,
 								ao,
 								textureIDs[2],
-								(blockData->textures.texturesTransformation >> 4) & 3,
+								(blockData->visuals.texturesTransformation >> 4) & 3,
 								light
 							);
 						}
@@ -1553,7 +1554,7 @@ void Chunk::updateMesh()
 								3,
 								ao,
 								textureIDs[3],
-								(blockData->textures.texturesTransformation >> 6) & 3,
+								(blockData->visuals.texturesTransformation >> 6) & 3,
 								light
 							);
 						}
@@ -1574,7 +1575,7 @@ void Chunk::updateMesh()
 								4,
 								ao,
 								textureIDs[4],
-								(blockData->textures.texturesTransformation >> 8) & 3,
+								(blockData->visuals.texturesTransformation >> 8) & 3,
 								light
 							);
 						}
@@ -1595,9 +1596,101 @@ void Chunk::updateMesh()
 								5,
 								ao,
 								textureIDs[5],
-								(blockData->textures.texturesTransformation >> 10) & 3,
+								(blockData->visuals.texturesTransformation >> 10) & 3,
 								light);
 						}
+					}
+				}
+			}
+		}*/
+
+		const int dx[] = { -1, 1, 0, 0, 0, 0 };
+		const int dy[] = { 0, 0, -1, 1, 0, 0 };
+		const int dz[] = { 0, 0, 0, 0, -1, 1 };
+
+		ChunkMeshData::InstancesStorage newInstances;
+		for (int x = 0; x < CHUNK_SIZE; x++)
+		{
+			for (int y = 0; y < CHUNK_SIZE; y++)
+			{
+				for (int z = 0; z < CHUNK_SIZE; z++)
+				{
+					// Generate new faces for this block
+					BlockID block = getBlockAt(x, y, z);
+					const BlockData* blockData = BlockRegistry::getBlockDataByID(block);
+					if (!blockData->properties.hasFaces)
+					{
+						continue;
+					}
+
+					const auto& modelID = blockData->visuals.modelID;
+					//const auto& textureIDs = blockData->visuals.textureIDs;
+					auto& alignedInstances = blockData->properties.areFacesTransparent ? newInstances.alignedTranslucent : newInstances.alignedOpaque;
+					auto& nonAlignedInstances = blockData->properties.areFacesTransparent ? newInstances.nonAlignedTranslucent : newInstances.nonAlignedOpaque;
+			
+					const auto& model = BlockModelLoader::getBlockModelById(modelID);
+
+					// Aligned faces
+					for (const auto& face : model.alignedFaces)
+					{
+						int nx = x + dx[face.normal];
+						int ny = y + dy[face.normal];
+						int nz = z + dz[face.normal];
+
+						size_t neighborIndex;
+						const Chunk* neighborChunk = getChunkAndIndex_checkSideNeighbor(nx, ny, nz, face.normal, neighborIndex);
+						if (!neighborChunk)
+						{
+							continue;
+						}
+
+						BlockID neighborBlock = neighborChunk->getBlockAt(neighborIndex);
+						if (block == neighborBlock)
+						{
+							continue;
+						}
+
+						const BlockData* neighborBlockData = BlockRegistry::getBlockDataByID(neighborBlock);
+						
+						if (!neighborBlockData->properties.areFacesTransparent)
+						{
+							continue;
+						}
+
+						const auto& textureSlots = blockData->visuals.textureSlots;
+						const auto& textureData = face.textureSlot < textureSlots.size() ?
+							textureSlots[face.textureSlot] :
+							std::make_pair<uint32_t, TextureTransformation>(0, TextureTransformation::None);
+
+						LightLevel neighborLight = neighborChunk->getLightAt(neighborIndex);
+						unsigned int ao, light;
+						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, face.normal, neighborLight);
+						alignedInstances.emplace_back(
+							x, y, z,
+							face.normal,
+							ao,
+							textureData.first,
+							(uint32_t)textureData.second,
+							light
+						);
+					}
+
+					// Non-aligned faces
+					for (const auto& face : model.nonAlignedFaces)
+					{
+						NonAlignedBlockFace instance;
+
+						const auto& textureSlots = blockData->visuals.textureSlots;
+						const auto& textureData = face.textureSlot < textureSlots.size() ?
+							textureSlots[face.textureSlot] :
+							std::make_pair<uint32_t, TextureTransformation>(0, TextureTransformation::None);
+
+						memcpy(instance.vertices, face.vertices, sizeof(face.vertices));
+						memcpy(instance.uv, face.uv, sizeof(face.uv));
+						instance.textureID = textureData.first;
+
+						nonAlignedInstances.push_back(instance);
+						// TODO: Make it emplace
 					}
 				}
 			}

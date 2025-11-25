@@ -26,39 +26,34 @@ enum class TextureTransformation : uint8_t
 	RotateAndFlip = 2
 };
 
-struct BlockTextures
+struct BlockVisuals
 {
-	uint16_t textureIDs[6] = { 0, 0, 0, 0, 0, 0 };
-	uint16_t texturesTransformation = 0;
+	uint32_t modelID = 0;
+	std::vector<std::pair<uint32_t, TextureTransformation>> textureSlots;
 
-	BlockTextures() = default;
-	BlockTextures(uint16_t texturesTransformation);
+	BlockVisuals() = default;
 };
 
-struct BlockTextureNames
+// TODO: Shouldn't be visible to other files
+struct BlockTempInfo
 {
-	const char* texName_negativeX = nullptr;
-	const char* texName_positiveX = nullptr;
-	const char* texName_negativeY = nullptr;
-	const char* texName_positiveY = nullptr;
-	const char* texName_negativeZ = nullptr;
-	const char* texName_positiveZ = nullptr;
+	std::string modelName;
+	std::vector<std::pair<std::string, TextureTransformation>> textureInfo;
 
-	BlockTextureNames() = default;
-	BlockTextureNames(
-		const char* nxName, const char* pxName,
-		const char* nyName, const char* pyName,
-		const char* nzName, const char* pzName
+	BlockTempInfo() = default;
+	BlockTempInfo(
+		const char* modelName,
+		const std::vector<std::pair<std::string, TextureTransformation>>& textureSlots
 	);
 };
 
 struct BlockData
 {
 	BlockProperties properties;
-	BlockTextures textures;
+	BlockVisuals visuals;
 
 	BlockData() = default;
-	BlockData(const BlockProperties& properties, const BlockTextures& texturs);
+	BlockData(const BlockProperties& properties, const BlockVisuals& textures);
 
 	//BlockData(const BlockData& other) = delete;
 	//BlockData& operator=(const BlockData& other) = delete;
@@ -69,19 +64,26 @@ class BlockRegistry
 	BlockRegistry() = delete;
 	~BlockRegistry() = delete;
 
-	// TODO: Maybe change to vectors
-	static std::unordered_map<BlockID, BlockData> BLOCK_DATABASE;
-	static std::unordered_map<BlockID, BlockTextureNames> TEXTURE_NAMES;
+	// TODO: Maybe change to vectors. Then change in BlockModelLoader.
+	static std::unordered_map<BlockID, BlockData> blockDataStorage;
+	static std::unordered_map<BlockID, BlockTempInfo> blockTempInfoStorage;
 	static StringIndexer blockIndexer;
 
-	static void registerBlock(const std::string& blockName,
+	static void registerBlock(
+		const std::string& blockName,
 		const BlockProperties& properties,
-		const BlockTextureNames& textureNames,
-		uint16_t texturesTransformation);
+		const BlockTempInfo& tempInfo
+	);
 public:
-	static void registerBlocks(std::vector<std::string>& textureNames);
+	static void registerBlocks(
+		std::vector<std::string>& textureNames,
+		std::vector<std::string>& modelNames
+	);
 private:
-	static void buildTextureIDs(std::vector<std::string>& textureNames);
+	static void buildIDs(
+		std::vector<std::string>& textureNames,
+		std::vector<std::string>& modelNames
+	);
 public:
 	// Retrieve block ID from block name (returns SIZE_MAX if not found)
 	static BlockID getBlockID(const std::string& blockName);

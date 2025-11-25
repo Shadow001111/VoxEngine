@@ -4,6 +4,7 @@
 #include "World/Chunk/ChunkMeshManager.h"
 
 #include "World/Chunk/BlockRegistry.h"
+#include "World/Chunk/BlockModelLoader.h"
 
 #include "Core/Profiler.h"
 #include "Core/Multithreading/ThreadPool.h"
@@ -87,12 +88,22 @@ World::World()
 
 	// Block data base
 	std::vector<std::string> blockTextureNames;
-	BlockRegistry::registerBlocks(blockTextureNames);
+	std::vector<std::string> blockModelNames;
+	{
+		PROFILE_SCOPE("Blocks registration", ProfileCategory::General);
+		BlockRegistry::registerBlocks(blockTextureNames, blockModelNames);
+	}
 
 	// Block textures
 	{
 		PROFILE_SCOPE("Block texture array creation", ProfileCategory::General);
 		blockTextureArray = std::make_unique<BlockTextureArray>("res/Textures", blockTextureNames, 0, 16);
+	}
+
+	// Models
+	{
+		PROFILE_SCOPE("Block models loading", ProfileCategory::General);
+		BlockModelLoader::loadModels(blockModelNames);
 	}
 
 	alignedOpaqueFaceShader->use();
