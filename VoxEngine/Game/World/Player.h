@@ -39,14 +39,9 @@ class Player : public Entity
 {
 	Camera camera;
 
-	Block hotbar[PLAYER_HOTBAR_SIZE] = {
-		Block::GrassBlock,
-		Block::Dirt,
-		Block::Stone,
-		Block::Glass,
-		Block::ColoredGlass,
-		Block::LogOak,
-		Block::LeavesOak
+	// TODO: Load names later
+	BlockID hotbar[PLAYER_HOTBAR_SIZE] = {
+		1, 2, 3, 4, 5, 6, 7
 	};
 	uint8_t selectedItemIndex = 0;
 	GameMode gameMode = GameMode::Normal;
@@ -82,6 +77,6 @@ public:
 	Transform getPreviousTransform() const;
 	Camera& getCamera();
 
-	Block getSelectedItem() const;
+	BlockID getSelectedItem() const;
 };
 

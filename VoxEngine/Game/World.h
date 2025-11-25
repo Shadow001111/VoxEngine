@@ -170,13 +170,13 @@ private:
 
 	void updateChunkMeshes();
 public:
-	bool placeBlock(const RaycastResult& raycast, Block block);
+	bool placeBlock(const RaycastResult& raycast, BlockID block);
 	bool breakBlock(const RaycastResult& raycast);
-	void updateBlockAt(const glm::ivec3& worldPos, Block block);
+	void updateBlockAt(const glm::ivec3& worldPos, BlockID block);
 public:
 	const WorldVisualSettings& getWorldVisualSettings() const;
 	void setChunkLoadingDistance(int renderDistance);
 public:
-	std::optional<Block> getBlockAt(const glm::ivec3& globalPosition) const;
+	std::optional<BlockID> getBlockAt(const glm::ivec3& globalPosition) const;
 };
 

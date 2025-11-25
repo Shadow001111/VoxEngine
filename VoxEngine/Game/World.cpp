@@ -87,7 +87,7 @@ World::World()
 
 	// Block data base
 	std::vector<std::string> blockTextureNames;
-	BlockDataBase::loadBlockDataBase(blockTextureNames);
+	BlockRegistry::registerBlocks(blockTextureNames);
 
 	// Block textures
 	{
@@ -789,8 +789,8 @@ RaycastResult World::raycast(const glm::dvec3& origin, const glm::dvec3& directi
 			// Local block position within chunk
 			glm::ivec3 localBlockPos = blockPos & CHUNK_LOWER_BITS_MASK;
 
-			Block block = chunk->getBlockAt(localBlockPos.x, localBlockPos.y, localBlockPos.z);
-			const BlockData* blockData = BlockDataBase::getBlockData(block);
+			BlockID block = chunk->getBlockAt(localBlockPos.x, localBlockPos.y, localBlockPos.z);
+			const BlockData* blockData = BlockRegistry::getBlockDataByID(block);
 
 			if (blockData->properties.raycastable)
 			{
@@ -1130,7 +1130,7 @@ void World::updateChunkMeshes()
 	}
 }
 
-bool World::placeBlock(const RaycastResult& raycast, Block block)
+bool World::placeBlock(const RaycastResult& raycast, BlockID block)
 {
 	// TODO: Don't place block if entity is there
 	if (!raycast.hit)
@@ -1162,11 +1162,11 @@ bool World::breakBlock(const RaycastResult& raycast)
 		return false;
 	}
 
-	updateBlockAt(raycast.hitBlockPosition, Block::Air);
+	updateBlockAt(raycast.hitBlockPosition, BlockRegistry::getBlockID("core:air"));
 	return true;
 }
 
-void World::updateBlockAt(const glm::ivec3& worldPos, Block block)
+void World::updateBlockAt(const glm::ivec3& worldPos, BlockID block)
 {
 	// Convert world position to chunk position and local position
 	glm::ivec3 chunkPos = worldPos >> CHUNK_SIZE_LOG2;
@@ -1198,7 +1198,7 @@ void World::setChunkLoadingDistance(int renderDistance)
 	visualSettings.fogDensity = visualSettings.calculateFogDensity(fogDistance, visualSettings.fogGradient);
 }
 
-std::optional<Block> World::getBlockAt(const glm::ivec3& globalPosition) const
+std::optional<BlockID> World::getBlockAt(const glm::ivec3& globalPosition) const
 {
 	glm::ivec3 chunkPos = globalPosition >> CHUNK_SIZE_LOG2;
 

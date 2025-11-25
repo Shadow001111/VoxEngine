@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <unordered_map>
+#include <optional>
 
 class StringIndexer
 {
@@ -14,10 +15,9 @@ public:
 	StringIndexer(StringIndexer&& other) = delete;
 	StringIndexer& operator=(StringIndexer&& other) = delete;
 
-	// Returns size_t max value if ID is invalid
-	size_t getID(const char* textureName);
-	// Returns size_t max value if ID is invalid
-	size_t getID(const std::string& textureName);
+	size_t registerAndGetId(const std::string& str);
+	bool isRegistered(const std::string& str) const;
+	std::optional<size_t> getId(const std::string& str) const;
 
 	const std::unordered_map<std::string, size_t>& getNameToIDMap() const;
 };

@@ -3,49 +3,31 @@
   "faces": [
     {
       "type": "aligned",
-      "x": 0,
-      "y": 0,
-      "z": 0,
       "normal": 0,
       "texture_slot": 0
     },
     {
       "type": "aligned",
-      "x": 0,
-      "y": 0,
-      "z": 0,
       "normal": 1,
       "texture_slot": 1
     },
     {
       "type": "aligned",
-      "x": 0,
-      "y": 0,
-      "z": 0,
       "normal": 2,
       "texture_slot": 2
     },
     {
       "type": "aligned",
-      "x": 0,
-      "y": 0,
-      "z": 0,
       "normal": 3,
       "texture_slot": 3
     },
     {
       "type": "aligned",
-      "x": 0,
-      "y": 0,
-      "z": 0,
       "normal": 4,
       "texture_slot": 4
     },
     {
       "type": "aligned",
-      "x": 0,
-      "y": 0,
-      "z": 0,
       "normal": 5,
       "texture_slot": 5
     }

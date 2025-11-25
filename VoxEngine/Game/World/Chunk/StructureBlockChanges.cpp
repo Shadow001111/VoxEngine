@@ -2,7 +2,7 @@
 
 #include <iostream>
 
-void StructureBlockChangeManager::addChange(const glm::ivec3& chunkPos, Block block, uint16_t index, bool placeIfBlockIsAir)
+void StructureBlockChangeManager::addChange(const glm::ivec3& chunkPos, BlockID block, uint16_t index, bool placeIfBlockIsAir)
 {
     std::lock_guard<std::mutex> lock(changesMutex);
 

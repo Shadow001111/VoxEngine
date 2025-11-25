@@ -1,9 +1,9 @@
 #include "BlockRegistry.h"
-#include "TextureTransformations.h"
-
-#include "Core/StringIndexer.h"
 
 #include <algorithm>
+#include <stdexcept>
+
+#include "Core/Assert.h"
 
 inline uint8_t clamp(uint8_t v, uint8_t min, uint8_t max)
 {
@@ -56,23 +56,28 @@ BlockData::BlockData(const BlockProperties& properties, const BlockTextures& tex
 {
 }
 
+std::unordered_map<BlockID, BlockData> BlockRegistry::BLOCK_DATABASE;
+std::unordered_map<BlockID, BlockTextureNames> BlockRegistry::TEXTURE_NAMES;
+StringIndexer BlockRegistry::blockIndexer;
 
-BlockData BlockDataBase::BLOCK_DATABASE[(size_t)Block::__BlockCount__];
-BlockTextureNames BlockDataBase::TEXTURE_NAMES[(size_t)Block::__BlockCount__];
-
-void BlockDataBase::registerBlock(Block block,
-	const BlockProperties& properties,
-	const BlockTextureNames& textureNames,
-	uint16_t texturesTransformation)
+void BlockRegistry::registerBlock(const std::string& blockName, const BlockProperties& properties, const BlockTextureNames& textureNames, uint16_t texturesTransformation)
 {
-	BLOCK_DATABASE[(size_t)block] = { properties, BlockTextures(texturesTransformation) };
-	TEXTURE_NAMES[(size_t)block] = textureNames;
+	if (blockIndexer.isRegistered(blockName))
+	{
+		// Block already registered, skip
+		return;
+	}
+
+	// Maybe StringIndexer is unnecessary thing...
+	BlockID blockID = static_cast<BlockID>(blockIndexer.registerAndGetId(blockName));
+	BLOCK_DATABASE[blockID] = { properties, BlockTextures(texturesTransformation) };
+	TEXTURE_NAMES[blockID] = textureNames;
 }
 
 // TODO: Import block data from some file. Store 'compiled' file in binary for fast loading. Check if file was updates by hashing.
-void BlockDataBase::loadBlockDataBase(std::vector<std::string>& textureNames)
+void BlockRegistry::registerBlocks(std::vector<std::string>& textureNames)
 {
-	registerBlock(Block::Air,
+	registerBlock("core:air",
 		{ false,  0,  false, true, false },
 		{ "", "", "", "", "", "" },
 		packTransformations(
@@ -80,7 +85,7 @@ void BlockDataBase::loadBlockDataBase(std::vector<std::string>& textureNames)
 			TextureTransformation::None, TextureTransformation::None, TextureTransformation::None)
 	);
 
-	registerBlock(Block::GrassBlock,
+	registerBlock("core:grass_block",
 		{ true, 0,  true,  false, true },
 		{ "grass_block_side", "grass_block_side", "dirt", "grass_block_top", "grass_block_side", "grass_block_side" },
 		packTransformations(
@@ -88,7 +93,7 @@ void BlockDataBase::loadBlockDataBase(std::vector<std::string>& textureNames)
 			TextureTransformation::RotateAndFlip, TextureTransformation::None, TextureTransformation::None)
 	);
 
-	registerBlock(Block::Dirt,
+	registerBlock("core:dirt",
 		{ true, 0,  true,  false, true },
 		{ "dirt", "dirt", "dirt", "dirt", "dirt", "dirt" },
 		packTransformations(
@@ -96,7 +101,7 @@ void BlockDataBase::loadBlockDataBase(std::vector<std::string>& textureNames)
 			TextureTransformation::RotateAndFlip, TextureTransformation::RotateAndFlip, TextureTransformation::RotateAndFlip)
 	);
 
-	registerBlock(Block::Stone,
+	registerBlock("core:stone",
 		{ true, 0,  true,  false, true },
 		{ "stone", "stone", "stone", "stone", "stone", "stone" },
 		packTransformations(
@@ -104,7 +109,7 @@ void BlockDataBase::loadBlockDataBase(std::vector<std::string>& textureNames)
 			TextureTransformation::Flip, TextureTransformation::Flip, TextureTransformation::Flip)
 	);
 
-	registerBlock(Block::Glass,
+	registerBlock("core:glass",
 		{ false, 0, true,  true, true },
 		{ "glass", "glass", "glass", "glass", "glass", "glass" },
 		packTransformations(
@@ -112,7 +117,7 @@ void BlockDataBase::loadBlockDataBase(std::vector<std::string>& textureNames)
 			TextureTransformation::None, TextureTransformation::None, TextureTransformation::None)
 	);
 
-	registerBlock(Block::ColoredGlass,
+	registerBlock("core:colored_glass",
 		{ false, 15, true,  true, true },
 		{ "glass_red", "glass_red", "glass_green", "glass_green", "glass_blue", "glass_blue" },
 		packTransformations(
@@ -120,7 +125,7 @@ void BlockDataBase::loadBlockDataBase(std::vector<std::string>& textureNames)
 			TextureTransformation::None, TextureTransformation::None, TextureTransformation::None)
 	);
 
-	registerBlock(Block::Water,
+	registerBlock("core:water",
 		{ false, 0, true,  true, false },
 		{ "water", "water", "water", "water", "water", "water" },
 		packTransformations(
@@ -128,7 +133,7 @@ void BlockDataBase::loadBlockDataBase(std::vector<std::string>& textureNames)
 			TextureTransformation::None, TextureTransformation::None, TextureTransformation::None)
 	);
 
-	registerBlock(Block::LogOak,
+	registerBlock("core:log_oak",
 		{ true, 0,  true,  false, true },
 		{ "log_oak", "log_oak", "log_oak_top", "log_oak_top", "log_oak", "log_oak" },
 		packTransformations(
@@ -136,7 +141,7 @@ void BlockDataBase::loadBlockDataBase(std::vector<std::string>& textureNames)
 			TextureTransformation::None, TextureTransformation::None, TextureTransformation::None)
 	);
 
-	registerBlock(Block::LeavesOak,
+	registerBlock("core:leaves_oak",
 		{ false, 0,  true,  true, true },
 		{ "leaves_oak", "leaves_oak", "leaves_oak", "leaves_oak", "leaves_oak", "leaves_oak" },
 		packTransformations(
@@ -144,49 +149,45 @@ void BlockDataBase::loadBlockDataBase(std::vector<std::string>& textureNames)
 			TextureTransformation::None, TextureTransformation::None, TextureTransformation::None)
 	);
 
-	BlockDataBase::buildTextureIDs(textureNames);
+	BlockRegistry::buildTextureIDs(textureNames);
 }
 
-void BlockDataBase::buildTextureIDs(std::vector<std::string>& textureNames)
+void BlockRegistry::buildTextureIDs(std::vector<std::string>& textureNames)
 {
 	StringIndexer strInd;
 
-	const size_t blockCount = (size_t)Block::__BlockCount__;
-
 	// First pass: index all texture names
-	for (size_t blockID = 0; blockID < blockCount; blockID++)
+	for (auto& [blockID, blockData] : BLOCK_DATABASE)
 	{
-		const BlockData* blockData = &BLOCK_DATABASE[blockID];
-		if (!blockData->properties.hasFaces)
+		if (!blockData.properties.hasFaces)
 		{
 			continue;
 		}
 
 		const BlockTextureNames& names = TEXTURE_NAMES[blockID];
-		strInd.getID(names.texName_negativeX);
-		strInd.getID(names.texName_positiveX);
-		strInd.getID(names.texName_negativeY);
-		strInd.getID(names.texName_positiveY);
-		strInd.getID(names.texName_negativeZ);
-		strInd.getID(names.texName_positiveZ);
+		strInd.registerAndGetId(names.texName_negativeX);
+		strInd.registerAndGetId(names.texName_positiveX);
+		strInd.registerAndGetId(names.texName_negativeY);
+		strInd.registerAndGetId(names.texName_positiveY);
+		strInd.registerAndGetId(names.texName_negativeZ);
+		strInd.registerAndGetId(names.texName_positiveZ);
 	}
 
 	// Second pass: assign IDs to BlockTextures
-	for (size_t blockID = 0; blockID < blockCount; blockID++)
+	for (auto& [blockID, blockData] : BLOCK_DATABASE)
 	{
-		BlockData* blockData = &BLOCK_DATABASE[blockID];
-		if (!blockData->properties.hasFaces)
+		if (!blockData.properties.hasFaces)
 		{
 			continue;
 		}
 
 		const BlockTextureNames& names = TEXTURE_NAMES[blockID];
-		blockData->textures.textureIDs[0] = strInd.getID(names.texName_negativeX);
-		blockData->textures.textureIDs[1] = strInd.getID(names.texName_positiveX);
-		blockData->textures.textureIDs[2] = strInd.getID(names.texName_negativeY);
-		blockData->textures.textureIDs[3] = strInd.getID(names.texName_positiveY);
-		blockData->textures.textureIDs[4] = strInd.getID(names.texName_negativeZ);
-		blockData->textures.textureIDs[5] = strInd.getID(names.texName_positiveZ);
+		blockData.textures.textureIDs[0] = strInd.registerAndGetId(names.texName_negativeX);
+		blockData.textures.textureIDs[1] = strInd.registerAndGetId(names.texName_positiveX);
+		blockData.textures.textureIDs[2] = strInd.registerAndGetId(names.texName_negativeY);
+		blockData.textures.textureIDs[3] = strInd.registerAndGetId(names.texName_positiveY);
+		blockData.textures.textureIDs[4] = strInd.registerAndGetId(names.texName_negativeZ);
+		blockData.textures.textureIDs[5] = strInd.registerAndGetId(names.texName_positiveZ);
 	}
 
 	// Collect names
@@ -204,16 +205,46 @@ void BlockDataBase::buildTextureIDs(std::vector<std::string>& textureNames)
 		});
 }
 
-const BlockData* BlockDataBase::getBlockData(Block block)
+BlockID BlockRegistry::getBlockID(const std::string& blockName)
 {
-	return &BLOCK_DATABASE[(size_t)block];
+	auto result = blockIndexer.getId(blockName);
+	if (result.has_value()) return result.value();
+	ASSERT(false);
+	return 0;
 }
 
-const BlockData* BlockDataBase::getBlockData(size_t index)
+const BlockData* BlockRegistry::getBlockDataByName(const std::string& blockName)
 {
-	if (index >= (size_t)Block::__BlockCount__)
+	auto result = blockIndexer.getId(blockName);
+	if (result.has_value())
 	{
-		return &BLOCK_DATABASE[0];
+		return &BLOCK_DATABASE[result.value()];
 	}
-	return &BLOCK_DATABASE[index];
+	ASSERT(false);
+
+	auto fallbackId = blockIndexer.getId("core:air");
+	if (fallbackId.has_value())
+	{
+		return &BLOCK_DATABASE[fallbackId.value()];
+	}
+
+	throw std::runtime_error("[BlockRegistry]: BlockName: " + blockName + " doesn't exist.");
+}
+
+const BlockData* BlockRegistry::getBlockDataByID(BlockID id)
+{
+	auto it = BLOCK_DATABASE.find(id);
+	if (it != BLOCK_DATABASE.end())
+	{
+		return &it->second;
+	}
+	ASSERT(false);
+	
+	auto fallbackId = blockIndexer.getId("core:air");
+	if (!fallbackId.has_value())
+	{
+		throw std::runtime_error("[BlockRegistry]: Id: " + std::to_string(static_cast<size_t>(id)) + " doesn't exist.");
+	}
+
+	return &BLOCK_DATABASE[fallbackId.value()];
 }

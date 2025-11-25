@@ -194,7 +194,6 @@
     <ClInclude Include="Core\AtomicFlags.h" />
     <ClInclude Include="Core\SymmetricBitMatrix.h" />
     <ClInclude Include="Game\World\Chunk\StructureBlockChanges.h" />
-    <ClInclude Include="Game\World\Chunk\TextureTransformations.h" />
     <ClInclude Include="Game\World\Entity.h" />
     <ClInclude Include="Game\World\Chunk\ChunkMeshManager.h" />
     <ClInclude Include="Core\BlockAllocator.h" />

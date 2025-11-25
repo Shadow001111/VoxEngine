@@ -164,6 +164,14 @@ void Chunk::buildBlocks()
 	chunkFlags.set(Flag::IsLoadedChunkColumnData, true);
 	const int* heightMap = chunkColumnData->heightMapRead();
 
+	// Fetch IDs
+	// TODO: Maybe fetch block ids once and make them Chunk's static variables?
+	const BlockID airID = BlockRegistry::getBlockID("core:air");
+	const BlockID waterID = BlockRegistry::getBlockID("core:water");
+	const BlockID grassBlockID = BlockRegistry::getBlockID("core:grass_block");
+	const BlockID dirtID = BlockRegistry::getBlockID("core:dirt");
+	const BlockID stoneID = BlockRegistry::getBlockID("core:stone");
+
 	// Terrain
 	bool computeCaveMask = false;
 	{
@@ -182,22 +190,22 @@ void Chunk::buildBlocks()
 
 					size_t index = getIndex(x, y, z);
 
-					Block block = Block::Air;
+					BlockID block;
 					if (globalY > globalHeight)
 					{
-						block = ocean ? Block::Water : Block::Air;
+						block = ocean ? waterID : airID;
 					}
 					else if (globalY == globalHeight)
 					{
-						block = Block::GrassBlock;
+						block = grassBlockID;
 					}
 					else if (globalY > globalHeight - 4)
 					{
-						block = Block::Dirt;
+						block = dirtID;
 					}
 					else
 					{
-						block = Block::Stone;
+						block = stoneID;
 						computeCaveMask = true;
 					}
 
@@ -217,9 +225,9 @@ void Chunk::buildBlocks()
 
 		for (int i = 0; i < CHUNK_VOLUME; i++)
 		{
-			if (blocks[i] == Block::Stone && caveMask[i])
+			if (blocks[i] == stoneID && caveMask[i])
 			{
-				blocks[i] = Block::Air;
+				blocks[i] = airID;
 			}
 		}
 	}
@@ -247,7 +255,7 @@ void Chunk::buildBlocks()
 				}
 
 				size_t rootIndex = getIndex(x, localY, z);
-				if (blocks[rootIndex] != Block::Air)
+				if (blocks[rootIndex] != airID)
 				{
 					continue;
 				}
@@ -273,7 +281,7 @@ void Chunk::buildBlocks()
 		auto pendingChanges = structureBlockChangeManager.retrieveAndClearChanges(position);
 		for (const auto& change : pendingChanges)
 		{
-			if (!change.placeIfBlockIsAir || blocks[change.index] == Block::Air)
+			if (!change.placeIfBlockIsAir || blocks[change.index] == airID)
 			{
 				blocks[change.index] = change.block;
 			}
@@ -375,12 +383,14 @@ bool Chunk::hasStructureBlockUpdates() const
 
 void Chunk::updateStructureBlocks()
 {
+	const BlockID airID = BlockRegistry::getBlockID("core:air");
+
 	ScopedProcessingFence scopedFence(processingFence);
 
 	auto pendingChanges = structureBlockChangeManager.retrieveAndClearChanges(position);
 	for (const auto& change : pendingChanges)
 	{
-		if (!change.placeIfBlockIsAir || blocks[change.index] == Block::Air)
+		if (!change.placeIfBlockIsAir || blocks[change.index] == airID)
 		{
 			auto pos = getPositionFromIndex(change.index);
 			setBlockAt(pos.x, pos.y, pos.z, change.block, false);
@@ -390,6 +400,10 @@ void Chunk::updateStructureBlocks()
 
 void Chunk::generateTree(const glm::ivec3& rootPosition)
 {
+	const BlockID airID = BlockRegistry::getBlockID("core:air");
+	const BlockID logOakID = BlockRegistry::getBlockID("core:log_oak");
+	const BlockID leavesOakID = BlockRegistry::getBlockID("core:leaves_oak");
+
 	const int treeHeight = 4;
 
 	// Check if there's enough space for the tree
@@ -402,7 +416,7 @@ void Chunk::generateTree(const glm::ivec3& rootPosition)
 	for (int i = 0; i < treeHeight; i++)
 	{
 		size_t index = getIndex(rootPosition.x, rootPosition.y + i, rootPosition.z);
-		blocks[index] = Block::LogOak;
+		blocks[index] = logOakID;
 	}
 	
 	// Leaves - create a spherical canopy
@@ -430,9 +444,9 @@ void Chunk::generateTree(const glm::ivec3& rootPosition)
 				if (((lx | ly | lz) & CHUNK_UPPER_BITS_MASK) == 0)
 				{
 					size_t index = getIndex(lx, ly, lz);
-					if (blocks[index] == Block::Air)
+					if (blocks[index] == airID)
 					{
-						blocks[index] = Block::LeavesOak;
+						blocks[index] = leavesOakID;
 					}
 				}
 				else
@@ -453,7 +467,7 @@ void Chunk::generateTree(const glm::ivec3& rootPosition)
 					int nz = lz & CHUNK_LOWER_BITS_MASK;
 					size_t index = getIndex(nx, ny, nz);
 
-					structureBlockChangeManager.addChange(chunkPos, Block::LeavesOak, index, true);
+					structureBlockChangeManager.addChange(chunkPos, leavesOakID, index, true);
 				}
 			}
 		}
@@ -483,7 +497,7 @@ void Chunk::loadBlocks()
 
 	for (uint16_t i = 0; i < mapSize; i++)
 	{
-		Block block;
+		BlockID block;
 		uint16_t count;
 		in.read(reinterpret_cast<char*>(&block), sizeof(block));
 		in.read(reinterpret_cast<char*>(&count), sizeof(count));
@@ -498,7 +512,7 @@ void Chunk::loadBlocks()
 	// Remove unnecessary changes
 	for (auto it = changedBlocks.begin(); it != changedBlocks.end();)
 	{
-		Block block = it->first;
+		BlockID block = it->first;
 		auto& indices = it->second;
 
 		// We’ll remove redundant ones during iteration
@@ -518,7 +532,7 @@ void Chunk::loadBlocks()
 
 		if (writeIndex == 0)
 		{
-			// no valid indices left, erase this block type entirely
+			// No valid indices left, erase this block type entirely
 			it = changedBlocks.erase(it);
 		}
 		else
@@ -529,6 +543,7 @@ void Chunk::loadBlocks()
 	}
 }
 
+// TODO: World should have list for decoding blockNames to IDs, in case block registry will change, but for now it's not needed.
 void Chunk::saveBlocks() const
 {
 	if (changedBlocks.empty())
@@ -559,143 +574,143 @@ void Chunk::saveBlocks() const
 
 bool Chunk::findFloodFillStartIndex(uint16_t& startIndex, const bool* floodFillMask) const
 {
-	for (uint16_t i = startIndex; i < CHUNK_VOLUME; i++)
-	{
-		if (floodFillMask[i])
-		{
-			// Already visited
-			continue;
-		}
+	//for (uint16_t i = startIndex; i < CHUNK_VOLUME; i++)
+	//{
+	//	if (floodFillMask[i])
+	//	{
+	//		// Already visited
+	//		continue;
+	//	}
 
-		Block block = blocks[i];
-		const BlockData* blockData = BlockDataBase::getBlockData(block);
-		if (!blockData->properties.areFacesTransparent)
-		{
-			// Block isn't transparent
-			continue;
-		}
+	//	Block block = blocks[i];
+	//	const BlockData* blockData = BlockRegistry::getBlockData(block);
+	//	if (!blockData->properties.areFacesTransparent)
+	//	{
+	//		// Block isn't transparent
+	//		continue;
+	//	}
 
-		startIndex = i;
-		return true;
-	}
-	return false;
+	//	startIndex = i;
+	//	return true;
+	//}
+	//return false;
 }
 
 void Chunk::computeConnectivity()
 {
-	PROFILE_SCOPE("Compute chunk connectivity", ProfileCategory::General);
+	//PROFILE_SCOPE("Compute chunk connectivity", ProfileCategory::General);
 
-	constexpr glm::ivec3 dirs[6] =
-	{
-		{-1, 0, 0}, {1, 0, 0},
-		{0, -1, 0}, {0, 1, 0},
-		{0, 0, -1}, {0, 0, 1}
-	};
+	//constexpr glm::ivec3 dirs[6] =
+	//{
+	//	{-1, 0, 0}, {1, 0, 0},
+	//	{0, -1, 0}, {0, 1, 0},
+	//	{0, 0, -1}, {0, 0, 1}
+	//};
 
-	// Reset regions
-	bool visitedCells[CHUNK_VOLUME]; // TODO: Can be a bitset
-	std::fill(visitedCells, visitedCells + CHUNK_VOLUME, false);
+	//// Reset regions
+	//bool visitedCells[CHUNK_VOLUME]; // TODO: Can be a bitset
+	//std::fill(visitedCells, visitedCells + CHUNK_VOLUME, false);
 
-	SymmetricBitMatrix<6> chunkConnectivity; // 6x6 matrix
-	chunkConnectivity.fill(false);
+	//SymmetricBitMatrix<6> chunkConnectivity; // 6x6 matrix
+	//chunkConnectivity.fill(false);
 
-	uint16_t startIndex = 0;
+	//uint16_t startIndex = 0;
 
-	std::vector<glm::ivec3> cellsToVisit;
+	//std::vector<glm::ivec3> cellsToVisit;
 
-	//static std::mutex mtx;
-	//std::lock_guard<std::mutex> lock(mtx);
+	////static std::mutex mtx;
+	////std::lock_guard<std::mutex> lock(mtx);
 
-	while (true)
-	{
-		// Find start index
-		if (!findFloodFillStartIndex(startIndex, visitedCells))
-		{
-			break;
-		}
+	//while (true)
+	//{
+	//	// Find start index
+	//	if (!findFloodFillStartIndex(startIndex, visitedCells))
+	//	{
+	//		break;
+	//	}
 
-		glm::ivec3 startPos = getPositionFromIndex(startIndex);
-		visitedCells[startIndex] = true; // Mark as visited
-		startIndex++; // Increment, so 'findFloodFillStartIndex' will look immediately at next block
+	//	glm::ivec3 startPos = getPositionFromIndex(startIndex);
+	//	visitedCells[startIndex] = true; // Mark as visited
+	//	startIndex++; // Increment, so 'findFloodFillStartIndex' will look immediately at next block
 
-		bool regionConnectivity[6] = { false, false, false, false, false, false }; // TODO: Can be a bitset
+	//	bool regionConnectivity[6] = { false, false, false, false, false, false }; // TODO: Can be a bitset
 
-		cellsToVisit.push_back(startPos);
-		while (!cellsToVisit.empty())
-		{
-			// Get cell
-			glm::ivec3 cell = cellsToVisit.back();
-			cellsToVisit.pop_back();
+	//	cellsToVisit.push_back(startPos);
+	//	while (!cellsToVisit.empty())
+	//	{
+	//		// Get cell
+	//		glm::ivec3 cell = cellsToVisit.back();
+	//		cellsToVisit.pop_back();
 
-			// Check if cell is on chunk border
-			regionConnectivity[0] |= cell.x == 0;
-			regionConnectivity[1] |= cell.x == (CHUNK_SIZE - 1);
-			regionConnectivity[2] |= cell.y == 0;
-			regionConnectivity[3] |= cell.y == (CHUNK_SIZE - 1);
-			regionConnectivity[4] |= cell.z == 0;
-			regionConnectivity[5] |= cell.z == (CHUNK_SIZE - 1);
-		
-			// Spread neighbors
-			for (int i = 0; i < 6; i++)
-			{
-				glm::ivec3 neighborPos = cell + dirs[i];
-				
-				// Check if neighbor is in boundaries
-				glm::ivec3 truncated = neighborPos & CHUNK_UPPER_BITS_MASK;
-				if (!(truncated.x == 0 && truncated.y == 0 && truncated.z == 0))
-				{
-					continue;
-				}
-				size_t neighborIndex = getIndex(neighborPos.x, neighborPos.y, neighborPos.z);
+	//		// Check if cell is on chunk border
+	//		regionConnectivity[0] |= cell.x == 0;
+	//		regionConnectivity[1] |= cell.x == (CHUNK_SIZE - 1);
+	//		regionConnectivity[2] |= cell.y == 0;
+	//		regionConnectivity[3] |= cell.y == (CHUNK_SIZE - 1);
+	//		regionConnectivity[4] |= cell.z == 0;
+	//		regionConnectivity[5] |= cell.z == (CHUNK_SIZE - 1);
+	//	
+	//		// Spread neighbors
+	//		for (int i = 0; i < 6; i++)
+	//		{
+	//			glm::ivec3 neighborPos = cell + dirs[i];
+	//			
+	//			// Check if neighbor is in boundaries
+	//			glm::ivec3 truncated = neighborPos & CHUNK_UPPER_BITS_MASK;
+	//			if (!(truncated.x == 0 && truncated.y == 0 && truncated.z == 0))
+	//			{
+	//				continue;
+	//			}
+	//			size_t neighborIndex = getIndex(neighborPos.x, neighborPos.y, neighborPos.z);
 
-				// Check if neighbor is visited
-				if (visitedCells[neighborIndex])
-				{
-					continue;
-				}
-				visitedCells[neighborIndex] = true;
+	//			// Check if neighbor is visited
+	//			if (visitedCells[neighborIndex])
+	//			{
+	//				continue;
+	//			}
+	//			visitedCells[neighborIndex] = true;
 
-				// Check if neighbor is in opaque block
-				Block block = blocks[neighborIndex];
-				if (!GET_BLOCK_PROPERTIES(block).areFacesTransparent)
-				{
-					continue;
-				}
+	//			// Check if neighbor is in opaque block
+	//			Block block = blocks[neighborIndex];
+	//			if (!GET_BLOCK_PROPERTIES(block).areFacesTransparent)
+	//			{
+	//				continue;
+	//			}
 
-				cellsToVisit.push_back(neighborPos);
-			}
-		}
+	//			cellsToVisit.push_back(neighborPos);
+	//		}
+	//	}
 
-		// Region is filled
-		for (int i = 0; i < 5; i++)
-		{
-			for (int j = i + 1; j < 6; j++)
-			{
-				chunkConnectivity.set(i, j, true);
-			}
-		}
-	}
+	//	// Region is filled
+	//	for (int i = 0; i < 5; i++)
+	//	{
+	//		for (int j = i + 1; j < 6; j++)
+	//		{
+	//			chunkConnectivity.set(i, j, true);
+	//		}
+	//	}
+	//}
 
-	// Check flood fill mask if it filled all the space
+	//// Check flood fill mask if it filled all the space
 }
 
-void Chunk::removeIndexFromMap(Block block, uint16_t idx)
+void Chunk::removeIndexFromMap(BlockID block, uint16_t idx)
 {
-	auto it = changedBlocks.find(block);
-	if (it == changedBlocks.end()) return;
+	//auto it = changedBlocks.find(block);
+	//if (it == changedBlocks.end()) return;
 
-	auto& vec = it->second;
+	//auto& vec = it->second;
 
-	for (size_t i = 0; i < vec.size(); i++)
-	{
-		if (vec[i] == idx) {
-			vec[i] = vec.back();  // swap with last
-			vec.pop_back();       // remove last
-			break;
-		}
-	}
+	//for (size_t i = 0; i < vec.size(); i++)
+	//{
+	//	if (vec[i] == idx) {
+	//		vec[i] = vec.back();  // swap with last
+	//		vec.pop_back();       // remove last
+	//		break;
+	//	}
+	//}
 
-	if (vec.empty()) changedBlocks.erase(it);
+	//if (vec.empty()) changedBlocks.erase(it);
 }
 
 void Chunk::buildLight()
@@ -732,9 +747,9 @@ void Chunk::buildLight()
 				{
 					size_t index = getIndex(x, y, z);
 
-					Block currentBlock = blocks[index];
+					const auto* blockData = BlockRegistry::getBlockDataByID(blocks[index]);
 
-					uint8_t emission = GET_BLOCK_PROPERTIES(currentBlock).lightEmission;
+					uint8_t emission = blockData->properties.lightEmission;
 					if (emission == 0)
 					{
 						continue;
@@ -764,7 +779,8 @@ void Chunk::buildLight()
 				for (int z = 0; z < CHUNK_SIZE; z++)
 				{
 					size_t index = getIndex(x, y, z);
-					if (GET_BLOCK_PROPERTIES(blocks[index]).absorbsLight)
+					const auto* blockData = BlockRegistry::getBlockDataByID(blocks[index]);
+					if (blockData->properties.absorbsLight)
 					{
 						continue;
 					}
@@ -817,7 +833,8 @@ void Chunk::buildLight()
 		auto processNeighborFace = [&](int x, int y, int z, int nx, int ny, int nz, const Chunk* neighbor, bool propagatingFromTop)
 			{
 				size_t index = getIndex(x, y, z);
-				if (GET_BLOCK_PROPERTIES(blocks[index]).absorbsLight)
+				const auto* blockData = BlockRegistry::getBlockDataByID(blocks[index]);
+				if (blockData->properties.absorbsLight)
 				{
 					return;
 				}
@@ -966,8 +983,9 @@ void Chunk::buildLight()
 					continue;
 				}
 
-				const Block neighborBlock = neighborChunk->getBlockAt(neighborIndex);
-				if (GET_BLOCK_PROPERTIES(neighborBlock).absorbsLight)
+				const BlockID neighborBlock = neighborChunk->getBlockAt(neighborIndex);
+				const auto* neighborBlockData = BlockRegistry::getBlockDataByID(blocks[index]);
+				if (neighborBlockData->properties.absorbsLight)
 				{
 					continue;
 				}
@@ -1029,8 +1047,9 @@ void Chunk::buildLight()
 					continue;
 				}
 
-				const Block neighborBlock = neighborChunk->getBlockAt(neighborIndex);
-				if (GET_BLOCK_PROPERTIES(neighborBlock).absorbsLight)
+				const BlockID neighborBlock = neighborChunk->getBlockAt(neighborIndex);
+				const auto* neighborBlockData = BlockRegistry::getBlockDataByID(blocks[index]);
+				if (neighborBlockData->properties.absorbsLight)
 				{
 					continue;
 				}
@@ -1133,8 +1152,9 @@ void Chunk::updateLight()
 				continue;
 			}
 
-			Block neighborBlock = neighborChunk->getBlockAt(neighborIndex);
-			if (GET_BLOCK_PROPERTIES(neighborBlock).absorbsLight)
+			BlockID neighborBlock = neighborChunk->getBlockAt(neighborIndex);
+			const auto* neighborBlockData = BlockRegistry::getBlockDataByID(neighborBlock);
+			if (neighborBlockData->properties.absorbsLight)
 			{
 				continue;
 			}
@@ -1209,8 +1229,9 @@ void Chunk::updateLight()
 				continue;
 			}
 
-			Block neighborBlock = neighborChunk->getBlockAt(neighborIndex);
-			if (GET_BLOCK_PROPERTIES(neighborBlock).absorbsLight)
+			BlockID neighborBlock = neighborChunk->getBlockAt(neighborIndex);
+			const auto* neighborBlockData = BlockRegistry::getBlockDataByID(neighborBlock);
+			if (neighborBlockData->properties.absorbsLight)
 			{
 				continue;
 			}
@@ -1268,8 +1289,9 @@ void Chunk::updateLight()
 				continue;
 			}
 
-			Block neighborBlock = neighborChunk->getBlockAt(neighborIndex);
-			if (GET_BLOCK_PROPERTIES(neighborBlock).absorbsLight)
+			BlockID neighborBlock = neighborChunk->getBlockAt(neighborIndex);
+			const auto* neighborBlockData = BlockRegistry::getBlockDataByID(neighborBlock);
+			if (neighborBlockData->properties.absorbsLight)
 			{
 				continue;
 			}
@@ -1343,8 +1365,9 @@ void Chunk::updateLight()
 				continue;
 			}
 
-			Block neighborBlock = neighborChunk->getBlockAt(neighborIndex);
-			if (GET_BLOCK_PROPERTIES(neighborBlock).absorbsLight)
+			BlockID neighborBlock = neighborChunk->getBlockAt(neighborIndex);
+			const auto* neighborBlockData = BlockRegistry::getBlockDataByID(neighborBlock);
+			if (neighborBlockData->properties.absorbsLight)
 			{
 				continue;
 			}
@@ -1437,8 +1460,8 @@ void Chunk::updateMesh()
 				for (int z = 0; z < CHUNK_SIZE; z++)
 				{
 					// Generate new faces for this block
-					Block block = getBlockAt(x, y, z);
-					const BlockData* blockData = GET_BLOCK_DATA(block);
+					BlockID block = getBlockAt(x, y, z);
+					const BlockData* blockData = BlockRegistry::getBlockDataByID(block);
 					if (!blockData->properties.hasFaces)
 					{
 						continue;
@@ -1450,7 +1473,7 @@ void Chunk::updateMesh()
 
 					size_t neighborIndex;
 					const Chunk* neighborChunk;
-					Block neighborBlock;
+					BlockID neighborBlock;
 					LightLevel neighborLight;
 
 					// -X
@@ -1458,7 +1481,7 @@ void Chunk::updateMesh()
 					if (neighborChunk)
 					{
 						neighborBlock = neighborChunk->getBlockAt(neighborIndex);
-						if (block != neighborBlock && (neighborBlockData = GET_BLOCK_DATA(neighborBlock))->properties.areFacesTransparent)
+						if (block != neighborBlock && (neighborBlockData = BlockRegistry::getBlockDataByID(neighborBlock))->properties.areFacesTransparent)
 						{
 							neighborLight = neighborChunk->getLightAt(neighborIndex);
 							unsigned int ao, light;
@@ -1479,7 +1502,7 @@ void Chunk::updateMesh()
 					if (neighborChunk)
 					{
 						neighborBlock = neighborChunk->getBlockAt(neighborIndex);
-						if (block != neighborBlock && (neighborBlockData = GET_BLOCK_DATA(neighborBlock))->properties.areFacesTransparent)
+						if (block != neighborBlock && (neighborBlockData = BlockRegistry::getBlockDataByID(neighborBlock))->properties.areFacesTransparent)
 						{
 							neighborLight = neighborChunk->getLightAt(neighborIndex);
 							unsigned int ao, light;
@@ -1499,7 +1522,7 @@ void Chunk::updateMesh()
 					if (neighborChunk)
 					{
 						neighborBlock = neighborChunk->getBlockAt(neighborIndex);
-						if (block != neighborBlock && (neighborBlockData = GET_BLOCK_DATA(neighborBlock))->properties.areFacesTransparent)
+						if (block != neighborBlock && (neighborBlockData = BlockRegistry::getBlockDataByID(neighborBlock))->properties.areFacesTransparent)
 						{
 							neighborLight = neighborChunk->getLightAt(neighborIndex);
 							unsigned int ao, light;
@@ -1520,7 +1543,7 @@ void Chunk::updateMesh()
 					if (neighborChunk)
 					{
 						neighborBlock = neighborChunk->getBlockAt(neighborIndex);
-						if (block != neighborBlock && (neighborBlockData = GET_BLOCK_DATA(neighborBlock))->properties.areFacesTransparent)
+						if (block != neighborBlock && (neighborBlockData = BlockRegistry::getBlockDataByID(neighborBlock))->properties.areFacesTransparent)
 						{
 							neighborLight = neighborChunk->getLightAt(neighborIndex);
 							unsigned int ao, light;
@@ -1541,7 +1564,7 @@ void Chunk::updateMesh()
 					if (neighborChunk)
 					{
 						neighborBlock = neighborChunk->getBlockAt(neighborIndex);
-						if (block != neighborBlock && (neighborBlockData = GET_BLOCK_DATA(neighborBlock))->properties.areFacesTransparent)
+						if (block != neighborBlock && (neighborBlockData = BlockRegistry::getBlockDataByID(neighborBlock))->properties.areFacesTransparent)
 						{
 							neighborLight = neighborChunk->getLightAt(neighborIndex);
 							unsigned int ao, light;
@@ -1562,7 +1585,7 @@ void Chunk::updateMesh()
 					if (neighborChunk)
 					{
 						neighborBlock = neighborChunk->getBlockAt(neighborIndex);
-						if (block != neighborBlock && (neighborBlockData = GET_BLOCK_DATA(neighborBlock))->properties.areFacesTransparent)
+						if (block != neighborBlock && (neighborBlockData = BlockRegistry::getBlockDataByID(neighborBlock))->properties.areFacesTransparent)
 						{
 							neighborLight = neighborChunk->getLightAt(neighborIndex);
 							unsigned int ao, light;
@@ -2013,7 +2036,7 @@ Chunk* Chunk::getChunkAndIndex_checkNeighborsTraverse(int x, int y, int z, size_
 	return const_cast<Chunk*>(const_cast<const Chunk*>(this)->getChunkAndIndex_checkNeighborsTraverse(x, y, z, outIndex));
 }
 
-Block Chunk::getBlockAt(int x, int y, int z) const
+BlockID Chunk::getBlockAt(int x, int y, int z) const
 {
 	ASSERT(((x | y | z) & CHUNK_UPPER_BITS_MASK) == 0);
 	return blocks[getIndex(x, y, z)];
@@ -2025,14 +2048,14 @@ LightLevel Chunk::getLightAt(int x, int y, int z) const
 	return lightLevels[getIndex(x, y, z)];
 }
 
-std::pair<Block, LightLevel> Chunk::getBlockAndLightAt(int x, int y, int z) const
+std::pair<BlockID, LightLevel> Chunk::getBlockAndLightAt(int x, int y, int z) const
 {
 	ASSERT(((x | y | z) & CHUNK_UPPER_BITS_MASK) == 0);
 	size_t index = getIndex(x, y, z);
 	return std::make_pair(blocks[index], lightLevels[index]);
 }
 
-Block Chunk::getBlockAt(size_t index) const
+BlockID Chunk::getBlockAt(size_t index) const
 {
 	ASSERT(index < CHUNK_VOLUME);
 	return blocks[index];
@@ -2044,19 +2067,19 @@ LightLevel Chunk::getLightAt(size_t index) const
 	return lightLevels[index];
 }
 
-std::pair<Block, LightLevel> Chunk::getBlockAndLightAt(size_t index) const
+std::pair<BlockID, LightLevel> Chunk::getBlockAndLightAt(size_t index) const
 {
 	ASSERT(index < CHUNK_VOLUME);
 	return std::make_pair(blocks[index], lightLevels[index]);
 }
 
-void Chunk::setBlockAt(int x, int y, int z, Block block, bool saveBlockChanges)
+void Chunk::setBlockAt(int x, int y, int z, BlockID block, bool saveBlockChanges)
 {
 	ASSERT(((x | y | z) & CHUNK_UPPER_BITS_MASK) == 0);
 
 	size_t index = getIndex(x, y, z);
 
-	Block previousBlock = blocks[index];
+	BlockID previousBlock = blocks[index];
 	if (previousBlock == block)
 	{
 		return;
@@ -2076,10 +2099,10 @@ void Chunk::setBlockAt(int x, int y, int z, Block block, bool saveBlockChanges)
 	markBlockMeshDirty(x, y, z);
 
 	// Light update
-	const BlockData* previousBlockData = BlockDataBase::getBlockData(previousBlock);
+	const BlockData* previousBlockData = BlockRegistry::getBlockDataByID(previousBlock);
 	uint8_t previousEmission = previousBlockData->properties.lightEmission;
 
-	const BlockData* newBlockData = BlockDataBase::getBlockData(block);
+	const BlockData* newBlockData = BlockRegistry::getBlockDataByID(block);
 	uint8_t newEmission = newBlockData->properties.lightEmission;
 
 	const int dx[] = { -1, 1, 0, 0, 0, 0 };
@@ -2386,7 +2409,7 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(unsigned int& ao, unsigned int
 	// For each face normal, we need to check 8 neighbors around the face
 	// The AO calculation depends on which direction the face is facing
 
-	std::pair<Block, LightLevel> data[8];
+	std::pair<BlockID, LightLevel> data[8];
 	bool n[8]; // 8 neighbors around the face
 
 	unsigned int ao0, ao1, ao2, ao3;
@@ -2401,7 +2424,7 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(unsigned int& ao, unsigned int
 			if (c)
 			{
 				data[dataIdx] = c->getBlockAndLightAt(idx);
-				n[dataIdx] = !GET_BLOCK_PROPERTIES(data[dataIdx].first).areFacesTransparent;
+				n[dataIdx] = !BlockRegistry::getBlockDataByID(data[dataIdx].first)->properties.areFacesTransparent;
 			}
 		};
 

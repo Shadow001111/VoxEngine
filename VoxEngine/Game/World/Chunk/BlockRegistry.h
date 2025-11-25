@@ -3,6 +3,9 @@
 
 #include <vector>
 #include <string>
+#include <unordered_map>
+
+#include "Core/StringIndexer.h"
 
 struct BlockProperties
 {
@@ -14,6 +17,13 @@ struct BlockProperties
 
 	BlockProperties() = default;
 	BlockProperties(bool absorbsLight, uint8_t lightEmission, bool hasFaces, bool areFacesTransparent, bool raycastable);
+};
+
+enum class TextureTransformation : uint8_t
+{
+	None = 0,
+	Flip = 1,
+	RotateAndFlip = 2
 };
 
 struct BlockTextures
@@ -50,32 +60,32 @@ struct BlockData
 	BlockData() = default;
 	BlockData(const BlockProperties& properties, const BlockTextures& texturs);
 
-	BlockData(const BlockData& other) = delete;
+	//BlockData(const BlockData& other) = delete;
 	//BlockData& operator=(const BlockData& other) = delete;
 };
 
-class BlockDataBase
+class BlockRegistry
 {
-	BlockDataBase() = delete;
-	~BlockDataBase() = delete;
+	BlockRegistry() = delete;
+	~BlockRegistry() = delete;
 
-	static BlockData BLOCK_DATABASE[(size_t)Block::__BlockCount__];
-	static BlockTextureNames TEXTURE_NAMES[(size_t)Block::__BlockCount__];
+	// TODO: Maybe change to vectors
+	static std::unordered_map<BlockID, BlockData> BLOCK_DATABASE;
+	static std::unordered_map<BlockID, BlockTextureNames> TEXTURE_NAMES;
+	static StringIndexer blockIndexer;
 
-	static void registerBlock(Block block,
+	static void registerBlock(const std::string& blockName,
 		const BlockProperties& properties,
 		const BlockTextureNames& textureNames,
 		uint16_t texturesTransformation);
 public:
-	static void loadBlockDataBase(std::vector<std::string>& textureNames);
+	static void registerBlocks(std::vector<std::string>& textureNames);
 private:
 	static void buildTextureIDs(std::vector<std::string>& textureNames);
 public:
+	// Retrieve block ID from block name (returns SIZE_MAX if not found)
+	static BlockID getBlockID(const std::string& blockName);
 
-	static const BlockData* getBlockData(Block block);
-	static const BlockData* getBlockData(size_t index);
+	static const BlockData* getBlockDataByName(const std::string& blockName);
+	static const BlockData* getBlockDataByID(BlockID id);
 };
-
-#define GET_BLOCK_DATA(block) (BlockDataBase::getBlockData(block))
-#define GET_BLOCK_PROPERTIES(block) (BlockDataBase::getBlockData(block)->properties)
-#define GET_BLOCK_TEXTURES(block) (BlockDataBase::getBlockData(block)->textures)

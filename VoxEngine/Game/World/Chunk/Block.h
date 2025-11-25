@@ -1,17 +1,19 @@
 #pragma once
 #include <cstdint>
 
-enum class Block : uint8_t
-{
-	Air = 0,
-	GrassBlock,
-	Dirt,
-	Stone,
-	//GlowStone,
-	Glass,
-	ColoredGlass,
-	Water,
-	LogOak,
-	LeavesOak,
-	__BlockCount__
-};
+using BlockID = uint8_t;
+
+//enum class Block : uint8_t
+//{
+//	Air = 0,
+//	GrassBlock,
+//	Dirt,
+//	Stone,
+//	//GlowStone,
+//	Glass,
+//	ColoredGlass,
+//	Water,
+//	LogOak,
+//	LeavesOak,
+//	__BlockCount__
+//};

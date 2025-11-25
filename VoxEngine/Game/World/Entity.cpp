@@ -251,5 +251,5 @@ bool Entity::isAnyBlocksSolidAt(const glm::ivec3& min, const glm::ivec3& max, gl
 bool Entity::isBlockSolidAt(const glm::ivec3 pos) const
 {
 	auto block = world->getBlockAt(pos);
-	return block.has_value() && BlockDataBase::getBlockData(block.value())->properties.hasFaces;
+	return block.has_value() && BlockRegistry::getBlockDataByID(block.value())->properties.hasFaces;
 }

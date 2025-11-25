@@ -89,7 +89,7 @@ private:
 	uint8_t loaderCount;
 
 	// Grid data
-	Block blocks[CHUNK_VOLUME];
+	BlockID blocks[CHUNK_VOLUME];
 	LightLevel lightLevels[CHUNK_VOLUME];
 
 	//  Light propagation
@@ -113,7 +113,7 @@ private:
 	ProcessingFence processingFence;
 	
 	// Changed blocks
-	std::unordered_map<Block, std::vector<uint16_t>> changedBlocks;
+	std::unordered_map<BlockID, std::vector<uint16_t>> changedBlocks;
 	
 	static StructureBlockChangeManager structureBlockChangeManager;
 
@@ -153,7 +153,7 @@ private:
 	// Connectivity
 	bool findFloodFillStartIndex(uint16_t& startIndex, const bool* floodFillMask) const;
 	void computeConnectivity();
-	void removeIndexFromMap(Block block, uint16_t idx);
+	void removeIndexFromMap(BlockID block, uint16_t idx);
 public:
 	void buildLight();
 	void updateLight();
@@ -182,16 +182,16 @@ private:
 	Chunk* getChunkAndIndex_checkNeighborsTraverse(int x, int y, int z, size_t& outIndex);
 public:
 	// Grid getters
-	Block getBlockAt(int x, int y, int z) const;
+	BlockID getBlockAt(int x, int y, int z) const;
 	LightLevel getLightAt(int x, int y, int z) const;
-	std::pair<Block, LightLevel> getBlockAndLightAt(int x, int y, int z) const;
+	std::pair<BlockID, LightLevel> getBlockAndLightAt(int x, int y, int z) const;
 
-	Block getBlockAt(size_t index) const;
+	BlockID getBlockAt(size_t index) const;
 	LightLevel getLightAt(size_t index) const;
-	std::pair<Block, LightLevel> getBlockAndLightAt(size_t index) const;
+	std::pair<BlockID, LightLevel> getBlockAndLightAt(size_t index) const;
 
 	// Grid setters
-	void setBlockAt(int x, int y, int z, Block block, bool saveBlockChanges = true);
+	void setBlockAt(int x, int y, int z, BlockID block, bool saveBlockChanges = true);
 	void setLightAt(int x, int y, int z, LightLevel lightLevel);
 	void setBlockLightAt(int x, int y, int z, uint8_t lightLevel);
 	void setSkyLightAt(int x, int y, int z, uint8_t lightLevel);
