@@ -10,11 +10,11 @@ inline uint8_t clamp(uint8_t v, uint8_t min, uint8_t max)
 	return std::min(max, std::max(min, v));
 }
 
-BlockProperties::BlockProperties(bool absorbsLight, uint8_t lightEmission, bool hasFaces, bool areFacesTransparent, bool raycastable) :
+BlockProperties::BlockProperties(bool absorbsLight, uint8_t lightEmission, bool hasFaces, bool areFacesTranslucent, bool raycastable) :
 	absorbsLight(absorbsLight),
 	lightEmission(clamp(lightEmission, 0, 15)),
 	hasFaces(hasFaces),
-	areFacesTransparent(areFacesTransparent || !hasFaces),
+	areFacesTranslucent(areFacesTranslucent || !hasFaces),
 	raycastable(raycastable)
 {
 }
@@ -57,7 +57,6 @@ void BlockRegistry::registerBlock(const std::string& blockName, const BlockPrope
 	blockTempInfoStorage[blockID] = tempInfo;
 }
 
-// TODO: Import block data from some file. Store 'compiled' file in binary for fast loading. Check if file was updates by hashing.
 void BlockRegistry::registerBlocks(
 	std::vector<std::string>& textureNames,
 	std::vector<std::string>& modelNames
@@ -177,6 +176,7 @@ void BlockRegistry::buildIDs(
 	StringIndexer modelIndexer;
 
 	// Assign IDs
+	//textureIndexer.registerAndGetId(""); // Broken texture
 	for (auto& [blockID, blockData] : blockDataStorage)
 	{
 		// TODO: Add check for empty string
@@ -230,7 +230,6 @@ BlockID BlockRegistry::getBlockID(const std::string& blockName)
 {
 	auto result = blockIndexer.getId(blockName);
 	if (result.has_value()) return result.value();
-	ASSERT(false);
 	return 0;
 }
 
@@ -241,15 +240,7 @@ const BlockData* BlockRegistry::getBlockDataByName(const std::string& blockName)
 	{
 		return &blockDataStorage[result.value()];
 	}
-	ASSERT(false);
-
-	auto fallbackId = blockIndexer.getId("core:air");
-	if (fallbackId.has_value())
-	{
-		return &blockDataStorage[fallbackId.value()];
-	}
-
-	throw std::runtime_error("[BlockRegistry]: BlockName: " + blockName + " doesn't exist.");
+	return &blockDataStorage[0];
 }
 
 const BlockData* BlockRegistry::getBlockDataByID(BlockID id)
@@ -259,13 +250,5 @@ const BlockData* BlockRegistry::getBlockDataByID(BlockID id)
 	{
 		return &it->second;
 	}
-	ASSERT(false);
-	
-	auto fallbackId = blockIndexer.getId("core:air");
-	if (!fallbackId.has_value())
-	{
-		throw std::runtime_error("[BlockRegistry]: Id: " + std::to_string(static_cast<size_t>(id)) + " doesn't exist.");
-	}
-
-	return &blockDataStorage[fallbackId.value()];
+	return &blockDataStorage[0];
 }

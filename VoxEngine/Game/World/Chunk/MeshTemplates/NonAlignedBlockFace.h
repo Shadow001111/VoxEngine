@@ -54,7 +54,5 @@ struct NonAlignedBlockFace
 //
 //    uint32_t textureID;
 //
-//    // TODO: Add light and AO
-//
 //    NonAlignedBlockFace2() = default;
 //};

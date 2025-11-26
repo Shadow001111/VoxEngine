@@ -80,8 +80,6 @@ static void setupFramebuffer(GLuint& rectVAO, std::unique_ptr<Shader>& shader)
     shader->use();
     shader->setInt("colorTexture", 0);
     shader->setInt("depthTexture", 1);
-
-    // TODO: Delete the quad opengl objects
 }
 
 static void setupOpenGLStates()
@@ -246,7 +244,6 @@ void APIENTRY glDebugOutput(GLenum source,
 
 
 // TODO: Modern OpenGl
-// TODO: Rename transparent to translucent
 int main()
 {
     constexpr float CAMERA_FAR_PLANE = (CHUNK_LOAD_DISTANCE + 0.5f) * (CHUNK_SIZE * 1.41f);

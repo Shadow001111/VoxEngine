@@ -23,7 +23,7 @@ ChunkMeshManager::ChunkMeshManager() :
 	glGenVertexArrays(1, &nonAlignedVAO);
 
 	vbo.bind();
-	vbo.allocateMemory(sizeof(vertices));
+	vbo.allocateMemory_optionalBind(sizeof(vertices));
 	vbo.write(vertices, sizeof(vertices));
 
 	glBindVertexArray(alignedVAO);
@@ -185,14 +185,14 @@ void ChunkMeshManager::processAlignedMeshRequests(std::vector<ChunkMeshData*>& m
 	{
 		if (oldCapacity == 0)
 		{
-			alignedInstanceVBO.allocateMemory(newCapacity * sizeof(AlignedBlockFace));
+			alignedInstanceVBO.allocateMemory_optionalBind(newCapacity * sizeof(AlignedBlockFace));
 		}
 		else
 		{
 			// Create new buffer
 			// TODO: Debug message (131186): Buffer performance warning: Buffer object 11 (bound to GL_VERTEX_ATTRIB_ARRAY_BUFFER_BINDING_ARB (1), GL_ARRAY_BUFFER_ARB, and GL_COPY_WRITE_BUFFER_BINDING_EXT, usage hint is GL_DYNAMIC_DRAW) is being copied/moved from VIDEO memory to HOST memory.
 			OpenGL_Buffer newBuffer(GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW);
-			newBuffer.allocateMemory(newCapacity * sizeof(AlignedBlockFace));
+			newBuffer.allocateMemory_optionalBind(newCapacity * sizeof(AlignedBlockFace));
 
 			// Copy data to a new buffer
 			const std::vector<BlockAllocator::Block>& currentBlocks = alignedBlockAllocator.getAllAllocations();
@@ -295,13 +295,13 @@ void ChunkMeshManager::processNonAlignedMeshRequests(std::vector<ChunkMeshData*>
 	{
 		if (oldCapacity == 0)
 		{
-			nonAlignedInstanceVBO.allocateMemory(newCapacity * sizeof(NonAlignedBlockFace));
+			nonAlignedInstanceVBO.allocateMemory_optionalBind(newCapacity * sizeof(NonAlignedBlockFace));
 		}
 		else
 		{
 			// Create new buffer
 			OpenGL_Buffer newBuffer(GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW);
-			newBuffer.allocateMemory(newCapacity * sizeof(NonAlignedBlockFace));
+			newBuffer.allocateMemory_optionalBind(newCapacity * sizeof(NonAlignedBlockFace));
 
 			// Copy data to a new buffer
 			const std::vector<BlockAllocator::Block>& currentBlocks = nonAlignedBlockAllocator.getAllAllocations();

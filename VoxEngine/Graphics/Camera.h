@@ -7,7 +7,6 @@ class Camera
 {
 	Transform transform;
 
-	// TODO: These can be glm::vec3
 	mutable glm::dvec3 forward;
 	mutable glm::dvec3 up;
 	mutable glm::dvec3 right;

@@ -23,6 +23,7 @@ public:
 	void bind() const;
 	void unbind() const;
 
+	void allocateMemory_optionalBind(size_t newSize);
 	void allocateMemory(size_t newSize);
 
 	void write(const void* data, size_t dataSize, size_t offset = 0) const;

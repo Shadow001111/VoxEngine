@@ -74,12 +74,21 @@ void OpenGL_Buffer::unbind() const
 	glBindBuffer(target, 0);
 }
 
+void OpenGL_Buffer::allocateMemory_optionalBind(size_t newSize)
+{
+	if (newSize > capacity)
+	{
+		capacity = newSize;
+		glBindBuffer(target, id);
+		glBufferData(target, capacity, nullptr, usage);
+	}
+}
+
 void OpenGL_Buffer::allocateMemory(size_t newSize)
 {
 	if (newSize > capacity)
 	{
 		capacity = newSize;
-		glBindBuffer(target, id); // TODO: Maybe remove bind
 		glBufferData(target, capacity, nullptr, usage);
 	}
 }

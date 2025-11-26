@@ -56,7 +56,6 @@ struct DrawArraysIndirectCommand
 };
 
 // TODO: Keep often-acessed data closer
-// TODO: Move chunk map to Chunk file, so they can access it too
 class Chunk
 {
 public:

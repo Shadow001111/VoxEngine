@@ -2,11 +2,8 @@
 #include <iostream>
 #include <fstream>
 
-#include "Core/Assert.h"
-
 std::unordered_map<uint32_t, BlockModelLoader::BlockModel> BlockModelLoader::blockModelStorage;
 
-// TODO: Fall to default cube model if not found, with broken texture
 std::optional<BlockModelLoader::BlockModel> BlockModelLoader::loadFromFile(const std::filesystem::path& filepath)
 {
     if (!std::filesystem::exists(filepath))
@@ -18,9 +15,22 @@ std::optional<BlockModelLoader::BlockModel> BlockModelLoader::loadFromFile(const
     std::ifstream file(filepath);
     if (!file) return std::nullopt;
 
-    json j;
-    file >> j;
-    return parseJson(j);
+    try
+    {
+        json j;
+        file >> j;
+        return parseJson(j);
+    }
+    catch (const json::exception& e)
+    {
+        std::cerr << "[BlockModelLoader]: JSON parsing error in file " << filepath << ": " << e.what() << std::endl;
+        return std::nullopt;
+    }
+    catch (const std::exception& e)
+    {
+        std::cerr << "[BlockModelLoader]: Error reading file " << filepath << ": " << e.what() << std::endl;
+        return std::nullopt;
+    }
 }
 
 std::optional<BlockModelLoader::BlockModel> BlockModelLoader::parseJson(const json& j)
@@ -77,6 +87,11 @@ std::optional<BlockModelLoader::ModelAlignedFace> BlockModelLoader::parseAligned
     if (!faceJson.contains("normal") || !faceJson["normal"].is_number_unsigned())
     {
         std::cerr << "[BlockModelLoader]: Aligned face missing or invalid normal" << std::endl;
+        return std::nullopt;
+    }
+    else if (faceJson["normal"] > 5)
+    {
+        std::cerr << "[BlockModelLoader]: Aligned face normal is out of range" << std::endl;
         return std::nullopt;
     }
     face.normal = faceJson["normal"];
@@ -170,7 +185,6 @@ void BlockModelLoader::loadModels(const std::vector<std::string>& blockModelName
     }
 }
 
-// TODO: Maybe maybe threadsafe? Though it should be already.
 const BlockModelLoader::BlockModel& BlockModelLoader::getBlockModelById(uint32_t id)
 {
     auto it = blockModelStorage.find(id);
@@ -178,6 +192,13 @@ const BlockModelLoader::BlockModel& BlockModelLoader::getBlockModelById(uint32_t
     {
         return it->second;
     }
-    // TODO: Add fallback model
-    ASSERT(false);
+    if (blockModelStorage.empty())
+    {
+        static BlockModel emptyModel;
+        return emptyModel;
+    }
+    else
+    {
+        return blockModelStorage[0];
+    }
 }

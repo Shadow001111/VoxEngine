@@ -30,7 +30,6 @@ class World
 		ChunkRenderInfo(const Chunk* chunk, unsigned int manhattanDistance);
 	};
 public:
-	// TODO: Make it for non-aligned
 	struct DebugData
 	{
 		size_t loadedChunksCount = 0;
