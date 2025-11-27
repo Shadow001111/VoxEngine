@@ -33,7 +33,7 @@ enum class GameMode : uint8_t
 	Fly
 };
 
-constexpr int PLAYER_HOTBAR_SIZE = 7;
+constexpr int PLAYER_HOTBAR_SIZE = 9;
 
 class Player : public Entity
 {
@@ -41,7 +41,7 @@ class Player : public Entity
 
 	// TODO: Load names later
 	BlockID hotbar[PLAYER_HOTBAR_SIZE] = {
-		1, 2, 3, 4, 5, 6, 7
+		1, 2, 3, 4, 5, 6, 7, 8, 9
 	};
 	uint8_t selectedItemIndex = 0;
 	GameMode gameMode = GameMode::Normal;

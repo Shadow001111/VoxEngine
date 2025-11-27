@@ -176,12 +176,8 @@ void BlockModelLoader::loadModels(const std::vector<std::string>& blockModelName
         if (result.has_value())
         {
             blockModelStorage.emplace(modelID, result.value());
+            modelID++;
         }
-        else
-        {
-            // TODO: Add fallback model
-        }
-        modelID++;
     }
 }
 
@@ -192,7 +188,7 @@ const BlockModelLoader::BlockModel& BlockModelLoader::getBlockModelById(uint32_t
     {
         return it->second;
     }
-    if (blockModelStorage.empty())
+    else if (blockModelStorage.empty())
     {
         static BlockModel emptyModel;
         return emptyModel;

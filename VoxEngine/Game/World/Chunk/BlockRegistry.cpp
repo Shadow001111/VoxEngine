@@ -163,6 +163,13 @@ void BlockRegistry::registerBlocks(
 		} }
 	);
 
+	registerBlock("core:stairs",
+		{ true, 0,  true,  false, true },
+		{ "stairs", {
+			{"stone", TextureTransformation::None}
+		} }
+	);
+
 	BlockRegistry::buildIDs(textureNames, modelNames);
 	blockTempInfoStorage.clear();
 }

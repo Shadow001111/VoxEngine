@@ -5,12 +5,9 @@
 #include "Core/Assert.h"
 
 ChunkMeshManager::ChunkMeshManager() :
-	alignedVAO(0), nonAlignedVAO(0),
-	vbo(GL_ARRAY_BUFFER, GL_STATIC_DRAW),
-	alignedInstanceVBO(GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW), nonAlignedInstanceVBO(GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW),
-	alignedBlockAllocator(0), nonAlignedBlockAllocator(0)
+	vbo(GL_ARRAY_BUFFER, GL_STATIC_DRAW)
 {
-	// Create buffers once
+	// VBO
 	float vertices[8] = // CCW order
 	{
 		0.0f, 0.0f,
@@ -19,38 +16,56 @@ ChunkMeshManager::ChunkMeshManager() :
 		0.0f, 1.0f
 	};
 
-	glGenVertexArrays(1, &alignedVAO);
-	glGenVertexArrays(1, &nonAlignedVAO);
-
 	vbo.bind();
 	vbo.allocateMemory_optionalBind(sizeof(vertices));
 	vbo.write(vertices, sizeof(vertices));
 
-	glBindVertexArray(alignedVAO);
+	{
+		ProcessorConfig config = {
+			[this]() { configureAlignedInstanceVBO(); },
+			[](ChunkMeshData* mesh) { return mesh->getAlignedFaceCount(); },
+			[](ChunkMeshData* mesh) { return mesh->alignedCreated; },
+			[](ChunkMeshData* mesh) -> BlockAllocator::Block& { return mesh->allocatedBlock_alignedFaces; },
+			[](ChunkMeshData* mesh, bool created) { mesh->alignedCreated = created; },
+			[](ChunkMeshData* mesh, BlockAllocator::Block block) { mesh->allocatedBlock_alignedFaces = block; },
+			sizeof(AlignedBlockFace),
+			"processAlignedMeshRequests"
+		};
+		alignedMeshAllocator.init(vbo, config);
+	}
+	{
+		ProcessorConfig config = {
+			[this]() { configureNonAlignedInstanceVBO(); },
+			[](ChunkMeshData* mesh) { return mesh->getNonAlignedFaceCount(); },
+			[](ChunkMeshData* mesh) { return mesh->nonAlignedCreated; },
+			[](ChunkMeshData* mesh) -> BlockAllocator::Block& { return mesh->allocatedBlock_nonAlignedFaces; },
+			[](ChunkMeshData* mesh, bool created) { mesh->nonAlignedCreated = created; },
+			[](ChunkMeshData* mesh, BlockAllocator::Block block) { mesh->allocatedBlock_nonAlignedFaces = block; },
+			sizeof(NonAlignedBlockFace),
+			"processNonAlignedMeshRequests"
+		};
+		nonAlignedMeshAllocator.init(vbo, config);
+	}
+
+	glBindVertexArray(alignedMeshAllocator.vaoID);
 	glEnableVertexAttribArray(0);
 	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
 
-	glBindVertexArray(nonAlignedVAO);
+	glBindVertexArray(nonAlignedMeshAllocator.vaoID);
 	glEnableVertexAttribArray(0);
 	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+
+	configureAlignedInstanceVBO();
+	configureNonAlignedInstanceVBO();
 }
 
 ChunkMeshManager::~ChunkMeshManager()
-{
-	if (alignedVAO)
-	{
-		glDeleteVertexArrays(1, &alignedVAO); alignedVAO = 0;
-	}
-	if (nonAlignedVAO)
-	{
-		glDeleteVertexArrays(1, &nonAlignedVAO); nonAlignedVAO = 0;
-	}
-}
+{}
 
 void ChunkMeshManager::configureAlignedInstanceVBO()
 {
-	glBindVertexArray(alignedVAO);
-	alignedInstanceVBO.bind();
+	glBindVertexArray(alignedMeshAllocator.vaoID);
+	alignedMeshAllocator.instanceVBO.bind();
 
 	glEnableVertexAttribArray(1);
 	glVertexAttribIPointer(1, 2, GL_INT, sizeof(AlignedBlockFace), (void*)0);
@@ -59,8 +74,8 @@ void ChunkMeshManager::configureAlignedInstanceVBO()
 
 void ChunkMeshManager::configureNonAlignedInstanceVBO()
 {
-	glBindVertexArray(nonAlignedVAO);
-	nonAlignedInstanceVBO.bind();
+	glBindVertexArray(nonAlignedMeshAllocator.vaoID);
+	nonAlignedMeshAllocator.instanceVBO.bind();
 
 	// Positions
 	glEnableVertexAttribArray(1);
@@ -108,246 +123,130 @@ ChunkMeshManager& ChunkMeshManager::getInstance()
 	return instance;
 }
 
-//void ChunkMeshManager::preallocateAlignedMemory(size_t instanceCount)
-//{
-//	alignedInstanceVBO.allocateMemory(instanceCount * sizeof(AlignedBlockFace));
-//	if (!alignedChunkBlockAllocator.setCapacity(instanceCount))
-//	{
-//		throw std::runtime_error("[GlobalChunkMesh]: Pre-allocate memory: chunkBlockAllocator couldn't shrink data.");
-//	}
-//}
-
-void ChunkMeshManager::processMeshRequests(std::vector<ChunkMeshData*>& meshRequests)
+// TODO: Combine code from processing different mesh types. Move it into separate class and make it template(or just pass params), so it will be easier to maintain.
+void ChunkMeshManager::processMeshRequests(std::vector<ChunkMeshData*>& alignedMeshRequests, std::vector<ChunkMeshData*>& nonAlignedMeshRequests)
 {
-	processAlignedMeshRequests(meshRequests);
-	processNonAlignedMeshRequests(meshRequests);
-}
-
-void ChunkMeshManager::processAlignedMeshRequests(std::vector<ChunkMeshData*>& meshRequests)
-{
-	// Store old capacity
-	size_t oldCapacity = alignedBlockAllocator.getCapacity();
-
-	// Free blocks
-	for (ChunkMeshData* chunkMesh : meshRequests)
-	{
-		if (!chunkMesh->alignedCreated || chunkMesh->getAlignedFaceCount() == 0)
-		{
-			continue;
-		}
-
-		ASSERT(alignedBlockAllocator.free(chunkMesh->allocatedBlock_alignedFaces.id));
-	}
-
-	// Allocate blocks
-	size_t stopIndex = 0;
-	for (ChunkMeshData* chunkMesh : meshRequests)
-	{
-		size_t faceCount = chunkMesh->getAlignedFaceCount();
-		if (faceCount == 0)
-		{
-			continue;
-		}
-		
-		auto result = alignedBlockAllocator.allocate(faceCount);
-		if (!result.has_value())
-		{
-			break;
-		}
-
-		chunkMesh->alignedCreated = true;
-		chunkMesh->allocatedBlock_alignedFaces = result.value();
-		stopIndex++;
-	}
-
-	if (stopIndex == meshRequests.size())
-	{
-		return;
-	}
-
-	// Allocate more memory
-	size_t newCapacity = alignedBlockAllocator.getLastBlockEnd();
-	for (size_t i = stopIndex; i < meshRequests.size(); i++)
-	{
-		ChunkMeshData* chunkMesh = meshRequests[i];
-		newCapacity += chunkMesh->getAlignedFaceCount();
-	}
-
-	bool needNewBuffer = newCapacity > oldCapacity;
-	if (needNewBuffer)
-	{
-		newCapacity += (newCapacity >> 1); // *= 1.5
-	}
-
-	alignedBlockAllocator.setCapacity(newCapacity);
-
-	if (needNewBuffer)
-	{
-		if (oldCapacity == 0)
-		{
-			alignedInstanceVBO.allocateMemory_optionalBind(newCapacity * sizeof(AlignedBlockFace));
-		}
-		else
-		{
-			// Create new buffer
-			// TODO: Debug message (131186): Buffer performance warning: Buffer object 11 (bound to GL_VERTEX_ATTRIB_ARRAY_BUFFER_BINDING_ARB (1), GL_ARRAY_BUFFER_ARB, and GL_COPY_WRITE_BUFFER_BINDING_EXT, usage hint is GL_DYNAMIC_DRAW) is being copied/moved from VIDEO memory to HOST memory.
-			OpenGL_Buffer newBuffer(GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW);
-			newBuffer.allocateMemory_optionalBind(newCapacity * sizeof(AlignedBlockFace));
-
-			// Copy data to a new buffer
-			const std::vector<BlockAllocator::Block>& currentBlocks = alignedBlockAllocator.getAllAllocations();
-			const auto& firstBlock = currentBlocks[0];
-			const auto& lastBlock = currentBlocks[currentBlocks.size() - 1];
-			newBuffer.copyRangeFrom(
-				alignedInstanceVBO,
-				firstBlock.offset * sizeof(AlignedBlockFace),
-				firstBlock.offset * sizeof(AlignedBlockFace),
-				(lastBlock.offset + (lastBlock.size - 1) - firstBlock.offset) * sizeof(AlignedBlockFace)
-			);
-
-			// Replace old with new buffer
-			alignedInstanceVBO = std::move(newBuffer);
-			configureAlignedInstanceVBO();
-		}
-	}
-
-	// Allocate the rest of blocks
-	for (size_t i = stopIndex; i < meshRequests.size(); i++)
-	{
-		ChunkMeshData* chunkMesh = meshRequests[i];
-		size_t faceCount = chunkMesh->getAlignedFaceCount();
-		if (faceCount == 0)
-		{
-			continue;
-		}
-
-		auto result = alignedBlockAllocator.allocate(faceCount);
-		if (!result.has_value())
-		{
-			std::cerr << "[ChunkMeshManager]: processAlignedMeshRequests: mesh wasn't created." << std::endl;
-			break;
-		}
-
-		chunkMesh->alignedCreated = true;
-		chunkMesh->allocatedBlock_alignedFaces = result.value();
-	}
-}
-
-void ChunkMeshManager::processNonAlignedMeshRequests(std::vector<ChunkMeshData*>& meshRequests)
-{
-	// Store old capacity
-	size_t oldCapacity = nonAlignedBlockAllocator.getCapacity();
-
-	// Free blocks
-	for (ChunkMeshData* chunkMesh : meshRequests)
-	{
-		if (!chunkMesh->nonAlignedCreated || chunkMesh->getNonAlignedFaceCount() == 0)
-		{
-			continue;
-		}
-
-		ASSERT(nonAlignedBlockAllocator.free(chunkMesh->allocatedBlock_nonAlignedFaces.id));
-	}
-
-	// Allocate blocks
-	size_t stopIndex = 0;
-	for (ChunkMeshData* chunkMesh : meshRequests)
-	{
-		size_t faceCount = chunkMesh->getNonAlignedFaceCount();
-		if (faceCount == 0)
-		{
-			continue;
-		}
-
-		auto result = nonAlignedBlockAllocator.allocate(faceCount);
-		if (!result.has_value())
-		{
-			break;
-		}
-
-		chunkMesh->nonAlignedCreated = true;
-		chunkMesh->allocatedBlock_nonAlignedFaces = result.value();
-		stopIndex++;
-	}
-
-	if (stopIndex == meshRequests.size())
-	{
-		return;
-	}
-
-	// Allocate more memory
-	size_t newCapacity = nonAlignedBlockAllocator.getLastBlockEnd();
-	for (size_t i = stopIndex; i < meshRequests.size(); i++)
-	{
-		ChunkMeshData* chunkMesh = meshRequests[i];
-		newCapacity += chunkMesh->getNonAlignedFaceCount();
-	}
-
-	bool needNewBuffer = newCapacity > oldCapacity;
-	if (needNewBuffer)
-	{
-		newCapacity += (newCapacity >> 1); // *= 1.5
-	}
-
-	nonAlignedBlockAllocator.setCapacity(newCapacity);
-
-	if (needNewBuffer)
-	{
-		if (oldCapacity == 0)
-		{
-			nonAlignedInstanceVBO.allocateMemory_optionalBind(newCapacity * sizeof(NonAlignedBlockFace));
-		}
-		else
-		{
-			// Create new buffer
-			OpenGL_Buffer newBuffer(GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW);
-			newBuffer.allocateMemory_optionalBind(newCapacity * sizeof(NonAlignedBlockFace));
-
-			// Copy data to a new buffer
-			const std::vector<BlockAllocator::Block>& currentBlocks = nonAlignedBlockAllocator.getAllAllocations();
-			const auto& firstBlock = currentBlocks[0];
-			const auto& lastBlock = currentBlocks[currentBlocks.size() - 1];
-			newBuffer.copyRangeFrom(
-				nonAlignedInstanceVBO,
-				firstBlock.offset * sizeof(NonAlignedBlockFace),
-				firstBlock.offset * sizeof(NonAlignedBlockFace),
-				(lastBlock.offset + (lastBlock.size - 1) - firstBlock.offset) * sizeof(NonAlignedBlockFace)
-			);
-
-			// Replace old with new buffer
-			nonAlignedInstanceVBO = std::move(newBuffer);
-			configureNonAlignedInstanceVBO();
-		}
-	}
-
-	// Allocate the rest of blocks
-	for (size_t i = stopIndex; i < meshRequests.size(); i++)
-	{
-		ChunkMeshData* chunkMesh = meshRequests[i];
-		size_t faceCount = chunkMesh->getNonAlignedFaceCount();
-		if (faceCount == 0)
-		{
-			continue;
-		}
-
-		auto result = nonAlignedBlockAllocator.allocate(faceCount);
-		if (!result.has_value())
-		{
-			std::cerr << "[ChunkMeshManager]: processNonAlignedMeshRequests: mesh wasn't created." << std::endl;
-			break;
-		}
-
-		chunkMesh->nonAlignedCreated = true;
-		chunkMesh->allocatedBlock_nonAlignedFaces = result.value();
-	}
+	alignedMeshAllocator.processMeshRequests(alignedMeshRequests);
+	nonAlignedMeshAllocator.processMeshRequests(nonAlignedMeshRequests);
 }
 
 void ChunkMeshManager::bindAlignedVAO() const
 {
-	glBindVertexArray(alignedVAO);
+	glBindVertexArray(alignedMeshAllocator.vaoID);
 }
 
 void ChunkMeshManager::bindNonAlignedVAO() const
 {
-	glBindVertexArray(nonAlignedVAO);
+	glBindVertexArray(nonAlignedMeshAllocator.vaoID);
+}
+
+ChunkMeshManager::MeshAllocator::MeshAllocator() :
+	vaoID(0), instanceVBO(GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW), blockAllocator(0)
+{
+}
+
+ChunkMeshManager::MeshAllocator::~MeshAllocator()
+{
+	if (vaoID)
+	{
+		glDeleteVertexArrays(1, &vaoID); vaoID = 0;
+	}
+}
+
+void ChunkMeshManager::MeshAllocator::init(const OpenGL_Buffer& quadVBO, const ProcessorConfig& config)
+{
+	glGenVertexArrays(1, &vaoID);
+	this->config = config;
+}
+
+void ChunkMeshManager::MeshAllocator::processMeshRequests(std::vector<ChunkMeshData*>& meshRequests)
+{
+	// Store old capacity
+	size_t oldCapacity = blockAllocator.getCapacity();
+
+	// Free blocks
+	for (ChunkMeshData* chunkMesh : meshRequests)
+	{
+		if (!chunkMesh->nonAlignedCreated)
+		{
+			continue;
+		}
+
+		ASSERT(blockAllocator.free(config.getAllocatedBlock(chunkMesh).id));
+	}
+
+	// Allocate blocks
+	size_t stopIndex = 0;
+	for (ChunkMeshData* chunkMesh : meshRequests)
+	{
+		size_t faceCount = config.getFaceCount(chunkMesh);
+
+		auto result = blockAllocator.allocate(faceCount);
+		if (!result.has_value())
+		{
+			break;
+		}
+
+		config.setCreated(chunkMesh, true);
+		config.setAllocatedBlock(chunkMesh, result.value());
+		stopIndex++;
+	}
+
+	if (stopIndex == meshRequests.size())
+	{
+		return;
+	}
+
+	// Allocate more memory
+	size_t newCapacity = blockAllocator.getLastBlockEnd();
+	for (size_t i = stopIndex; i < meshRequests.size(); i++)
+	{
+		newCapacity += config.getFaceCount(meshRequests[i]);
+	}
+	newCapacity += (newCapacity >> 1); // *= 1.5
+
+	blockAllocator.setCapacity(newCapacity);
+	if (oldCapacity == 0)
+	{
+		instanceVBO.allocateMemory_optionalBind(newCapacity * config.faceSize);
+	}
+	else
+	{
+		// Create new buffer
+		OpenGL_Buffer newBuffer(GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW);
+		newBuffer.bind();
+		newBuffer.allocateMemory(newCapacity * config.faceSize);
+
+		// Copy data to a new buffer
+		const std::vector<BlockAllocator::Block>& currentBlocks = blockAllocator.getAllAllocations();
+		const auto& firstBlock = currentBlocks[0];
+		const auto& lastBlock = currentBlocks[currentBlocks.size() - 1];
+		newBuffer.copyRangeFrom(
+			instanceVBO,
+			firstBlock.offset * config.faceSize,
+			firstBlock.offset * config.faceSize,
+			(lastBlock.offset + lastBlock.size - firstBlock.offset) * config.faceSize
+		);
+
+		// Replace old with new buffer
+		instanceVBO = std::move(newBuffer);
+		config.configureVBO();
+	}
+
+	// Allocate the rest of blocks
+	for (size_t i = stopIndex; i < meshRequests.size(); i++)
+	{
+		ChunkMeshData* chunkMesh = meshRequests[i];
+		size_t faceCount = config.getFaceCount(chunkMesh);
+
+		auto result = blockAllocator.allocate(faceCount);
+		if (!result.has_value())
+		{
+			std::cerr << "[ChunkMeshManager]: " << config.debugName << ": mesh wasn't created." << std::endl;
+			break;
+		}
+
+		config.setCreated(chunkMesh, true);
+		config.setAllocatedBlock(chunkMesh, result.value());
+	}
 }
