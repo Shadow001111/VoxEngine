@@ -18,19 +18,31 @@ public:
 
     struct ModelNonAlignedFace
     {
-        struct Vertex
-        {
-            float x, y, z;
-        };
+        uint32_t x0 : 9;
+        uint32_t y0 : 9;
+        uint32_t z0 : 9;
+        uint32_t u0 : 5;
 
-        struct UV
-        {
-            float u, v;
-        };
+        uint32_t x1 : 9;
+        uint32_t y1 : 9;
+        uint32_t z1 : 9;
+        uint32_t u1 : 5;
 
-        Vertex vertices[4];
-        UV uv[4];
-        uint8_t textureSlot;
+        uint32_t x2 : 9;
+        uint32_t y2 : 9;
+        uint32_t z2 : 9;
+        uint32_t u2 : 5;
+
+        uint32_t x3 : 9;
+        uint32_t y3 : 9;
+        uint32_t z3 : 9;
+        uint32_t u3 : 5;
+
+        uint32_t v0 : 5;
+        uint32_t v1 : 5;
+        uint32_t v2 : 5;
+        uint32_t v3 : 5;
+        uint32_t textureSlot : 12;
     };
 
     struct BlockModel

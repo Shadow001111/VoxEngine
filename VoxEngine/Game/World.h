@@ -62,8 +62,6 @@ private:
 	glm::ivec3 lastChunkLoaderPos = { INT_MAX, INT_MAX, INT_MAX };
 	int lastChunkLoadingDistance = -1;
 
-	glm::ivec3 lastChunkMeshSortPos = { INT_MAX, INT_MAX, INT_MAX };
-
 	// Resources
 	std::unique_ptr<Shader> alignedOpaqueFaceShader;
 	std::unique_ptr<Shader> alignedTranslucentFaceShader;

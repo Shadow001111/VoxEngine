@@ -1532,17 +1532,42 @@ void Chunk::updateMesh()
 							textureSlots[face.textureSlot] :
 							std::make_pair<uint32_t, TextureTransformation>(0, TextureTransformation::None);
 
-						for (int i = 0; i < 4; i++)
-						{
-							instance.vertices[i].x = face.vertices[i].x + x;
-							instance.vertices[i].y = face.vertices[i].y + y;
-							instance.vertices[i].z = face.vertices[i].z + z;
-						}
-						memcpy(instance.uv, face.uv, sizeof(face.uv));
+						int offsetX = x << CHUNK_SIZE_LOG2;
+						int offsetY = y << CHUNK_SIZE_LOG2;
+						int offsetZ = z << CHUNK_SIZE_LOG2;
+
+						instance.x0 = face.x0 + offsetX;
+						instance.y0 = face.y0 + offsetY;
+						instance.z0 = face.z0 + offsetZ;
+
+						instance.x1 = face.x1 + offsetX;
+						instance.y1 = face.y1 + offsetY;
+						instance.z1 = face.z1 + offsetZ;
+
+						instance.x2 = face.x2 + offsetX;
+						instance.y2 = face.y2 + offsetY;
+						instance.z2 = face.z2 + offsetZ;
+
+						instance.x3 = face.x3 + offsetX;
+						instance.y3 = face.y3 + offsetY;
+						instance.z3 = face.z3 + offsetZ;
+
+						instance.u0 = face.u0;
+						instance.v0 = face.v0;
+
+						instance.u1 = face.u1;
+						instance.v1 = face.v1;
+
+						instance.u2 = face.u2;
+						instance.v2 = face.v2;
+
+						instance.u3 = face.u3;
+						instance.v3 = face.v3;
+
 						instance.textureID = textureData.first;
 
 						nonAlignedInstances.push_back(instance);
-						// TODO: Make it emplace
+						// TODO: Make it emplace... maybe? Maybe emplace empty one and fill it inside vector?
 					}
 				}
 			}

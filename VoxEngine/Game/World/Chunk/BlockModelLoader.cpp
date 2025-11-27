@@ -84,24 +84,24 @@ std::optional<BlockModelLoader::ModelAlignedFace> BlockModelLoader::parseAligned
 {
     ModelAlignedFace face;
 
-    if (!faceJson.contains("normal") || !faceJson["normal"].is_number_unsigned())
+    if (!faceJson.contains("normal") || !faceJson.at("normal").is_number_unsigned())
     {
         std::cerr << "[BlockModelLoader]: Aligned face missing or invalid normal" << std::endl;
         return std::nullopt;
     }
-    else if (faceJson["normal"] > 5)
+    else if (faceJson.at("normal") > 5)
     {
         std::cerr << "[BlockModelLoader]: Aligned face normal is out of range" << std::endl;
         return std::nullopt;
     }
-    face.normal = faceJson["normal"];
+    face.normal = faceJson.at("normal");
 
-    if (!faceJson.contains("texture_slot") || !faceJson["texture_slot"].is_number_unsigned())
+    if (!faceJson.contains("texture_slot") || !faceJson.at("texture_slot").is_number_unsigned())
     {
         std::cerr << "[BlockModelLoader]: Aligned face missing or invalid texture_slot" << std::endl;
         return std::nullopt;
     }
-    face.textureSlot = faceJson["texture_slot"];
+    face.textureSlot = faceJson.at("texture_slot");
 
     return face;
 }
@@ -111,58 +111,95 @@ std::optional<BlockModelLoader::ModelNonAlignedFace> BlockModelLoader::parseNonA
     ModelNonAlignedFace face;
 
     // Parse vertices
-    if (!faceJson.contains("vertices") || !faceJson["vertices"].is_array() || faceJson["vertices"].size() != 4)
+    if (!faceJson.contains("vertices") || !faceJson.at("vertices").is_array() || faceJson.at("vertices").size() != 4)
     {
         std::cerr << "[BlockModelLoader]: Non-aligned face missing or invalid vertices array (must have 4 vertices)" << std::endl;
         return std::nullopt;
     }
 
-    for (size_t i = 0; i < 4; i++)
+    int vertices[4][3];
+    for (int i = 0; i < 4; i++)
     {
         const auto& vertexJson = faceJson["vertices"][i];
-        if (!vertexJson.contains("x") || !vertexJson["x"].is_number() ||
-            !vertexJson.contains("y") || !vertexJson["y"].is_number() ||
-            !vertexJson.contains("z") || !vertexJson["z"].is_number()) {
+        if (!vertexJson.contains("x") || !vertexJson.at("x").is_number() ||
+            !vertexJson.contains("y") || !vertexJson.at("y").is_number() ||
+            !vertexJson.contains("z") || !vertexJson.at("z").is_number()) {
             std::cerr << "[BlockModelLoader]: Non-aligned face vertex " << i << " missing or invalid coordinates" << std::endl;
             return std::nullopt;
         }
 
-        face.vertices[i] = {
-            vertexJson["x"],
-            vertexJson["y"],
-            vertexJson["z"]
-        };
+        float x, y, z;
+        vertexJson.at("x").get_to(x);
+        vertexJson.at("y").get_to(y);
+        vertexJson.at("z").get_to(z);
+
+        vertices[i][0] = 16.0f * fminf(1.0f, fmaxf(0.0f, x));
+        vertices[i][1] = 16.0f * fminf(1.0f, fmaxf(0.0f, y));
+        vertices[i][2] = 16.0f * fminf(1.0f, fmaxf(0.0f, z));
     }
 
+    // Pack vertices
+    face.x0 = vertices[0][0];
+    face.y0 = vertices[0][1];
+    face.z0 = vertices[0][2];
+
+    face.x1 = vertices[1][0];
+    face.y1 = vertices[1][1];
+    face.z1 = vertices[1][2];
+
+    face.x2 = vertices[2][0];
+    face.y2 = vertices[2][1];
+    face.z2 = vertices[2][2];
+
+    face.x3 = vertices[3][0];
+    face.y3 = vertices[3][1];
+    face.z3 = vertices[3][2];
+
     // Parse UV coordinates
-    if (!faceJson.contains("uv") || !faceJson["uv"].is_array() || faceJson["uv"].size() != 4)
+    if (!faceJson.contains("uv") || !faceJson.at("uv").is_array() || faceJson.at("uv").size() != 4)
     {
         std::cerr << "[BlockModelLoader]: Non-aligned face missing or invalid uv array (must have 4 UV coordinates)" << std::endl;
         return std::nullopt;
     }
 
-    for (size_t i = 0; i < 4; i++)
+    int uvs[4][2];
+    for (int i = 0; i < 4; i++)
     {
         const auto& uvJson = faceJson["uv"][i];
-        if (!uvJson.contains("u") || !uvJson["u"].is_number() ||
-            !uvJson.contains("v") || !uvJson["v"].is_number()) {
+        if (!uvJson.contains("u") || !uvJson.at("u").is_number() ||
+            !uvJson.contains("v") || !uvJson.at("v").is_number()) {
             std::cerr << "[BlockModelLoader]: Non-aligned face UV " << i << " missing or invalid coordinates" << std::endl;
             return std::nullopt;
         }
 
-        face.uv[i] = {
-            uvJson["u"],
-            uvJson["v"]
-        };
+        float u, v;
+        uvJson.at("u").get_to(u);
+        uvJson.at("v").get_to(v);
+
+        uvs[i][0] = 16.0f * fminf(1.0f, fmaxf(0.0f, u));
+        uvs[i][1] = 16.0f * fminf(1.0f, fmaxf(0.0f, v));
     }
 
+    // Pack UV coordinates
+    face.u0 = uvs[0][0];
+    face.v0 = uvs[0][1];
+
+    face.u1 = uvs[1][0];
+    face.v1 = uvs[1][1];
+
+    face.u2 = uvs[2][0];
+    face.v2 = uvs[2][1];
+
+    face.u3 = uvs[3][0];
+    face.v3 = uvs[3][1];
+
     // Parse texture slot
-    if (!faceJson.contains("texture_slot") || !faceJson["texture_slot"].is_number_unsigned())
+    if (!faceJson.contains("texture_slot") || !faceJson.at("texture_slot").is_number_unsigned())
     {
         std::cerr << "[BlockModelLoader]: Non-aligned face missing or invalid texture_slot" << std::endl;
         return std::nullopt;
     }
-    face.textureSlot = faceJson["texture_slot"];
+    face.textureSlot = faceJson.at("texture_slot");
 
     return face;
 }

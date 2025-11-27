@@ -2,17 +2,8 @@
 
 layout(location = 0) in vec2 aPos;
 
-layout(location = 1) in vec3 instPos0;
-layout(location = 2) in vec3 instPos1;
-layout(location = 3) in vec3 instPos2;
-layout(location = 4) in vec3 instPos3;
-
-layout(location = 5) in vec2 instUV0;
-layout(location = 6) in vec2 instUV1;
-layout(location = 7) in vec2 instUV2;
-layout(location = 8) in vec2 instUV3;
-
-layout(location = 9) in uint instTextureID;
+layout(location = 1) in uvec4 instancePositionsAndUs;
+layout(location = 2) in uint instanceVsAndTextureId;
 
 layout(binding = 0) restrict readonly buffer chunkPositionSSBO
 {
@@ -41,31 +32,28 @@ uint hash3(ivec3 sv)
     return x;
 }
 
+void decodeXYZU(uint data, out uint x, out uint y, out uint z, out uint u)
+{
+    x = bitfieldExtract(data,  0, 9);
+    y = bitfieldExtract(data,  9, 9);
+    z = bitfieldExtract(data, 18, 9);
+    u = bitfieldExtract(data, 27, 5);
+}
+
+void decodeVandTexture(uint data, out uint v, out uint texID)
+{
+    v    = bitfieldExtract(data,  gl_VertexID * 5, 5);
+    texID = bitfieldExtract(data, 20, 12);
+}
+
 void main()
 {
-    vec3 vertexPos;
-    if (gl_VertexID == 0)
-    {
-        vertexPos = instPos0;
-        uv = instUV0;
-    }
-    else if (gl_VertexID == 1)
-    {
-        vertexPos = instPos1;
-        uv = instUV1;
-    }
-    else if (gl_VertexID == 2)
-    {
-        vertexPos = instPos2;
-        uv = instUV2;
-    }
-    else
-    {
-        vertexPos = instPos3;
-        uv = instUV3;
-    }
+    uint x, y, z, u, v;
+    decodeXYZU(instancePositionsAndUs[gl_VertexID], x, y, z, u);
+    decodeVandTexture(instanceVsAndTextureId, v, textureID);
 
-    textureID = instTextureID;
+    vec3 vertexPos = vec3(x, y, z) / 16.0;
+    uv = vec2(u, v) / 16.0;
 
     // Chunk position
     const uint posIndex = uint(gl_DrawID) * 3u;

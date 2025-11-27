@@ -77,44 +77,15 @@ void ChunkMeshManager::configureNonAlignedInstanceVBO()
 	glBindVertexArray(nonAlignedMeshAllocator.vaoID);
 	nonAlignedMeshAllocator.instanceVBO.bind();
 
-	// Positions
+	// Positions + Us
 	glEnableVertexAttribArray(1);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(NonAlignedBlockFace), (void*)(0 * sizeof(float)));
+	glVertexAttribIPointer(1, 4, GL_INT, sizeof(NonAlignedBlockFace), (void*)0);
 	glVertexAttribDivisor(1, 1);
 
+	// Vs + textureID
 	glEnableVertexAttribArray(2);
-	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(NonAlignedBlockFace), (void*)(3 * sizeof(float)));
+	glVertexAttribIPointer(2, 1, GL_INT, sizeof(NonAlignedBlockFace), (void*)(4 * sizeof(int)));
 	glVertexAttribDivisor(2, 1);
-
-	glEnableVertexAttribArray(3);
-	glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(NonAlignedBlockFace), (void*)(6 * sizeof(float)));
-	glVertexAttribDivisor(3, 1);
-
-	glEnableVertexAttribArray(4);
-	glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, sizeof(NonAlignedBlockFace), (void*)(9 * sizeof(float)));
-	glVertexAttribDivisor(4, 1);
-
-	// UVs
-	glEnableVertexAttribArray(5);
-	glVertexAttribPointer(5, 2, GL_FLOAT, GL_FALSE, sizeof(NonAlignedBlockFace), (void*)(12 * sizeof(float)));
-	glVertexAttribDivisor(5, 1);
-
-	glEnableVertexAttribArray(6);
-	glVertexAttribPointer(6, 2, GL_FLOAT, GL_FALSE, sizeof(NonAlignedBlockFace), (void*)(14 * sizeof(float)));
-	glVertexAttribDivisor(6, 1);
-
-	glEnableVertexAttribArray(7);
-	glVertexAttribPointer(7, 2, GL_FLOAT, GL_FALSE, sizeof(NonAlignedBlockFace), (void*)(16 * sizeof(float)));
-	glVertexAttribDivisor(7, 1);
-
-	glEnableVertexAttribArray(8);
-	glVertexAttribPointer(8, 2, GL_FLOAT, GL_FALSE, sizeof(NonAlignedBlockFace), (void*)(18 * sizeof(float)));
-	glVertexAttribDivisor(8, 1);
-
-	// Texture ID
-	glEnableVertexAttribArray(9);
-	glVertexAttribIPointer(9, 1, GL_INT, sizeof(NonAlignedBlockFace), (void*)(20 * sizeof(float)));
-	glVertexAttribDivisor(9, 1);
 }
 
 ChunkMeshManager& ChunkMeshManager::getInstance()
@@ -123,7 +94,6 @@ ChunkMeshManager& ChunkMeshManager::getInstance()
 	return instance;
 }
 
-// TODO: Combine code from processing different mesh types. Move it into separate class and make it template(or just pass params), so it will be easier to maintain.
 void ChunkMeshManager::processMeshRequests(std::vector<ChunkMeshData*>& alignedMeshRequests, std::vector<ChunkMeshData*>& nonAlignedMeshRequests)
 {
 	alignedMeshAllocator.processMeshRequests(alignedMeshRequests);

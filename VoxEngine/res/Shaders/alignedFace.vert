@@ -1,7 +1,7 @@
 #version 460 core
 
 layout(location = 0) in vec2 aPos;
-layout(location = 1) in ivec2 instanceData;
+layout(location = 1) in uvec2 instanceData;
 
 layout(binding = 0) restrict readonly buffer chunkPositionSSBO
 {
@@ -112,36 +112,35 @@ uint hash3(ivec3 sv)
 void main()
 {
     // Unpack face data
-    int x = instanceData.x & 15;
-    int y = (instanceData.x >> 4) & 15;
-    int z = (instanceData.x >> 8) & 15;
+    uint x = bitfieldExtract(instanceData.x, 0, 4);
+    uint y = bitfieldExtract(instanceData.x, 4, 4);
+    uint z = bitfieldExtract(instanceData.x, 8, 4);
 
-    int normal = (instanceData.x >> 12) & 7;
+    uint normal = bitfieldExtract(instanceData.x, 12, 3);
 
-    int faceAOData = (instanceData.x >> 15) & 255;
     vec4 faceAO = vec4(
-        faceAOData & 3,
-        (faceAOData >> 2) & 3,
-        (faceAOData >> 4) & 3,
-        faceAOData >> 6
+        bitfieldExtract(instanceData.x, 15, 2),
+        bitfieldExtract(instanceData.x, 17, 2),
+        bitfieldExtract(instanceData.x, 19, 2),
+        bitfieldExtract(instanceData.x, 21, 2)
     );
 
-    textureID = (instanceData.x >> 23) & 127;
+    textureID = bitfieldExtract(instanceData.x, 23, 7);
     
-    uint textureTransformation = (instanceData.x >> 30) & 3;
+    uint textureTransformation = bitfieldExtract(instanceData.x, 30, 2);
 
     ivec4 blockLight = ivec4(
-        (instanceData.y >> 0)  & 15,
-        (instanceData.y >> 8)  & 15,
-        (instanceData.y >> 16) & 15,
-        (instanceData.y >> 24) & 15
+        bitfieldExtract(instanceData.y, 0, 4),
+        bitfieldExtract(instanceData.y, 8, 4),
+        bitfieldExtract(instanceData.y, 16, 4),
+        bitfieldExtract(instanceData.y, 24, 4)
     );
 
     ivec4 skyLight = ivec4(
-        (instanceData.y >> 4)  & 15,
-        (instanceData.y >> 12)  & 15,
-        (instanceData.y >> 20) & 15,
-        (instanceData.y >> 28) & 15
+        bitfieldExtract(instanceData.y, 4, 4),
+        bitfieldExtract(instanceData.y, 12, 4),
+        bitfieldExtract(instanceData.y, 20, 4),
+        bitfieldExtract(instanceData.y, 28, 4)
     );
     skyLight = max(ivec4(0), skyLight - ivec4(skyLightSub));
     
