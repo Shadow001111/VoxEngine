@@ -77,15 +77,30 @@ void ChunkMeshManager::configureNonAlignedInstanceVBO()
 	glBindVertexArray(nonAlignedMeshAllocator.vaoID);
 	nonAlignedMeshAllocator.instanceVBO.bind();
 
-	// Positions + Us
+	// Block position + Us
 	glEnableVertexAttribArray(1);
-	glVertexAttribIPointer(1, 4, GL_INT, sizeof(NonAlignedBlockFace), (void*)0);
+	glVertexAttribIPointer(1, 1, GL_INT, sizeof(NonAlignedBlockFace), (void*)0);
 	glVertexAttribDivisor(1, 1);
 
-	// Vs + textureID
+	// Vertex shifts
 	glEnableVertexAttribArray(2);
-	glVertexAttribIPointer(2, 1, GL_INT, sizeof(NonAlignedBlockFace), (void*)(4 * sizeof(int)));
+	glVertexAttribIPointer(2, 2, GL_INT, sizeof(NonAlignedBlockFace), (void*)(1 * sizeof(int)));
 	glVertexAttribDivisor(2, 1);
+
+	// Vs + textureID
+	glEnableVertexAttribArray(3);
+	glVertexAttribIPointer(3, 1, GL_INT, sizeof(NonAlignedBlockFace), (void*)(3 * sizeof(int)));
+	glVertexAttribDivisor(3, 1);
+
+	// Light
+	glEnableVertexAttribArray(4);
+	glVertexAttribIPointer(4, 2, GL_INT, sizeof(NonAlignedBlockFace), (void*)(4 * sizeof(int)));
+	glVertexAttribDivisor(4, 1);
+
+	// AO
+	glEnableVertexAttribArray(5);
+	glVertexAttribIPointer(5, 1, GL_INT, sizeof(NonAlignedBlockFace), (void*)(6 * sizeof(int)));
+	glVertexAttribDivisor(5, 1);
 }
 
 ChunkMeshManager& ChunkMeshManager::getInstance()

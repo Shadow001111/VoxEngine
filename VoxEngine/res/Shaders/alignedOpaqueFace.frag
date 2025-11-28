@@ -13,7 +13,6 @@ flat in vec4 light;
 flat in uint textureID;
 in vec3 viewVertexPosition;
 
-
 out vec4 FragColor;
 
 float interpolateAO_Triang()

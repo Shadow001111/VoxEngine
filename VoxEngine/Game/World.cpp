@@ -29,8 +29,6 @@ World::World()
 		};
 		auto& shader = alignedOpaqueFaceShader;
 		shader = std::make_unique<Shader>(sources);
-		shader->use();
-		shader->setInt("CHUNK_SIZE", CHUNK_SIZE);
 	}
 	{
 		std::vector<Shader::ShaderSource> sources =
@@ -40,8 +38,6 @@ World::World()
 		};
 		auto& shader = alignedTranslucentFaceShader;
 		shader = std::make_unique<Shader>(sources);
-		shader->use();
-		shader->setInt("CHUNK_SIZE", CHUNK_SIZE);
 	}
 	{
 		std::vector<Shader::ShaderSource> sources =
@@ -51,8 +47,6 @@ World::World()
 		};
 		auto& shader = nonAlignedOpaqueFaceShader;
 		shader = std::make_unique<Shader>(sources);
-		shader->use();
-		shader->setInt("CHUNK_SIZE", CHUNK_SIZE);
 	}
 	{
 		std::vector<Shader::ShaderSource> sources =
@@ -62,8 +56,6 @@ World::World()
 		};
 		auto& shader = nonAlignedTranslucentFaceShader;
 		shader = std::make_unique<Shader>(sources);
-		shader->use();
-		shader->setInt("CHUNK_SIZE", CHUNK_SIZE);
 	}
 	{
 		std::vector<Shader::ShaderSource> sources =
@@ -82,8 +74,6 @@ World::World()
 		};
 		auto& shader = voxelMarkerShader;
 		shader = std::make_unique<Shader>(sources);
-		shader->use();
-		shader->setInt("CHUNK_SIZE", CHUNK_SIZE);
 	}
 
 	// Block data base
@@ -108,10 +98,13 @@ World::World()
 
 	alignedOpaqueFaceShader->use();
 	alignedOpaqueFaceShader->setInt("blockTextures", blockTextureArray->getUnit());
+
 	alignedTranslucentFaceShader->use();
 	alignedTranslucentFaceShader->setInt("blockTextures", blockTextureArray->getUnit());
+
 	nonAlignedOpaqueFaceShader->use();
 	nonAlignedOpaqueFaceShader->setInt("blockTextures", blockTextureArray->getUnit());
+
 	nonAlignedTranslucentFaceShader->use();
 	nonAlignedTranslucentFaceShader->setInt("blockTextures", blockTextureArray->getUnit());
 

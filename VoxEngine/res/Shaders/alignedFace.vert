@@ -11,7 +11,6 @@ layout(binding = 0) restrict readonly buffer chunkPositionSSBO
 uniform mat4 view;
 uniform mat4 projection;
 uniform ivec3 cameraChunkPosition;
-uniform int CHUNK_SIZE;
 uniform int skyLightSub = 0; // TODO: Maybe make it float for smooth sky light transition
 
 out vec2 uv;
@@ -142,7 +141,7 @@ void main()
         bitfieldExtract(instanceData.y, 20, 4),
         bitfieldExtract(instanceData.y, 28, 4)
     );
-    skyLight = max(ivec4(0), skyLight - ivec4(skyLightSub));
+    skyLight = skyLight - ivec4(skyLightSub); // Can be less than zero
     
     // AO
     ao = vec4(1.0 - AO_RANGE) + faceAO * INV_AO_SCALE * AO_RANGE;
@@ -181,7 +180,7 @@ void main()
     }
 
     //
-    vec3 worldPos = vec3(CHUNK_SIZE * relativeChunkPosition) + vertexPos + vec3(x, y, z);
+    vec3 worldPos = vec3(16.0 * relativeChunkPosition) + vertexPos + vec3(x, y, z);
     vec4 viewPos = view * vec4(worldPos, 1.0);
 
     viewVertexPosition = viewPos.xyz;

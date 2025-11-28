@@ -16,17 +16,20 @@
 #include <filesystem>
 #include <unordered_map>
 
-//
-struct LightLevel
+union LightLevel
 {
-	uint8_t blockLight : 4;
-	uint8_t skyLight : 4;
+	struct
+	{
+		uint8_t blockLight : 4;
+		uint8_t skyLight : 4;
+	};
+
+	uint8_t fullByte;
 
 	LightLevel();
 	LightLevel(uint8_t blockLight, uint8_t skyLight);
 
 	LightLevel(const LightLevel& other);
-
 	LightLevel& operator=(const LightLevel& other);
 };
 
@@ -53,6 +56,12 @@ struct DrawArraysIndirectCommand
 
 	DrawArraysIndirectCommand() = default;
 	DrawArraysIndirectCommand(unsigned int count, unsigned int instanceCount, unsigned int first, unsigned int baseInstance);
+};
+
+struct BlockVertexLightData
+{
+	unsigned int ao[8];      // AO values for each vertex
+	LightLevel light[8];     // Light values for each vertex
 };
 
 // TODO: Keep often-acessed data closer
@@ -211,6 +220,8 @@ private:
 	// Mesh building
 	void calculateVertexAmbientOcclusionAndLight(unsigned int& ao, LightLevel& light, LightLevel centerLight, LightLevel side1Light, LightLevel side2Light, LightLevel cornerLight, bool side1Solid, bool side2Solid, bool cornerSolid) const;
 	void calculateFaceAmbientOcclusionAndLight(unsigned int& ao, unsigned int& light, int x, int y, int z, int normal, LightLevel centerFaceLight) const;
+	
+	void calculateBlockVertexLight(BlockVertexLightData& result, int x, int y, int z) const;
 public:
 	// Chunk data getters
 	glm::ivec3 getPosition() const;

@@ -7,12 +7,41 @@ uniform float fogDensity;
 uniform float fogGradient;
 
 in vec2 uv;
-//flat in vec4 ao;
-//flat in vec4 light;
 flat in uint textureID;
 in vec3 viewVertexPosition;
+flat in float[8] blockVertexLightData;
+in vec3 vertexLocalPos;
 
 out vec4 FragColor;
+
+float interpolateLight()
+{
+    float x = vertexLocalPos.x;
+    float y = vertexLocalPos.y;
+    float z = vertexLocalPos.z;
+
+    float ix = 1.0 - x;
+    float iy = 1.0 - y;
+    float iz = 1.0 - z;
+
+    float w0 = ix * iy * iz; // (0,0,0)
+    float w1 = x  * iy * iz; // (1,0,0)
+    float w2 = x  * iy * z;  // (1,0,1)
+    float w3 = ix * iy * z;  // (0,0,1)
+    float w4 = ix * y  * iz; // (0,1,0)
+    float w5 = x  * y  * iz; // (1,1,0)
+    float w6 = x  * y  * z;  // (1,1,1)
+    float w7 = ix * y  * z;  // (0,1,1)
+
+    return w0 * blockVertexLightData[0] +
+           w1 * blockVertexLightData[1] +
+           w2 * blockVertexLightData[2] +
+           w3 * blockVertexLightData[3] +
+           w4 * blockVertexLightData[4] +
+           w5 * blockVertexLightData[5] +
+           w6 * blockVertexLightData[6] +
+           w7 * blockVertexLightData[7];
+}
 
 void main()
 {
@@ -20,7 +49,7 @@ void main()
 
     vec3 baseColor = textureColor.rgb;
 
-    vec3 shadedColor = baseColor;// * interpolateAO_Triang() * interpolateLight_Quad();
+    vec3 shadedColor = baseColor * interpolateLight();
 
     float depth = length(viewVertexPosition);
     float fogFactor = exp(-pow((depth * fogDensity), fogGradient));
