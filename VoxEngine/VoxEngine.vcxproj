@@ -152,7 +152,6 @@
     <ClCompile Include="Game\World\Chunk\ChunkMeshManager.cpp" />
     <ClCompile Include="Core\BlockAllocator.cpp" />
     <ClCompile Include="Graphics\OpenGL_Buffer.cpp" />
-    <ClCompile Include="Graphics\OpenGL_SSBO.cpp" />
     <ClCompile Include="Game\World\ChunkPool.cpp" />
     <ClCompile Include="Game\World\Chunk\MeshData.cpp" />
     <ClCompile Include="Game\World\Chunk\MeshTemplates\AlignedBlockFace.cpp" />
@@ -198,7 +197,6 @@
     <ClInclude Include="Game\World\Chunk\ChunkMeshManager.h" />
     <ClInclude Include="Core\BlockAllocator.h" />
     <ClInclude Include="Graphics\OpenGL_Buffer.h" />
-    <ClInclude Include="Graphics\OpenGL_SSBO.h" />
     <ClInclude Include="Game\World\ChunkPool.h" />
     <ClInclude Include="Game\World\Chunk\MeshData.h" />
     <ClInclude Include="Game\World\Chunk\MeshTemplates\AlignedBlockFace.h" />

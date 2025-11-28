@@ -7,6 +7,57 @@
 
 Shader::Shader(const std::vector<ShaderSource>& sources)
 {
+    init(sources);
+}
+
+Shader::~Shader()
+{
+    if (ID)
+    {
+        glDeleteProgram(ID);
+        ID = 0;
+    }
+}
+
+Shader::Shader(Shader&& other) noexcept
+    : ID(other.ID),
+    initialized(other.initialized),
+    uniformLocationCache(std::move(other.uniformLocationCache))
+{
+    other.ID = 0;
+    other.initialized = false;
+    other.uniformLocationCache.clear();
+}
+
+Shader& Shader::operator=(Shader&& other) noexcept
+{
+    if (this != &other)
+    {
+        if (ID)
+        {
+            glDeleteProgram(ID);
+        }
+
+        ID = other.ID;
+        initialized = other.initialized;
+        uniformLocationCache = std::move(other.uniformLocationCache);
+
+        other.ID = 0;
+        other.initialized = false;
+        other.uniformLocationCache.clear();
+    }
+    return *this;
+}
+
+void Shader::init(const std::vector<ShaderSource>& sources)
+{
+    if (initialized)
+    {
+        glDeleteProgram(ID);
+        uniformLocationCache.clear();
+        initialized = false;
+    }
+
     std::vector<GLuint> shaderIDs;
     for (const auto& src : sources)
     {
@@ -23,11 +74,8 @@ Shader::Shader(const std::vector<ShaderSource>& sources)
 
     for (GLuint shader : shaderIDs)
         glDeleteShader(shader);
-}
 
-Shader::~Shader()
-{
-    glDeleteProgram(ID);
+    initialized = true;
 }
 
 void Shader::use() const
@@ -132,7 +180,7 @@ std::string Shader::loadShaderSource(const std::string& filePath) const
     }
     else
     {
-        throw std::runtime_error("[Shader]: Failed to open shader file: '" + filePath + "'.");
+        std::cerr << "[Shader]: Failed to open shader file: '" << filePath << "'." << std::endl;
     }
     return buffer.str();
 }

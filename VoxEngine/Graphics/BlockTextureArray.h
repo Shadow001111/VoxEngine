@@ -6,11 +6,19 @@
 
 class BlockTextureArray
 {
-	GLuint ID;
-	GLuint unit;
+	GLuint ID = 0;
+	GLuint unit = 0;
 public:
-	BlockTextureArray(const std::string& texturesFolderPath, const std::vector<std::string>& textureNames, GLuint slot, int textureSize);
+	BlockTextureArray(GLuint slot);
 	~BlockTextureArray();
+
+	BlockTextureArray(const BlockTextureArray&) = delete;
+	BlockTextureArray& operator=(const BlockTextureArray&) = delete;
+
+	BlockTextureArray(BlockTextureArray&& other) noexcept;
+	BlockTextureArray& operator=(BlockTextureArray&& other) noexcept;
+
+	void load(const std::string& texturesFolderPath, const std::vector<std::string>& textureNames, int textureSize);
 
 	void bind() const;
 	void unbind() const;

@@ -9,7 +9,7 @@
 #include "Graphics/Shader.h"
 #include "Graphics/Camera.h"
 #include "Graphics/BlockTextureArray.h"
-#include "Graphics/OpenGL_SSBO.h"
+#include "Graphics/OpenGL_Buffer.h"
 #include "Graphics/OpenGL_FBO.h"
 
 #include "Core/Hashes/ivec3Hasher.h"
@@ -63,19 +63,19 @@ private:
 	int lastChunkLoadingDistance = -1;
 
 	// Resources
-	std::unique_ptr<Shader> alignedOpaqueFaceShader;
-	std::unique_ptr<Shader> alignedTranslucentFaceShader;
-	std::unique_ptr<Shader> nonAlignedOpaqueFaceShader;
-	std::unique_ptr<Shader> nonAlignedTranslucentFaceShader;
-	std::unique_ptr<Shader> compositeFaceShader;
+	Shader alignedOpaqueFaceShader;
+	Shader alignedTranslucentFaceShader;
+	Shader nonAlignedOpaqueFaceShader;
+	Shader nonAlignedTranslucentFaceShader;
+	Shader compositeFaceShader;
 
-	std::unique_ptr<Shader> voxelMarkerShader;
+	Shader voxelMarkerShader;
 	VoxelMarkerMesh voxelMarkerMesh;
 
-	std::unique_ptr<BlockTextureArray> blockTextureArray;
+	BlockTextureArray blockTextureArray;
 
-	std::unique_ptr<OpenGL_Buffer> chunkDrawCommandBuffer;
-	std::unique_ptr<OpenGL_SSBO> chunkPositionSSBO;
+	OpenGL_Buffer chunkDrawCommandBuffer;
+	OpenGL_Buffer chunkPositionSSBO;
 
 	GLuint quadVAO, quadVBO;
 
@@ -109,14 +109,14 @@ public:
 private:
 	void collectChunksToRenderAndSortThem(std::vector<ChunkRenderInfo>& chunksToRender, const Camera& camera) const;
 public:
-	void renderChunks(const Camera& camera, const OpenGL_FBO* opaqueFBO, const OpenGL_FBO* translucentFBO) const;
+	void renderChunks(const Camera& camera, const OpenGL_FBO* opaqueFBO, const OpenGL_FBO* translucentFBO);
 private:
 	void renderOpaqueChunks(const std::vector<ChunkRenderInfo>& chunksToRender,
 		std::vector<DrawArraysIndirectCommand>& chunkDrawCommands,
-		std::vector<glm::ivec3>& chunkPositions) const;
+		std::vector<glm::ivec3>& chunkPositions);
 	void renderTranslucentChunks(const std::vector<ChunkRenderInfo>& chunksToRender,
 		std::vector<DrawArraysIndirectCommand>& chunkDrawCommands,
-		std::vector<glm::ivec3>& chunkPositions) const;
+		std::vector<glm::ivec3>& chunkPositions);
 	void compositePass(GLuint accumTex, GLuint revTex, GLuint colorTex) const;
 public:
 	void renderVoxelMarker(const Camera& camera, const RaycastResult& raycast) const;

@@ -1,8 +1,7 @@
 #include "OpenGL_FBO.h"
-#include <stdexcept>
 #include <iostream>
 
-OpenGL_FBO::OpenGL_FBO(int width, int height) : width(width), height(height), id(0)
+OpenGL_FBO::OpenGL_FBO(int width, int height) : width(width), height(height)
 {
     glGenFramebuffers(1, &id);
 }
@@ -81,7 +80,9 @@ void OpenGL_FBO::createColorAttachment(const std::string& name, GLenum internalF
     setupDrawBuffers();
 
     if (!isComplete())
-        throw std::runtime_error("Framebuffer is not complete after adding color attachment: " + name);
+    {
+        std::cerr << "Framebuffer is not complete after adding color attachment : " << name << std::endl;
+    }
 }
 
 void OpenGL_FBO::createDepthAttachment(const std::string& name, GLenum internalFormat,
@@ -101,7 +102,9 @@ void OpenGL_FBO::createDepthAttachment(const std::string& name, GLenum internalF
     attachments[name] = attachment;
 
     if (!isComplete())
-        throw std::runtime_error("Framebuffer is not complete after adding depth attachment: " + name);
+    {
+        std::cerr << "Framebuffer is not complete after adding depth attachment : " << name << std::endl;
+    }
 }
 
 void OpenGL_FBO::createStencilAttachment(const std::string& name, GLenum internalFormat,
@@ -120,7 +123,9 @@ void OpenGL_FBO::createStencilAttachment(const std::string& name, GLenum interna
     attachments[name] = attachment;
 
     if (!isComplete())
-        throw std::runtime_error("Framebuffer is not complete after adding stencil attachment: " + name);
+    {
+        std::cerr << "Framebuffer is not complete after adding stencil attachment : " << name << std::endl;
+    }
 }
 
 void OpenGL_FBO::createDepthStencilAttachment(const std::string& name, GLenum internalFormat,
@@ -139,7 +144,9 @@ void OpenGL_FBO::createDepthStencilAttachment(const std::string& name, GLenum in
     attachments[name] = attachment;
 
     if (!isComplete())
-        throw std::runtime_error("Framebuffer is not complete after adding depth-stencil attachment: " + name);
+    {
+        std::cerr << "Framebuffer is not complete after adding depth-stencil attachment : " << name << std::endl;
+    }
 }
 
 void OpenGL_FBO::linkColorTexture(const std::string& name, GLuint textureID, int attachmentPoint)
@@ -156,7 +163,9 @@ void OpenGL_FBO::linkColorTexture(const std::string& name, GLuint textureID, int
     setupDrawBuffers();
 
     if (!isComplete())
-        throw std::runtime_error("Framebuffer is not complete after linking color texture: " + name);
+    {
+        std::cerr << "Framebuffer is not complete after linking color texture: " << name << std::endl;
+    }
 }
 
 void OpenGL_FBO::linkDepthTexture(const std::string& name, GLuint textureID)
@@ -171,7 +180,9 @@ void OpenGL_FBO::linkDepthTexture(const std::string& name, GLuint textureID)
     attachments[name] = attachment;
 
     if (!isComplete())
-        throw std::runtime_error("Framebuffer is not complete after linking depth texture: " + name);
+    {
+        std::cerr << "Framebuffer is not complete after linking depth texture: " << name << std::endl;
+    }
 }
 
 void OpenGL_FBO::linkStencilTexture(const std::string& name, GLuint textureID)
@@ -186,7 +197,9 @@ void OpenGL_FBO::linkStencilTexture(const std::string& name, GLuint textureID)
     attachments[name] = attachment;
 
     if (!isComplete())
-        throw std::runtime_error("Framebuffer is not complete after linking stencil texture: " + name);
+    {
+        std::cerr << "Framebuffer is not complete after linking stencil texture: " << name << std::endl;
+    }
 }
 
 void OpenGL_FBO::linkDepthStencilTexture(const std::string& name, GLuint textureID)
@@ -201,7 +214,9 @@ void OpenGL_FBO::linkDepthStencilTexture(const std::string& name, GLuint texture
     attachments[name] = attachment;
 
     if (!isComplete())
-        throw std::runtime_error("Framebuffer is not complete after linking depth-stencil texture: " + name);
+    {
+        std::cerr << "Framebuffer is not complete after linking depth-stencil texture: " << name << std::endl;
+    }
 }
 
 void OpenGL_FBO::removeAttachment(const std::string& name)

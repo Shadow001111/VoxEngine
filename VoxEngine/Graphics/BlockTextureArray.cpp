@@ -18,8 +18,47 @@ void addImageToTextureArray(unsigned char* data, int layer, int textureSize, GLe
     );
 }
 
-BlockTextureArray::BlockTextureArray(const std::string& texturesFolderPath, const std::vector<std::string>& textureNames, GLuint slot, int textureSize) :
-	ID(0), unit(slot)
+BlockTextureArray::BlockTextureArray(GLuint slot) :
+    unit(slot)
+{
+    glGenTextures(1, &ID);
+}
+
+BlockTextureArray::~BlockTextureArray()
+{
+    if (ID)
+    {
+        glDeleteTextures(1, &ID);
+        ID = 0;
+    }
+}
+
+BlockTextureArray::BlockTextureArray(BlockTextureArray&& other) noexcept
+    : ID(other.ID), unit(other.unit)
+{
+    other.ID = 0;
+    other.unit = 0;
+}
+
+BlockTextureArray& BlockTextureArray::operator=(BlockTextureArray&& other) noexcept
+{
+    if (this != &other)
+    {
+        if (ID)
+        {
+            glDeleteTextures(1, &ID);
+        }
+
+        ID = other.ID;
+        unit = other.unit;
+
+        other.ID = 0;
+        other.unit = 0;
+    }
+    return *this;
+}
+
+void BlockTextureArray::load(const std::string& texturesFolderPath, const std::vector<std::string>& textureNames, int textureSize)
 {
     const bool createMipmaps = true;
     const int mipmapLevels = 1 + (createMipmaps ? ceilf(log2f(textureSize)) : 0);
@@ -27,7 +66,7 @@ BlockTextureArray::BlockTextureArray(const std::string& texturesFolderPath, cons
 
     // Create fallback "undefined" texture (solid magenta)
     std::vector<unsigned char> undefinedTexture(textureSize * textureSize * desiredChannels);
-    
+
     if (desiredChannels == 4)
     {
         size_t index = 0;
@@ -64,7 +103,7 @@ BlockTextureArray::BlockTextureArray(const std::string& texturesFolderPath, cons
             for (int x = 0; x < textureSize; x++)
             {
                 bool hx = x > (textureSize >> 1);
-                
+
                 bool hxy = hx ^ hy;
 
                 unsigned char r, g, b;
@@ -73,7 +112,7 @@ BlockTextureArray::BlockTextureArray(const std::string& texturesFolderPath, cons
                 b = r;
 
                 //
-                undefinedTexture[index    ] = r;
+                undefinedTexture[index] = r;
                 undefinedTexture[index + 1] = g;
                 undefinedTexture[index + 2] = b;
                 index += 3;
@@ -85,19 +124,14 @@ BlockTextureArray::BlockTextureArray(const std::string& texturesFolderPath, cons
         std::cerr << "[BlockTextureArray]: Textures with " << desiredChannels << " are not supported." << std::endl;
     }
 
-    //
     GLenum internalFormat = (desiredChannels == 4) ? GL_RGBA8 : GL_RGB8;
     GLenum format = (desiredChannels == 4) ? GL_RGBA : GL_RGB;
 
-    // Generate texture
-	glGenTextures(1, &ID);
-	glActiveTexture(GL_TEXTURE0 + unit);
-	glBindTexture(GL_TEXTURE_2D_ARRAY, ID);
-
-	glTexStorage3D(GL_TEXTURE_2D_ARRAY, mipmapLevels, internalFormat, textureSize, textureSize, static_cast<GLsizei>(textureNames.size()));
+    glBindTexture(GL_TEXTURE_2D_ARRAY, ID);
+    glTexStorage3D(GL_TEXTURE_2D_ARRAY, mipmapLevels, internalFormat, textureSize, textureSize, static_cast<GLsizei>(textureNames.size()));
 
     // Load
-	stbi_set_flip_vertically_on_load(true);
+    stbi_set_flip_vertically_on_load(true);
 
     for (size_t i = 0; i < textureNames.size(); ++i)
     {
@@ -115,7 +149,7 @@ BlockTextureArray::BlockTextureArray(const std::string& texturesFolderPath, cons
         if (width != textureSize || height != textureSize)
         {
             std::cerr << "Warning: Texture " << textureNames[i]
-                << " is not " << textureSize << "x" << textureSize << "(" << width << "x" << height << ")" << std::endl;
+                << " is not " << textureSize << "x" << textureSize << " (" << width << "x" << height << ")" << std::endl;
             stbi_image_free(data);
             addImageToTextureArray(undefinedTexture.data(), i, textureSize, format);
             continue;
@@ -137,11 +171,6 @@ BlockTextureArray::BlockTextureArray(const std::string& texturesFolderPath, cons
 
     // Unbind
     glBindTexture(GL_TEXTURE_2D_ARRAY, 0);
-}
-
-BlockTextureArray::~BlockTextureArray()
-{
-    glDeleteTextures(1, &ID);
 }
 
 void BlockTextureArray::bind() const

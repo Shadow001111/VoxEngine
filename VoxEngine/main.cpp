@@ -248,167 +248,160 @@ int main()
 {
     constexpr float CAMERA_FAR_PLANE = (CHUNK_LOAD_DISTANCE + 0.5f) * (CHUNK_SIZE * 1.41f);
 
-    try
+    // Window
+    WindowManager wnd({ 1280, 720, "VoxEngine", true, true, true });
+
+    // OpenGL debug
+    glEnable(GL_DEBUG_OUTPUT);
+    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+    glDebugMessageCallback(glDebugOutput, nullptr);
+    glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_TRUE);
+    glDebugMessageControl(
+        GL_DONT_CARE,          // any source
+        GL_DEBUG_TYPE_OTHER,   // filter this type
+        GL_DONT_CARE,          // any severity
+        0, NULL,               // no specific IDs
+        GL_FALSE               // disable
+    );
+
+    // Framebuffer
+    auto* FBO = wnd.getOpaqueFBO();
+    GLuint rectVAO;
+    std::unique_ptr<Shader> fboShader;
+    setupFramebuffer(rectVAO, fboShader);
+
+    // OpenGL states
+    setupOpenGLStates();
+
+    // Text renderer
+    TextRenderer::init();
+    TextRenderer::loadFont("RusEngMinecraft", 8);
+    TextRenderer::setCurrentFont("RusEngMinecraft");
+
+    // World
+    World world;
+    world.setChunkLoadingDistance(CHUNK_LOAD_DISTANCE);
+    world.preparation();
+
+    // Player
+    Player* player = world.createEntity<Player>(glm::vec3(0, 20.0, 0.0), glm::radians(180.0f), 0.0f);
+    player->getCamera().setAspectRatio(wnd.getAspectRatio());
+    player->getCamera().setFarPlane(CAMERA_FAR_PLANE);
+
+    PlayerInput playerInput;
+
+    // Input
+    glm::vec2 previousMousePos;
+    wnd.getMousePos(previousMousePos.x, previousMousePos.y);
+    glfwSetInputMode(wnd.getWindow(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
+    // Timers
+    double lastTime = glfwGetTime();
+	UpdateTimer worldUpdateTimer(20.0f); worldUpdateTimer.setUpdateToTrue();
+	UpdateTimer profilerUpdateTimer(1.0f / 3.0f);
+    UpdateTimer frequentUIDataUpdateTimer(1.0f);
+
+    // Frequent UI data
+    float UI_FPS = 0.0f;
+    float accumulatedFPS = 0.0f;
+    int accumulatedFrames = 0;
+
+    // Main loop
+    while (!wnd.shouldClose())
     {
-        // Window
-        WindowManager wnd({ 1280, 720, "VoxEngine", true, true, true });
+		// Poll events
+        wnd.pollEvents();
 
-        // OpenGL debug
-        glEnable(GL_DEBUG_OUTPUT);
-        glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
-        glDebugMessageCallback(glDebugOutput, nullptr);
-        glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_TRUE);
-        glDebugMessageControl(
-            GL_DONT_CARE,          // any source
-            GL_DEBUG_TYPE_OTHER,   // filter this type
-            GL_DONT_CARE,          // any severity
-            0, NULL,               // no specific IDs
-            GL_FALSE               // disable
-        );
+		// Time logic
+        // TODO: Maybe reset timer. Maybe if timer will get too big, everything will break.
+        double time = glfwGetTime();
+        double deltaTime = time - lastTime;
+		lastTime = time;
 
-        // Framebuffer
-        auto* FBO = wnd.getOpaqueFBO();
-        GLuint rectVAO;
-        std::unique_ptr<Shader> fboShader;
-        setupFramebuffer(rectVAO, fboShader);
+        accumulatedFPS += 1.0f / (float)deltaTime;
+        accumulatedFrames++;
 
-        // OpenGL states
-        setupOpenGLStates();
-
-        // Text renderer
-        TextRenderer::init();
-        TextRenderer::loadFont("RusEngMinecraft", 8);
-        TextRenderer::setCurrentFont("RusEngMinecraft");
-
-        // World
-        World world;
-        world.setChunkLoadingDistance(CHUNK_LOAD_DISTANCE);
-        world.preparation();
+		worldUpdateTimer.addTime(deltaTime);
+		profilerUpdateTimer.addTime(deltaTime);
+        frequentUIDataUpdateTimer.addTime(deltaTime);
 
         // Player
-        Player* player = world.createEntity<Player>(glm::vec3(0, 20.0, 0.0), glm::radians(180.0f), 0.0f);
-        player->getCamera().setAspectRatio(wnd.getAspectRatio());
-        player->getCamera().setFarPlane(CAMERA_FAR_PLANE);
+        collectPlayerInput(player->input, wnd, previousMousePos);
 
-        PlayerInput playerInput;
-
-        // Input
-        glm::vec2 previousMousePos;
-        wnd.getMousePos(previousMousePos.x, previousMousePos.y);
-        glfwSetInputMode(wnd.getWindow(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-
-        // Timers
-        double lastTime = glfwGetTime();
-		UpdateTimer worldUpdateTimer(20.0f); worldUpdateTimer.setUpdateToTrue();
-		UpdateTimer profilerUpdateTimer(1.0f / 3.0f);
-        UpdateTimer frequentUIDataUpdateTimer(1.0f);
-
-        // Frequent UI data
-        float UI_FPS = 0.0f;
-        float accumulatedFPS = 0.0f;
-        int accumulatedFrames = 0;
-
-        // Main loop
-        while (!wnd.shouldClose())
+        // World
+        if (worldUpdateTimer.peek())
         {
-			// Poll events
-            wnd.pollEvents();
+            glm::vec3 playerPos = player->getPosition();
+            world.loadChunks(playerPos);
 
-			// Time logic
-            // TODO: Maybe reset timer. Maybe if timer will get too big, everything will break.
-            double time = glfwGetTime();
-            double deltaTime = time - lastTime;
-			lastTime = time;
-
-            accumulatedFPS += 1.0f / (float)deltaTime;
-            accumulatedFrames++;
-
-			worldUpdateTimer.addTime(deltaTime);
-			profilerUpdateTimer.addTime(deltaTime);
-            frequentUIDataUpdateTimer.addTime(deltaTime);
-
-            // Player
-            collectPlayerInput(player->input, wnd, previousMousePos);
-
-            // World
-            if (worldUpdateTimer.peek())
+            while (worldUpdateTimer.shouldUpdate())
             {
-                glm::vec3 playerPos = player->getPosition();
-                world.loadChunks(playerPos);
-
-                while (worldUpdateTimer.shouldUpdate())
-                {
-                    world.update(worldUpdateTimer.getUpdateInterval());
-                }
-
-                if (wnd.isKeyPressed(GLFW_KEY_P))
-                {
-                    world.rebuildAllChunkMeshes();
-                    std::cout << "World: All chunks meshes are rebuild." << std::endl;
-                }
-
-                if (wnd.isKeyPressed(GLFW_KEY_O))
-                {
-                    world.debugMethod();
-                }
+                world.update(worldUpdateTimer.getUpdateInterval());
             }
 
-            player->interpolateCameraTransform(worldUpdateTimer.getAccumulatedTimeInPercent());
-
-            //world.sortChunkMeshes(player->getCamera().getPosition());
-            world.sendChunkMeshesToGPU();
-
-            // Rendering to FBO
-            world.renderChunks(player->getCamera(), wnd.getOpaqueFBO(), wnd.getTranslucentFBO());
-            //world.renderVoxelMarker(player->getCamera(), player->raycastResult);
-
-            // Rendering to screen
-            // TODO: Maybe we are rendering same FBO twice. Avoid that.
-            glBindVertexArray(rectVAO);
-            glDisable(GL_DEPTH_TEST);
-            glDisable(GL_BLEND);
-
-            //FBO->bind();
-            FBO->bindTexture("color", 0);
-            FBO->bindTexture("depth", 1);
-
-            fboShader->use();
-
-            glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-
-            // Text rendering
-            TextRenderer::updateProjectionMatrix(wnd.getWidth(), wnd.getHeight());
-            renderDebugData(world.getDebugData(), wnd, player, UI_FPS);
-
-            // Swap buffers
-            wnd.swapBuffers();
-
-            //
-            if (frequentUIDataUpdateTimer.shouldUpdate())
+            if (wnd.isKeyPressed(GLFW_KEY_P))
             {
-                UI_FPS = accumulatedFPS / accumulatedFrames;
-                accumulatedFPS = 0.0f;
-                accumulatedFrames = 0;
+                world.rebuildAllChunkMeshes();
+                std::cout << "World: All chunks meshes are rebuild." << std::endl;
             }
 
-            if (profilerUpdateTimer.shouldUpdate())
+            if (wnd.isKeyPressed(GLFW_KEY_O))
             {
-                Profiler::printProfileReport();
+                world.debugMethod();
             }
         }
+
+        player->interpolateCameraTransform(worldUpdateTimer.getAccumulatedTimeInPercent());
+
+        //world.sortChunkMeshes(player->getCamera().getPosition());
+        world.sendChunkMeshesToGPU();
+
+        // Rendering world
+        world.renderChunks(player->getCamera(), wnd.getOpaqueFBO(), wnd.getTranslucentFBO());
+        //world.renderVoxelMarker(player->getCamera(), player->raycastResult);
+
+        // Rendering to screen
+        // TODO: Maybe we are rendering same FBO twice. Avoid that.
+        glBindVertexArray(rectVAO);
+        glDisable(GL_DEPTH_TEST);
+        glDisable(GL_BLEND);
+
+        //FBO->bind();
+        FBO->bindTexture("color", 0);
+        FBO->bindTexture("depth", 1);
+
+        fboShader->use();
+
+        glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+
+        // Text rendering
+        TextRenderer::updateProjectionMatrix(wnd.getWidth(), wnd.getHeight());
+        renderDebugData(world.getDebugData(), wnd, player, UI_FPS);
+
+        // Swap buffers
+        wnd.swapBuffers();
 
         //
-        Profiler::printProfileReport();
-
-        while (GLenum err = glGetError() != GL_NO_ERROR)
+        if (frequentUIDataUpdateTimer.shouldUpdate())
         {
-            std::cerr << "[OpenGl Error]: " << err << "\n";
+            UI_FPS = accumulatedFPS / accumulatedFrames;
+            accumulatedFPS = 0.0f;
+            accumulatedFrames = 0;
+        }
+
+        if (profilerUpdateTimer.shouldUpdate())
+        {
+            Profiler::printProfileReport();
         }
     }
-    catch (const std::exception& e)
+
+    Profiler::printProfileReport();
+
+    while (GLenum err = glGetError() != GL_NO_ERROR)
     {
-        std::cerr << "Fatal error: " << e.what() << std::endl;
-        return -1;
+        std::cerr << "[OpenGl Error]: " << err << "\n";
     }
+
+    glfwTerminate();
 	return 0;
 }

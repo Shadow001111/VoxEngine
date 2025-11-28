@@ -1,11 +1,14 @@
 #include "WindowManager.h"
 
-#include <stdexcept>
+#include <iostream>
 
 WindowManager::WindowManager(const WindowParams& params)
 {
     if (!glfwInit())
-        throw std::runtime_error("Failed to initialize GLFW");
+    {
+        std::cerr << "Failed to initialize GLFW" << std::endl;
+        return;
+    }
 
     // OpenGL 4.6 core profile
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
@@ -19,7 +22,8 @@ WindowManager::WindowManager(const WindowParams& params)
     if (!window)
     {
         glfwTerminate();
-        throw std::runtime_error("Failed to create GLFW window");
+        std::cerr << "Failed to create GLFW window" << std::endl;
+        return;
     }
 
     glfwMakeContextCurrent(window);
@@ -29,7 +33,8 @@ WindowManager::WindowManager(const WindowParams& params)
     {
         glfwDestroyWindow(window);
         glfwTerminate();
-        throw std::runtime_error("Failed to initialize GLAD");
+        std::cerr << "Failed to initialize GLAD" << std::endl;
+        return;
     }
 
     // Store pointer for callbacks

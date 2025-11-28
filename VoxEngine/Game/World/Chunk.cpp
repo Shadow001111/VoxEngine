@@ -593,6 +593,7 @@ bool Chunk::findFloodFillStartIndex(uint16_t& startIndex, const bool* floodFillM
 	//	return true;
 	//}
 	//return false;
+	return false;
 }
 
 void Chunk::computeConnectivity()

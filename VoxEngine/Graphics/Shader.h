@@ -7,6 +7,9 @@
 
 class Shader
 {
+    GLuint ID = 0;
+    bool initialized = false;
+    mutable std::unordered_map<std::string, GLint> uniformLocationCache;
 public:
     struct ShaderSource
     {
@@ -14,10 +17,17 @@ public:
         std::string path;
     };
 
+    Shader() = default;
     Shader(const std::vector<ShaderSource>& sources);
     ~Shader();
+
     Shader(const Shader& other) = delete;
     Shader& operator=(const Shader& other) = delete;
+
+    Shader(Shader&& other) noexcept;
+    Shader& operator=(Shader&& other) noexcept;
+
+    void init(const std::vector<ShaderSource>& sources);
 
     void use() const;
 
@@ -42,11 +52,8 @@ public:
     void setMat4(const std::string& name, const glm::mat4& mat) const;
 
     GLuint getID() const { return ID; }
-
+    bool isInitialized() const { return initialized; }
 private:
-    GLuint ID;
-    mutable std::unordered_map<std::string, GLint> uniformLocationCache;
-
     GLint getUniformLocation(const std::string& name) const;
 
     std::string loadShaderSource(const std::string& filePath) const;

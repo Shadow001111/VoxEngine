@@ -23,6 +23,8 @@ public:
 	void bind() const;
 	void unbind() const;
 
+	void bindBase(GLuint index) const;
+
 	void allocateMemory_optionalBind(size_t newSize);
 	void allocateMemory(size_t newSize);
 

@@ -48,7 +48,7 @@ inline auto ThreadPool::enqueue(F&& f, Args && ...args) -> std::future<typename 
 
         if (stop)
         {
-            throw std::runtime_error("Enqueue on stopped ThreadPool");
+            return res;
         }
 
         tasks.emplace([task]() { (*task)(); });
@@ -61,10 +61,13 @@ template<class F, class... Args>
 inline auto ThreadPool::broadcast(F&& f, Args&&... args)
 {
     std::vector<std::future<void>> futures;
-    std::unique_lock<std::mutex> lock(queueMutex);
 
     if (stop)
-        throw std::runtime_error("Broadcast on stopped ThreadPool");
+    {
+        return futures;
+    }
+
+    std::unique_lock<std::mutex> lock(queueMutex);
 
     for (size_t i = 0; i < workers.size(); ++i)
     {

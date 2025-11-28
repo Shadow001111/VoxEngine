@@ -1,7 +1,6 @@
 #include "OpenGL_Buffer.h"
 
-#include <stdexcept>
-#include <string>
+#include <iostream>
 
 #include "Core/Debug.h"
 
@@ -74,6 +73,11 @@ void OpenGL_Buffer::unbind() const
 	glBindBuffer(target, 0);
 }
 
+void OpenGL_Buffer::bindBase(GLuint index) const
+{
+	glBindBufferBase(target, index, id);
+}
+
 void OpenGL_Buffer::allocateMemory_optionalBind(size_t newSize)
 {
 	if (newSize > capacity)
@@ -102,11 +106,10 @@ void OpenGL_Buffer::write(const void* data, size_t dataSize, size_t offset) cons
 
 	if (offset + dataSize > capacity)
 	{
-		throw std::runtime_error(
-			"OpenGL_Buffer::write: Index out of bounds! "
-			"Attempted write end = " + std::to_string(offset + dataSize) +
-			", capacity = " + std::to_string(capacity) + "."
-		);
+		std::cerr << "OpenGL_Buffer::write: Index out of bounds! Attempted write end = " << (offset + dataSize) <<
+			", capacity = " << capacity <<
+			"." << std::endl;
+		return;
 	}
 	else
 	{
@@ -118,7 +121,8 @@ void OpenGL_Buffer::copyRangeFrom(const OpenGL_Buffer& src, size_t srcOffset, si
 {
 	if (srcOffset + size > src.capacity || dstOffset + size > capacity)
 	{
-		throw std::runtime_error("OpenGL_Buffer::copyRangeFrom: Range exceeds buffer capacity.");
+		std::cerr << "OpenGL_Buffer::copyRangeFrom: Range exceeds buffer capacity." << std::endl;
+		return;
 	}
 
 	// Bind both buffers to copy targets
