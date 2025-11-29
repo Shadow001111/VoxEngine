@@ -4,27 +4,27 @@
 #include <vector>
 #include <string>
 
-enum class AttachmentType
-{
-    COLOR,
-    DEPTH,
-    STENCIL,
-    DEPTH_STENCIL
-};
-
-struct Attachment
-{
-    GLuint textureID;
-    AttachmentType type;
-    GLenum internalFormat;
-    GLenum format;
-    GLenum dataType;
-    int attachmentPoint;
-    bool isExternal;
-};
-
 class OpenGL_FBO
 {
+    enum class AttachmentType
+    {
+        COLOR,
+        DEPTH,
+        STENCIL,
+        DEPTH_STENCIL
+    };
+
+    struct Attachment
+    {
+        GLuint textureID;
+        AttachmentType type;
+        GLenum internalFormat;
+        GLenum format;
+        GLenum dataType;
+        int attachmentPoint;
+        bool isExternal;
+    };
+
     GLuint id;
     int width, height;
 
@@ -92,7 +92,6 @@ public:
     int getWidth() const { return width; }
     int getHeight() const { return height; }
     const std::vector<GLenum>& getDrawBuffers() const { return drawBuffers; }
-
 private:
     void setupDrawBuffers();
     GLenum getAttachmentPoint(AttachmentType type, int preferredPoint = -1);

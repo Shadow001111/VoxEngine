@@ -1456,6 +1456,8 @@ void Chunk::updateMesh()
 		const int dy[] = { 0, 0, -1, 1, 0, 0 };
 		const int dz[] = { 0, 0, 0, 0, -1, 1 };
 
+		static const TextureSlot fallbackTextureSlot(0, TextureTransformation::None, false);
+
 		ChunkMeshData::InstancesStorage newInstances;
 		for (int x = 0; x < CHUNK_SIZE; x++)
 		{
@@ -1473,8 +1475,6 @@ void Chunk::updateMesh()
 
 					const auto& modelID = blockData->visuals.modelID;
 					const auto& textureSlots = blockData->visuals.textureSlots;
-					auto& alignedInstances = blockData->properties.areFacesTranslucent ? newInstances.alignedTranslucent : newInstances.alignedOpaque;
-					auto& nonAlignedInstances = blockData->properties.areFacesTranslucent ? newInstances.nonAlignedTranslucent : newInstances.nonAlignedOpaque;
 			
 					const auto& model = BlockModelLoader::getBlockModelById(modelID);
 
@@ -1500,31 +1500,36 @@ void Chunk::updateMesh()
 
 						// TODO: Add 'bool cullFace[6]' to BlockData visuals. So stairs won't cull other faces.
 						const BlockData* neighborBlockData = BlockRegistry::getBlockDataByID(neighborBlock);
-						if (!neighborBlockData->properties.areFacesTranslucent)
+						if (neighborBlockData->properties.faceCulling[face.normal ^ 1])
 						{
 							continue;
 						}
 
-						const auto& textureData = face.textureSlot < textureSlots.size() ?
-							textureSlots[face.textureSlot] :
-							std::make_pair<uint32_t, TextureTransformation>(0, TextureTransformation::None);
+						const auto& textureSlot = face.textureSlot < textureSlots.size() ? textureSlots[face.textureSlot] : fallbackTextureSlot;
 
 						LightLevel neighborLight = neighborChunk->getLightAt(neighborIndex);
 						unsigned int ao, light;
 						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, face.normal, neighborLight);
-						alignedInstances.emplace_back(
+
+						auto& instances = textureSlot.isTranslucent ? newInstances.alignedTranslucent : newInstances.alignedOpaque;
+
+						instances.emplace_back(
 							x, y, z,
 							face.normal,
 							ao,
-							textureData.first,
-							(uint32_t)textureData.second,
+							textureSlot.textureID,
+							(uint32_t)textureSlot.transformation,
 							light
 						);
 					}
 
 					// Non-aligned faces
+					// TODO: Enable culling for faces on
+					// TODO: Maybe non-aligned translucent faces shouldn't be culled. Maybe they should be drawn using GL_LEQUAL for depth test.
 					for (const auto& face : model.nonAlignedFaces)
 					{
+						const auto& textureSlot = face.textureSlot < textureSlots.size() ? textureSlots[face.textureSlot] : fallbackTextureSlot;
+
 						NonAlignedBlockFace instance;
 
 						instance.blockX = x;
@@ -1559,7 +1564,7 @@ void Chunk::updateMesh()
 						instance.u3 = face.u3;
 						instance.v3 = face.v3;
 
-						instance.textureID = face.textureSlot < textureSlots.size() ? textureSlots[face.textureSlot].first : 0;
+						instance.textureID = textureSlot.textureID;
 
 						BlockVertexLightData lightData;
 						calculateBlockVertexLight(lightData, x, y, z);
@@ -1582,7 +1587,9 @@ void Chunk::updateMesh()
 						instance.ao6 = lightData.ao[6];
 						instance.ao7 = lightData.ao[7];
 
-						nonAlignedInstances.push_back(instance);
+						auto& instances = textureSlot.isTranslucent ? newInstances.nonAlignedTranslucent : newInstances.nonAlignedOpaque;
+
+						instances.push_back(instance);
 						// TODO: Make it emplace... maybe? Maybe emplace empty one and fill it inside vector?
 					}
 				}
@@ -2243,7 +2250,7 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(unsigned int& ao, unsigned int
 	unsigned int ao0, ao1, ao2, ao3;
 	LightLevel lightLevels[4];
 
-	auto getSafe = [this, &lightData, &solidNeighbors](size_t dataIdx, int x_, int y_, int z_)
+	auto getSafe = [this, &lightData, &solidNeighbors, normal](size_t dataIdx, int x_, int y_, int z_)
 		{
 			size_t idx;
 			const Chunk* c = getChunkAndIndex_checkNeighborsTraverse(x_, y_, z_, idx);
@@ -2253,7 +2260,7 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(unsigned int& ao, unsigned int
 			{
 				auto data = c->getBlockAndLightAt(idx);
 				lightData[dataIdx] = data.second;
-				solidNeighbors[dataIdx] = !BlockRegistry::getBlockDataByID(data.first)->properties.areFacesTranslucent;
+				solidNeighbors[dataIdx] = BlockRegistry::getBlockDataByID(data.first)->properties.faceCulling[normal ^ 1]; // TODO: Check, maybe it's not working
 			}
 		};
 
@@ -2366,83 +2373,83 @@ void Chunk::calculateBlockVertexLight(BlockVertexLightData& result, int x, int y
 		result.ao[i] = 3u;
 	}
 	return;
-	LightLevel lightData[27];
-	bool solidNeighbors[27];
+	//LightLevel lightData[27];
+	//bool solidNeighbors[27];
 
-	constexpr auto getIndex3x3 = [](int dx, int dy, int dz) constexpr {
-		return (dx + 1) * 9 + (dy + 1) * 3 + (dz + 1);
-		};
+	//constexpr auto getIndex3x3 = [](int dx, int dy, int dz) constexpr {
+	//	return (dx + 1) * 9 + (dy + 1) * 3 + (dz + 1);
+	//	};
 
-	auto getSafe = [this, &lightData, &solidNeighbors](size_t dataIdx, int x_, int y_, int z_)
-		{
-			size_t idx;
-			const Chunk* c = getChunkAndIndex_checkNeighborsTraverse(x_, y_, z_, idx);
+	//auto getSafe = [this, &lightData, &solidNeighbors](size_t dataIdx, int x_, int y_, int z_)
+	//	{
+	//		size_t idx;
+	//		const Chunk* c = getChunkAndIndex_checkNeighborsTraverse(x_, y_, z_, idx);
 
-			solidNeighbors[dataIdx] = true;
-			if (c)
-			{
-				auto data = c->getBlockAndLightAt(idx);
-				lightData[dataIdx] = data.second;
-				solidNeighbors[dataIdx] = !BlockRegistry::getBlockDataByID(data.first)->properties.areFacesTranslucent;
-			}
-		};
+	//		solidNeighbors[dataIdx] = true;
+	//		if (c)
+	//		{
+	//			auto data = c->getBlockAndLightAt(idx);
+	//			lightData[dataIdx] = data.second;
+	//			solidNeighbors[dataIdx] = !BlockRegistry::getBlockDataByID(data.first)->properties.areFacesTranslucent;
+	//		}
+	//	};
 
-	size_t idx = 0;
-	for (int dx = -1; dx <= 1; dx++)
-	{
-		for (int dy = -1; dy <= 1; dy++)
-		{
-			for (int dz = -1; dz <= 1; dz++)
-			{
-				getSafe(idx++, x + dx, y + dy, z + dz);
-			}
-		}
-	}
-	// TODO: Maybe center always should be not solid?
+	//size_t idx = 0;
+	//for (int dx = -1; dx <= 1; dx++)
+	//{
+	//	for (int dy = -1; dy <= 1; dy++)
+	//	{
+	//		for (int dz = -1; dz <= 1; dz++)
+	//		{
+	//			getSafe(idx++, x + dx, y + dy, z + dz);
+	//		}
+	//	}
+	//}
+	//// TODO: Maybe center always should be not solid?
 
-	// -1 -1 -1
-	{
-		const int indices[8] = {
-			getIndex3x3( 0, -1,  0),
-			getIndex3x3(-1, -1,  0),
-			getIndex3x3( 0, -1, -1),
-			getIndex3x3(-1, -1, -1),
-			getIndex3x3( 0,  0,  0),
-			getIndex3x3(-1,  0,  0),
-			getIndex3x3( 0,  0, -1),
-			getIndex3x3(-1,  0, -1),
-		};
+	//// -1 -1 -1
+	//{
+	//	const int indices[8] = {
+	//		getIndex3x3( 0, -1,  0),
+	//		getIndex3x3(-1, -1,  0),
+	//		getIndex3x3( 0, -1, -1),
+	//		getIndex3x3(-1, -1, -1),
+	//		getIndex3x3( 0,  0,  0),
+	//		getIndex3x3(-1,  0,  0),
+	//		getIndex3x3( 0,  0, -1),
+	//		getIndex3x3(-1,  0, -1),
+	//	};
 
-		unsigned int blockLightSum = 0;
-		unsigned int skyLightSum = 0;
-		unsigned int validSamplesCount = 0;
-		for (int index : indices)
-		{
-			if (solidNeighbors[index])
-			{
-				continue;
-			}
+	//	unsigned int blockLightSum = 0;
+	//	unsigned int skyLightSum = 0;
+	//	unsigned int validSamplesCount = 0;
+	//	for (int index : indices)
+	//	{
+	//		if (solidNeighbors[index])
+	//		{
+	//			continue;
+	//		}
 
-			blockLightSum += lightData[index].blockLight;
-			skyLightSum += lightData[index].skyLight;
-			validSamplesCount++;
-		}
+	//		blockLightSum += lightData[index].blockLight;
+	//		skyLightSum += lightData[index].skyLight;
+	//		validSamplesCount++;
+	//	}
 
-		unsigned int avgBlockLight = 0;
-		unsigned int avgSkyLight = 0;
-		if (validSamplesCount > 0)
-		{
-			avgBlockLight = blockLightSum / validSamplesCount;
-			avgSkyLight = skyLightSum / validSamplesCount;
-		}
+	//	unsigned int avgBlockLight = 0;
+	//	unsigned int avgSkyLight = 0;
+	//	if (validSamplesCount > 0)
+	//	{
+	//		avgBlockLight = blockLightSum / validSamplesCount;
+	//		avgSkyLight = skyLightSum / validSamplesCount;
+	//	}
 
-		result.light[0].blockLight = avgBlockLight;
-		result.light[0].skyLight = avgSkyLight;
-		result.ao[0] = (float)validSamplesCount / 8.0f * 3.0f;
-	}
+	//	result.light[0].blockLight = avgBlockLight;
+	//	result.light[0].skyLight = avgSkyLight;
+	//	result.ao[0] = (float)validSamplesCount / 8.0f * 3.0f;
+	//}
 
-	//result.light[0] = LightLevel(15, 15);
-	//result.ao[0] = 3;
+	////result.light[0] = LightLevel(15, 15);
+	////result.ao[0] = 3;
 }
 
 glm::ivec3 Chunk::getPosition() const

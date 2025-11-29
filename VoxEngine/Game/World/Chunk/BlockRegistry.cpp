@@ -1,7 +1,7 @@
 #include "BlockRegistry.h"
+#include "BlockModelLoader.h"
 
 #include <algorithm>
-#include <stdexcept>
 
 #include "Core/Assert.h"
 
@@ -10,18 +10,26 @@ inline uint8_t clamp(uint8_t v, uint8_t min, uint8_t max)
 	return std::min(max, std::max(min, v));
 }
 
-BlockProperties::BlockProperties(bool absorbsLight, uint8_t lightEmission, bool hasFaces, bool areFacesTranslucent, bool raycastable) :
+BlockProperties::BlockProperties(bool absorbsLight, uint8_t lightEmission, bool raycastable) :
 	absorbsLight(absorbsLight),
 	lightEmission(clamp(lightEmission, 0, 15)),
-	hasFaces(hasFaces),
-	areFacesTranslucent(areFacesTranslucent || !hasFaces),
 	raycastable(raycastable)
+{}
+
+TextureInfo::TextureInfo(const std::string& name, TextureTransformation transformation, bool isTranslucent) :
+	name(name), transformation(transformation), isTranslucent(isTranslucent)
 {
 }
 
+TextureSlot::TextureSlot(uint32_t textureID, TextureTransformation transformation, bool isTranslucent) :
+	textureID(textureID), transformation(transformation), isTranslucent(isTranslucent)
+{
+}
+
+
 BlockTempInfo::BlockTempInfo(
 	const char* modelName,
-	const std::vector<std::pair<std::string, TextureTransformation>>& textureSlots)
+	const std::vector<TextureInfo>& textureSlots)
 	:
 	modelName(modelName),
 	textureInfo(textureSlots)
@@ -46,132 +54,131 @@ void BlockRegistry::registerBlock(const std::string& blockName, const BlockPrope
 	}
 
 	BlockID blockID = static_cast<BlockID>(blockIndexer.registerAndGetId(blockName));
-	
-	std::vector<std::pair<uint32_t, TextureTransformation>> textureSlots;
-	for (const auto& [textureName, transformation] : tempInfo.textureInfo)
-	{
-		textureSlots.emplace_back(0, transformation); // ID will be set in buildIDs
-	}
 
 	blockDataStorage[blockID] = { properties, BlockVisuals() };
 	blockTempInfoStorage[blockID] = tempInfo;
 }
 
 void BlockRegistry::registerBlocks(
-	std::vector<std::string>& textureNames,
-	std::vector<std::string>& modelNames
+	std::vector<std::string>& textureNames
 )
 {
+	std::vector<std::string> modelNames;
+
 	registerBlock("core:air",
-		{ false,  0,  false, true, false },
+		{ false,  0,false },
 		{ "", {} }
 	);
 
 	registerBlock("core:grass_block",
-		{ true, 0,  true,  false, true },
+		{ true, 0, true },
 		{ "cube", {
-			{"grass_block_side", TextureTransformation::None},
-			{"grass_block_side", TextureTransformation::None},
-			{"dirt", TextureTransformation::RotateAndFlip},
-			{"grass_block_top", TextureTransformation::RotateAndFlip},
-			{"grass_block_side", TextureTransformation::None},
-			{"grass_block_side", TextureTransformation::None}
+			{"grass_block_side", TextureTransformation::None		 , false},
+			{"grass_block_side", TextureTransformation::None		 , false},
+			{"dirt",			 TextureTransformation::RotateAndFlip, false},
+			{"grass_block_top",  TextureTransformation::RotateAndFlip, false},
+			{"grass_block_side", TextureTransformation::None		 , false},
+			{"grass_block_side", TextureTransformation::None		 , false}
 		} }
 	);
 
 	registerBlock("core:dirt",
-		{ true, 0,  true,  false, true },
+		{ true, 0, true },
 		{ "cube", {
-			{"dirt", TextureTransformation::RotateAndFlip},
-			{"dirt", TextureTransformation::RotateAndFlip},
-			{"dirt", TextureTransformation::RotateAndFlip},
-			{"dirt", TextureTransformation::RotateAndFlip},
-			{"dirt", TextureTransformation::RotateAndFlip},
-			{"dirt", TextureTransformation::RotateAndFlip}
+			{"dirt", TextureTransformation::RotateAndFlip, false},
+			{"dirt", TextureTransformation::RotateAndFlip, false},
+			{"dirt", TextureTransformation::RotateAndFlip, false},
+			{"dirt", TextureTransformation::RotateAndFlip, false},
+			{"dirt", TextureTransformation::RotateAndFlip, false},
+			{"dirt", TextureTransformation::RotateAndFlip, false}
 		} }
 	);
 
 	registerBlock("core:stone",
-		{ true, 0,  true,  false, true },
+		{ true, 0, true },
 		{ "cube", {
-			{"stone", TextureTransformation::Flip},
-			{"stone", TextureTransformation::Flip},
-			{"stone", TextureTransformation::Flip},
-			{"stone", TextureTransformation::Flip},
-			{"stone", TextureTransformation::Flip},
-			{"stone", TextureTransformation::Flip}
+			{"stone", TextureTransformation::Flip, false},
+			{"stone", TextureTransformation::Flip, false},
+			{"stone", TextureTransformation::Flip, false},
+			{"stone", TextureTransformation::Flip, false},
+			{"stone", TextureTransformation::Flip, false},
+			{"stone", TextureTransformation::Flip, false}
 		} }
 	);
 
 	registerBlock("core:glass",
-		{ false, 0, true,  true, true },
+		{ false, 0, true },
 		{ "cube", {
-			{"glass", TextureTransformation::None},
-			{"glass", TextureTransformation::None},
-			{"glass", TextureTransformation::None},
-			{"glass", TextureTransformation::None},
-			{"glass", TextureTransformation::None},
-			{"glass", TextureTransformation::None}
+			{"glass", TextureTransformation::None, true},
+			{"glass", TextureTransformation::None, true},
+			{"glass", TextureTransformation::None, true},
+			{"glass", TextureTransformation::None, true},
+			{"glass", TextureTransformation::None, true},
+			{"glass", TextureTransformation::None, true}
 		} }
 	);
 
 	registerBlock("core:colored_glass",
-		{ false, 15, true,  true, true },
+		{ false, 15, true },
 		{ "cube", {
-			{"glass_red", TextureTransformation::None},
-			{"glass_red", TextureTransformation::None},
-			{"glass_green", TextureTransformation::None},
-			{"glass_green", TextureTransformation::None},
-			{"glass_blue", TextureTransformation::None},
-			{"glass_blue", TextureTransformation::None}
+			{"glass_red", TextureTransformation::None  , true},
+			{"glass_red", TextureTransformation::None  , true},
+			{"glass_green", TextureTransformation::None, true},
+			{"glass_green", TextureTransformation::None, true},
+			{"glass_blue", TextureTransformation::None , true},
+			{"glass_blue", TextureTransformation::None , true}
 		} }
 	);
 
 	registerBlock("core:water",
-		{ false, 0, true,  true, false },
+		{ false, 0, false },
 		{ "cube", {
-			{"water", TextureTransformation::None},
-			{"water", TextureTransformation::None},
-			{"water", TextureTransformation::None},
-			{"water", TextureTransformation::None},
-			{"water", TextureTransformation::None},
-			{"water", TextureTransformation::None}
+			{"water", TextureTransformation::None, true},
+			{"water", TextureTransformation::None, true},
+			{"water", TextureTransformation::None, true},
+			{"water", TextureTransformation::None, true},
+			{"water", TextureTransformation::None, true},
+			{"water", TextureTransformation::None, true}
 		} }
 	);
 
 	registerBlock("core:log_oak",
-		{ true, 0,  true,  false, true },
+		{ true, 0, true },
 		{ "cube", {
-			{"log_oak", TextureTransformation::None},
-			{"log_oak", TextureTransformation::None},
-			{"log_oak_top", TextureTransformation::None},
-			{"log_oak_top", TextureTransformation::None},
-			{"log_oak", TextureTransformation::None},
-			{"log_oak", TextureTransformation::None}
+			{"log_oak", TextureTransformation::None	   , false},
+			{"log_oak", TextureTransformation::None	   , false},
+			{"log_oak_top", TextureTransformation::None, false},
+			{"log_oak_top", TextureTransformation::None, false},
+			{"log_oak", TextureTransformation::None	   , false},
+			{"log_oak", TextureTransformation::None	   , false}
 		} }
 	);
 
 	registerBlock("core:leaves_oak",
-		{ false, 0,  true,  true, true },
+		{ false, 0, true },
 		{ "cube", {
-			{"leaves_oak", TextureTransformation::None},
-			{"leaves_oak", TextureTransformation::None},
-			{"leaves_oak", TextureTransformation::None},
-			{"leaves_oak", TextureTransformation::None},
-			{"leaves_oak", TextureTransformation::None},
-			{"leaves_oak", TextureTransformation::None}
+			{"leaves_oak", TextureTransformation::None, true},
+			{"leaves_oak", TextureTransformation::None, true},
+			{"leaves_oak", TextureTransformation::None, true},
+			{"leaves_oak", TextureTransformation::None, true},
+			{"leaves_oak", TextureTransformation::None, true},
+			{"leaves_oak", TextureTransformation::None, true}
 		} }
 	);
 
 	registerBlock("core:stairs",
-		{ true, 0,  true,  false, true },
+		{ true, 0, true },
 		{ "stairs", {
-			{"stone", TextureTransformation::None}
+			{"stone", TextureTransformation::None, false}
 		} }
 	);
 
-	BlockRegistry::buildIDs(textureNames, modelNames);
+	buildIDs(textureNames, modelNames);
 	blockTempInfoStorage.clear();
+
+	BlockModelLoader::loadModels(modelNames);
+
+	updateBlockPropertiesBasedOnModels();
 }
 
 void BlockRegistry::buildIDs(
@@ -186,20 +193,21 @@ void BlockRegistry::buildIDs(
 	//textureIndexer.registerAndGetId(""); // Broken texture
 	for (auto& [blockID, blockData] : blockDataStorage)
 	{
-		// TODO: Add check for empty string
+		const auto& tempInfo = blockTempInfoStorage.find(blockID)->second;
+
+		blockData.properties.hasFaces = !tempInfo.textureInfo.empty();
+
 		if (!blockData.properties.hasFaces)
 		{
 			continue;
 		}
 
-		const auto& tempInfo = blockTempInfoStorage.find(blockID)->second;
-
 		blockData.visuals.modelID = modelIndexer.registerAndGetId(tempInfo.modelName);
 
-		for (const auto& [textureName, transformation] : tempInfo.textureInfo)
+		for (const auto& [textureName, transformation, isTranslucent] : tempInfo.textureInfo)
 		{
 			auto textureID = textureIndexer.registerAndGetId(textureName);
-			blockData.visuals.textureSlots.emplace_back(textureID, transformation);
+			blockData.visuals.textureSlots.emplace_back(textureID, transformation, isTranslucent);
 		}
 	}
 
@@ -231,6 +239,49 @@ void BlockRegistry::buildIDs(
 	}
 
 	// TODO: Find better way to sort this, without look ups. Maybe flatten and the sort then collect?
+}
+
+void BlockRegistry::updateBlockPropertiesBasedOnModels()
+{
+	for (auto& [blockID, blockData] : blockDataStorage)
+	{
+		// Skip blocks without faces
+		if (!blockData.properties.hasFaces)
+		{
+			continue;
+		}
+
+		// Get the block's model
+		const auto& model = BlockModelLoader::getBlockModelById(blockData.visuals.modelID);
+
+		// Reset all face culling to false initially
+		for (int i = 0; i < 6; i++)
+		{
+			blockData.properties.faceCulling[i] = false;
+		}
+
+		// Enable culling for faces that have opaque aligned faces in the model
+		for (const auto& alignedFace : model.alignedFaces)
+		{
+			if (alignedFace.normal >= 6)
+			{
+				continue;
+			}
+
+			bool shouldCull = true;
+
+			if (alignedFace.textureSlot < blockData.visuals.textureSlots.size())
+			{
+				const auto& textureSlot = blockData.visuals.textureSlots[alignedFace.textureSlot];
+				if (textureSlot.isTranslucent)
+				{
+					shouldCull = false;
+				}
+			}
+
+			blockData.properties.faceCulling[alignedFace.normal] = shouldCull;
+		}
+	}
 }
 
 BlockID BlockRegistry::getBlockID(const std::string& blockName)

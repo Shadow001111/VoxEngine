@@ -125,10 +125,10 @@ TextRenderer::TextRenderer()
 		{GL_VERTEX_SHADER, "res/Shaders/text.vert"},
 		{GL_FRAGMENT_SHADER, "res/Shaders/text.frag"}
 	};
-	textShader = std::make_unique<Shader>(textShaderSources);
-    textShader->use();
-    textShader->setInt("glyphTextureArray", 0);
-    textShader->setMat4("projection", projectionMatrix);
+	textShader = Shader(textShaderSources);
+    textShader.use();
+    textShader.setInt("glyphTextureArray", 0);
+    //textShader.setMat4("projection", projectionMatrix);
 
     // Buffers
     glm::vec2 vertices[4] = // CCW order
@@ -399,8 +399,8 @@ void TextRenderer::renderText(const std::string& text, float x, float y, float r
 
     // Shader
     const auto& textShader = inst.textShader;
-    textShader->use();
-    textShader->setVec3("textColor", color.x, color.y, color.z);
+    textShader.use();
+    textShader.setVec3("textColor", color.x, color.y, color.z);
 
     glDisable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
@@ -467,6 +467,6 @@ void TextRenderer::updateProjectionMatrix(int width, int height)
     const auto& textShader = inst.textShader;
 
     proj = glm::ortho(0.0f, (float)width, 0.0f, (float)height);;
-    textShader->use();
-    textShader->setMat4("projection", proj);
+    textShader.use();
+    textShader.setMat4("projection", proj);
 }

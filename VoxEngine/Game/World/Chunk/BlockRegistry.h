@@ -12,11 +12,11 @@ struct BlockProperties
 	bool absorbsLight = false;
 	uint8_t lightEmission = 0;
 	bool hasFaces = false;
-	bool areFacesTranslucent = false; // Can be array of 6
+	bool faceCulling[6] = { false, false, false, false, false, false };
 	bool raycastable = false;
 
 	BlockProperties() = default;
-	BlockProperties(bool absorbsLight, uint8_t lightEmission, bool hasFaces, bool areFacesTranslucent, bool raycastable);
+	BlockProperties(bool absorbsLight, uint8_t lightEmission, bool raycastable);
 };
 
 enum class TextureTransformation : uint8_t
@@ -26,10 +26,30 @@ enum class TextureTransformation : uint8_t
 	RotateAndFlip = 2
 };
 
+struct TextureInfo
+{
+	std::string name;
+	TextureTransformation transformation = TextureTransformation::None;
+	bool isTranslucent = false;
+
+	TextureInfo() = default;
+	TextureInfo(const std::string& name, TextureTransformation transformation, bool isTranslucent);
+};
+
+struct TextureSlot
+{
+	uint32_t textureID = 0;
+	TextureTransformation transformation = TextureTransformation::None;
+	bool isTranslucent = false;
+
+	TextureSlot() = default;
+	TextureSlot(uint32_t textureID, TextureTransformation transformation, bool isTranslucent);
+};
+
 struct BlockVisuals
 {
 	uint32_t modelID = 0;
-	std::vector<std::pair<uint32_t, TextureTransformation>> textureSlots;
+	std::vector<TextureSlot> textureSlots;
 
 	BlockVisuals() = default;
 };
@@ -38,12 +58,12 @@ struct BlockVisuals
 struct BlockTempInfo
 {
 	std::string modelName;
-	std::vector<std::pair<std::string, TextureTransformation>> textureInfo;
+	std::vector<TextureInfo> textureInfo;
 
 	BlockTempInfo() = default;
 	BlockTempInfo(
 		const char* modelName,
-		const std::vector<std::pair<std::string, TextureTransformation>>& textureSlots
+		const std::vector<TextureInfo>& textureSlots
 	);
 };
 
@@ -76,14 +96,14 @@ class BlockRegistry
 	);
 public:
 	static void registerBlocks(
-		std::vector<std::string>& textureNames,
-		std::vector<std::string>& modelNames
+		std::vector<std::string>& textureNames
 	);
 private:
 	static void buildIDs(
 		std::vector<std::string>& textureNames,
 		std::vector<std::string>& modelNames
 	);
+	static void updateBlockPropertiesBasedOnModels();
 public:
 	// Retrieve block ID from block name (returns SIZE_MAX if not found)
 	static BlockID getBlockID(const std::string& blockName);

@@ -27,7 +27,8 @@ void Entity::update(double deltaTime)
 	}
 
 	// Move
-	moveAndCheckForCollisions(velocity * deltaTime);
+	transform.position += velocity * deltaTime;
+	//moveAndCheckForCollisions(velocity * deltaTime);
 }
 
 void Entity::moveAndCheckForCollisions(const glm::dvec3& dpos)

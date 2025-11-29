@@ -4,7 +4,6 @@
 #include "World/Chunk/ChunkMeshManager.h"
 
 #include "World/Chunk/BlockRegistry.h"
-#include "World/Chunk/BlockModelLoader.h"
 
 #include "Core/Profiler.h"
 #include "Core/Multithreading/ThreadPool.h"
@@ -75,22 +74,15 @@ World::World() :
 
 	// Block data base
 	std::vector<std::string> blockTextureNames;
-	std::vector<std::string> blockModelNames;
 	{
-		PROFILE_SCOPE("Blocks registration", ProfileCategory::General);
-		BlockRegistry::registerBlocks(blockTextureNames, blockModelNames);
+		PROFILE_SCOPE("Blocks registration and model loading", ProfileCategory::General);
+		BlockRegistry::registerBlocks(blockTextureNames);
 	}
 
 	// Block textures
 	{
 		PROFILE_SCOPE("Block texture array creation", ProfileCategory::General);
 		blockTextureArray.load("res/Textures", blockTextureNames, 16);
-	}
-
-	// Models
-	{
-		PROFILE_SCOPE("Block models loading", ProfileCategory::General);
-		BlockModelLoader::loadModels(blockModelNames);
 	}
 
 	{

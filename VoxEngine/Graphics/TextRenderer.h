@@ -1,6 +1,5 @@
 #pragma once
 #include <glm/glm.hpp>
-#include <memory>
 
 #include "Shader.h"
 
@@ -56,9 +55,9 @@ class TextRenderer
     std::unordered_map<std::string, Font> fonts;
     Font* currentFont = nullptr;
 
-    GLuint textVAO, textVBO, textInstanceVBO;
+    GLuint textVAO = 0, textVBO = 0, textInstanceVBO = 0;
 
-    std::unique_ptr<Shader> textShader;
+    Shader textShader;
     glm::mat4 projectionMatrix;
 
     GlyphInstance glyphInstances[GLYPH_INSTANCE_BATCH_SIZE];
