@@ -15,6 +15,11 @@ ThreadPool::ThreadPool(size_t numThreads) : stop(false)
 
 ThreadPool::~ThreadPool()
 {
+    shutdown();
+}
+
+void ThreadPool::shutdown()
+{
     {
         std::unique_lock<std::mutex> lock(queueMutex);
         stop = true;
@@ -29,17 +34,8 @@ ThreadPool::~ThreadPool()
 
 void ThreadPool::waitForCompletion()
 {
-    while (true)
-    {
-        {
-            std::unique_lock<std::mutex> lock(queueMutex);
-            if (tasks.empty())
-            {
-                break;
-            }
-        }
-        std::this_thread::yield();
-    }
+    std::unique_lock<std::mutex> lock(queueMutex);
+    condition.wait(lock, [this] { return tasks.empty(); });
 }
 
 size_t ThreadPool::getThreadCount() const
@@ -56,7 +52,7 @@ void ThreadPool::workerThread()
             std::unique_lock<std::mutex> lock(queueMutex);
             condition.wait(lock, [this] { return stop || !tasks.empty(); });
 
-            if (stop && tasks.empty())
+            if (stop)
             {
                 return;
             }

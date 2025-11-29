@@ -7,7 +7,6 @@
 #include <future>
 #include <functional>
 #include <atomic>
-#include <iostream>
 
 class ThreadPool
 {
@@ -20,12 +19,17 @@ public:
 	ThreadPool(size_t numThreads = 0);
 	~ThreadPool();
 
+    ThreadPool(const ThreadPool&) = delete;
+    ThreadPool& operator=(const ThreadPool&) = delete;
+
 	template<class F, class... Args>
 	auto enqueue(F&& f, Args&&... args)
 		-> std::future<typename std::invoke_result<F, Args...>::type>;
 
     template<class F, class... Args>
     auto broadcast(F&& f, Args&&... args);
+
+    void shutdown();
 
 	void waitForCompletion();
     size_t getThreadCount() const;
@@ -108,7 +112,7 @@ void ParallelUtils::parallelFor(size_t start, size_t end, size_t minChunkSize, F
     if (totalItems <= minChunkSize)
     {
         // Too small for parallelization
-        for (size_t i = start; i < end; ++i)
+        for (size_t i = start; i < end; i++)
         {
             func(i);
         }
@@ -120,6 +124,7 @@ void ParallelUtils::parallelFor(size_t start, size_t end, size_t minChunkSize, F
     size_t chunkSize = std::max(minChunkSize, (totalItems + numThreads - 1) / numThreads);
 
     std::vector<std::future<void>> futures;
+    futures.reserve((totalItems + chunkSize - 1) / chunkSize);
 
     for (size_t i = start; i < end; i += chunkSize)
     {
