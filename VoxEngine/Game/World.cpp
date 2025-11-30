@@ -482,10 +482,10 @@ void World::renderOpaqueChunks(
 				debugData.renderedFaceCount += command.instanceCount;
 			}
 
-			chunkDrawCommandBuffer.allocateMemory_optionalBind(drawCount * sizeof(DrawArraysIndirectCommand));
+			chunkDrawCommandBuffer.allocateMemory(drawCount * sizeof(DrawArraysIndirectCommand));
 			chunkDrawCommandBuffer.write(chunkDrawCommands.data(), drawCount * sizeof(DrawArraysIndirectCommand));
 
-			chunkPositionSSBO.allocateMemory_optionalBind(drawCount * sizeof(glm::ivec3));
+			chunkPositionSSBO.allocateMemory(drawCount * sizeof(glm::ivec3));
 			chunkPositionSSBO.write(chunkPositions.data(), drawCount * sizeof(glm::ivec3));
 
 			alignedOpaqueFaceShader.use();
@@ -515,10 +515,10 @@ void World::renderOpaqueChunks(
 				debugData.renderedFaceCount += command.instanceCount;
 			}
 
-			chunkDrawCommandBuffer.allocateMemory_optionalBind(drawCount * sizeof(DrawArraysIndirectCommand));
+			chunkDrawCommandBuffer.allocateMemory(drawCount * sizeof(DrawArraysIndirectCommand));
 			chunkDrawCommandBuffer.write(chunkDrawCommands.data(), drawCount * sizeof(DrawArraysIndirectCommand));
 
-			chunkPositionSSBO.allocateMemory_optionalBind(drawCount * sizeof(glm::ivec3));
+			chunkPositionSSBO.allocateMemory(drawCount * sizeof(glm::ivec3));
 			chunkPositionSSBO.write(chunkPositions.data(), drawCount * sizeof(glm::ivec3));
 
 			nonAlignedOpaqueFaceShader.use();
@@ -558,10 +558,10 @@ void World::renderTranslucentChunks(const std::vector<ChunkRenderInfo>& chunksTo
 				debugData.renderedFaceCount += command.instanceCount;
 			}
 
-			chunkDrawCommandBuffer.allocateMemory_optionalBind(drawCount * sizeof(DrawArraysIndirectCommand));
+			chunkDrawCommandBuffer.allocateMemory(drawCount * sizeof(DrawArraysIndirectCommand));
 			chunkDrawCommandBuffer.write(chunkDrawCommands.data(), drawCount * sizeof(DrawArraysIndirectCommand));
 
-			chunkPositionSSBO.allocateMemory_optionalBind(drawCount * sizeof(glm::ivec3));
+			chunkPositionSSBO.allocateMemory(drawCount * sizeof(glm::ivec3));
 			chunkPositionSSBO.write(chunkPositions.data(), drawCount * sizeof(glm::ivec3));
 
 			alignedTranslucentFaceShader.use();
@@ -591,10 +591,10 @@ void World::renderTranslucentChunks(const std::vector<ChunkRenderInfo>& chunksTo
 				debugData.renderedFaceCount += command.instanceCount;
 			}
 
-			chunkDrawCommandBuffer.allocateMemory_optionalBind(drawCount * sizeof(DrawArraysIndirectCommand));
+			chunkDrawCommandBuffer.allocateMemory(drawCount * sizeof(DrawArraysIndirectCommand));
 			chunkDrawCommandBuffer.write(chunkDrawCommands.data(), drawCount * sizeof(DrawArraysIndirectCommand));
 
-			chunkPositionSSBO.allocateMemory_optionalBind(drawCount * sizeof(glm::ivec3));
+			chunkPositionSSBO.allocateMemory(drawCount * sizeof(glm::ivec3));
 			chunkPositionSSBO.write(chunkPositions.data(), drawCount * sizeof(glm::ivec3));
 
 			nonAlignedTranslucentFaceShader.use();

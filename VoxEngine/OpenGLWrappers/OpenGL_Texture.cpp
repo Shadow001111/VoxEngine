@@ -1,4 +1,5 @@
 #include "OpenGL_Texture.h"
+#include "OpenGLWrappers/openGLDebug.h"
 #include <iostream>
 
 // TODO: Add 'SAFE_OPENGL' macro to enable binds in methods for safety
@@ -77,7 +78,6 @@ void OpenGL_Texture::create1D(int width, GLenum internalFormat, GLenum format, G
 
 	glBindTexture(type, ID);
 	glTexStorage1D(type, mipLevels, internalFormat, width);
-	glBindTexture(type, 0);
 }
 
 void OpenGL_Texture::create2D(int width, int height, GLenum internalFormat, GLenum format, GLenum dataType, int mipLevels)
@@ -93,7 +93,6 @@ void OpenGL_Texture::create2D(int width, int height, GLenum internalFormat, GLen
 
 	glBindTexture(type, ID);
 	glTexStorage2D(type, mipLevels, internalFormat, width, height);
-	glBindTexture(type, 0);
 }
 
 void OpenGL_Texture::create3D(int width, int height, int depth, GLenum internalFormat, GLenum format, GLenum dataType, int mipLevels)
@@ -109,7 +108,6 @@ void OpenGL_Texture::create3D(int width, int height, int depth, GLenum internalF
 
 	glBindTexture(type, ID);
 	glTexStorage3D(type, mipLevels, internalFormat, width, height, depth);
-	glBindTexture(type, 0);
 }
 
 void OpenGL_Texture::create2DArray(int width, int height, int layers, GLenum internalFormat, GLenum format, GLenum dataType, int mipLevels)
@@ -125,7 +123,6 @@ void OpenGL_Texture::create2DArray(int width, int height, int layers, GLenum int
 
 	glBindTexture(type, ID);
 	glTexStorage3D(type, mipLevels, internalFormat, width, height, layers);
-	glBindTexture(type, 0);
 }
 
 void OpenGL_Texture::createCubeMap(int size, GLenum internalFormat, GLenum format, GLenum dataType, int mipLevels)
@@ -141,11 +138,12 @@ void OpenGL_Texture::createCubeMap(int size, GLenum internalFormat, GLenum forma
 
 	glBindTexture(type, ID);
 	glTexStorage2D(type, mipLevels, internalFormat, size, size);
-	glBindTexture(type, 0);
 }
 
 void OpenGL_Texture::uploadData(const void* data, int level)
 {
+	OPENGL_CHECK_BIND_TARGET(ID, type);
+
 	switch (type)
 	{
 	case GL_TEXTURE_1D:
@@ -170,6 +168,8 @@ void OpenGL_Texture::uploadData(const void* data, int level)
 void OpenGL_Texture::uploadSubData(const void* data, int xOffset, int yOffset, int zOffset,
 	int width, int height, int depth, int level)
 {
+	OPENGL_CHECK_BIND_TARGET(ID, type);
+
 	switch (type)
 	{
 	case GL_TEXTURE_1D:
@@ -199,6 +199,7 @@ void OpenGL_Texture::generateMipmaps()
 {
 	if (mipLevels > 1)
 	{
+		OPENGL_CHECK_BIND_TARGET(ID, type);
 		glGenerateMipmap(type);
 	}
 }
@@ -206,6 +207,8 @@ void OpenGL_Texture::generateMipmaps()
 void OpenGL_Texture::setParameters(GLenum minFilter, GLenum magFilter,
 	GLenum wrapS, GLenum wrapT, GLenum wrapR)
 {
+	OPENGL_CHECK_BIND_TARGET(ID, type);
+
 	glTexParameteri(type, GL_TEXTURE_MIN_FILTER, minFilter);
 	glTexParameteri(type, GL_TEXTURE_MAG_FILTER, magFilter);
 	glTexParameteri(type, GL_TEXTURE_WRAP_S, wrapS);

@@ -3,7 +3,7 @@
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 
-#include "Core/Debug.h"
+#include "OpenGLWrappers/OpenGLDebug.h"
 
 VoxelMarkerMesh::VoxelMarkerMesh()
 {

@@ -9,6 +9,8 @@
 #include "Graphics/TextRenderer.h"
 #include "Graphics/quad_vertices.h"
 
+#include "OpenGLWrappers/OpenGLDebug.h"
+
 #include <iostream>
 #include <sstream>
 #include <iomanip>

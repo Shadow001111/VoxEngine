@@ -17,7 +17,7 @@ ChunkMeshManager::ChunkMeshManager() :
 	};
 
 	vbo.bind();
-	vbo.allocateMemory_optionalBind(sizeof(vertices));
+	vbo.allocateMemory(sizeof(vertices));
 	vbo.write(vertices, sizeof(vertices));
 
 	{
@@ -193,7 +193,7 @@ void ChunkMeshManager::MeshAllocator::processMeshRequests(std::vector<ChunkMeshD
 	blockAllocator.setCapacity(newCapacity);
 	if (oldCapacity == 0)
 	{
-		instanceVBO.allocateMemory_optionalBind(newCapacity * config.faceSize);
+		instanceVBO.allocateMemory(newCapacity * config.faceSize);
 	}
 	else
 	{

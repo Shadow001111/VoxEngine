@@ -197,6 +197,7 @@
     <ClInclude Include="Game\World\Entity.h" />
     <ClInclude Include="Game\World\Chunk\ChunkMeshManager.h" />
     <ClInclude Include="Core\BlockAllocator.h" />
+    <ClInclude Include="OpenGLWrappers\OpenGLDebug.h" />
     <ClInclude Include="OpenGLWrappers\OpenGL_Buffer.h" />
     <ClInclude Include="Game\World\ChunkPool.h" />
     <ClInclude Include="Game\World\Chunk\MeshData.h" />

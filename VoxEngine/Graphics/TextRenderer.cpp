@@ -4,7 +4,7 @@
 
 #include "Core/Profiler.h"
 #include "Core/Assert.h"
-#include "Core/Debug.h"
+#include "OpenGLWrappers/OpenGLDebug.h"
 
 #include <iostream>
 

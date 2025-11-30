@@ -6,8 +6,8 @@ class OpenGL_Buffer
 protected:
 	GLenum target;
 	GLenum usage;
-	GLuint id;
-	size_t capacity;
+	GLuint id = 0;
+	size_t capacity = 0;
 public:
 	OpenGL_Buffer(GLenum target, GLenum usage);
 	~OpenGL_Buffer();
@@ -25,7 +25,6 @@ public:
 
 	void bindBase(GLuint index) const;
 
-	void allocateMemory_optionalBind(size_t newSize);
 	void allocateMemory(size_t newSize);
 
 	void write(const void* data, size_t dataSize, size_t offset = 0) const;

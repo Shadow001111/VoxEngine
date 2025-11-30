@@ -278,6 +278,9 @@
     <ClInclude Include="OpenGLWrappers\OpenGL_Texture.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
+    <ClInclude Include="OpenGLWrappers\OpenGLDebug.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CopyFileToFolders Include="..\Libraries\bin\FastNoise.dll">

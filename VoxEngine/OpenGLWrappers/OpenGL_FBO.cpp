@@ -1,4 +1,7 @@
 #include "OpenGL_FBO.h"
+
+#include "OpenGLDebug.h"
+
 #include <iostream>
 #include <stdexcept>
 
@@ -133,6 +136,8 @@ void OpenGL_FBO::linkColorTexture(const std::string& name, OpenGL_Texture& textu
     attachment.isExternal = true;
     attachment.attachmentPoint = getAttachmentPoint(AttachmentType::COLOR, attachmentPoint);
 
+    OPENGL_CHECK_BIND_TARGET(id, GL_FRAMEBUFFER);
+
     glFramebufferTexture2D(GL_FRAMEBUFFER, attachment.attachmentPoint, GL_TEXTURE_2D,
         attachment.texture.getID(), 0);
     attachments[name] = std::move(attachment);
@@ -153,6 +158,8 @@ void OpenGL_FBO::linkDepthTexture(const std::string& name, OpenGL_Texture& textu
     attachment.isExternal = true;
     attachment.attachmentPoint = GL_DEPTH_ATTACHMENT;
 
+    OPENGL_CHECK_BIND_TARGET(id, GL_FRAMEBUFFER);
+
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D,
         attachment.texture.getID(), 0);
     attachments[name] = std::move(attachment);
@@ -170,6 +177,8 @@ void OpenGL_FBO::linkStencilTexture(const std::string& name, OpenGL_Texture& tex
     attachment.type = AttachmentType::STENCIL;
     attachment.isExternal = true;
     attachment.attachmentPoint = GL_STENCIL_ATTACHMENT;
+
+    OPENGL_CHECK_BIND_TARGET(id, GL_FRAMEBUFFER);
 
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D,
         attachment.texture.getID(), 0);
@@ -189,6 +198,8 @@ void OpenGL_FBO::linkDepthStencilTexture(const std::string& name, OpenGL_Texture
     attachment.isExternal = true;
     attachment.attachmentPoint = GL_DEPTH_STENCIL_ATTACHMENT;
 
+    OPENGL_CHECK_BIND_TARGET(id, GL_FRAMEBUFFER);
+
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D,
         attachment.texture.getID(), 0);
     attachments[name] = std::move(attachment);
@@ -204,6 +215,8 @@ void OpenGL_FBO::removeAttachment(const std::string& name)
     auto it = attachments.find(name);
     if (it != attachments.end())
     {
+        OPENGL_CHECK_BIND_TARGET(id, GL_FRAMEBUFFER);
+
         // Detach from framebuffer
         glFramebufferTexture2D(GL_FRAMEBUFFER, it->second.attachmentPoint, GL_TEXTURE_2D, 0, 0);
         attachments.erase(it);
@@ -234,6 +247,8 @@ void OpenGL_FBO::resize(int newWidth, int newHeight)
     width = newWidth;
     height = newHeight;
 
+    OPENGL_CHECK_BIND_TARGET(id, GL_FRAMEBUFFER);
+
     for (auto& [name, attachment] : attachments)
     {
         if (!attachment.isExternal)
@@ -263,6 +278,8 @@ void OpenGL_FBO::clearAttachment(const std::string& name, const float* clearValu
     auto it = attachments.find(name);
     if (it != attachments.end())
     {
+        OPENGL_CHECK_BIND_TARGET(id, GL_FRAMEBUFFER);
+
         switch (it->second.type)
         {
         case AttachmentType::COLOR:
@@ -316,6 +333,8 @@ void OpenGL_FBO::bindTexture(const std::string& name, GLuint textureUnit) const
 
 bool OpenGL_FBO::isComplete() const
 {
+    OPENGL_CHECK_BIND_TARGET(id, GL_FRAMEBUFFER);
+
     GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
     if (status == GL_FRAMEBUFFER_COMPLETE)
     {
@@ -358,6 +377,8 @@ bool OpenGL_FBO::isComplete() const
 
 void OpenGL_FBO::setupDrawBuffers()
 {
+    OPENGL_CHECK_BIND_TARGET(id, GL_FRAMEBUFFER);
+
     drawBuffers.clear();
 
     for (const auto& [name, attachment] : attachments)
@@ -414,13 +435,9 @@ GLenum OpenGL_FBO::getAttachmentPoint(AttachmentType type, int preferredPoint)
 void OpenGL_FBO::createTexture(Attachment& attachment, GLenum internalFormat, GLenum format, GLenum dataType,
     GLenum minFilter, GLenum magFilter, GLenum wrapS, GLenum wrapT)
 {
-    // Use OpenGL_Texture to create the texture
     attachment.texture.create2D(width, height, internalFormat, format, dataType);
-
-    // Set texture parameters
     attachment.texture.setParameters(minFilter, magFilter, wrapS, wrapT);
 
-    // Attach to framebuffer
     glFramebufferTexture2D(GL_FRAMEBUFFER, attachment.attachmentPoint, GL_TEXTURE_2D,
         attachment.texture.getID(), 0);
 }

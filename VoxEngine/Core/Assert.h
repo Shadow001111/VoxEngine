@@ -4,7 +4,6 @@
 #include <cstdlib>
 
 #define ENABLE_ASSERTS 1
-#if ENABLE_ASSERTS
 
 #if defined(_MSC_VER)
 #include <intrin.h>
@@ -15,6 +14,7 @@
 #define DEBUG_BREAK() std::abort()
 #endif
 
+#if ENABLE_ASSERTS
 #define ASSERT(expr)                                                             \
     do {                                                                         \
         if (!(expr)) {                                                           \
@@ -27,5 +27,6 @@
             DEBUG_BREAK();                                                       \
         }                                                                        \
     } while (0)
-
+#else
+#define ASSERT(expr)  (void)0
 #endif
