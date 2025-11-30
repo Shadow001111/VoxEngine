@@ -4,7 +4,7 @@
 #include <string>
 #include <memory>
 
-#include "Graphics/OpenGL_FBO.h"
+#include "OpenGLWrappers/OpenGL_FBO.h"
 
 // Struct to hold window initialization parameters
 struct WindowParams

@@ -1,7 +1,7 @@
 #pragma once
 #include <glm/glm.hpp>
 
-#include "Shader.h"
+#include "OpenGLWrappers/Shader.h"
 
 #include <ft2build.h>
 #include FT_FREETYPE_H

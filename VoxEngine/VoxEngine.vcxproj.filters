@@ -24,7 +24,7 @@
     <ClCompile Include="glad.c">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="Graphics\Shader.cpp">
+    <ClCompile Include="OpenGLWrappers\Shader.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
     <ClCompile Include="Graphics\Camera.cpp">
@@ -99,13 +99,13 @@
     <ClCompile Include="Core\BlockAllocator.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="Graphics\OpenGL_Buffer.cpp">
+    <ClCompile Include="OpenGLWrappers\OpenGL_Buffer.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
     <ClCompile Include="Game\World\Chunk\ChunkMeshManager.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="Graphics\OpenGL_FBO.cpp">
+    <ClCompile Include="OpenGLWrappers\OpenGL_FBO.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
     <ClCompile Include="Game\World\Entity.cpp">
@@ -132,12 +132,15 @@
     <ClCompile Include="Game\World\Chunk\BlockModelLoader.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
+    <ClCompile Include="OpenGLWrappers\OpenGL_Texture.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="WindowManager.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="Graphics\Shader.h">
+    <ClInclude Include="OpenGLWrappers\Shader.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Graphics\Camera.h">
@@ -221,13 +224,13 @@
     <ClInclude Include="Core\BlockAllocator.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="Graphics\OpenGL_Buffer.h">
+    <ClInclude Include="OpenGLWrappers\OpenGL_Buffer.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Game\World\Chunk\ChunkMeshManager.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="Graphics\OpenGL_FBO.h">
+    <ClInclude Include="OpenGLWrappers\OpenGL_FBO.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Core\SymmetricBitMatrix.h">
@@ -270,6 +273,9 @@
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Game\World\Chunk\BlockModelLoader.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenGLWrappers\OpenGL_Texture.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
   </ItemGroup>

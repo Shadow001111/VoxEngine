@@ -3,6 +3,7 @@
 #include <unordered_map>
 #include <vector>
 #include <string>
+#include "OpenGL_Texture.h"
 
 class OpenGL_FBO
 {
@@ -16,13 +17,18 @@ class OpenGL_FBO
 
     struct Attachment
     {
-        GLuint textureID;
-        AttachmentType type;
-        GLenum internalFormat;
-        GLenum format;
-        GLenum dataType;
-        int attachmentPoint;
-        bool isExternal;
+        OpenGL_Texture texture;
+        AttachmentType type = AttachmentType::COLOR;
+        int attachmentPoint = -1;
+        bool isExternal = false;
+
+        Attachment(const Attachment&) = delete;
+        Attachment& operator=(const Attachment&) = delete;
+
+        Attachment() = default;
+
+        Attachment(Attachment&& other) noexcept;
+        Attachment& operator=(Attachment&& other) noexcept;
     };
 
     GLuint id;
@@ -62,10 +68,10 @@ public:
         GLenum wrapS = GL_CLAMP_TO_EDGE, GLenum wrapT = GL_CLAMP_TO_EDGE);
 
     // Link existing textures
-    void linkColorTexture(const std::string& name, GLuint textureID, int attachmentPoint = -1);
-    void linkDepthTexture(const std::string& name, GLuint textureID);
-    void linkStencilTexture(const std::string& name, GLuint textureID);
-    void linkDepthStencilTexture(const std::string& name, GLuint textureID);
+    void linkColorTexture(const std::string& name, OpenGL_Texture& texture, int attachmentPoint = -1);
+    void linkDepthTexture(const std::string& name, OpenGL_Texture& texture);
+    void linkStencilTexture(const std::string& name, OpenGL_Texture& texture);
+    void linkDepthStencilTexture(const std::string& name, OpenGL_Texture& texture);
 
     // Remove attachments
     void removeAttachment(const std::string& name);
@@ -80,7 +86,8 @@ public:
     void clearAttachment(const std::string& name, const float* clearValue) const;
 
     // Texture access
-    GLuint getTexture(const std::string& name) const;
+    OpenGL_Texture& getTexture(const std::string& name);
+    const OpenGL_Texture& getTexture(const std::string& name) const;
     bool hasTexture(const std::string& name) const;
 
     // Bind textures for shader use
@@ -95,5 +102,6 @@ public:
 private:
     void setupDrawBuffers();
     GLenum getAttachmentPoint(AttachmentType type, int preferredPoint = -1);
-    void createTexture(Attachment& attachment, GLenum minFilter, GLenum magFilter, GLenum wrapS, GLenum wrapT);
+    void createTexture(Attachment& attachment, GLenum internalFormat, GLenum format, GLenum dataType,
+        GLenum minFilter, GLenum magFilter, GLenum wrapS, GLenum wrapT);
 };

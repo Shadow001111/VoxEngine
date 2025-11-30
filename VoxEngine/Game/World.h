@@ -6,11 +6,12 @@
 #include "World/RaycastResult.h"
 #include "World/ChunkLoaders/SphericalChunkLoader.h"
 
-#include "Graphics/Shader.h"
 #include "Graphics/Camera.h"
 #include "Graphics/BlockTextureArray.h"
-#include "Graphics/OpenGL_Buffer.h"
-#include "Graphics/OpenGL_FBO.h"
+
+#include "OpenGLWrappers/Shader.h"
+#include "OpenGLWrappers/OpenGL_Buffer.h"
+#include "OpenGLWrappers/OpenGL_FBO.h"
 
 #include "Core/Hashes/ivec3Hasher.h"
 
@@ -112,7 +113,7 @@ private:
 	void renderTranslucentChunks(const std::vector<ChunkRenderInfo>& chunksToRender,
 		std::vector<DrawArraysIndirectCommand>& chunkDrawCommands,
 		std::vector<glm::ivec3>& chunkPositions);
-	void compositePass(GLuint accumTex, GLuint revTex, GLuint colorTex) const;
+	void compositePass(const OpenGL_Texture& accumTex, const OpenGL_Texture& revTex, const OpenGL_Texture& colorTex) const;
 public:
 	void renderVoxelMarker(const Camera& camera, const RaycastResult& raycast) const;
 

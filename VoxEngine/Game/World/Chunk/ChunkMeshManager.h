@@ -1,5 +1,5 @@
 #pragma once
-#include "Graphics/OpenGL_Buffer.h"
+#include "OpenGLWrappers/OpenGL_Buffer.h"
 
 #include "MeshData.h"
 

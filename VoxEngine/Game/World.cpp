@@ -69,6 +69,11 @@ World::World() :
 			{GL_COMPUTE_SHADER, "res/Shaders/faceComposite.comp"}
 		};
 		compositeFaceShader = Shader(sources);
+		compositeFaceShader.use();
+		compositeFaceShader.setInt("outputImage", OUTPUT_IMAGE_BINDING);
+		compositeFaceShader.setInt("accumulationTex", ACCUMULATION_TEX_BINDING);
+		compositeFaceShader.setInt("revealageTex", REVEALAGE_TEX_BINDING);
+		compositeFaceShader.setInt("opaqueTex", OPAQUE_TEX_BINDING);
 	}
 	{
 		std::vector<Shader::ShaderSource> sources =
@@ -387,8 +392,7 @@ void World::renderChunks(const Camera& camera, const OpenGL_FBO* opaqueFBO, cons
 	collectChunksToRenderAndSortThem(chunksToRender, camera);
 
 	// Bind resources
-	glActiveTexture(GL_TEXTURE0 + BLOCK_TEXTURE_ARRAY_BINDING);
-	blockTextureArray.bind();
+	blockTextureArray.bind(BLOCK_TEXTURE_ARRAY_BINDING);
 
 	chunkDrawCommandBuffer.bind();
 	chunkPositionSSBO.bind();
@@ -601,34 +605,26 @@ void World::renderTranslucentChunks(const std::vector<ChunkRenderInfo>& chunksTo
 	glDepthMask(GL_TRUE);
 }
 
-void World::compositePass(GLuint accumTex, GLuint revTex, GLuint colorTex) const
+void World::compositePass(const OpenGL_Texture& accumTex, const OpenGL_Texture& revTex, const OpenGL_Texture& colorTex) const
 {
-	GLuint outputTex = colorTex;
-
-	compositeFaceShader.use();
-	compositeFaceShader.setInt("outputImage", OUTPUT_IMAGE_BINDING);
-	compositeFaceShader.setInt("accumulationTex", ACCUMULATION_TEX_BINDING);
-	compositeFaceShader.setInt("revealageTex", REVEALAGE_TEX_BINDING);
-	compositeFaceShader.setInt("opaqueTex", OPAQUE_TEX_BINDING);
+	const OpenGL_Texture& outputTex = colorTex;
 
 	// Get texture dimensions
-	GLint width, height;
-	glBindTexture(GL_TEXTURE_2D, outputTex);
-	glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, &width);
-	glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT, &height);
-	glBindTexture(GL_TEXTURE_2D, 0);
+	int width = outputTex.getWidth();
+	int height = outputTex.getHeight();
 
 	// Bind textures
-	glBindImageTexture(OUTPUT_IMAGE_BINDING, outputTex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
-	glBindTextureUnit(ACCUMULATION_TEX_BINDING, accumTex);
-	glBindTextureUnit(REVEALAGE_TEX_BINDING, revTex);
-	glBindTextureUnit(OPAQUE_TEX_BINDING, colorTex);
+	glBindImageTexture(OUTPUT_IMAGE_BINDING, outputTex.getID(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
+	glBindTextureUnit(ACCUMULATION_TEX_BINDING, accumTex.getID());
+	glBindTextureUnit(REVEALAGE_TEX_BINDING, revTex.getID());
+	glBindTextureUnit(OPAQUE_TEX_BINDING, colorTex.getID());
 
 	// Dispatch compute shader
 	const int localSize = 16;
 	int groupsX = (width + localSize - 1) / localSize;
 	int groupsY = (height + localSize - 1) / localSize;
 
+	compositeFaceShader.use();
 	glDispatchCompute(groupsX, groupsY, 1);
 
 	// Ensure computation is complete before subsequent operations

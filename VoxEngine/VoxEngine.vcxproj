@@ -151,7 +151,7 @@
     <ClCompile Include="Game\World\Entity.cpp" />
     <ClCompile Include="Game\World\Chunk\ChunkMeshManager.cpp" />
     <ClCompile Include="Core\BlockAllocator.cpp" />
-    <ClCompile Include="Graphics\OpenGL_Buffer.cpp" />
+    <ClCompile Include="OpenGLWrappers\OpenGL_Buffer.cpp" />
     <ClCompile Include="Game\World\ChunkPool.cpp" />
     <ClCompile Include="Game\World\Chunk\MeshData.cpp" />
     <ClCompile Include="Game\World\Chunk\MeshTemplates\AlignedBlockFace.cpp" />
@@ -167,7 +167,7 @@
     <ClCompile Include="Graphics\Frustum.cpp" />
     <ClCompile Include="Graphics\Camera.cpp" />
     <ClCompile Include="glad.c" />
-    <ClCompile Include="Graphics\Shader.cpp" />
+    <ClCompile Include="OpenGLWrappers\Shader.cpp" />
     <ClCompile Include="Core\Hashes\ivec3Hasher.cpp" />
     <ClCompile Include="Core\Hashes\ivec2Hasher.cpp" />
     <ClCompile Include="main.cpp" />
@@ -178,9 +178,10 @@
     <ClCompile Include="Game\World\Chunk\TerrainGenerator.cpp" />
     <ClCompile Include="Game\World\VoxelMarkerMesh.cpp" />
     <ClCompile Include="Graphics\TextRenderer.cpp" />
-    <ClCompile Include="Graphics\OpenGL_FBO.cpp" />
+    <ClCompile Include="OpenGLWrappers\OpenGL_FBO.cpp" />
     <ClCompile Include="Game\World\ChunkLoaders\SphericalChunkLoader.cpp" />
     <ClCompile Include="Game\World\Chunk\MeshTemplates\NonAlignedBlockFace.cpp" />
+    <ClCompile Include="OpenGLWrappers\OpenGL_Texture.cpp" />
     <ClCompile Include="WindowManager.cpp" />
     <ClCompile Include="Game\World.cpp" />
     <ClCompile Include="Game\World\WorldVisualSettings.cpp" />
@@ -196,7 +197,7 @@
     <ClInclude Include="Game\World\Entity.h" />
     <ClInclude Include="Game\World\Chunk\ChunkMeshManager.h" />
     <ClInclude Include="Core\BlockAllocator.h" />
-    <ClInclude Include="Graphics\OpenGL_Buffer.h" />
+    <ClInclude Include="OpenGLWrappers\OpenGL_Buffer.h" />
     <ClInclude Include="Game\World\ChunkPool.h" />
     <ClInclude Include="Game\World\Chunk\MeshData.h" />
     <ClInclude Include="Game\World\Chunk\MeshTemplates\AlignedBlockFace.h" />
@@ -215,7 +216,7 @@
     <ClInclude Include="Graphics\Frustum.h" />
     <ClInclude Include="Graphics\Camera.h" />
     <ClInclude Include="Graphics\quad_vertices.h" />
-    <ClInclude Include="Graphics\Shader.h" />
+    <ClInclude Include="OpenGLWrappers\Shader.h" />
     <ClInclude Include="Core\UpdateTimer.h" />
     <ClInclude Include="Core\Transform.h" />
     <ClInclude Include="Core\Shapes\Plane.h" />
@@ -223,12 +224,13 @@
     <ClInclude Include="Game\World\Chunk\TerrainGenerator.h" />
     <ClInclude Include="Game\World\VoxelMarkerMesh.h" />
     <ClInclude Include="Graphics\TextRenderer.h" />
-    <ClInclude Include="Graphics\OpenGL_FBO.h" />
+    <ClInclude Include="OpenGLWrappers\OpenGL_FBO.h" />
     <ClInclude Include="Game\World\RaycastResult.h" />
     <ClInclude Include="Game\World\ChunkLoaders\SphericalChunkLoader.h" />
     <ClInclude Include="Core\Hashes\ivec3Hasher.h" />
     <ClInclude Include="Core\Hashes\ivec2Hasher.h" />
     <ClInclude Include="Game\World\Chunk\MeshTemplates\NonAlignedBlockFace.h" />
+    <ClInclude Include="OpenGLWrappers\OpenGL_Texture.h" />
     <ClInclude Include="WindowManager.h" />
     <ClInclude Include="Game\World.h" />
     <ClInclude Include="Game\World\WorldVisualSettings.h" />

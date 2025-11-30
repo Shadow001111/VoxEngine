@@ -4,62 +4,18 @@
 #include "stb/stb_image.h"
 
 #include <iostream>
-
-void addImageToTextureArray(unsigned char* data, int layer, int textureSize, GLenum format)
-{
-    glTexSubImage3D(
-        GL_TEXTURE_2D_ARRAY,
-        0,
-        0, 0, static_cast<GLint>(layer),
-        textureSize, textureSize, 1,
-        format,
-        GL_UNSIGNED_BYTE,
-        data
-    );
-}
-
-BlockTextureArray::BlockTextureArray()
-{
-    glGenTextures(1, &ID);
-}
-
-BlockTextureArray::~BlockTextureArray()
-{
-    if (ID)
-    {
-        glDeleteTextures(1, &ID);
-    }
-}
-
-BlockTextureArray::BlockTextureArray(BlockTextureArray&& other) noexcept
-    : ID(other.ID)
-{
-    other.ID = 0;
-}
-
-BlockTextureArray& BlockTextureArray::operator=(BlockTextureArray&& other) noexcept
-{
-    if (this != &other)
-    {
-        if (ID)
-        {
-            glDeleteTextures(1, &ID);
-        }
-
-        ID = other.ID;
-
-        other.ID = 0;
-    }
-    return *this;
-}
+#include <cmath>
 
 void BlockTextureArray::load(const std::string& texturesFolderPath, const std::vector<std::string>& textureNames, int textureSize)
 {
+    this->textureSize = textureSize;
+    this->layerCount = textureNames.size();
+
     const bool createMipmaps = true;
-    const int mipmapLevels = 1 + (createMipmaps ? ceilf(log2f(textureSize)) : 0);
+    const int mipmapLevels = 1 + (createMipmaps ? static_cast<int>(std::ceil(std::log2(textureSize))) : 0);
     const int desiredChannels = 4;
 
-    // Create fallback "undefined" texture (solid magenta)
+    // Create fallback "undefined" texture (checkerboard pattern)
     std::vector<unsigned char> undefinedTexture(textureSize * textureSize * desiredChannels);
 
     if (desiredChannels == 4)
@@ -71,7 +27,6 @@ void BlockTextureArray::load(const std::string& texturesFolderPath, const std::v
             for (int x = 0; x < textureSize; x++)
             {
                 bool hx = x > (textureSize >> 1);
-
                 bool hxy = hx ^ hy;
 
                 unsigned char r, g, b, a;
@@ -80,7 +35,6 @@ void BlockTextureArray::load(const std::string& texturesFolderPath, const std::v
                 b = r;
                 a = 255;
 
-                //
                 undefinedTexture[index] = r;
                 undefinedTexture[index + 1] = g;
                 undefinedTexture[index + 2] = b;
@@ -98,7 +52,6 @@ void BlockTextureArray::load(const std::string& texturesFolderPath, const std::v
             for (int x = 0; x < textureSize; x++)
             {
                 bool hx = x > (textureSize >> 1);
-
                 bool hxy = hx ^ hy;
 
                 unsigned char r, g, b;
@@ -106,7 +59,6 @@ void BlockTextureArray::load(const std::string& texturesFolderPath, const std::v
                 g = 0;
                 b = r;
 
-                //
                 undefinedTexture[index] = r;
                 undefinedTexture[index + 1] = g;
                 undefinedTexture[index + 2] = b;
@@ -116,16 +68,23 @@ void BlockTextureArray::load(const std::string& texturesFolderPath, const std::v
     }
     else
     {
-        std::cerr << "[BlockTextureArray]: Textures with " << desiredChannels << " are not supported." << std::endl;
+        std::cerr << "[BlockTextureArray]: Textures with " << desiredChannels << " channels are not supported." << std::endl;
+        return;
     }
 
     GLenum internalFormat = (desiredChannels == 4) ? GL_RGBA8 : GL_RGB8;
     GLenum format = (desiredChannels == 4) ? GL_RGBA : GL_RGB;
 
-    glBindTexture(GL_TEXTURE_2D_ARRAY, ID);
-    glTexStorage3D(GL_TEXTURE_2D_ARRAY, mipmapLevels, internalFormat, textureSize, textureSize, static_cast<GLsizei>(textureNames.size()));
+    // Create the texture array using OpenGL_Texture
+    texture.create2DArray(textureSize, textureSize, static_cast<int>(textureNames.size()),
+        internalFormat, format, GL_UNSIGNED_BYTE, mipmapLevels);
+    texture.bind();
 
-    // Load
+    // Set texture parameters
+    texture.setParameters(GL_NEAREST_MIPMAP_LINEAR, GL_NEAREST,
+        GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
+
+    // Load textures
     stbi_set_flip_vertically_on_load(true);
 
     for (size_t i = 0; i < textureNames.size(); ++i)
@@ -137,43 +96,31 @@ void BlockTextureArray::load(const std::string& texturesFolderPath, const std::v
         if (!data)
         {
             std::cerr << "Failed to load texture: " << fullPath << std::endl;
-            addImageToTextureArray(undefinedTexture.data(), i, textureSize, format);
+            // Upload fallback texture
+            texture.uploadSubData(undefinedTexture.data(), 0, 0, static_cast<int>(i),
+                textureSize, textureSize, 1, 0);
             continue;
         }
 
         if (width != textureSize || height != textureSize)
         {
             std::cerr << "Warning: Texture " << textureNames[i]
-                << " is not " << textureSize << "x" << textureSize << " (" << width << "x" << height << ")" << std::endl;
+                << " is not " << textureSize << "x" << textureSize
+                << " (" << width << "x" << height << ")" << std::endl;
             stbi_image_free(data);
-            addImageToTextureArray(undefinedTexture.data(), i, textureSize, format);
+            // Upload fallback texture
+            texture.uploadSubData(undefinedTexture.data(), 0, 0, static_cast<int>(i),
+                textureSize, textureSize, 1, 0);
             continue;
         }
 
-        addImageToTextureArray(data, i, textureSize, format);
+        // Upload the actual texture data
+        texture.uploadSubData(data, 0, 0, static_cast<int>(i),
+            textureSize, textureSize, 1, 0);
 
         stbi_image_free(data);
     }
 
-    // Set texture parameters
-    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
     // Generate mipmaps
-    glGenerateMipmap(GL_TEXTURE_2D_ARRAY);
-
-    // Unbind
-    glBindTexture(GL_TEXTURE_2D_ARRAY, 0);
-}
-
-void BlockTextureArray::bind() const
-{
-    glBindTexture(GL_TEXTURE_2D_ARRAY, ID);
-}
-
-void BlockTextureArray::unbind() const
-{
-    glBindTexture(GL_TEXTURE_2D_ARRAY, 0);
+    texture.generateMipmaps();
 }
