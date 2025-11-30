@@ -77,8 +77,6 @@ private:
 	OpenGL_Buffer chunkDrawCommandBuffer;
 	OpenGL_Buffer chunkPositionSSBO;
 
-	GLuint quadVAO, quadVBO;
-
 	// Debug
 	mutable DebugData debugData;
 
@@ -98,9 +96,6 @@ public:
 	World& operator=(const World&) = delete;
 	World(World&&) = delete;
 	World& operator=(World&&) = delete;
-private:
-	void createFullscreenQuad();
-	void destroyFullscreenQuad();
 public:
 	void preparation();
 	void loadChunks(const glm::vec3& playerPos);

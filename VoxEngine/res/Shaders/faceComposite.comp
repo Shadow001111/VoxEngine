@@ -1,0 +1,31 @@
+#version 460 core
+
+layout(local_size_x = 16, local_size_y = 16) in;
+layout(rgba8, binding = 0) writeonly uniform image2D outputImage;
+layout(binding = 1) uniform sampler2D accumulationTex;
+layout(binding = 2) uniform sampler2D revealageTex;
+layout(binding = 3) uniform sampler2D opaqueTex;
+
+void main()
+{
+    ivec2 texelCoord = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 imageSize = imageSize(outputImage);
+    
+    if (texelCoord.x >= imageSize.x || texelCoord.y >= imageSize.y)
+        return;
+    
+    vec2 texCoords = (vec2(texelCoord) + 0.5) / vec2(imageSize);
+    
+    vec4 accumulation = texture(accumulationTex, texCoords);
+    float revealage = texture(revealageTex, texCoords).r;
+    vec4 opaque = texture(opaqueTex, texCoords);
+    
+    // Composite transparent over opaque
+    vec3 average_color = accumulation.rgb / max(accumulation.a, 1e-5);
+    vec4 transparent = vec4(average_color, 1.0 - revealage);
+    
+    // Blend transparent over opaque
+    vec4 finalColor = mix(opaque, transparent, transparent.a);
+    
+    imageStore(outputImage, texelCoord, finalColor);
+}

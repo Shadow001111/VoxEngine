@@ -58,8 +58,7 @@ World::World() :
 	{
 		std::vector<Shader::ShaderSource> sources =
 		{
-			{GL_VERTEX_SHADER, "res/Shaders/quad.vert"},
-			{GL_FRAGMENT_SHADER, "res/Shaders/faceComposite.frag"}
+			{GL_COMPUTE_SHADER, "res/Shaders/faceComposite.comp"}
 		};
 		compositeFaceShader = Shader(sources);
 	}
@@ -100,9 +99,6 @@ World::World() :
 		nonAlignedTranslucentFaceShader.use();
 		nonAlignedTranslucentFaceShader.setInt("blockTextures", unit);
 	}
-
-	// Framebuffer quad
-	createFullscreenQuad();
 
 	// Terrain generator
 	{
@@ -147,32 +143,7 @@ World::World() :
 }
 
 World::~World()
-{
-	destroyFullscreenQuad();
-}
-
-void World::createFullscreenQuad()
-{
-	glGenVertexArrays(1, &quadVAO);
-	glGenBuffers(1, &quadVBO);
-	OPENGL_LOG_BUFFER_CREATED(1, &quadVBO);
-
-	glBindVertexArray(quadVAO);
-	glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
-
-	glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
-
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
-
-	glBindVertexArray(0);
-}
-
-void World::destroyFullscreenQuad()
-{
-	if (quadVAO) glDeleteVertexArrays(1, &quadVAO);
-	if (quadVBO) glDeleteBuffers(1, &quadVBO);
-}
+{}
 
 void World::preparation()
 {
@@ -624,33 +595,42 @@ void World::renderTranslucentChunks(const std::vector<ChunkRenderInfo>& chunksTo
 
 void World::compositePass(GLuint accumTex, GLuint revTex, GLuint colorTex) const
 {
+	GLuint outputTex = colorTex;
+
 	ASSERT(accumTex);
 	ASSERT(revTex);
 	ASSERT(colorTex);
+	ASSERT(outputTex);
 
 	compositeFaceShader.use();
 
-	glDisable(GL_DEPTH_TEST);
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	// Get texture dimensions
+	GLint width, height;
+	glBindTexture(GL_TEXTURE_2D, outputTex);
+	glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, &width);
+	glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT, &height);
+	glBindTexture(GL_TEXTURE_2D, 0);
 
 	// Bind textures
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, accumTex);
+	glBindImageTexture(0, outputTex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
+	glBindTextureUnit(1, accumTex);
+	glBindTextureUnit(2, revTex);
+	glBindTextureUnit(3, colorTex);
 
-	glActiveTexture(GL_TEXTURE1);
-	glBindTexture(GL_TEXTURE_2D, revTex);
+	// Set uniforms if needed
+	compositeFaceShader.setInt("accumulationTex", 1);
+	compositeFaceShader.setInt("revealageTex", 2);
+	compositeFaceShader.setInt("opaqueTex", 3);
 
-	glActiveTexture(GL_TEXTURE2);
-	glBindTexture(GL_TEXTURE_2D, colorTex);
+	// Dispatch compute shader
+	const int localSize = 16;
+	int groupsX = (width + localSize - 1) / localSize;
+	int groupsY = (height + localSize - 1) / localSize;
 
-	compositeFaceShader.setInt("accumulationTex", 0);
-	compositeFaceShader.setInt("revealageTex", 1);
-	compositeFaceShader.setInt("opaqueTex", 2);
+	glDispatchCompute(groupsX, groupsY, 1);
 
-	// Render fullscreen quad
-	glBindVertexArray(quadVAO);
-	glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+	// Ensure computation is complete before subsequent operations
+	glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
 }
 
 void World::renderVoxelMarker(const Camera& camera, const RaycastResult& raycast) const
