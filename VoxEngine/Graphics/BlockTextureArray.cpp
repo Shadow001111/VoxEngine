@@ -18,8 +18,7 @@ void addImageToTextureArray(unsigned char* data, int layer, int textureSize, GLe
     );
 }
 
-BlockTextureArray::BlockTextureArray(GLuint slot) :
-    unit(slot)
+BlockTextureArray::BlockTextureArray()
 {
     glGenTextures(1, &ID);
 }
@@ -29,15 +28,13 @@ BlockTextureArray::~BlockTextureArray()
     if (ID)
     {
         glDeleteTextures(1, &ID);
-        ID = 0;
     }
 }
 
 BlockTextureArray::BlockTextureArray(BlockTextureArray&& other) noexcept
-    : ID(other.ID), unit(other.unit)
+    : ID(other.ID)
 {
     other.ID = 0;
-    other.unit = 0;
 }
 
 BlockTextureArray& BlockTextureArray::operator=(BlockTextureArray&& other) noexcept
@@ -50,10 +47,8 @@ BlockTextureArray& BlockTextureArray::operator=(BlockTextureArray&& other) noexc
         }
 
         ID = other.ID;
-        unit = other.unit;
 
         other.ID = 0;
-        other.unit = 0;
     }
     return *this;
 }
@@ -175,16 +170,10 @@ void BlockTextureArray::load(const std::string& texturesFolderPath, const std::v
 
 void BlockTextureArray::bind() const
 {
-    glActiveTexture(GL_TEXTURE0 + unit);
     glBindTexture(GL_TEXTURE_2D_ARRAY, ID);
 }
 
 void BlockTextureArray::unbind() const
 {
     glBindTexture(GL_TEXTURE_2D_ARRAY, 0);
-}
-
-GLuint BlockTextureArray::getUnit() const
-{
-    return unit;
 }

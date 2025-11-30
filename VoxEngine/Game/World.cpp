@@ -13,8 +13,16 @@
 
 #include <stdexcept>
 
+// BINDINGS
+constexpr unsigned BLOCK_TEXTURE_ARRAY_BINDING = 0;
+
+constexpr unsigned OUTPUT_IMAGE_BINDING = 0;
+constexpr unsigned OPAQUE_TEX_BINDING = 1;
+constexpr unsigned ACCUMULATION_TEX_BINDING = 2;
+constexpr unsigned REVEALAGE_TEX_BINDING = 3;
+
+
 World::World() :
-	blockTextureArray(0),
 	chunkDrawCommandBuffer(GL_DRAW_INDIRECT_BUFFER, GL_DYNAMIC_DRAW),
 	chunkPositionSSBO(GL_SHADER_STORAGE_BUFFER, GL_DYNAMIC_DRAW)
 {
@@ -85,19 +93,17 @@ World::World() :
 	}
 
 	{
-		auto unit = blockTextureArray.getUnit();
-
 		alignedOpaqueFaceShader.use();
-		alignedOpaqueFaceShader.setInt("blockTextures", unit);
+		alignedOpaqueFaceShader.setInt("blockTextures", BLOCK_TEXTURE_ARRAY_BINDING);
 
 		alignedTranslucentFaceShader.use();
-		alignedTranslucentFaceShader.setInt("blockTextures", unit);
+		alignedTranslucentFaceShader.setInt("blockTextures", BLOCK_TEXTURE_ARRAY_BINDING);
 
 		nonAlignedOpaqueFaceShader.use();
-		nonAlignedOpaqueFaceShader.setInt("blockTextures", unit);
+		nonAlignedOpaqueFaceShader.setInt("blockTextures", BLOCK_TEXTURE_ARRAY_BINDING);
 
 		nonAlignedTranslucentFaceShader.use();
-		nonAlignedTranslucentFaceShader.setInt("blockTextures", unit);
+		nonAlignedTranslucentFaceShader.setInt("blockTextures", BLOCK_TEXTURE_ARRAY_BINDING);
 	}
 
 	// Terrain generator
@@ -381,7 +387,9 @@ void World::renderChunks(const Camera& camera, const OpenGL_FBO* opaqueFBO, cons
 	collectChunksToRenderAndSortThem(chunksToRender, camera);
 
 	// Bind resources
+	glActiveTexture(GL_TEXTURE0 + BLOCK_TEXTURE_ARRAY_BINDING);
 	blockTextureArray.bind();
+
 	chunkDrawCommandBuffer.bind();
 	chunkPositionSSBO.bind();
 
@@ -597,12 +605,11 @@ void World::compositePass(GLuint accumTex, GLuint revTex, GLuint colorTex) const
 {
 	GLuint outputTex = colorTex;
 
-	ASSERT(accumTex);
-	ASSERT(revTex);
-	ASSERT(colorTex);
-	ASSERT(outputTex);
-
 	compositeFaceShader.use();
+	compositeFaceShader.setInt("outputImage", OUTPUT_IMAGE_BINDING);
+	compositeFaceShader.setInt("accumulationTex", ACCUMULATION_TEX_BINDING);
+	compositeFaceShader.setInt("revealageTex", REVEALAGE_TEX_BINDING);
+	compositeFaceShader.setInt("opaqueTex", OPAQUE_TEX_BINDING);
 
 	// Get texture dimensions
 	GLint width, height;
@@ -612,15 +619,10 @@ void World::compositePass(GLuint accumTex, GLuint revTex, GLuint colorTex) const
 	glBindTexture(GL_TEXTURE_2D, 0);
 
 	// Bind textures
-	glBindImageTexture(0, outputTex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
-	glBindTextureUnit(1, accumTex);
-	glBindTextureUnit(2, revTex);
-	glBindTextureUnit(3, colorTex);
-
-	// Set uniforms if needed
-	compositeFaceShader.setInt("accumulationTex", 1);
-	compositeFaceShader.setInt("revealageTex", 2);
-	compositeFaceShader.setInt("opaqueTex", 3);
+	glBindImageTexture(OUTPUT_IMAGE_BINDING, outputTex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
+	glBindTextureUnit(ACCUMULATION_TEX_BINDING, accumTex);
+	glBindTextureUnit(REVEALAGE_TEX_BINDING, revTex);
+	glBindTextureUnit(OPAQUE_TEX_BINDING, colorTex);
 
 	// Dispatch compute shader
 	const int localSize = 16;

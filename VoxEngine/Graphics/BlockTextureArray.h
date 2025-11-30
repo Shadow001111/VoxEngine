@@ -7,9 +7,8 @@
 class BlockTextureArray
 {
 	GLuint ID = 0;
-	GLuint unit = 0;
 public:
-	BlockTextureArray(GLuint slot);
+	BlockTextureArray();
 	~BlockTextureArray();
 
 	BlockTextureArray(const BlockTextureArray&) = delete;
@@ -22,7 +21,5 @@ public:
 
 	void bind() const;
 	void unbind() const;
-
-	GLuint getUnit() const;
 };
 
