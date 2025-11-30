@@ -167,6 +167,7 @@
     <ClCompile Include="Graphics\Frustum.cpp" />
     <ClCompile Include="Graphics\Camera.cpp" />
     <ClCompile Include="glad.c" />
+    <ClCompile Include="OpenGLWrappers\OpenGL_VAO.cpp" />
     <ClCompile Include="OpenGLWrappers\Shader.cpp" />
     <ClCompile Include="Core\Hashes\ivec3Hasher.cpp" />
     <ClCompile Include="Core\Hashes\ivec2Hasher.cpp" />
@@ -217,6 +218,7 @@
     <ClInclude Include="Graphics\Frustum.h" />
     <ClInclude Include="Graphics\Camera.h" />
     <ClInclude Include="Graphics\quad_vertices.h" />
+    <ClInclude Include="OpenGLWrappers\OpenGL_VAO.h" />
     <ClInclude Include="OpenGLWrappers\Shader.h" />
     <ClInclude Include="Core\UpdateTimer.h" />
     <ClInclude Include="Core\Transform.h" />

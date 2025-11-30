@@ -25,7 +25,6 @@ OpenGL_Buffer::OpenGL_Buffer(OpenGL_Buffer&& other) noexcept
 	id(other.id),
 	capacity(other.capacity)
 {
-	// Leave 'other' in a valid but empty state
 	other.id = 0;
 	other.capacity = 0;
 }
@@ -34,19 +33,16 @@ OpenGL_Buffer& OpenGL_Buffer::operator=(OpenGL_Buffer&& other) noexcept
 {
 	if (this != &other)
 	{
-		// Delete current buffer if valid
 		if (id)
 		{
 			glDeleteBuffers(1, &id);
 		}
 
-		// Move fields
 		target = other.target;
 		usage = other.usage;
 		id = other.id;
 		capacity = other.capacity;
 
-		// Reset source
 		other.id = 0;
 		other.capacity = 0;
 	}
@@ -115,11 +111,9 @@ void OpenGL_Buffer::copyRangeFrom(const OpenGL_Buffer& src, size_t srcOffset, si
 		return;
 	}
 
-	// Bind both buffers to copy targets
 	glBindBuffer(GL_COPY_READ_BUFFER, src.getID());
 	glBindBuffer(GL_COPY_WRITE_BUFFER, id);
 
-	// Copy data GPU-to-GPU
 	glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER,
 		static_cast<GLintptr>(srcOffset),
 		static_cast<GLintptr>(dstOffset),

@@ -1525,6 +1525,7 @@ void Chunk::updateMesh()
 					}
 
 					// Non-aligned faces
+					// TODO: Non-aligned faces should be culled if they are on the block's border
 					if (!model.nonAlignedFaces.empty())
 					{
 						BlockVertexLightData lightData;

@@ -135,6 +135,9 @@
     <ClCompile Include="OpenGLWrappers\OpenGL_Texture.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
+    <ClCompile Include="OpenGLWrappers\OpenGL_VAO.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="WindowManager.h">
@@ -279,6 +282,9 @@
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="OpenGLWrappers\OpenGLDebug.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenGLWrappers\OpenGL_VAO.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
   </ItemGroup>

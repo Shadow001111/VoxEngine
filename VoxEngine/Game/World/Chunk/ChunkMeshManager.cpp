@@ -8,7 +8,7 @@ ChunkMeshManager::ChunkMeshManager() :
 	vbo(GL_ARRAY_BUFFER, GL_STATIC_DRAW)
 {
 	// VBO
-	float vertices[8] = // CCW order
+	const float vertices[8] = // CCW order
 	{
 		0.0f, 0.0f,
 		1.0f, 0.0f,
@@ -31,7 +31,7 @@ ChunkMeshManager::ChunkMeshManager() :
 			sizeof(AlignedBlockFace),
 			"processAlignedMeshRequests"
 		};
-		alignedMeshAllocator.init(vbo, config);
+		alignedMeshAllocator.init(config);
 	}
 	{
 		ProcessorConfig config = {
@@ -44,18 +44,17 @@ ChunkMeshManager::ChunkMeshManager() :
 			sizeof(NonAlignedBlockFace),
 			"processNonAlignedMeshRequests"
 		};
-		nonAlignedMeshAllocator.init(vbo, config);
+		nonAlignedMeshAllocator.init(config);
 	}
 
-	glBindVertexArray(alignedMeshAllocator.vaoID);
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
-
-	glBindVertexArray(nonAlignedMeshAllocator.vaoID);
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
-
+	alignedMeshAllocator.vao.bind();
+	alignedMeshAllocator.vao.enableAttribute(0);
+	alignedMeshAllocator.vao.setFloatAttribute(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
 	configureAlignedInstanceVBO();
+
+	nonAlignedMeshAllocator.vao.bind();
+	nonAlignedMeshAllocator.vao.enableAttribute(0);
+	nonAlignedMeshAllocator.vao.setFloatAttribute(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
 	configureNonAlignedInstanceVBO();
 }
 
@@ -64,43 +63,43 @@ ChunkMeshManager::~ChunkMeshManager()
 
 void ChunkMeshManager::configureAlignedInstanceVBO()
 {
-	glBindVertexArray(alignedMeshAllocator.vaoID);
+	alignedMeshAllocator.vao.bind();
 	alignedMeshAllocator.instanceVBO.bind();
 
-	glEnableVertexAttribArray(1);
-	glVertexAttribIPointer(1, 2, GL_INT, sizeof(AlignedBlockFace), (void*)0);
-	glVertexAttribDivisor(1, 1);
+	alignedMeshAllocator.vao.enableAttribute(1);
+	alignedMeshAllocator.vao.setIntAttribute(1, 2, GL_UNSIGNED_INT, sizeof(AlignedBlockFace), (void*)0);
+	alignedMeshAllocator.vao.setAttributeDivisor(1, 1);
 }
 
 void ChunkMeshManager::configureNonAlignedInstanceVBO()
 {
-	glBindVertexArray(nonAlignedMeshAllocator.vaoID);
+	nonAlignedMeshAllocator.vao.bind();
 	nonAlignedMeshAllocator.instanceVBO.bind();
 
 	// Block position + Us
-	glEnableVertexAttribArray(1);
-	glVertexAttribIPointer(1, 1, GL_INT, sizeof(NonAlignedBlockFace), (void*)0);
-	glVertexAttribDivisor(1, 1);
+	nonAlignedMeshAllocator.vao.enableAttribute(1);
+	nonAlignedMeshAllocator.vao.setIntAttribute(1, 1, GL_UNSIGNED_INT, sizeof(NonAlignedBlockFace), (void*)0);
+	nonAlignedMeshAllocator.vao.setAttributeDivisor(1, 1);
 
 	// Vertex shifts
-	glEnableVertexAttribArray(2);
-	glVertexAttribIPointer(2, 2, GL_INT, sizeof(NonAlignedBlockFace), (void*)(1 * sizeof(int)));
-	glVertexAttribDivisor(2, 1);
+	nonAlignedMeshAllocator.vao.enableAttribute(2);
+	nonAlignedMeshAllocator.vao.setIntAttribute(2, 2, GL_UNSIGNED_INT, sizeof(NonAlignedBlockFace), (void*)(1 * sizeof(int)));
+	nonAlignedMeshAllocator.vao.setAttributeDivisor(2, 1);
 
 	// Vs + textureID
-	glEnableVertexAttribArray(3);
-	glVertexAttribIPointer(3, 1, GL_INT, sizeof(NonAlignedBlockFace), (void*)(3 * sizeof(int)));
-	glVertexAttribDivisor(3, 1);
+	nonAlignedMeshAllocator.vao.enableAttribute(3);
+	nonAlignedMeshAllocator.vao.setIntAttribute(3, 1, GL_UNSIGNED_INT, sizeof(NonAlignedBlockFace), (void*)(3 * sizeof(int)));
+	nonAlignedMeshAllocator.vao.setAttributeDivisor(3, 1);
 
 	// Light
-	glEnableVertexAttribArray(4);
-	glVertexAttribIPointer(4, 2, GL_INT, sizeof(NonAlignedBlockFace), (void*)(4 * sizeof(int)));
-	glVertexAttribDivisor(4, 1);
+	nonAlignedMeshAllocator.vao.enableAttribute(4);
+	nonAlignedMeshAllocator.vao.setIntAttribute(4, 2, GL_UNSIGNED_INT, sizeof(NonAlignedBlockFace), (void*)(4 * sizeof(int)));
+	nonAlignedMeshAllocator.vao.setAttributeDivisor(4, 1);
 
 	// AO
-	glEnableVertexAttribArray(5);
-	glVertexAttribIPointer(5, 1, GL_INT, sizeof(NonAlignedBlockFace), (void*)(6 * sizeof(int)));
-	glVertexAttribDivisor(5, 1);
+	nonAlignedMeshAllocator.vao.enableAttribute(5);
+	nonAlignedMeshAllocator.vao.setIntAttribute(5, 1, GL_UNSIGNED_INT, sizeof(NonAlignedBlockFace), (void*)(6 * sizeof(int)));
+	nonAlignedMeshAllocator.vao.setAttributeDivisor(5, 1);
 }
 
 ChunkMeshManager& ChunkMeshManager::getInstance()
@@ -115,32 +114,16 @@ void ChunkMeshManager::processMeshRequests(std::vector<ChunkMeshData*>& alignedM
 	nonAlignedMeshAllocator.processMeshRequests(nonAlignedMeshRequests);
 }
 
-void ChunkMeshManager::bindAlignedVAO() const
-{
-	glBindVertexArray(alignedMeshAllocator.vaoID);
-}
-
-void ChunkMeshManager::bindNonAlignedVAO() const
-{
-	glBindVertexArray(nonAlignedMeshAllocator.vaoID);
-}
-
 ChunkMeshManager::MeshAllocator::MeshAllocator() :
-	vaoID(0), instanceVBO(GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW), blockAllocator(0)
+	instanceVBO(GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW), blockAllocator(0)
 {
 }
 
 ChunkMeshManager::MeshAllocator::~MeshAllocator()
-{
-	if (vaoID)
-	{
-		glDeleteVertexArrays(1, &vaoID); vaoID = 0;
-	}
-}
+{}
 
-void ChunkMeshManager::MeshAllocator::init(const OpenGL_Buffer& quadVBO, const ProcessorConfig& config)
+void ChunkMeshManager::MeshAllocator::init(const ProcessorConfig& config)
 {
-	glGenVertexArrays(1, &vaoID);
 	this->config = config;
 }
 

@@ -10,6 +10,7 @@
 #include "Graphics/quad_vertices.h"
 
 #include "OpenGLWrappers/OpenGLDebug.h"
+#include "OpenGLWrappers/OpenGL_VAO.h"
 
 #include <iostream>
 #include <sstream>
@@ -56,21 +57,16 @@ static std::string formatSizeBinary(size_t value)
     return oss.str();
 }
 
-static void setupFramebuffer(GLuint& rectVAO, std::unique_ptr<Shader>& shader)
+static void setupFramebuffer(OpenGL_VAO& rectVAO, OpenGL_Buffer& rectVBO, std::unique_ptr<Shader>& shader)
 {
     // Mesh
-    GLuint rectVBO;
-    glGenVertexArrays(1, &rectVAO);
-    glGenBuffers(1, &rectVBO);
-    OPENGL_LOG_BUFFER_CREATED(1, &rectVBO);
+    rectVAO.bind();
+    rectVBO.bind();
+    rectVBO.allocateMemory(sizeof(quadVertices));
+    rectVBO.write(quadVertices, sizeof(quadVertices));
 
-    glBindVertexArray(rectVAO);
-
-    glBindBuffer(GL_ARRAY_BUFFER, rectVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
-
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    rectVAO.enableAttribute(0);
+    rectVAO.setFloatAttribute(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
 
     // Shader
     std::vector<Shader::ShaderSource> fboShaderSources =
@@ -268,9 +264,10 @@ int main()
 
     // Framebuffer
     auto* FBO = wnd.getOpaqueFBO();
-    GLuint rectVAO;
+    OpenGL_VAO rectVAO;
+    OpenGL_Buffer rectVBO(GL_ARRAY_BUFFER, GL_STATIC_DRAW);
     std::unique_ptr<Shader> fboShader;
-    setupFramebuffer(rectVAO, fboShader);
+    setupFramebuffer(rectVAO, rectVBO, fboShader);
 
     // OpenGL states
     setupOpenGLStates();
@@ -364,7 +361,7 @@ int main()
 
         // Rendering to screen
         // TODO: Maybe we are rendering same FBO twice. Avoid that.
-        glBindVertexArray(rectVAO);
+        rectVAO.bind();
         glDisable(GL_DEPTH_TEST);
         glDisable(GL_BLEND);
 

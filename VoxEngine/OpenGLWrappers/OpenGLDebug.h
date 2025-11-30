@@ -48,6 +48,8 @@ static inline GLenum GetBindingQuery(GLenum target)
     case GL_QUERY_BUFFER: return GL_QUERY_BUFFER_BINDING;
     case GL_FRAMEBUFFER: return GL_FRAMEBUFFER_BINDING;
 
+    case GL_VERTEX_ARRAY: return GL_VERTEX_ARRAY_BINDING;
+
     case GL_TEXTURE_1D: return GL_TEXTURE_BINDING_1D;
     case GL_TEXTURE_2D: return GL_TEXTURE_BINDING_2D;
     case GL_TEXTURE_3D: return GL_TEXTURE_BINDING_3D;
