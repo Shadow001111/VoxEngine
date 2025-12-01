@@ -1476,12 +1476,16 @@ void Chunk::updateMesh()
 					const auto& modelID = blockData->visuals.modelID;
 					const auto& textureSlots = blockData->visuals.textureSlots;
 			
-					const auto& model = BlockModelLoader::getBlockModelById(modelID);
+					const auto* model = BlockRegistry::getBlockModelByID(modelID);
+					if (!model)
+					{
+						continue;
+					}
 
 					// TODO: Maybe translucent faces shouldn't be culled. Maybe they should be drawn using GL_LEQUAL for depth test.
 
 					// Aligned faces
-					for (const auto& face : model.alignedFaces)
+					for (const auto& face : model->alignedFaces)
 					{
 						int nx = x + dx[face.normal];
 						int ny = y + dy[face.normal];
@@ -1526,7 +1530,7 @@ void Chunk::updateMesh()
 
 					// Non-aligned faces
 					// TODO: Non-aligned faces should be culled if they are on the block's border
-					if (!model.nonAlignedFaces.empty())
+					if (!model->nonAlignedFaces.empty())
 					{
 						BlockVertexLightData lightData;
 						calculateBlockVertexLight(lightData, x, y, z);
@@ -1554,7 +1558,7 @@ void Chunk::updateMesh()
 						instance.ao6 = lightData.ao[6];
 						instance.ao7 = lightData.ao[7];
 
-						for (const auto& face : model.nonAlignedFaces)
+						for (const auto& face : model->nonAlignedFaces)
 						{
 							const auto& textureSlot = face.textureSlot < textureSlots.size() ? textureSlots[face.textureSlot] : fallbackTextureSlot;
 

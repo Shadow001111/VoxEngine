@@ -1,7 +1,8 @@
 #include "BlockRegistry.h"
-#include "BlockModelLoader.h"
 
 #include <algorithm>
+#include <unordered_set>
+#include <unordered_map>
 
 #include "Core/Assert.h"
 
@@ -43,6 +44,7 @@ BlockData::BlockData(const BlockProperties& properties, const BlockVisuals& text
 
 std::unordered_map<BlockID, BlockData> BlockRegistry::blockDataStorage;
 std::unordered_map<BlockID, BlockTempInfo> BlockRegistry::blockTempInfoStorage;
+std::unordered_map<size_t, BlockModelLoader::BlockModel> BlockRegistry::blockModelStorage;
 StringIndexer BlockRegistry::blockIndexer;
 
 void BlockRegistry::registerBlock(const std::string& blockName, const BlockProperties& properties, const BlockTempInfo& tempInfo)
@@ -173,113 +175,100 @@ void BlockRegistry::registerBlocks(
 		} }
 	);
 
-	buildIDs(textureNames, modelNames);
+	postBuild(textureNames);
 	blockTempInfoStorage.clear();
-
-	BlockModelLoader::loadModels(modelNames);
-
-	updateBlockPropertiesBasedOnModels();
 }
 
-void BlockRegistry::buildIDs(
-	std::vector<std::string>& textureNames,
-	std::vector<std::string>& modelNames
-)
+void BlockRegistry::postBuild(std::vector<std::string>& textureNames)
 {
-	StringIndexer textureIndexer;
-	StringIndexer modelIndexer;
+	std::unordered_map<std::string, size_t> registeredTextures;
+	size_t nextTextureID = 0;
 
-	// Assign IDs
-	//textureIndexer.registerAndGetId(""); // Broken texture
+	std::unordered_map<std::string, size_t> registeredModels;
+	size_t nextModelID = 0;
+	blockModelStorage.clear();
+
 	for (auto& [blockID, blockData] : blockDataStorage)
 	{
 		const auto& tempInfo = blockTempInfoStorage.find(blockID)->second;
 
-		blockData.properties.hasFaces = !tempInfo.textureInfo.empty();
-
-		if (!blockData.properties.hasFaces)
+		// Set 'hasFaces'
+		const bool hasFaces = !tempInfo.textureInfo.empty();
+		blockData.properties.hasFaces = hasFaces;
+		if (!hasFaces)
 		{
 			continue;
 		}
 
-		blockData.visuals.modelID = modelIndexer.registerAndGetId(tempInfo.modelName);
-
+		// Register textures
 		for (const auto& [textureName, transformation, isTranslucent] : tempInfo.textureInfo)
 		{
-			auto textureID = textureIndexer.registerAndGetId(textureName);
-			blockData.visuals.textureSlots.emplace_back(textureID, transformation, isTranslucent);
-		}
-	}
-
-	// Collect and sort
-	{
-		textureNames.clear();
-		const auto& nameToIDMap = textureIndexer.getNameToIDMap();
-		for (const auto& pair : nameToIDMap)
-		{
-			textureNames.push_back(pair.first);
-		}
-		std::sort(textureNames.begin(), textureNames.end(), [&nameToIDMap](const std::string& a, const std::string& b)
+			size_t currentTextureID;
+			auto it = registeredTextures.find(textureName);
+			if (it == registeredTextures.end())
 			{
-				return nameToIDMap.find(a)->second < nameToIDMap.find(b)->second;
-			});
-	}
-
-	{
-		modelNames.clear();
-		const auto& nameToIDMap = modelIndexer.getNameToIDMap();
-		for (const auto& pair : nameToIDMap)
-		{
-			modelNames.push_back(pair.first);
-		}
-		std::sort(modelNames.begin(), modelNames.end(), [&nameToIDMap](const std::string& a, const std::string& b)
-			{
-				return nameToIDMap.find(a)->second < nameToIDMap.find(b)->second;
-			});
-	}
-
-	// TODO: Find better way to sort this, without look ups. Maybe flatten and the sort then collect?
-}
-
-void BlockRegistry::updateBlockPropertiesBasedOnModels()
-{
-	for (auto& [blockID, blockData] : blockDataStorage)
-	{
-		// Skip blocks without faces
-		if (!blockData.properties.hasFaces)
-		{
-			continue;
-		}
-
-		// Get the block's model
-		const auto& model = BlockModelLoader::getBlockModelById(blockData.visuals.modelID);
-
-		// Reset all face culling to false initially
-		for (int i = 0; i < 6; i++)
-		{
-			blockData.properties.faceCulling[i] = false;
-		}
-
-		// Enable culling for faces that have opaque aligned faces in the model
-		for (const auto& alignedFace : model.alignedFaces)
-		{
-			if (alignedFace.normal >= 6)
-			{
-				continue;
+				currentTextureID = nextTextureID++;
+				registeredTextures.emplace(textureName, currentTextureID);
+				textureNames.push_back(textureName);
 			}
-
-			bool shouldCull = true;
-
-			if (alignedFace.textureSlot < blockData.visuals.textureSlots.size())
+			else
 			{
-				const auto& textureSlot = blockData.visuals.textureSlots[alignedFace.textureSlot];
-				if (textureSlot.isTranslucent)
+				currentTextureID = it->second;
+			}
+			blockData.visuals.textureSlots.emplace_back(currentTextureID, transformation, isTranslucent);
+		}
+
+		// Register model
+		{
+			size_t currentModelID;
+			auto it = registeredModels.find(tempInfo.modelName);
+			if (it == registeredModels.end())
+			{
+				auto loadingResult = BlockModelLoader::loadModelByName(tempInfo.modelName);
+				currentModelID = nextModelID++;
+				if (loadingResult.has_value())
 				{
-					shouldCull = false;
+					blockModelStorage.emplace(currentModelID, loadingResult.value());
 				}
+				else
+				{
+					blockModelStorage.emplace(currentModelID, BlockModelLoader::BlockModel());
+				}
+				registeredModels.emplace(tempInfo.modelName, currentModelID);
 			}
+			else
+			{
+				currentModelID = it->second;
+			}
+			blockData.visuals.modelID = currentModelID;
 
-			blockData.properties.faceCulling[alignedFace.normal] = shouldCull;
+			const auto& model = blockModelStorage.find(currentModelID)->second;
+
+			// Enable culling for faces that have opaque aligned faces in the model
+			for (int i = 0; i < 6; i++)
+			{
+				blockData.properties.faceCulling[i] = false;
+			}
+			for (const auto& alignedFace : model.alignedFaces)
+			{
+				if (alignedFace.normal >= 6)
+				{
+					continue;
+				}
+
+				bool shouldCull = true;
+
+				if (alignedFace.textureSlot < blockData.visuals.textureSlots.size())
+				{
+					const auto& textureSlot = blockData.visuals.textureSlots[alignedFace.textureSlot];
+					if (textureSlot.isTranslucent)
+					{
+						shouldCull = false;
+					}
+				}
+
+				blockData.properties.faceCulling[alignedFace.normal] = shouldCull;
+			}
 		}
 	}
 }
@@ -298,7 +287,7 @@ const BlockData* BlockRegistry::getBlockDataByName(const std::string& blockName)
 	{
 		return &blockDataStorage[result.value()];
 	}
-	return &blockDataStorage[0];
+	return nullptr;
 }
 
 const BlockData* BlockRegistry::getBlockDataByID(BlockID id)
@@ -308,5 +297,15 @@ const BlockData* BlockRegistry::getBlockDataByID(BlockID id)
 	{
 		return &it->second;
 	}
-	return &blockDataStorage[0];
+	return nullptr;
+}
+
+const BlockModelLoader::BlockModel* BlockRegistry::getBlockModelByID(size_t modelID)
+{
+	auto it = blockModelStorage.find(modelID);
+	if (it != blockModelStorage.end())
+	{
+		return &it->second;
+	}
+	return nullptr;
 }

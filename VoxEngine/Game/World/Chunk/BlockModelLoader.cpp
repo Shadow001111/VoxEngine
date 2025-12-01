@@ -2,8 +2,6 @@
 #include <iostream>
 #include <fstream>
 
-std::unordered_map<uint32_t, BlockModelLoader::BlockModel> BlockModelLoader::blockModelStorage;
-
 std::optional<BlockModelLoader::BlockModel> BlockModelLoader::loadFromFile(const std::filesystem::path& filepath)
 {
     if (!std::filesystem::exists(filepath))
@@ -204,34 +202,7 @@ std::optional<BlockModelLoader::ModelNonAlignedFace> BlockModelLoader::parseNonA
     return face;
 }
 
-void BlockModelLoader::loadModels(const std::vector<std::string>& blockModelNames)
+std::optional<BlockModelLoader::BlockModel> BlockModelLoader::loadModelByName(const std::string& blockModelName)
 {
-    uint32_t modelID = 0;
-    for (const auto& modelName : blockModelNames)
-    {
-        auto result = loadFromFile("res/BlockModels/" + modelName + ".json");
-        if (result.has_value())
-        {
-            blockModelStorage.emplace(modelID, result.value());
-            modelID++;
-        }
-    }
-}
-
-const BlockModelLoader::BlockModel& BlockModelLoader::getBlockModelById(uint32_t id)
-{
-    auto it = blockModelStorage.find(id);
-    if (it != blockModelStorage.end())
-    {
-        return it->second;
-    }
-    else if (blockModelStorage.empty())
-    {
-        static BlockModel emptyModel;
-        return emptyModel;
-    }
-    else
-    {
-        return blockModelStorage[0];
-    }
+    return loadFromFile("res/BlockModels/" + blockModelName + ".json");
 }

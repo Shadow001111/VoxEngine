@@ -50,14 +50,11 @@ public:
         std::vector<ModelNonAlignedFace> nonAlignedFaces;
     };
 private:
-    static std::unordered_map<uint32_t, BlockModel> blockModelStorage;
-
     static std::optional<BlockModel> loadFromFile(const std::filesystem::path& filepath);
     static std::optional<BlockModel> parseJson(const json& j);
     static std::optional<ModelAlignedFace> parseAlignedFace(const json& faceJson);
     static std::optional<ModelNonAlignedFace> parseNonAlignedFace(const json& faceJson);
 public:
-    static void loadModels(const std::vector<std::string>& blockModelNames);
-    static const BlockModel& getBlockModelById(uint32_t id);
+    static std::optional<BlockModel> loadModelByName(const std::string& blockModelName);
 };
 

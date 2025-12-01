@@ -1,5 +1,6 @@
 #pragma once
 #include "Block.h"
+#include "BlockModelLoader.h"
 
 #include <vector>
 #include <string>
@@ -84,9 +85,9 @@ class BlockRegistry
 	BlockRegistry() = delete;
 	~BlockRegistry() = delete;
 
-	// TODO: Maybe change to vectors. Then change in BlockModelLoader.
 	static std::unordered_map<BlockID, BlockData> blockDataStorage;
 	static std::unordered_map<BlockID, BlockTempInfo> blockTempInfoStorage;
+	static std::unordered_map<size_t, BlockModelLoader::BlockModel> blockModelStorage;
 	static StringIndexer blockIndexer;
 
 	static void registerBlock(
@@ -99,15 +100,12 @@ public:
 		std::vector<std::string>& textureNames
 	);
 private:
-	static void buildIDs(
-		std::vector<std::string>& textureNames,
-		std::vector<std::string>& modelNames
-	);
-	static void updateBlockPropertiesBasedOnModels();
+	static void postBuild(std::vector<std::string>& textureNames);
 public:
 	// Retrieve block ID from block name (returns SIZE_MAX if not found)
 	static BlockID getBlockID(const std::string& blockName);
 
 	static const BlockData* getBlockDataByName(const std::string& blockName);
 	static const BlockData* getBlockDataByID(BlockID id);
+	static const BlockModelLoader::BlockModel* getBlockModelByID(size_t modelID);
 };
