@@ -748,6 +748,10 @@ void Chunk::buildLight()
 					size_t index = getIndex(x, y, z);
 
 					const auto* blockData = BlockRegistry::getBlockDataByID(blocks[index]);
+					if (!blockData)
+					{
+						continue;
+					}
 
 					uint8_t emission = blockData->properties.lightEmission;
 					if (emission == 0)
@@ -780,7 +784,7 @@ void Chunk::buildLight()
 				{
 					size_t index = getIndex(x, y, z);
 					const auto* blockData = BlockRegistry::getBlockDataByID(blocks[index]);
-					if (blockData->properties.absorbsLight)
+					if (blockData && blockData->properties.absorbsLight)
 					{
 						continue;
 					}
@@ -834,7 +838,7 @@ void Chunk::buildLight()
 			{
 				size_t index = getIndex(x, y, z);
 				const auto* blockData = BlockRegistry::getBlockDataByID(blocks[index]);
-				if (blockData->properties.absorbsLight)
+				if (blockData && blockData->properties.absorbsLight)
 				{
 					return;
 				}
@@ -985,7 +989,7 @@ void Chunk::buildLight()
 
 				const BlockID neighborBlock = neighborChunk->getBlockAt(neighborIndex);
 				const auto* neighborBlockData = BlockRegistry::getBlockDataByID(blocks[index]);
-				if (neighborBlockData->properties.absorbsLight)
+				if (neighborBlockData && neighborBlockData->properties.absorbsLight)
 				{
 					continue;
 				}
@@ -1049,7 +1053,7 @@ void Chunk::buildLight()
 
 				const BlockID neighborBlock = neighborChunk->getBlockAt(neighborIndex);
 				const auto* neighborBlockData = BlockRegistry::getBlockDataByID(blocks[index]);
-				if (neighborBlockData->properties.absorbsLight)
+				if (neighborBlockData && neighborBlockData->properties.absorbsLight)
 				{
 					continue;
 				}
@@ -1154,7 +1158,7 @@ void Chunk::updateLight()
 
 			BlockID neighborBlock = neighborChunk->getBlockAt(neighborIndex);
 			const auto* neighborBlockData = BlockRegistry::getBlockDataByID(neighborBlock);
-			if (neighborBlockData->properties.absorbsLight)
+			if (neighborBlockData && neighborBlockData->properties.absorbsLight)
 			{
 				continue;
 			}
@@ -1231,7 +1235,7 @@ void Chunk::updateLight()
 
 			BlockID neighborBlock = neighborChunk->getBlockAt(neighborIndex);
 			const auto* neighborBlockData = BlockRegistry::getBlockDataByID(neighborBlock);
-			if (neighborBlockData->properties.absorbsLight)
+			if (neighborBlockData && neighborBlockData->properties.absorbsLight)
 			{
 				continue;
 			}
@@ -1291,7 +1295,7 @@ void Chunk::updateLight()
 
 			BlockID neighborBlock = neighborChunk->getBlockAt(neighborIndex);
 			const auto* neighborBlockData = BlockRegistry::getBlockDataByID(neighborBlock);
-			if (neighborBlockData->properties.absorbsLight)
+			if (neighborBlockData && neighborBlockData->properties.absorbsLight)
 			{
 				continue;
 			}
@@ -1367,7 +1371,7 @@ void Chunk::updateLight()
 
 			BlockID neighborBlock = neighborChunk->getBlockAt(neighborIndex);
 			const auto* neighborBlockData = BlockRegistry::getBlockDataByID(neighborBlock);
-			if (neighborBlockData->properties.absorbsLight)
+			if (neighborBlockData && neighborBlockData->properties.absorbsLight)
 			{
 				continue;
 			}
@@ -1468,7 +1472,7 @@ void Chunk::updateMesh()
 					// Generate new faces for this block
 					BlockID block = getBlockAt(x, y, z);
 					const BlockData* blockData = BlockRegistry::getBlockDataByID(block);
-					if (!blockData->properties.hasFaces)
+					if (!blockData || !blockData->properties.hasFaces)
 					{
 						continue;
 					}
@@ -1505,7 +1509,7 @@ void Chunk::updateMesh()
 						}
 						// TODO: Translucent block's shouldn't be culled. Render translucent in LEQUAL.
 						const BlockData* neighborBlockData = BlockRegistry::getBlockDataByID(neighborBlock);
-						if (neighborBlockData->properties.faceCulling[face.normal ^ 1])
+						if (neighborBlockData && neighborBlockData->properties.faceCulling[face.normal ^ 1])
 						{
 							continue;
 						}
@@ -1943,9 +1947,17 @@ void Chunk::setBlockAt(int x, int y, int z, BlockID block, bool saveBlockChanges
 	// Light update
 	const BlockData* previousBlockData = BlockRegistry::getBlockDataByID(previousBlock);
 	uint8_t previousEmission = previousBlockData->properties.lightEmission;
+	if (!previousBlockData)
+	{
+		return;
+	}
 
 	const BlockData* newBlockData = BlockRegistry::getBlockDataByID(block);
 	uint8_t newEmission = newBlockData->properties.lightEmission;
+	if (!newBlockData)
+	{
+		return;
+	}
 
 	const int dx[] = { -1, 1, 0, 0, 0, 0 };
 	const int dy[] = { 0, 0, -1, 1, 0, 0 };
@@ -2271,7 +2283,8 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(unsigned int& ao, unsigned int
 			{
 				auto data = c->getBlockAndLightAt(idx);
 				neighborData[dataIdx].first = data.second;
-				neighborData[dataIdx].second = BlockRegistry::getBlockDataByID(data.first)->properties.faceCulling[normal ^ 1];
+				const auto* blockData = BlockRegistry::getBlockDataByID(data.first);
+				neighborData[dataIdx].second = blockData && blockData->properties.faceCulling[normal ^ 1];
 			}
 		};
 

@@ -762,8 +762,7 @@ RaycastResult World::raycast(const glm::dvec3& origin, const glm::dvec3& directi
 
 			BlockID block = chunk->getBlockAt(localBlockPos.x, localBlockPos.y, localBlockPos.z);
 			const BlockData* blockData = BlockRegistry::getBlockDataByID(block);
-
-			if (blockData->properties.raycastable)
+			if (blockData && blockData->properties.raycastable)
 			{
 				result.hit = true;
 				result.hitBlock = block;
