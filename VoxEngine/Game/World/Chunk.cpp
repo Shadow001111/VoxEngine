@@ -1946,18 +1946,18 @@ void Chunk::setBlockAt(int x, int y, int z, BlockID block, bool saveBlockChanges
 
 	// Light update
 	const BlockData* previousBlockData = BlockRegistry::getBlockDataByID(previousBlock);
-	uint8_t previousEmission = previousBlockData->properties.lightEmission;
 	if (!previousBlockData)
 	{
 		return;
 	}
+	uint8_t previousEmission = previousBlockData->properties.lightEmission;
 
 	const BlockData* newBlockData = BlockRegistry::getBlockDataByID(block);
-	uint8_t newEmission = newBlockData->properties.lightEmission;
 	if (!newBlockData)
 	{
 		return;
 	}
+	uint8_t newEmission = newBlockData->properties.lightEmission;
 
 	const int dx[] = { -1, 1, 0, 0, 0, 0 };
 	const int dy[] = { 0, 0, -1, 1, 0, 0 };

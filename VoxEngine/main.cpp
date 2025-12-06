@@ -18,7 +18,11 @@
 #include <sstream>
 #include <iomanip>
 
+#ifdef NDEBUG
 constexpr int CHUNK_LOAD_DISTANCE = 12;
+#else
+constexpr int CHUNK_LOAD_DISTANCE = 3;
+#endif
 
 
 static std::string formatSize(size_t value)

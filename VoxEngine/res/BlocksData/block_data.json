@@ -1,0 +1,326 @@
+{
+  "air": {
+    "absorbs_light": false,
+    "light_emission": 0,
+    "raycastable": false,
+    "model": "",
+    "textures": []
+  },
+  "grass_block": {
+    "absorbs_light": true,
+    "light_emission": 0,
+    "raycastable": true,
+    "model": "cube",
+    "textures": [
+      {
+        "name": "grass_block_side",
+        "transformation": "None",
+        "translucent": false
+      },
+      {
+        "name": "grass_block_side",
+        "transformation": "None",
+        "translucent": false
+      },
+      {
+        "name": "dirt",
+        "transformation": "RotateAndFlip",
+        "translucent": false
+      },
+      {
+        "name": "grass_block_top",
+        "transformation": "RotateAndFlip",
+        "translucent": false
+      },
+      {
+        "name": "grass_block_side",
+        "transformation": "None",
+        "translucent": false
+      },
+      {
+        "name": "grass_block_side",
+        "transformation": "None",
+        "translucent": false
+      }
+    ]
+  },
+  "dirt": {
+    "absorbs_light": true,
+    "light_emission": 0,
+    "raycastable": true,
+    "model": "cube",
+    "textures": [
+      {
+        "name": "dirt",
+        "transformation": "RotateAndFlip",
+        "translucent": false
+      },
+      {
+        "name": "dirt",
+        "transformation": "RotateAndFlip",
+        "translucent": false
+      },
+      {
+        "name": "dirt",
+        "transformation": "RotateAndFlip",
+        "translucent": false
+      },
+      {
+        "name": "dirt",
+        "transformation": "RotateAndFlip",
+        "translucent": false
+      },
+      {
+        "name": "dirt",
+        "transformation": "RotateAndFlip",
+        "translucent": false
+      },
+      {
+        "name": "dirt",
+        "transformation": "RotateAndFlip",
+        "translucent": false
+      }
+    ]
+  },
+  "stone": {
+    "absorbs_light": true,
+    "light_emission": 0,
+    "raycastable": true,
+    "model": "cube",
+    "textures": [
+      {
+        "name": "stone",
+        "transformation": "Flip",
+        "translucent": false
+      },
+      {
+        "name": "stone",
+        "transformation": "Flip",
+        "translucent": false
+      },
+      {
+        "name": "stone",
+        "transformation": "Flip",
+        "translucent": false
+      },
+      {
+        "name": "stone",
+        "transformation": "Flip",
+        "translucent": false
+      },
+      {
+        "name": "stone",
+        "transformation": "Flip",
+        "translucent": false
+      },
+      {
+        "name": "stone",
+        "transformation": "Flip",
+        "translucent": false
+      }
+    ]
+  },
+  "glass": {
+    "absorbs_light": false,
+    "light_emission": 0,
+    "raycastable": true,
+    "model": "cube",
+    "textures": [
+      {
+        "name": "glass",
+        "transformation": "None",
+        "translucent": true
+      },
+      {
+        "name": "glass",
+        "transformation": "None",
+        "translucent": true
+      },
+      {
+        "name": "glass",
+        "transformation": "None",
+        "translucent": true
+      },
+      {
+        "name": "glass",
+        "transformation": "None",
+        "translucent": true
+      },
+      {
+        "name": "glass",
+        "transformation": "None",
+        "translucent": true
+      },
+      {
+        "name": "glass",
+        "transformation": "None",
+        "translucent": true
+      }
+    ]
+  },
+  "colored_glass": {
+    "absorbs_light": false,
+    "light_emission": 15,
+    "raycastable": true,
+    "model": "cube",
+    "textures": [
+      {
+        "name": "glass_red",
+        "transformation": "None",
+        "translucent": true
+      },
+      {
+        "name": "glass_red",
+        "transformation": "None",
+        "translucent": true
+      },
+      {
+        "name": "glass_green",
+        "transformation": "None",
+        "translucent": true
+      },
+      {
+        "name": "glass_green",
+        "transformation": "None",
+        "translucent": true
+      },
+      {
+        "name": "glass_blue",
+        "transformation": "None",
+        "translucent": true
+      },
+      {
+        "name": "glass_blue",
+        "transformation": "None",
+        "translucent": true
+      }
+    ]
+  },
+  "water": {
+    "absorbs_light": false,
+    "light_emission": 0,
+    "raycastable": false,
+    "model": "cube",
+    "textures": [
+      {
+        "name": "water",
+        "transformation": "None",
+        "translucent": true
+      },
+      {
+        "name": "water",
+        "transformation": "None",
+        "translucent": true
+      },
+      {
+        "name": "water",
+        "transformation": "None",
+        "translucent": true
+      },
+      {
+        "name": "water",
+        "transformation": "None",
+        "translucent": true
+      },
+      {
+        "name": "water",
+        "transformation": "None",
+        "translucent": true
+      },
+      {
+        "name": "water",
+        "transformation": "None",
+        "translucent": true
+      }
+    ]
+  },
+  "log_oak": {
+    "absorbs_light": true,
+    "light_emission": 0,
+    "raycastable": true,
+    "model": "cube",
+    "textures": [
+      {
+        "name": "log_oak",
+        "transformation": "None",
+        "translucent": false
+      },
+      {
+        "name": "log_oak",
+        "transformation": "None",
+        "translucent": false
+      },
+      {
+        "name": "log_oak_top",
+        "transformation": "None",
+        "translucent": false
+      },
+      {
+        "name": "log_oak_top",
+        "transformation": "None",
+        "translucent": false
+      },
+      {
+        "name": "log_oak",
+        "transformation": "None",
+        "translucent": false
+      },
+      {
+        "name": "log_oak",
+        "transformation": "None",
+        "translucent": false
+      }
+    ]
+  },
+  "leaves_oak": {
+    "absorbs_light": false,
+    "light_emission": 0,
+    "raycastable": true,
+    "model": "cube",
+    "textures": [
+      {
+        "name": "leaves_oak",
+        "transformation": "None",
+        "translucent": true
+      },
+      {
+        "name": "leaves_oak",
+        "transformation": "None",
+        "translucent": true
+      },
+      {
+        "name": "leaves_oak",
+        "transformation": "None",
+        "translucent": true
+      },
+      {
+        "name": "leaves_oak",
+        "transformation": "None",
+        "translucent": true
+      },
+      {
+        "name": "leaves_oak",
+        "transformation": "None",
+        "translucent": true
+      },
+      {
+        "name": "leaves_oak",
+        "transformation": "None",
+        "translucent": true
+      }
+    ]
+  },
+  "stairs": {
+    "absorbs_light": true,
+    "light_emission": 0,
+    "raycastable": true,
+    "model": "stairs",
+    "textures": [
+      {
+        "name": "stone",
+        "transformation": "None",
+        "translucent": false
+      }
+    ]
+  }
+}

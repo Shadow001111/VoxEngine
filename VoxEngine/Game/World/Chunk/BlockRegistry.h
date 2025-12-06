@@ -95,6 +95,11 @@ class BlockRegistry
 		const BlockProperties& properties,
 		const BlockTempInfo& tempInfo
 	);
+
+	static void registerBlocksFromFile(const std::filesystem::path& filepath);
+	static void registerBlocksFromJson(const json& j);
+	static BlockProperties parseJsonBlockProperties(const json& j);
+	static BlockTempInfo parseJsonBlockTempInfo(const json& j);
 public:
 	static void registerBlocks(
 		std::vector<std::string>& textureNames

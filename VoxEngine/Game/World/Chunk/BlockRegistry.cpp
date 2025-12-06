@@ -1,8 +1,9 @@
 #include "BlockRegistry.h"
 
 #include <algorithm>
-#include <unordered_set>
 #include <unordered_map>
+#include <fstream>
+#include <algorithm>
 
 #include "Core/Assert.h"
 
@@ -10,6 +11,13 @@ inline uint8_t clamp(uint8_t v, uint8_t min, uint8_t max)
 {
 	return std::min(max, std::max(min, v));
 }
+
+bool is_ascii(const std::string& s)
+{
+	return std::all_of(s.begin(), s.end(),
+		[](unsigned char c) { return c < 128; });
+}
+
 
 BlockProperties::BlockProperties(bool absorbsLight, uint8_t lightEmission, bool raycastable) :
 	absorbsLight(absorbsLight),
@@ -42,6 +50,7 @@ BlockData::BlockData(const BlockProperties& properties, const BlockVisuals& text
 {
 }
 
+
 std::unordered_map<BlockID, BlockData> BlockRegistry::blockDataStorage;
 std::unordered_map<BlockID, BlockTempInfo> BlockRegistry::blockTempInfoStorage;
 std::unordered_map<size_t, BlockModelLoader::BlockModel> BlockRegistry::blockModelStorage;
@@ -61,120 +70,174 @@ void BlockRegistry::registerBlock(const std::string& blockName, const BlockPrope
 	blockTempInfoStorage[blockID] = tempInfo;
 }
 
+void BlockRegistry::registerBlocksFromFile(const std::filesystem::path& filepath)
+{
+	// Check if file exists
+	if (!std::filesystem::exists(filepath))
+	{
+		throw std::runtime_error("[BlockRegistry]: File not found: " + filepath.string());
+		return;
+	}
+
+	// Open file
+	std::ifstream file(filepath);
+	if (!file.is_open())
+	{
+		throw std::runtime_error("[BlockRegistry]: Failed to open block names file: " + filepath.string());
+	}
+
+	try
+	{
+		json j;
+		file >> j;
+		registerBlocksFromJson(j);
+	}
+	catch (const json::exception& e)
+	{
+		std::cerr << "[BlockRegistry]: JSON parsing error in file " << filepath << ": " << e.what() << std::endl;
+	}
+	catch (const std::exception& e)
+	{
+		std::cerr << "[BlockRegistry]: Error reading file " << filepath << ": " << e.what() << std::endl;
+	}
+}
+
+void BlockRegistry::registerBlocksFromJson(const json& j)
+{
+	for (auto pair : j.items())
+	{
+		const std::string& blockName = "core:" + pair.key();
+		const json& blockJson = pair.value();
+
+		// Parse properties
+		BlockProperties properties = parseJsonBlockProperties(blockJson);
+
+		// Parse temp info
+		BlockTempInfo tempInfo = parseJsonBlockTempInfo(blockJson);
+
+		// Register block
+		registerBlock(blockName, properties, tempInfo);
+	}
+}
+
+BlockProperties BlockRegistry::parseJsonBlockProperties(const json& j)
+{
+	bool absorbsLight = false;
+	uint8_t lightEmission = 0;
+	bool raycastable = true;
+
+	if (j.contains("absorbs_light"))
+	{
+		absorbsLight = j["absorbs_light"].get<bool>();
+	}
+	else
+	{
+		std::cerr << "[BlockRegistry]: Block properties missing absorbs_light field" << std::endl;
+	}
+
+	if (j.contains("light_emission"))
+	{
+		lightEmission = j["light_emission"].get<uint8_t>();
+	}
+	else
+	{
+		std::cerr << "[BlockRegistry]: Block properties missing light_emission field" << std::endl;
+	}
+
+	if (j.contains("raycastable"))
+	{
+		raycastable = j["raycastable"].get<bool>();
+	}
+	else
+	{
+		std::cerr << "[BlockRegistry]: Block properties missing raycastable field" << std::endl;
+	}
+
+	BlockProperties properties(absorbsLight, lightEmission, raycastable);
+	return properties;
+}
+
+BlockTempInfo BlockRegistry::parseJsonBlockTempInfo(const json& j)
+{
+	std::string modelName;
+	std::vector<TextureInfo> textureInfos;
+
+	// Model name
+	if (j.contains("model"))
+	{
+		modelName = j["model"].get<std::string>();
+	}
+	else
+	{
+		std::cerr << "[BlockRegistry]: Block visuals missing model field" << std::endl;
+	}
+
+	// Textures
+	if (j.contains("textures") && j["textures"].is_array())
+	{
+		for (const auto& textureJson : j["textures"])
+		{
+			// Texture name
+			std::string textureName;
+			if (textureJson.contains("name"))
+			{
+				textureName = textureJson["name"].get<std::string>();
+			}
+			else
+			{
+				std::cerr << "[BlockRegistry]: Block texture missing name field" << std::endl;
+				continue;
+			}
+
+			// Texture transformation
+			TextureTransformation transformation = TextureTransformation::None;
+			if (textureJson.contains("transformation"))
+			{
+				std::string transformationStr = textureJson["transformation"].get<std::string>();
+				if (transformationStr == "None")
+				{
+					transformation = TextureTransformation::None;
+				}
+				else if (transformationStr == "Flip")
+				{
+					transformation = TextureTransformation::Flip;
+				}
+				else if (transformationStr == "RotateAndFlip")
+				{
+					transformation = TextureTransformation::RotateAndFlip;
+				}
+				else
+				{
+					std::cerr << "[BlockRegistry]: Unknown texture transformation: " << transformationStr << std::endl;
+				}
+			}
+
+			// Is texture translucent
+			bool isTranslucent = false;
+			if (textureJson.contains("translucent"))
+			{
+				isTranslucent = textureJson["translucent"].get<bool>();
+			}
+			else
+			{
+				std::cerr << "[BlockRegistry]: Block texture missing translucent field" << std::endl;
+				continue;
+			}
+			textureInfos.emplace_back(textureName, transformation, isTranslucent);
+		}
+	}
+	else
+	{
+		std::cerr << "[BlockRegistry]: Block visuals missing textures array" << std::endl;
+	}
+	return BlockTempInfo(modelName.c_str(), textureInfos);
+}
+
 void BlockRegistry::registerBlocks(
 	std::vector<std::string>& textureNames
 )
 {
-	std::vector<std::string> modelNames;
-
-	registerBlock("core:air",
-		{ false,  0,false },
-		{ "", {} }
-	);
-
-	registerBlock("core:grass_block",
-		{ true, 0, true },
-		{ "cube", {
-			{"grass_block_side", TextureTransformation::None		 , false},
-			{"grass_block_side", TextureTransformation::None		 , false},
-			{"dirt",			 TextureTransformation::RotateAndFlip, false},
-			{"grass_block_top",  TextureTransformation::RotateAndFlip, false},
-			{"grass_block_side", TextureTransformation::None		 , false},
-			{"grass_block_side", TextureTransformation::None		 , false}
-		} }
-	);
-
-	registerBlock("core:dirt",
-		{ true, 0, true },
-		{ "cube", {
-			{"dirt", TextureTransformation::RotateAndFlip, false},
-			{"dirt", TextureTransformation::RotateAndFlip, false},
-			{"dirt", TextureTransformation::RotateAndFlip, false},
-			{"dirt", TextureTransformation::RotateAndFlip, false},
-			{"dirt", TextureTransformation::RotateAndFlip, false},
-			{"dirt", TextureTransformation::RotateAndFlip, false}
-		} }
-	);
-
-	registerBlock("core:stone",
-		{ true, 0, true },
-		{ "cube", {
-			{"stone", TextureTransformation::Flip, false},
-			{"stone", TextureTransformation::Flip, false},
-			{"stone", TextureTransformation::Flip, false},
-			{"stone", TextureTransformation::Flip, false},
-			{"stone", TextureTransformation::Flip, false},
-			{"stone", TextureTransformation::Flip, false}
-		} }
-	);
-
-	registerBlock("core:glass",
-		{ false, 0, true },
-		{ "cube", {
-			{"glass", TextureTransformation::None, true},
-			{"glass", TextureTransformation::None, true},
-			{"glass", TextureTransformation::None, true},
-			{"glass", TextureTransformation::None, true},
-			{"glass", TextureTransformation::None, true},
-			{"glass", TextureTransformation::None, true}
-		} }
-	);
-
-	registerBlock("core:colored_glass",
-		{ false, 15, true },
-		{ "cube", {
-			{"glass_red", TextureTransformation::None  , true},
-			{"glass_red", TextureTransformation::None  , true},
-			{"glass_green", TextureTransformation::None, true},
-			{"glass_green", TextureTransformation::None, true},
-			{"glass_blue", TextureTransformation::None , true},
-			{"glass_blue", TextureTransformation::None , true}
-		} }
-	);
-
-	registerBlock("core:water",
-		{ false, 0, false },
-		{ "cube", {
-			{"water", TextureTransformation::None, true},
-			{"water", TextureTransformation::None, true},
-			{"water", TextureTransformation::None, true},
-			{"water", TextureTransformation::None, true},
-			{"water", TextureTransformation::None, true},
-			{"water", TextureTransformation::None, true}
-		} }
-	);
-
-	registerBlock("core:log_oak",
-		{ true, 0, true },
-		{ "cube", {
-			{"log_oak", TextureTransformation::None	   , false},
-			{"log_oak", TextureTransformation::None	   , false},
-			{"log_oak_top", TextureTransformation::None, false},
-			{"log_oak_top", TextureTransformation::None, false},
-			{"log_oak", TextureTransformation::None	   , false},
-			{"log_oak", TextureTransformation::None	   , false}
-		} }
-	);
-
-	registerBlock("core:leaves_oak",
-		{ false, 0, true },
-		{ "cube", {
-			{"leaves_oak", TextureTransformation::None, true},
-			{"leaves_oak", TextureTransformation::None, true},
-			{"leaves_oak", TextureTransformation::None, true},
-			{"leaves_oak", TextureTransformation::None, true},
-			{"leaves_oak", TextureTransformation::None, true},
-			{"leaves_oak", TextureTransformation::None, true}
-		} }
-	);
-
-	registerBlock("core:stairs",
-		{ true, 0, true },
-		{ "stairs", {
-			{"stone", TextureTransformation::None, false}
-		} }
-	);
-
+	registerBlocksFromFile("res/BlocksData/block_data.json");
 	postBuild(textureNames);
 	blockTempInfoStorage.clear();
 }
@@ -219,6 +282,8 @@ void BlockRegistry::postBuild(std::vector<std::string>& textureNames)
 		}
 
 		// Register model
+		// TODO: Support blocks without models (like air)
+		//if (!tempInfo.modelName.empty())
 		{
 			size_t currentModelID;
 			auto it = registeredModels.find(tempInfo.modelName);
@@ -277,7 +342,7 @@ BlockID BlockRegistry::getBlockID(const std::string& blockName)
 {
 	auto result = blockIndexer.getId(blockName);
 	if (result.has_value()) return result.value();
-	return 0;
+	return -1;
 }
 
 const BlockData* BlockRegistry::getBlockDataByName(const std::string& blockName)
