@@ -110,7 +110,7 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(SolutionDir)Libraries\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>glfw3.lib;opengl32.lib;freetype.lib;FastNoiseD.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>glfw3.lib;opengl32.lib;freetype.lib;OpenAL32.lib;FastNoiseD.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PreBuildEvent>
       <Command>taskkill /f /fi "imagename eq $(TargetFileName)"</Command>
@@ -135,7 +135,7 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(SolutionDir)Libraries\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>glfw3.lib;opengl32.lib;freetype.lib;FastNoise.lib;%(AdditionalDependencies);freetype.lib</AdditionalDependencies>
+      <AdditionalDependencies>glfw3.lib;opengl32.lib;freetype.lib;OpenAL32.lib;FastNoise.lib;%(AdditionalDependencies);freetype.lib</AdditionalDependencies>
     </Link>
     <PreBuildEvent>
       <Command>taskkill /f /fi "imagename eq $(TargetFileName)"</Command>
@@ -183,6 +183,7 @@
     <ClCompile Include="Game\World\ChunkLoaders\SphericalChunkLoader.cpp" />
     <ClCompile Include="Game\World\Chunk\MeshTemplates\NonAlignedBlockFace.cpp" />
     <ClCompile Include="OpenGLWrappers\OpenGL_Texture.cpp" />
+    <ClCompile Include="SoundManager.cpp" />
     <ClCompile Include="WindowManager.cpp" />
     <ClCompile Include="Game\World.cpp" />
     <ClCompile Include="Game\World\WorldVisualSettings.cpp" />
@@ -234,6 +235,7 @@
     <ClInclude Include="Core\Hashes\ivec2Hasher.h" />
     <ClInclude Include="Game\World\Chunk\MeshTemplates\NonAlignedBlockFace.h" />
     <ClInclude Include="OpenGLWrappers\OpenGL_Texture.h" />
+    <ClInclude Include="SoundManager.h" />
     <ClInclude Include="WindowManager.h" />
     <ClInclude Include="Game\World.h" />
     <ClInclude Include="Game\World\WorldVisualSettings.h" />

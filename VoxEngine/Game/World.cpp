@@ -7,9 +7,8 @@
 
 #include "Core/Profiler.h"
 #include "Core/Multithreading/ThreadPool.h"
-#include "Core/Debug.h"
 
-#include "Graphics/quad_vertices.h"
+#include "SoundManager.h"
 
 #include <stdexcept>
 
@@ -1133,6 +1132,14 @@ bool World::breakBlock(const RaycastResult& raycast)
 	}
 
 	updateBlockAt(raycast.hitBlockPosition, BlockRegistry::getBlockID("core:air"));
+
+	auto& sndMgr = SoundManager::getInstance();
+
+	// I need random number between 1 and 4
+	int soundIndex = rand() % 4 + 1;
+
+	sndMgr.play("block_break" + std::to_string(soundIndex));
+
 	return true;
 }
 

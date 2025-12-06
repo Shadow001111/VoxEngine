@@ -12,6 +12,8 @@
 #include "OpenGLWrappers/OpenGLDebug.h"
 #include "OpenGLWrappers/OpenGL_VAO.h"
 
+#include "SoundManager.h"
+
 #include <iostream>
 #include <sstream>
 #include <iomanip>
@@ -85,6 +87,16 @@ static void setupOpenGLStates()
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
     glFrontFace(GL_CCW);
+}
+
+static void loadSounds()
+{
+	auto& mgr = SoundManager::getInstance();
+
+	mgr.loadWav("block_break1", "res/Sounds/stone1.wav");
+    mgr.loadWav("block_break2", "res/Sounds/stone2.wav");
+    mgr.loadWav("block_break3", "res/Sounds/stone3.wav");
+    mgr.loadWav("block_break4", "res/Sounds/stone4.wav");
 }
 
 
@@ -272,6 +284,9 @@ int main()
     // OpenGL states
     setupOpenGLStates();
 
+    // Load sounds
+	loadSounds();
+
     // Text renderer
     TextRenderer::init();
     TextRenderer::loadFont("RusEngMinecraft", 8);
@@ -352,7 +367,6 @@ int main()
 
         player->interpolateCameraTransform(worldUpdateTimer.getAccumulatedTimeInPercent());
 
-        //world.sortChunkMeshes(player->getCamera().getPosition());
         world.sendChunkMeshesToGPU();
 
         // Rendering world
