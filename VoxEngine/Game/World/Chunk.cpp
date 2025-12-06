@@ -1460,7 +1460,7 @@ void Chunk::updateMesh()
 		const int dy[] = { 0, 0, -1, 1, 0, 0 };
 		const int dz[] = { 0, 0, 0, 0, -1, 1 };
 
-		static const TextureSlot fallbackTextureSlot(0, TextureTransformation::None, false);
+		static const TextureSlot fallbackTextureSlot(0, TextureInfo::TextureTransformation::None, false);
 
 		ChunkMeshData::InstancesStorage newInstances;
 		for (int x = 0; x < CHUNK_SIZE; x++)

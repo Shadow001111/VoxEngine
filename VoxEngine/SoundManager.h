@@ -24,6 +24,7 @@ public:
 	SoundManager& operator=(const SoundManager&) = delete;
 
 	bool loadWav(const std::string& name, const std::string& filename);
+	bool loadOgg(const std::string& name, const std::string& filename);
 
 	void play(const std::string& name, float pitch = 1.0f, float gain = 1.0f, bool loop = false);
 

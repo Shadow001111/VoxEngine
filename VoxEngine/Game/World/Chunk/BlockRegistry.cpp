@@ -1,4 +1,5 @@
 #include "BlockRegistry.h"
+#include "SoundManager.h"
 
 #include <algorithm>
 #include <unordered_map>
@@ -30,7 +31,7 @@ TextureInfo::TextureInfo(const std::string& name, TextureTransformation transfor
 {
 }
 
-TextureSlot::TextureSlot(uint32_t textureID, TextureTransformation transformation, bool isTranslucent) :
+TextureSlot::TextureSlot(uint32_t textureID, TextureInfo::TextureTransformation transformation, bool isTranslucent) :
 	textureID(textureID), transformation(transformation), isTranslucent(isTranslucent)
 {
 }
@@ -38,15 +39,27 @@ TextureSlot::TextureSlot(uint32_t textureID, TextureTransformation transformatio
 
 BlockTempInfo::BlockTempInfo(
 	const char* modelName,
-	const std::vector<TextureInfo>& textureSlots)
+	const std::vector<TextureInfo>& textureSlots
+)
 	:
 	modelName(modelName),
 	textureInfo(textureSlots)
 {
 }
 
-BlockData::BlockData(const BlockProperties& properties, const BlockVisuals& textures) :
-	properties(properties), visuals(textures)
+BlockSounds::BlockSounds(
+	const std::vector<std::string>& breakSounds,
+	const std::vector<std::string>& placeSounds,
+	const std::vector<std::string>& stepSounds
+) :
+	breakSounds(breakSounds),
+	placeSounds(placeSounds),
+	stepSounds(stepSounds)
+{
+}
+
+BlockData::BlockData(const BlockProperties& properties, const BlockVisuals& visuals, const BlockSounds& sounds) :
+	properties(properties), visuals(visuals), sounds(sounds)
 {
 }
 
@@ -56,7 +69,12 @@ std::unordered_map<BlockID, BlockTempInfo> BlockRegistry::blockTempInfoStorage;
 std::unordered_map<size_t, BlockModelLoader::BlockModel> BlockRegistry::blockModelStorage;
 StringIndexer BlockRegistry::blockIndexer;
 
-void BlockRegistry::registerBlock(const std::string& blockName, const BlockProperties& properties, const BlockTempInfo& tempInfo)
+void BlockRegistry::registerBlock(
+	const std::string& blockName,
+	const BlockProperties& properties,
+	const BlockSounds& sounds,
+	const BlockTempInfo& tempInfo
+)
 {
 	if (blockIndexer.isRegistered(blockName))
 	{
@@ -66,7 +84,7 @@ void BlockRegistry::registerBlock(const std::string& blockName, const BlockPrope
 
 	BlockID blockID = static_cast<BlockID>(blockIndexer.registerAndGetId(blockName));
 
-	blockDataStorage[blockID] = { properties, BlockVisuals() };
+	blockDataStorage[blockID] = { properties, BlockVisuals(), sounds };
 	blockTempInfoStorage[blockID] = tempInfo;
 }
 
@@ -115,8 +133,11 @@ void BlockRegistry::registerBlocksFromJson(const json& j)
 		// Parse temp info
 		BlockTempInfo tempInfo = parseJsonBlockTempInfo(blockJson);
 
+		// Parse sounds
+		BlockSounds sounds = parseJsonBlockSounds(blockJson);
+
 		// Register block
-		registerBlock(blockName, properties, tempInfo);
+		registerBlock(blockName, properties, sounds, tempInfo);
 	}
 }
 
@@ -167,10 +188,6 @@ BlockTempInfo BlockRegistry::parseJsonBlockTempInfo(const json& j)
 	{
 		modelName = j["model"].get<std::string>();
 	}
-	else
-	{
-		std::cerr << "[BlockRegistry]: Block visuals missing model field" << std::endl;
-	}
 
 	// Textures
 	if (j.contains("textures") && j["textures"].is_array())
@@ -190,25 +207,21 @@ BlockTempInfo BlockRegistry::parseJsonBlockTempInfo(const json& j)
 			}
 
 			// Texture transformation
-			TextureTransformation transformation = TextureTransformation::None;
+			TextureInfo::TextureTransformation transformation = TextureInfo::TextureTransformation::None;
 			if (textureJson.contains("transformation"))
 			{
 				std::string transformationStr = textureJson["transformation"].get<std::string>();
 				if (transformationStr == "None")
 				{
-					transformation = TextureTransformation::None;
+					transformation = TextureInfo::TextureTransformation::None;
 				}
 				else if (transformationStr == "Flip")
 				{
-					transformation = TextureTransformation::Flip;
+					transformation = TextureInfo::TextureTransformation::Flip;
 				}
 				else if (transformationStr == "RotateAndFlip")
 				{
-					transformation = TextureTransformation::RotateAndFlip;
-				}
-				else
-				{
-					std::cerr << "[BlockRegistry]: Unknown texture transformation: " << transformationStr << std::endl;
+					transformation = TextureInfo::TextureTransformation::RotateAndFlip;
 				}
 			}
 
@@ -218,19 +231,47 @@ BlockTempInfo BlockRegistry::parseJsonBlockTempInfo(const json& j)
 			{
 				isTranslucent = textureJson["translucent"].get<bool>();
 			}
-			else
-			{
-				std::cerr << "[BlockRegistry]: Block texture missing translucent field" << std::endl;
-				continue;
-			}
+
 			textureInfos.emplace_back(textureName, transformation, isTranslucent);
 		}
 	}
-	else
-	{
-		std::cerr << "[BlockRegistry]: Block visuals missing textures array" << std::endl;
-	}
 	return BlockTempInfo(modelName.c_str(), textureInfos);
+}
+
+BlockSounds BlockRegistry::parseJsonBlockSounds(const json& j)
+{
+	std::vector<std::string> breakSounds;
+	std::vector<std::string> placeSounds;
+	std::vector<std::string> stepSounds;
+
+	// Break sounds
+	if (j.contains("break_sounds") && j["break_sounds"].is_array())
+	{
+		for (const auto& soundJson : j["break_sounds"])
+		{
+			breakSounds.push_back(soundJson.get<std::string>());
+		}
+	}
+
+	// Place sounds
+	if (j.contains("place_sounds") && j["place_sounds"].is_array())
+	{
+		for (const auto& soundJson : j["place_sounds"])
+		{
+			placeSounds.push_back(soundJson.get<std::string>());
+		}
+	}
+
+	// Step sounds
+	if (j.contains("step_sounds") && j["step_sounds"].is_array())
+	{
+		for (const auto& soundJson : j["step_sounds"])
+		{
+			stepSounds.push_back(soundJson.get<std::string>());
+		}
+	}
+
+	return BlockSounds(breakSounds, placeSounds, stepSounds);
 }
 
 void BlockRegistry::registerBlocks(
@@ -239,6 +280,7 @@ void BlockRegistry::registerBlocks(
 {
 	registerBlocksFromFile("res/BlocksData/block_data.json");
 	postBuild(textureNames);
+	loadBlockSounds();
 	blockTempInfoStorage.clear();
 }
 
@@ -334,6 +376,29 @@ void BlockRegistry::postBuild(std::vector<std::string>& textureNames)
 
 				blockData.properties.faceCulling[alignedFace.normal] = shouldCull;
 			}
+		}
+	}
+}
+
+void BlockRegistry::loadBlockSounds()
+{
+	// TODO: Project have a lot of sound file duplicates. Optimize this later.
+	auto& sndMgr = SoundManager::getInstance();
+	for (auto& [blockID, blockData] : blockDataStorage)
+	{
+		const auto& sounds = blockData.sounds;
+
+		for (const auto& breakSound : sounds.breakSounds)
+		{
+			sndMgr.loadOgg("block/break/" + breakSound, "res/Sounds/Blocks/Break/" + breakSound + ".ogg");
+		}
+		for (const auto& placeSound : sounds.placeSounds)
+		{
+			sndMgr.loadOgg("block/place/" + placeSound, "res/Sounds/Blocks/Place/" + placeSound + ".ogg");
+		}
+		for (const auto& stepSound : sounds.stepSounds)
+		{
+			sndMgr.loadOgg("block/step/" + stepSound, "res/Sounds/Blocks/Step/" + stepSound + ".ogg");
 		}
 	}
 }

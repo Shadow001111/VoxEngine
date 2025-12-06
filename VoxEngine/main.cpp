@@ -93,16 +93,6 @@ static void setupOpenGLStates()
     glFrontFace(GL_CCW);
 }
 
-static void loadSounds()
-{
-	auto& mgr = SoundManager::getInstance();
-
-	mgr.loadWav("block_break1", "res/Sounds/stone1.wav");
-    mgr.loadWav("block_break2", "res/Sounds/stone2.wav");
-    mgr.loadWav("block_break3", "res/Sounds/stone3.wav");
-    mgr.loadWav("block_break4", "res/Sounds/stone4.wav");
-}
-
 
 static void collectPlayerInput(PlayerInput& input, const WindowManager& wnd, glm::vec2& previousMousePos)
 {
@@ -288,9 +278,6 @@ int main()
     // OpenGL states
     setupOpenGLStates();
 
-    // Load sounds
-	loadSounds();
-
     // Text renderer
     TextRenderer::init();
     TextRenderer::loadFont("RusEngMinecraft", 8);
@@ -342,6 +329,9 @@ int main()
 		worldUpdateTimer.addTime(deltaTime);
 		profilerUpdateTimer.addTime(deltaTime);
         frequentUIDataUpdateTimer.addTime(deltaTime);
+
+        // Sounds
+		SoundManager::getInstance().update();
 
         // Player
         collectPlayerInput(player->input, wnd, previousMousePos);

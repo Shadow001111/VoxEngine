@@ -20,15 +20,15 @@ struct BlockProperties
 	BlockProperties(bool absorbsLight, uint8_t lightEmission, bool raycastable);
 };
 
-enum class TextureTransformation : uint8_t
-{
-	None = 0,
-	Flip = 1,
-	RotateAndFlip = 2
-};
-
 struct TextureInfo
 {
+	enum class TextureTransformation : uint8_t
+	{
+		None = 0,
+		Flip = 1,
+		RotateAndFlip = 2
+	};
+
 	std::string name;
 	TextureTransformation transformation = TextureTransformation::None;
 	bool isTranslucent = false;
@@ -40,11 +40,11 @@ struct TextureInfo
 struct TextureSlot
 {
 	uint32_t textureID = 0;
-	TextureTransformation transformation = TextureTransformation::None;
+	TextureInfo::TextureTransformation transformation = TextureInfo::TextureTransformation::None;
 	bool isTranslucent = false;
 
 	TextureSlot() = default;
-	TextureSlot(uint32_t textureID, TextureTransformation transformation, bool isTranslucent);
+	TextureSlot(uint32_t textureID, TextureInfo::TextureTransformation transformation, bool isTranslucent);
 };
 
 struct BlockVisuals
@@ -59,6 +59,7 @@ struct BlockVisuals
 struct BlockTempInfo
 {
 	std::string modelName;
+
 	std::vector<TextureInfo> textureInfo;
 
 	BlockTempInfo() = default;
@@ -68,16 +69,29 @@ struct BlockTempInfo
 	);
 };
 
+// Maybe use sound IDs instead of names?
+struct BlockSounds
+{
+	std::vector<std::string> breakSounds;
+	std::vector<std::string> placeSounds;
+	std::vector<std::string> stepSounds;
+
+	BlockSounds() = default;
+	BlockSounds(
+		const std::vector<std::string>& breakSounds,
+		const std::vector<std::string>& placeSounds,
+		const std::vector<std::string>& stepSounds
+	);
+};
+
 struct BlockData
 {
 	BlockProperties properties;
 	BlockVisuals visuals;
+	BlockSounds sounds;
 
 	BlockData() = default;
-	BlockData(const BlockProperties& properties, const BlockVisuals& textures);
-
-	//BlockData(const BlockData& other) = delete;
-	//BlockData& operator=(const BlockData& other) = delete;
+	BlockData(const BlockProperties& properties, const BlockVisuals& visuals, const BlockSounds& sounds);
 };
 
 class BlockRegistry
@@ -93,6 +107,7 @@ class BlockRegistry
 	static void registerBlock(
 		const std::string& blockName,
 		const BlockProperties& properties,
+		const BlockSounds& sounds,
 		const BlockTempInfo& tempInfo
 	);
 
@@ -100,12 +115,12 @@ class BlockRegistry
 	static void registerBlocksFromJson(const json& j);
 	static BlockProperties parseJsonBlockProperties(const json& j);
 	static BlockTempInfo parseJsonBlockTempInfo(const json& j);
+	static BlockSounds parseJsonBlockSounds(const json& j);
 public:
-	static void registerBlocks(
-		std::vector<std::string>& textureNames
-	);
+	static void registerBlocks(std::vector<std::string>& textureNames);
 private:
 	static void postBuild(std::vector<std::string>& textureNames);
+	static void loadBlockSounds();
 public:
 	// Retrieve block ID from block name (returns SIZE_MAX if not found)
 	static BlockID getBlockID(const std::string& blockName);

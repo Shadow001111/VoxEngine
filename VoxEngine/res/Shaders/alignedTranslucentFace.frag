@@ -44,7 +44,7 @@ float interpolateLight_Quad()
 
 float weight(float z, float alpha)
 {
-    return alpha * max(1e-2, 3e3 * pow(1.0 - z * 0.9, 10.0));
+    return max(1e-2, 3e3 * pow(1.0 - z * 0.9, 10.0));
 }
 
 void main()

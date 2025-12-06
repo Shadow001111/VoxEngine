@@ -2,9 +2,7 @@
   "air": {
     "absorbs_light": false,
     "light_emission": 0,
-    "raycastable": false,
-    "model": "",
-    "textures": []
+    "raycastable": false
   },
   "grass_block": {
     "absorbs_light": true,
@@ -42,7 +40,10 @@
         "transformation": "None",
         "translucent": false
       }
-    ]
+    ],
+    "break_sounds": [ "grass1", "grass2", "grass3", "grass4" ],
+    "place_sounds": [ "grass1", "grass2", "grass3", "grass4" ],
+    "step_sounds": []
   },
   "dirt": {
     "absorbs_light": true,
@@ -80,7 +81,10 @@
         "transformation": "RotateAndFlip",
         "translucent": false
       }
-    ]
+    ],
+    "break_sounds": [ "dirt1", "dirt2", "dirt3", "dirt4" ],
+    "place_sounds": [ "dirt1", "dirt2", "dirt3", "dirt4" ],
+    "step_sounds": []
   },
   "stone": {
     "absorbs_light": true,
@@ -118,7 +122,10 @@
         "transformation": "Flip",
         "translucent": false
       }
-    ]
+    ],
+    "break_sounds": [ "stone1", "stone2", "stone3", "stone4" ],
+    "place_sounds": [ "stone1", "stone2", "stone3", "stone4" ],
+    "step_sounds": []
   },
   "glass": {
     "absorbs_light": false,
@@ -156,7 +163,10 @@
         "transformation": "None",
         "translucent": true
       }
-    ]
+    ],
+    "break_sounds": [ "glass1", "glass2", "glass3" ],
+    "place_sounds": [ "stone1", "stone2", "stone3", "stone4" ],
+    "step_sounds": []
   },
   "colored_glass": {
     "absorbs_light": false,
@@ -194,7 +204,10 @@
         "transformation": "None",
         "translucent": true
       }
-    ]
+    ],
+    "break_sounds": [ "glass1", "glass2", "glass3" ],
+    "place_sounds": [ "stone1", "stone2", "stone3", "stone4" ],
+    "step_sounds": []
   },
   "water": {
     "absorbs_light": false,
@@ -270,7 +283,10 @@
         "transformation": "None",
         "translucent": false
       }
-    ]
+    ],
+    "break_sounds": [ "wood1", "wood2", "wood3", "wood4" ],
+    "place_sounds": [ "wood1", "wood2", "wood3", "wood4" ],
+    "step_sounds": []
   },
   "leaves_oak": {
     "absorbs_light": false,
@@ -308,7 +324,10 @@
         "transformation": "None",
         "translucent": true
       }
-    ]
+    ],
+    "break_sounds": [ "grass1", "grass2", "grass3", "grass4" ],
+    "place_sounds": [ "grass1", "grass2", "grass3", "grass4" ],
+    "step_sounds": []
   },
   "stairs": {
     "absorbs_light": true,
@@ -321,6 +340,9 @@
         "transformation": "None",
         "translucent": false
       }
-    ]
+    ],
+    "break_sounds": [ "stone1", "stone2", "stone3", "stone4" ],
+    "place_sounds": [ "stone1", "stone2", "stone3", "stone4" ],
+    "step_sounds": []
   }
 }

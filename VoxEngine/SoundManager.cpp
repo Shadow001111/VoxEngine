@@ -1,6 +1,7 @@
 #include "SoundManager.h"
 #include <iostream>
 #include <fstream>
+#include "stb_vorbis.c"
 
 static bool loadWavFile(const std::string& filename, ALuint* bufferOut)
 {
@@ -54,6 +55,30 @@ static bool loadWavFile(const std::string& filename, ALuint* bufferOut)
 
 	alGenBuffers(1, bufferOut);
 	alBufferData(*bufferOut, format, data.data(), dataSize, sampleRate);
+
+	return true;
+}
+
+static bool loadOggFile(const std::string& filename, ALuint* bufferOut)
+{
+	int channels = 0;
+	int sampleRate = 0;
+	short* pcm = nullptr;
+
+	int samplesPerChannel = stb_vorbis_decode_filename(filename.c_str(), &channels, &sampleRate, &pcm);
+
+	if (samplesPerChannel <= 0)
+		return false;
+
+	size_t totalSamples = size_t(samplesPerChannel) * size_t(channels);
+	size_t dataSize = totalSamples * sizeof(short);
+
+	ALenum format = (channels == 1 ? AL_FORMAT_MONO16 : AL_FORMAT_STEREO16);
+
+	alGenBuffers(1, bufferOut);
+	alBufferData(*bufferOut, format, pcm, dataSize, sampleRate);
+
+	free(pcm); // stb_vorbis allocs with malloc
 
 	return true;
 }
@@ -114,8 +139,25 @@ bool SoundManager::loadWav(const std::string& name, const std::string& filename)
 		return true; // already loaded
 
 	ALuint buffer;
-	if (!loadWavFile(filename, &buffer)) {
+	if (!loadWavFile(filename, &buffer))
+	{
 		std::cerr << "[Sound] Failed to load WAV: " << filename << "\n";
+		return false;
+	}
+
+	buffers[name] = buffer;
+	return true;
+}
+
+bool SoundManager::loadOgg(const std::string& name, const std::string& filename)
+{
+	if (buffers.count(name))
+		return true; // already loaded
+
+	ALuint buffer;
+	if (!loadOggFile(filename, &buffer))
+	{
+		std::cerr << "[Sound] Failed to load OGG: " << filename << "\n";
 		return false;
 	}
 

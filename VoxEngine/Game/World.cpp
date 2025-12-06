@@ -1121,6 +1121,17 @@ bool World::placeBlock(const RaycastResult& raycast, BlockID block)
 	}
 
 	updateBlockAt(placePos, block);
+
+	const BlockData* blockData = BlockRegistry::getBlockDataByID(block);
+	if (blockData && !blockData->sounds.placeSounds.empty())
+	{
+		// Choose random sounds from vector
+		const auto& sounds = blockData->sounds.placeSounds;
+		int soundIndex = rand() % sounds.size();
+		auto& sndMgr = SoundManager::getInstance();
+		sndMgr.play("block/place/" + sounds[soundIndex]);
+	}
+
 	return true;
 }
 
@@ -1133,12 +1144,15 @@ bool World::breakBlock(const RaycastResult& raycast)
 
 	updateBlockAt(raycast.hitBlockPosition, BlockRegistry::getBlockID("core:air"));
 
-	auto& sndMgr = SoundManager::getInstance();
-
-	// I need random number between 1 and 4
-	int soundIndex = rand() % 4 + 1;
-
-	sndMgr.play("block_break" + std::to_string(soundIndex));
+	const BlockData* blockData = BlockRegistry::getBlockDataByID(raycast.hitBlock);
+	if (blockData && !blockData->sounds.breakSounds.empty())
+	{
+		// Choose random sounds from vector
+		const auto& sounds = blockData->sounds.breakSounds;
+		int soundIndex = rand() % sounds.size();
+		auto& sndMgr = SoundManager::getInstance();
+		sndMgr.play("block/break/" + sounds[soundIndex]);
+	}
 
 	return true;
 }
