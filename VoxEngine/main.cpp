@@ -9,7 +9,6 @@
 #include "Graphics/TextRenderer.h"
 #include "Graphics/quad_vertices.h"
 
-#include "OpenGLWrappers/OpenGLDebug.h"
 #include "OpenGLWrappers/OpenGL_VAO.h"
 
 #include "SoundManager.h"
@@ -207,11 +206,16 @@ void APIENTRY glDebugOutput(GLenum source,
     const char* message,
     const void* userParam)
 {
-    // ignore non-significant error/warning codes
-    if (id == 131169 || id == 131185 || id == 131218 || id == 131204) return;
+    // Ignore
+    if (
+        // Non-significant error/warning codes
+        id == 131169 || id == 131185 || id == 131218 || id == 131204 ||
+		// Pixel sync
+        id == 131154
+        ) return;
 
-    std::cout << "---------------" << std::endl;
-    std::cout << "Debug message (" << id << "): " << message << std::endl;
+    std::cout << "---------------\n";
+    std::cout << "Debug message (" << id << "): " << message << "\n";
 
     switch (source)
     {
@@ -221,7 +225,7 @@ void APIENTRY glDebugOutput(GLenum source,
     case GL_DEBUG_SOURCE_THIRD_PARTY:     std::cout << "Source: Third Party"; break;
     case GL_DEBUG_SOURCE_APPLICATION:     std::cout << "Source: Application"; break;
     case GL_DEBUG_SOURCE_OTHER:           std::cout << "Source: Other"; break;
-    } std::cout << std::endl;
+    } std::cout << "\n";
 
     switch (type)
     {
@@ -234,7 +238,7 @@ void APIENTRY glDebugOutput(GLenum source,
     case GL_DEBUG_TYPE_PUSH_GROUP:          std::cout << "Type: Push Group"; break;
     case GL_DEBUG_TYPE_POP_GROUP:           std::cout << "Type: Pop Group"; break;
     case GL_DEBUG_TYPE_OTHER:               std::cout << "Type: Other"; break;
-    } std::cout << std::endl;
+    } std::cout << "\n";
 
     switch (severity)
     {
@@ -242,7 +246,7 @@ void APIENTRY glDebugOutput(GLenum source,
     case GL_DEBUG_SEVERITY_MEDIUM:       std::cout << "Severity: medium"; break;
     case GL_DEBUG_SEVERITY_LOW:          std::cout << "Severity: low"; break;
     case GL_DEBUG_SEVERITY_NOTIFICATION: std::cout << "Severity: notification"; break;
-    } std::cout << std::endl;
+    } std::cout << "\n";
     std::cout << std::endl;
 }
 
@@ -308,7 +312,7 @@ int main()
 
     // Frequent UI data
     float UI_FPS = 0.0f;
-    float accumulatedFPS = 0.0f;
+    float accumulatedTime = 0.0f;
     int accumulatedFrames = 0;
 
     // Main loop
@@ -323,7 +327,7 @@ int main()
         double deltaTime = time - lastTime;
 		lastTime = time;
 
-        accumulatedFPS += 1.0f / (float)deltaTime;
+        accumulatedTime += (float)deltaTime;
         accumulatedFrames++;
 
 		worldUpdateTimer.addTime(deltaTime);
@@ -391,8 +395,8 @@ int main()
         //
         if (frequentUIDataUpdateTimer.shouldUpdate())
         {
-            UI_FPS = accumulatedFPS / accumulatedFrames;
-            accumulatedFPS = 0.0f;
+            UI_FPS = accumulatedFrames / accumulatedTime;
+            accumulatedTime = 0.0f;
             accumulatedFrames = 0;
         }
 

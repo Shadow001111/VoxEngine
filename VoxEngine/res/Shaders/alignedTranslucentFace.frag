@@ -42,7 +42,7 @@ float interpolateLight_Quad()
     return mix(v0, v1, uv.y);
 }
 
-float weight(float z, float alpha)
+float weight(float z)
 {
     return max(1e-2, 3e3 * pow(1.0 - z * 0.9, 10.0));
 }
@@ -60,7 +60,7 @@ void main()
     fogFactor = clamp(fogFactor, 0.0, 1.0);
     vec3 colorWithFog = mix(fogColor, shadedColor, fogFactor);
 
-    float w = weight(depth / farPlane, textureColor.a);
+    float w = weight(depth / farPlane);
 
     accumulation = vec4(colorWithFog, 1.0) * (textureColor.a * w);
     revealage = textureColor.a;

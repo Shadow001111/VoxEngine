@@ -86,7 +86,7 @@ World::World() :
 	// Block data base
 	std::vector<std::string> blockTextureNames;
 	{
-		PROFILE_SCOPE("Blocks registration and model loading", ProfileCategory::General);
+		PROFILE_SCOPE("Blocks registration and assets loading", ProfileCategory::General);
 		BlockRegistry::registerBlocks(blockTextureNames);
 	}
 
