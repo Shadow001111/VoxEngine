@@ -154,6 +154,7 @@ public:
 	// Init/destroy
 	void init(const glm::ivec3& position, Chunk** neighbors);
 	void destroy();
+	static void globalInit();
 
 	// Blocks
 	void buildBlocks();

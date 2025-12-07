@@ -32,10 +32,6 @@ glm::ivec3 Chunk::getPositionFromIndex(size_t index)
 
 Chunk::Chunk()
 {
-	localBlockLightBfsQueue.reserve(CHUNK_VOLUME);
-	localBlockLightRemovalBfsQueue.reserve(CHUNK_VOLUME);
-	localSkyLightBfsQueue.reserve(CHUNK_VOLUME);
-	localSkyLightRemovalBfsQueue.reserve(CHUNK_VOLUME);
 }
 
 Chunk::~Chunk()
@@ -134,6 +130,14 @@ void Chunk::destroy()
 	// TODO: Make it async. Mark chunk as processing.
 	saveBlocks();
 	changedBlocks.clear();
+}
+
+void Chunk::globalInit()
+{
+	localBlockLightBfsQueue.reserve(CHUNK_VOLUME);
+	localBlockLightRemovalBfsQueue.reserve(CHUNK_VOLUME);
+	localSkyLightBfsQueue.reserve(CHUNK_VOLUME);
+	localSkyLightRemovalBfsQueue.reserve(CHUNK_VOLUME);
 }
 
 void Chunk::buildBlocks()
@@ -720,7 +724,11 @@ void Chunk::buildLight()
 
 	PROFILE_SCOPE("Build chunk light", ProfileCategory::ChunkLight);
 
-	//
+	const ChunkColumnData* chunkColumnData = TerrainGenerator::getInstance().getChunkColumnData(position.x, position.z);
+	const int* heightMap = chunkColumnData->heightMapRead();
+	const Chunk* top = neighbors[3];
+
+	// Constants for direction offsets
 	const int dx[] = { -1, 1, 0, 0, 0, 0 };
 	const int dy[] = { 0, 0, -1, 1, 0, 0 };
 	const int dz[] = { 0, 0, 0, 0, -1, 1 };
@@ -758,10 +766,6 @@ void Chunk::buildLight()
 	}
 
 	// Step 2: Collect sky light sources
-	const ChunkColumnData* chunkColumnData = TerrainGenerator::getInstance().getChunkColumnData(position.x, position.z);
-	const int* heightMap = chunkColumnData->heightMapRead();
-
-	const Chunk* top = neighbors[3];
 	{
 		if (top && top->getState() > State::BuildingLight)
 		{
@@ -947,11 +951,11 @@ void Chunk::buildLight()
 		while (!localBlockLightBfsQueue.empty())
 		{
 			// Get node data
-			const auto& data = localBlockLightBfsQueue.front();
+			const auto& data = localBlockLightBfsQueue.front_unsafe();
 			int x = data.x;
 			int y = data.y;
 			int z = data.z;
-			localBlockLightBfsQueue.pop();
+			localBlockLightBfsQueue.pop_unsafe();
 			size_t index = getIndex(x, y, z);
 
 			// Get light level
@@ -1012,11 +1016,11 @@ void Chunk::buildLight()
 		while (!localSkyLightBfsQueue.empty())
 		{
 			// Get node data
-			const auto& data = localSkyLightBfsQueue.front();
+			const auto& data = localSkyLightBfsQueue.front_unsafe();
 			int x = data.x;
 			int y = data.y;
 			int z = data.z;
-			localSkyLightBfsQueue.pop();
+			localSkyLightBfsQueue.pop_unsafe();
 			size_t index = getIndex(x, y, z);
 
 			// Get light level
@@ -1119,12 +1123,12 @@ void Chunk::updateLight()
 	while (!localBlockLightRemovalBfsQueue.empty())
 	{
 		// Get node data
-		const auto& data = localBlockLightRemovalBfsQueue.front();
+		const auto& data = localBlockLightRemovalBfsQueue.front_unsafe();
 		int x = data.x;
 		int y = data.y;
 		int z = data.z;
 		uint8_t nodeLightLevel = data.lightLevel;
-		localBlockLightRemovalBfsQueue.pop();
+		localBlockLightRemovalBfsQueue.pop_unsafe();
 		size_t index = getIndex(x, y, z);
 
 		// Propagate to neighbors
@@ -1188,11 +1192,11 @@ void Chunk::updateLight()
 	while (!localBlockLightBfsQueue.empty())
 	{
 		// Get node data
-		const auto& data = localBlockLightBfsQueue.front();
+		const auto& data = localBlockLightBfsQueue.front_unsafe();
 		int x = data.x;
 		int y = data.y;
 		int z = data.z;
-		localBlockLightBfsQueue.pop();
+		localBlockLightBfsQueue.pop_unsafe();
 		size_t index = getIndex(x, y, z);
 
 		// Get light level
@@ -1255,12 +1259,12 @@ void Chunk::updateLight()
 	while (!localSkyLightRemovalBfsQueue.empty())
 	{
 		// Get node data
-		const auto& data = localSkyLightRemovalBfsQueue.front();
+		const auto& data = localSkyLightRemovalBfsQueue.front_unsafe();
 		int x = data.x;
 		int y = data.y;
 		int z = data.z;
 		uint8_t nodeLightLevel = data.lightLevel;
-		localSkyLightRemovalBfsQueue.pop();
+		localSkyLightRemovalBfsQueue.pop_unsafe();
 		size_t index = getIndex(x, y, z);
 
 		// Propagate to neighbors
@@ -1325,11 +1329,11 @@ void Chunk::updateLight()
 	while (!localSkyLightBfsQueue.empty())
 	{
 		// Get node data
-		const auto& data = localSkyLightBfsQueue.front();
+		const auto& data = localSkyLightBfsQueue.front_unsafe();
 		int x = data.x;
 		int y = data.y;
 		int z = data.z;
-		localSkyLightBfsQueue.pop();
+		localSkyLightBfsQueue.pop_unsafe();
 		size_t index = getIndex(x, y, z);
 
 		// Get light level

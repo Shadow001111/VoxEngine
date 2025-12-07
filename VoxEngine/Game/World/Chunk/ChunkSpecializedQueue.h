@@ -7,6 +7,12 @@
 #include <bit>
 #include <algorithm>
 
+#define TEST_UNSAFE false
+
+#if TEST_UNSAFE
+#include "Core/Assert.h"
+#endif
+
 template<typename T>
 class ChunkSpecializedQueue
 {
@@ -158,26 +164,6 @@ public:
         return data_[front_idx_];
     }
 
-    T& back()
-    {
-        if (empty())
-        {
-            throw std::out_of_range("Queue is empty");
-        }
-        index_t back_idx = (front_idx_ + size_ - 1) & (capacity_ - 1);
-        return data_[back_idx];
-    }
-
-    const T& back() const
-    {
-        if (empty())
-        {
-            throw std::out_of_range("Queue is empty");
-        }
-        index_t back_idx = (front_idx_ + size_ - 1) & (capacity_ - 1);
-        return data_[back_idx];
-    }
-
     void push(const T& value)
     {
         grow_if_needed();
@@ -229,4 +215,34 @@ public:
             reallocate_to_new_capacity(rounded_capacity);
         }
     }
+
+    // === UNSAFE METHODS ===
+    // Caller must ensure the queue is not empty
+
+    T& front_unsafe() noexcept
+    {
+#if TEST_UNSAFE
+        ASSERT(!empty());
+#endif
+        return data_[front_idx_];
+    }
+
+    const T& front_unsafe() const noexcept
+    {
+#if TEST_UNSAFE
+        ASSERT(!empty());
+#endif
+        return data_[front_idx_];
+    }
+
+    void pop_unsafe() noexcept
+    {
+#if TEST_UNSAFE
+        ASSERT(!empty());
+#endif
+        front_idx_ = (front_idx_ + 1) & (capacity_ - 1);
+        size_--;
+    }
 };
+
+#undef TEST_UNSAFE

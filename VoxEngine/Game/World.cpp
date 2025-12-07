@@ -125,6 +125,9 @@ World::World() :
 	// Chunk position SSBO
 	chunkPositionSSBO.bindBase(0);
 
+	// Chunks
+	Chunk::globalInit();
+
 	// Chunk loaders
 	createChunkLoader<SphericalChunkLoader>();
 
