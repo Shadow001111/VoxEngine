@@ -13,6 +13,10 @@
 #include <format>
 #include <fstream>
 
+thread_local ChunkSpecializedQueue<LightNode> Chunk::localBlockLightBfsQueue;
+thread_local ChunkSpecializedQueue<LightRemovalNode> Chunk::localBlockLightRemovalBfsQueue;
+thread_local ChunkSpecializedQueue<LightNode> Chunk::localSkyLightBfsQueue;
+thread_local ChunkSpecializedQueue<LightRemovalNode> Chunk::localSkyLightRemovalBfsQueue;
 std::vector<ChunkMeshData*> Chunk::pendingMeshUploads;
 StructureBlockChangeManager Chunk::structureBlockChangeManager;
 std::filesystem::path Chunk::WORLD_PATH;
@@ -28,6 +32,10 @@ glm::ivec3 Chunk::getPositionFromIndex(size_t index)
 
 Chunk::Chunk()
 {
+	localBlockLightBfsQueue.reserve(CHUNK_VOLUME);
+	localBlockLightRemovalBfsQueue.reserve(CHUNK_VOLUME);
+	localSkyLightBfsQueue.reserve(CHUNK_VOLUME);
+	localSkyLightRemovalBfsQueue.reserve(CHUNK_VOLUME);
 }
 
 Chunk::~Chunk()
@@ -721,7 +729,6 @@ void Chunk::buildLight()
 	std::fill(std::begin(lightLevels), std::end(lightLevels), LightLevel(0, 0));
 
 	// Step 1: Collect block light sources
-	ChunkSpecializedQueue<LightNode> localBlockLightBfsQueue;
 	{
 		for (int x = 0; x < CHUNK_SIZE; x++)
 		{
@@ -754,7 +761,6 @@ void Chunk::buildLight()
 	const ChunkColumnData* chunkColumnData = TerrainGenerator::getInstance().getChunkColumnData(position.x, position.z);
 	const int* heightMap = chunkColumnData->heightMapRead();
 
-	ChunkSpecializedQueue<LightNode> localSkyLightBfsQueue;
 	const Chunk* top = neighbors[3];
 	{
 		if (top && top->getState() > State::BuildingLight)
@@ -1083,22 +1089,18 @@ void Chunk::updateLight()
 		return;
 	}
 
-	ChunkSpecializedQueue<LightNode> localBlockLightBfsQueue;
 	{
 		std::lock_guard<std::mutex> lock(blockLightBfsMutex);
 		localBlockLightBfsQueue.swap(blockLightBfsQueue);
 	}
-	ChunkSpecializedQueue<LightRemovalNode> localBlockLightRemovalBfsQueue;
 	{
 		std::lock_guard<std::mutex> lock(blockLightRemovalBfsMutex);
 		localBlockLightRemovalBfsQueue.swap(blockLightRemovalBfsQueue);
 	}
-	ChunkSpecializedQueue<LightNode> localSkyLightBfsQueue;
 	{
 		std::lock_guard<std::mutex> lock(skyLightBfsMutex);
 		localSkyLightBfsQueue.swap(skyLightBfsQueue);
 	}
-	ChunkSpecializedQueue<LightRemovalNode> localSkyLightRemovalBfsQueue;
 	{
 		std::lock_guard<std::mutex> lock(skyLightRemovalBfsMutex);
 		localSkyLightRemovalBfsQueue.swap(skyLightRemovalBfsQueue);

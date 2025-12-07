@@ -64,7 +64,6 @@ struct BlockVertexLightData
 	LightLevel light[8];     // Light values for each vertex
 };
 
-// TODO: Keep often-acessed data closer
 class Chunk
 {
 public:
@@ -112,6 +111,11 @@ private:
 	
 	ChunkSpecializedQueue<LightRemovalNode> skyLightRemovalBfsQueue;
 	mutable std::mutex skyLightRemovalBfsMutex;
+
+	static thread_local ChunkSpecializedQueue<LightNode> localBlockLightBfsQueue;
+	static thread_local ChunkSpecializedQueue<LightRemovalNode> localBlockLightRemovalBfsQueue;
+	static thread_local ChunkSpecializedQueue<LightNode> localSkyLightBfsQueue;
+	static thread_local ChunkSpecializedQueue<LightRemovalNode> localSkyLightRemovalBfsQueue;
 
 	// Mesh
 	ChunkMeshData meshData;
