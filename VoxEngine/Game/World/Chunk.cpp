@@ -709,6 +709,8 @@ void Chunk::removeIndexFromMap(BlockID block, uint16_t idx)
 	if (vec.empty()) changedBlocks.erase(it);
 }
 
+// TODO: Underground light is wrong on borders. Sky light is not zero somehow. Problem is in mesh update, not in light propagation.
+// TODO: Cache neighbor meshes dirty value and set it once
 void Chunk::buildLight()
 {
 	if (
@@ -767,7 +769,7 @@ void Chunk::buildLight()
 
 	// Step 2: Collect sky light sources
 	{
-		if (top && top->getState() > State::BuildingLight)
+		if (top && top->isLightBuilt())
 		{
 			// Propagate from top neighbor
 			const int y = CHUNK_SIZE - 1;
@@ -900,7 +902,7 @@ void Chunk::buildLight()
 			}
 		}
 
-		// +Y. Sky light shouldn't be gropagated if 'top' chunk isn't nullptr, but I don't care much.
+		// +Y
 		neighbor = neighbors[3];
 		if (neighbor && neighbor->isLightBuilt())
 		{
@@ -951,15 +953,10 @@ void Chunk::buildLight()
 		while (!localBlockLightBfsQueue.empty())
 		{
 			// Get node data
-			const auto& data = localBlockLightBfsQueue.front_unsafe();
-			int x = data.x;
-			int y = data.y;
-			int z = data.z;
-			localBlockLightBfsQueue.pop_unsafe();
-			size_t index = getIndex(x, y, z);
+			const auto& data = localBlockLightBfsQueue.pop_and_return_unsafe();
 
 			// Get light level
-			uint8_t blockLight = lightLevels[index].blockLight;
+			uint8_t blockLight = lightLevels[getIndex(data.x, data.y, data.z)].blockLight;
 			if (blockLight < 2)
 			{
 				continue;
@@ -969,9 +966,9 @@ void Chunk::buildLight()
 			// Propagate to neighbors
 			for (int i = 0; i < 6; i++)
 			{
-				int nx = x + dx[i];
-				int ny = y + dy[i];
-				int nz = z + dz[i];
+				int nx = data.x + dx[i];
+				int ny = data.y + dy[i];
+				int nz = data.z + dz[i];
 
 				size_t neighborIndex;
 				Chunk* neighborChunk = getChunkAndIndex_checkSideNeighbor(nx, ny, nz, i, neighborIndex);
@@ -981,7 +978,7 @@ void Chunk::buildLight()
 				}
 
 				const BlockID neighborBlock = neighborChunk->getBlockAt(neighborIndex);
-				const auto* neighborBlockData = BlockRegistry::getBlockDataByID(blocks[index]);
+				const auto* neighborBlockData = BlockRegistry::getBlockDataByID(neighborBlock);
 				if (neighborBlockData && neighborBlockData->properties.absorbsLight)
 				{
 					continue;
@@ -1016,15 +1013,10 @@ void Chunk::buildLight()
 		while (!localSkyLightBfsQueue.empty())
 		{
 			// Get node data
-			const auto& data = localSkyLightBfsQueue.front_unsafe();
-			int x = data.x;
-			int y = data.y;
-			int z = data.z;
-			localSkyLightBfsQueue.pop_unsafe();
-			size_t index = getIndex(x, y, z);
+			const auto& data = localSkyLightBfsQueue.pop_and_return_unsafe();
 
 			// Get light level
-			uint8_t skyLight = lightLevels[index].skyLight;
+			uint8_t skyLight = lightLevels[getIndex(data.x, data.y, data.z)].skyLight;
 			if (skyLight < 2)
 			{
 				continue;
@@ -1033,9 +1025,9 @@ void Chunk::buildLight()
 			// Propagate to neighbors
 			for (int i = 0; i < 6; i++)
 			{
-				int nx = x + dx[i];
-				int ny = y + dy[i];
-				int nz = z + dz[i];
+				int nx = data.x + dx[i];
+				int ny = data.y + dy[i];
+				int nz = data.z + dz[i];
 
 				size_t neighborIndex;
 				Chunk* neighborChunk = getChunkAndIndex_checkSideNeighbor(nx, ny, nz, i, neighborIndex);
@@ -1045,15 +1037,15 @@ void Chunk::buildLight()
 				}
 
 				const BlockID neighborBlock = neighborChunk->getBlockAt(neighborIndex);
-				const auto* neighborBlockData = BlockRegistry::getBlockDataByID(blocks[index]);
+				const auto* neighborBlockData = BlockRegistry::getBlockDataByID(neighborBlock);
 				if (neighborBlockData && neighborBlockData->properties.absorbsLight)
 				{
 					continue;
 				}
 
-				// If we are propagating down and skyLight is 15, lightAbsorption is 0, otherwise 1
 				uint8_t neighborSkyLight = neighborChunk->getLightAt(neighborIndex).skyLight;
 
+				// If we are propagating down and skyLight is 15, lightAbsorption is 0, otherwise 1 
 				uint8_t lightAbsorption = (i == 2 && skyLight == 15) ? 0 : 1;
 				uint8_t lightToSet = skyLight - lightAbsorption;
 
@@ -1123,20 +1115,14 @@ void Chunk::updateLight()
 	while (!localBlockLightRemovalBfsQueue.empty())
 	{
 		// Get node data
-		const auto& data = localBlockLightRemovalBfsQueue.front_unsafe();
-		int x = data.x;
-		int y = data.y;
-		int z = data.z;
-		uint8_t nodeLightLevel = data.lightLevel;
-		localBlockLightRemovalBfsQueue.pop_unsafe();
-		size_t index = getIndex(x, y, z);
+		const auto& data = localBlockLightRemovalBfsQueue.pop_and_return_unsafe();
 
 		// Propagate to neighbors
 		for (int i = 0; i < 6; i++)
 		{
-			int nx = x + dx[i];
-			int ny = y + dy[i];
-			int nz = z + dz[i];
+			int nx = data.x + dx[i];
+			int ny = data.y + dy[i];
+			int nz = data.z + dz[i];
 
 			size_t neighborIndex;
 			Chunk* neighborChunk = getChunkAndIndex_checkSideNeighbor(nx, ny, nz, i, neighborIndex);
@@ -1153,7 +1139,7 @@ void Chunk::updateLight()
 			}
 
 			uint8_t neighborBlockLight = neighborChunk->getLightAt(neighborIndex).blockLight;
-			if (neighborBlockLight > 0 && neighborBlockLight < nodeLightLevel)
+			if (neighborBlockLight > 0 && neighborBlockLight < data.lightLevel)
 			{
 				if (neighborChunk == this)
 				{
@@ -1170,7 +1156,7 @@ void Chunk::updateLight()
 					neighborChunk->addBlockLightRemovalNodeToQueue(neighborNX, neighborNY, neighborNZ, neighborBlockLight);
 				}
 			}
-			else if (neighborBlockLight >= nodeLightLevel)
+			else if (neighborBlockLight >= data.lightLevel)
 			{
 				if (neighborChunk == this)
 				{
@@ -1192,15 +1178,10 @@ void Chunk::updateLight()
 	while (!localBlockLightBfsQueue.empty())
 	{
 		// Get node data
-		const auto& data = localBlockLightBfsQueue.front_unsafe();
-		int x = data.x;
-		int y = data.y;
-		int z = data.z;
-		localBlockLightBfsQueue.pop_unsafe();
-		size_t index = getIndex(x, y, z);
+		const auto& data = localBlockLightBfsQueue.pop_and_return_unsafe();
 
 		// Get light level
-		uint8_t blockLight = lightLevels[index].blockLight;
+		uint8_t blockLight = lightLevels[getIndex(data.x, data.y, data.z)].blockLight;
 		if (blockLight < 2)
 		{
 			continue;
@@ -1210,9 +1191,9 @@ void Chunk::updateLight()
 		// Propagate to neighbors
 		for (int i = 0; i < 6; i++)
 		{
-			int nx = x + dx[i];
-			int ny = y + dy[i];
-			int nz = z + dz[i];
+			int nx = data.x + dx[i];
+			int ny = data.y + dy[i];
+			int nz = data.z + dz[i];
 
 			size_t neighborIndex;
 			Chunk* neighborChunk = getChunkAndIndex_checkSideNeighbor(nx, ny, nz, i, neighborIndex);
@@ -1259,20 +1240,14 @@ void Chunk::updateLight()
 	while (!localSkyLightRemovalBfsQueue.empty())
 	{
 		// Get node data
-		const auto& data = localSkyLightRemovalBfsQueue.front_unsafe();
-		int x = data.x;
-		int y = data.y;
-		int z = data.z;
-		uint8_t nodeLightLevel = data.lightLevel;
-		localSkyLightRemovalBfsQueue.pop_unsafe();
-		size_t index = getIndex(x, y, z);
+		const auto& data = localSkyLightRemovalBfsQueue.pop_and_return_unsafe();
 
 		// Propagate to neighbors
 		for (int i = 0; i < 6; i++)
 		{
-			int nx = x + dx[i];
-			int ny = y + dy[i];
-			int nz = z + dz[i];
+			int nx = data.x + dx[i];
+			int ny = data.y + dy[i];
+			int nz = data.z + dz[i];
 
 			size_t neighborIndex;
 			Chunk* neighborChunk = getChunkAndIndex_checkSideNeighbor(nx, ny, nz, i, neighborIndex);
@@ -1290,7 +1265,7 @@ void Chunk::updateLight()
 
 			uint8_t neighborSkyLight = neighborChunk->getLightAt(neighborIndex).skyLight;
 			if (neighborSkyLight > 0 &&
-				(neighborSkyLight < nodeLightLevel || (nodeLightLevel == 15 && i == 2)))
+				(neighborSkyLight < data.lightLevel || (data.lightLevel == 15 && i == 2)))
 			{
 				if (neighborChunk == this)
 				{
@@ -1307,7 +1282,7 @@ void Chunk::updateLight()
 					neighborChunk->addSkyLightRemovalNodeToQueue(neighborNX, neighborNY, neighborNZ, neighborSkyLight);
 				}
 			}
-			else if (neighborSkyLight >= nodeLightLevel)
+			else if (neighborSkyLight >= data.lightLevel)
 			{
 				if (neighborChunk == this)
 				{
@@ -1329,15 +1304,10 @@ void Chunk::updateLight()
 	while (!localSkyLightBfsQueue.empty())
 	{
 		// Get node data
-		const auto& data = localSkyLightBfsQueue.front_unsafe();
-		int x = data.x;
-		int y = data.y;
-		int z = data.z;
-		localSkyLightBfsQueue.pop_unsafe();
-		size_t index = getIndex(x, y, z);
+		const auto& data = localSkyLightBfsQueue.pop_and_return_unsafe();
 
 		// Get light level
-		uint8_t skyLight = lightLevels[index].skyLight;
+		uint8_t skyLight = lightLevels[getIndex(data.x, data.y, data.z)].skyLight;
 		if (skyLight < 2)
 		{
 			continue;
@@ -1346,9 +1316,9 @@ void Chunk::updateLight()
 		// Propagate to neighbors
 		for (int i = 0; i < 6; i++)
 		{
-			int nx = x + dx[i];
-			int ny = y + dy[i];
-			int nz = z + dz[i];
+			int nx = data.x + dx[i];
+			int ny = data.y + dy[i];
+			int nz = data.z + dz[i];
 
 			size_t neighborIndex;
 			Chunk* neighborChunk = getChunkAndIndex_checkSideNeighbor(nx, ny, nz, i, neighborIndex);
@@ -1450,7 +1420,7 @@ void Chunk::updateMesh()
 
 		static const TextureSlot fallbackTextureSlot(0, TextureInfo::TextureTransformation::None, false);
 
-		ChunkMeshData::InstancesStorage newInstances;
+		ChunkMeshData::InstancesStorage newInstances; // TODO: Maybe it should be static thread_local?
 		for (int x = 0; x < CHUNK_SIZE; x++)
 		{
 			for (int y = 0; y < CHUNK_SIZE; y++)
@@ -2022,21 +1992,18 @@ void Chunk::setBlockAt(int x, int y, int z, BlockID block, bool saveBlockChanges
 
 void Chunk::setLightAt(int x, int y, int z, LightLevel lightValue)
 {
-	ASSERT(((x | y | z) & CHUNK_UPPER_BITS_MASK) == 0);
 	lightLevels[getIndex(x, y, z)] = lightValue;
 	markBlockMeshDirty(x, y, z);
 }
 
 void Chunk::setBlockLightAt(int x, int y, int z, uint8_t lightLevel)
 {
-	ASSERT(((x | y | z) & CHUNK_UPPER_BITS_MASK) == 0);
 	lightLevels[getIndex(x, y, z)].blockLight = lightLevel;
 	markBlockMeshDirty(x, y, z);
 }
 
 void Chunk::setSkyLightAt(int x, int y, int z, uint8_t lightLevel)
 {
-	ASSERT(((x | y | z) & CHUNK_UPPER_BITS_MASK) == 0);
 	lightLevels[getIndex(x, y, z)].skyLight = lightLevel;
 	markBlockMeshDirty(x, y, z);
 }
@@ -2096,8 +2063,7 @@ void Chunk::markBlockMeshDirty(int x, int y, int z)
 {
 	meshDirty = true;
 
-	// Mark neighbors meshes as dirty
-
+	// Mark neighbor meshes as dirty
 	const bool left = x == 0;
 	const bool right = x == (CHUNK_SIZE - 1);
 	const bool bottom = y == 0;

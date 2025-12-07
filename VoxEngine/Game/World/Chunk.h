@@ -81,7 +81,8 @@ private:
 	enum Flag : uint8_t
 	{
 		IsLoadedInWorld = 0,
-		IsLoadedChunkColumnData
+		IsLoadedChunkColumnData,
+		IsMeshDirty
 	};
 	
 	// Chunk coordinates
@@ -116,6 +117,8 @@ private:
 	static thread_local ChunkSpecializedQueue<LightRemovalNode> localBlockLightRemovalBfsQueue;
 	static thread_local ChunkSpecializedQueue<LightNode> localSkyLightBfsQueue;
 	static thread_local ChunkSpecializedQueue<LightRemovalNode> localSkyLightRemovalBfsQueue;
+
+	//static thread_local bool local
 
 	// Mesh
 	ChunkMeshData meshData;

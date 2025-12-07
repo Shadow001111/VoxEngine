@@ -243,6 +243,17 @@ public:
         front_idx_ = (front_idx_ + 1) & (capacity_ - 1);
         size_--;
     }
+
+    T& pop_and_return_unsafe() noexcept
+    {
+#if TEST_UNSAFE
+        ASSERT(!empty());
+#endif
+        T& result = data_[front_idx_];
+        front_idx_ = (front_idx_ + 1) & (capacity_ - 1);
+        size_--;
+        return result;
+    }
 };
 
 #undef TEST_UNSAFE
