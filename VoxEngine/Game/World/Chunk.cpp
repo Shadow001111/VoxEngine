@@ -17,11 +17,6 @@ std::vector<ChunkMeshData*> Chunk::pendingMeshUploads;
 StructureBlockChangeManager Chunk::structureBlockChangeManager;
 std::filesystem::path Chunk::WORLD_PATH;
 
-inline size_t Chunk::getIndex(int x, int y, int z)
-{
-	return (x << (CHUNK_SIZE_LOG2 << 1)) | (y << CHUNK_SIZE_LOG2) | z;
-}
-
 glm::ivec3 Chunk::getPositionFromIndex(size_t index)
 {
 	return {
@@ -1632,11 +1627,6 @@ void Chunk::updateMesh()
 	}
 }
 
-bool Chunk::shouldMeshBeUpdated() const
-{
-	return meshDirty && isLightBuilt();
-}
-
 void Chunk::markMeshDirty()
 {
 	meshDirty = true;
@@ -2475,49 +2465,9 @@ void Chunk::calculateBlockVertexLight(BlockVertexLightData& result, int x, int y
 	////result.ao[0] = 3;
 }
 
-glm::ivec3 Chunk::getPosition() const
-{
-	return position;
-}
-
-size_t Chunk::getFaceCount() const
-{
-	return meshData.getAllFaceCount();
-}
-
-size_t Chunk::getFaceCapacity() const
-{
-	return meshData.getAlignedFaceCapacity();
-}
-
-Chunk::State Chunk::getState() const
-{
-	return state.load(std::memory_order_acquire);
-}
-
 void Chunk::setState(State newState)
 {
 	state.store(newState, std::memory_order_release);
-}
-
-bool Chunk::getIsProcessing() const
-{
-	return processingFence.isProcessing();// || meshData.processingFence.isProcessing();
-}
-
-bool Chunk::getIsLoadedInWorld() const
-{
-	return chunkFlags.read(Flag::IsLoadedInWorld);
-}
-
-bool Chunk::areBlocksBuilt() const
-{
-	return getState() >= State::BlocksBuilt;
-}
-
-bool Chunk::isLightBuilt() const
-{
-	return getState() >= State::LightsBuilt;
 }
 
 void Chunk::addLoader()
@@ -2528,11 +2478,6 @@ void Chunk::addLoader()
 void Chunk::removeLoader()
 {
 	loaderCount--;
-}
-
-uint8_t Chunk::getLoaderCount() const
-{
-	return loaderCount;
 }
 
 //============================================================================

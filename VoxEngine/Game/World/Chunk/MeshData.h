@@ -77,4 +77,7 @@ struct ChunkMeshData
 		;};
 	size_t getAlignedFaceCapacity() const { return allocatedBlock_alignedFaces.size; };
 	size_t getNonAlignedFaceCapacity() const { return allocatedBlock_nonAlignedFaces.size; };
+	size_t getAllFaceCapacity() const {
+		return allocatedBlock_alignedFaces.size + allocatedBlock_nonAlignedFaces.size;
+	};
 };

@@ -118,6 +118,9 @@ private:
 	static std::vector<ChunkMeshData*> pendingMeshUploads;
 
 	// Processing fence
+	// TODO: Maybe instead of having one fence per chunk, have some sort of global processing system?
+	// Chunk should check if unorderep_set contains chunk position. If yes, wait until it's removed.
+	// It should reduce number of fences significantly. One fence per thread, not per chunk. Reduces memory usage.
 	ProcessingFence processingFence;
 	
 	// Changed blocks
@@ -126,10 +129,10 @@ private:
 	static StructureBlockChangeManager structureBlockChangeManager;
 
 	// Helper index functions
-	static size_t getIndex(int x, int y, int z);
+	static size_t getIndex(int x, int y, int z) { return (x << (CHUNK_SIZE_LOG2 << 1)) | (y << CHUNK_SIZE_LOG2) | z; };
 	static glm::ivec3 getPositionFromIndex(size_t index);
 public:
-	Chunk* neighbors[6]; // Pointers to neighboring chunks for easier access
+	Chunk* neighbors[6] = { nullptr, nullptr, nullptr, nullptr, nullptr, nullptr }; // Pointers to neighboring chunks for easier access
 	
 	static std::filesystem::path WORLD_PATH;
 
@@ -144,10 +147,11 @@ public:
 	// Operators
 	bool operator==(const Chunk& other) const;
 
-	//
+	// Init/destroy
 	void init(const glm::ivec3& position, Chunk** neighbors);
 	void destroy();
 
+	// Blocks
 	void buildBlocks();
 	bool hasStructureBlockUpdates() const;
 	void updateStructureBlocks();
@@ -161,15 +165,18 @@ private:
 	// Connectivity
 	bool findFloodFillStartIndex(uint16_t& startIndex, const bool* floodFillMask) const;
 	void computeConnectivity();
+
+	// Blocks
 	void removeIndexFromMap(BlockID block, uint16_t idx);
 public:
+	// Light
 	void buildLight();
 	void updateLight();
 	bool hasLightUpdates() const;
 
 	// Mesh
 	void updateMesh();
-	bool shouldMeshBeUpdated() const;
+	bool shouldMeshBeUpdated() const { return meshDirty&& isLightBuilt(); };
 	void markMeshDirty();
 	void askForMeshUpload();
 	static void sendMeshesToGPU();
@@ -224,23 +231,22 @@ private:
 	void calculateBlockVertexLight(BlockVertexLightData& result, int x, int y, int z) const;
 public:
 	// Chunk data getters
-	glm::ivec3 getPosition() const;
-	size_t getFaceCount() const;
-	size_t getFaceCapacity() const;
+	glm::ivec3 getPosition() const { return position; };
+	size_t getFaceCount() const { return meshData.getAllFaceCount(); };
 
 	// Getters and setters for states and flags
-	State getState() const;
+	State getState() const { return state.load(std::memory_order_acquire); };
 	void setState(State newState);
 
-	bool getIsProcessing() const;
+	bool getIsProcessing() const { return processingFence.isProcessing(); };
 
-	bool getIsLoadedInWorld() const;
+	bool getIsLoadedInWorld() const { return chunkFlags.read(Flag::IsLoadedInWorld); };
 
-	bool areBlocksBuilt() const;
-	bool isLightBuilt() const;
+	bool areBlocksBuilt() const { return getState() >= State::BlocksBuilt; };
+	bool isLightBuilt() const { return getState() >= State::LightsBuilt; };
 
 	// Getters and setters for loaderCount
 	void addLoader();
 	void removeLoader();
-	uint8_t getLoaderCount() const;
+	uint8_t getLoaderCount() const { return loaderCount; };
 };
