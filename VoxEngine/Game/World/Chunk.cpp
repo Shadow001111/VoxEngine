@@ -696,21 +696,22 @@ void Chunk::computeConnectivity()
 
 void Chunk::removeIndexFromMap(BlockID block, uint16_t idx)
 {
-	//auto it = changedBlocks.find(block);
-	//if (it == changedBlocks.end()) return;
+	auto it = changedBlocks.find(block);
+	if (it == changedBlocks.end()) return;
 
-	//auto& vec = it->second;
+	auto& vec = it->second;
 
-	//for (size_t i = 0; i < vec.size(); i++)
-	//{
-	//	if (vec[i] == idx) {
-	//		vec[i] = vec.back();  // swap with last
-	//		vec.pop_back();       // remove last
-	//		break;
-	//	}
-	//}
+	for (size_t i = 0; i < vec.size(); i++)
+	{
+		if (vec[i] == idx)
+		{
+			vec[i] = vec.back();  // swap with last
+			vec.pop_back();       // remove last
+			break;
+		}
+	}
 
-	//if (vec.empty()) changedBlocks.erase(it);
+	if (vec.empty()) changedBlocks.erase(it);
 }
 
 void Chunk::buildLight()
@@ -1921,8 +1922,6 @@ std::pair<BlockID, LightLevel> Chunk::getBlockAndLightAt(size_t index) const
 
 void Chunk::setBlockAt(int x, int y, int z, BlockID block, bool saveBlockChanges)
 {
-	ASSERT(((x | y | z) & CHUNK_UPPER_BITS_MASK) == 0);
-
 	size_t index = getIndex(x, y, z);
 
 	BlockID previousBlock = blocks[index];

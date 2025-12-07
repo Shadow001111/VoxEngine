@@ -89,12 +89,12 @@ private:
 	glm::ivec3 position;
 
 	// States and flags
-	std::atomic<State> state;
+	std::atomic<State> state = State::NotInitialized_NeedsBlocks;
 	AtomicFlags<uint8_t> chunkFlags;
-	bool meshDirty;
+	bool meshDirty = false;
 
 	// Loaders count
-	uint8_t loaderCount;
+	uint8_t loaderCount = 0;
 
 	// Grid data
 	BlockID blocks[CHUNK_VOLUME];
