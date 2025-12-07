@@ -99,9 +99,10 @@ class BlockRegistry
 	BlockRegistry() = delete;
 	~BlockRegistry() = delete;
 
+	// TODO: Store data in vectors
 	static std::unordered_map<BlockID, BlockData> blockDataStorage;
 	static std::unordered_map<BlockID, BlockTempInfo> blockTempInfoStorage;
-	static std::unordered_map<size_t, BlockModelLoader::BlockModel> blockModelStorage;
+	static std::unordered_map<size_t, BlockModelLoader::BlockModel> blockModelStorage; // TODO: Change modelID to use uint16_t
 	static StringIndexer blockIndexer;
 
 	static void registerBlock(

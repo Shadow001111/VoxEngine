@@ -1215,10 +1215,6 @@ void Chunk::updateLight()
 				continue;
 			}
 
-			int checkX = nx & CHUNK_UPPER_BITS_MASK;
-			int checkY = ny & CHUNK_UPPER_BITS_MASK;
-			int checkZ = nz & CHUNK_UPPER_BITS_MASK;
-
 			if (neighborChunk == this)
 			{
 				setBlockLightAt(nx, ny, nz, lightToSet);
@@ -1837,38 +1833,32 @@ Chunk* Chunk::getChunkAndIndex_checkNeighborsTraverse(int x, int y, int z, size_
 
 BlockID Chunk::getBlockAt(int x, int y, int z) const
 {
-	ASSERT(((x | y | z) & CHUNK_UPPER_BITS_MASK) == 0);
 	return blocks[getIndex(x, y, z)];
 }
 
 LightLevel Chunk::getLightAt(int x, int y, int z) const
 {
-	ASSERT(((x | y | z) & CHUNK_UPPER_BITS_MASK) == 0);
 	return lightLevels[getIndex(x, y, z)];
 }
 
 std::pair<BlockID, LightLevel> Chunk::getBlockAndLightAt(int x, int y, int z) const
 {
-	ASSERT(((x | y | z) & CHUNK_UPPER_BITS_MASK) == 0);
 	size_t index = getIndex(x, y, z);
 	return std::make_pair(blocks[index], lightLevels[index]);
 }
 
 BlockID Chunk::getBlockAt(size_t index) const
 {
-	ASSERT(index < CHUNK_VOLUME);
 	return blocks[index];
 }
 
 LightLevel Chunk::getLightAt(size_t index) const
 {
-	ASSERT(index < CHUNK_VOLUME);
 	return lightLevels[index];
 }
 
 std::pair<BlockID, LightLevel> Chunk::getBlockAndLightAt(size_t index) const
 {
-	ASSERT(index < CHUNK_VOLUME);
 	return std::make_pair(blocks[index], lightLevels[index]);
 }
 
@@ -2010,7 +2000,6 @@ void Chunk::setSkyLightAt(int x, int y, int z, uint8_t lightLevel)
 
 void Chunk::setLightAt(size_t index, LightLevel lightValue)
 {
-	ASSERT(index < CHUNK_VOLUME);
 	lightLevels[index] = lightValue;
 
 	glm::ivec3 pos = getPositionFromIndex(index);
@@ -2019,7 +2008,6 @@ void Chunk::setLightAt(size_t index, LightLevel lightValue)
 
 void Chunk::setBlockLightAt(size_t index, uint8_t lightLevel)
 {
-	ASSERT(index < CHUNK_VOLUME);
 	lightLevels[index].blockLight = lightLevel;
 
 	glm::ivec3 pos = getPositionFromIndex(index);
@@ -2028,7 +2016,6 @@ void Chunk::setBlockLightAt(size_t index, uint8_t lightLevel)
 
 void Chunk::setSkyLightAt(size_t index, uint8_t lightLevel)
 {
-	ASSERT(index < CHUNK_VOLUME);
 	lightLevels[index].skyLight = lightLevel;
 
 	glm::ivec3 pos = getPositionFromIndex(index);
@@ -2201,9 +2188,6 @@ void Chunk::calculateVertexAmbientOcclusionAndLight(
 
 	unsigned int avgBlockLight = blockLightSum / count;
 	unsigned int avgSkyLight = skyLightSum / count;
-
-	ASSERT(avgBlockLight >= 0 && avgBlockLight <= 15);
-	ASSERT(avgSkyLight >= 0 && avgSkyLight <= 15);
 
 	ao = 3 - (side1.second + side2.second + corner.second);
 	light.blockLight = avgBlockLight;

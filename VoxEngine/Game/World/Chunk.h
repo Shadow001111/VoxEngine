@@ -118,15 +118,13 @@ private:
 	static thread_local ChunkSpecializedQueue<LightNode> localSkyLightBfsQueue;
 	static thread_local ChunkSpecializedQueue<LightRemovalNode> localSkyLightRemovalBfsQueue;
 
-	//static thread_local bool local
-
 	// Mesh
 	ChunkMeshData meshData;
 	static std::vector<ChunkMeshData*> pendingMeshUploads;
 
 	// Processing fence
 	// TODO: Maybe instead of having one fence per chunk, have some sort of global processing system?
-	// Chunk should check if unorderep_set contains chunk position. If yes, wait until it's removed.
+	// Chunk should check if unordered_set contains chunk position. If yes, wait until it's removed.
 	// It should reduce number of fences significantly. One fence per thread, not per chunk. Reduces memory usage.
 	ProcessingFence processingFence;
 	

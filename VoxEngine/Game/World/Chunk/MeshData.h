@@ -29,7 +29,7 @@ struct ChunkMeshData
 	uint32_t renderNonAlignedOpaqueFaceCount = 0;
 	uint32_t renderNonAlignedTranslucentFaceCount = 0;
 
-	// TODO: Use flags to reduce memory usage
+	// TODO: Use flags to reduce memory usage. Though it won't help due to memory layout.
 	bool alignedCreated = false;
 	bool nonAlignedCreated = false;
 	bool dirty = false;
