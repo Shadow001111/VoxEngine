@@ -67,6 +67,9 @@ struct BlockTempInfo
 		const char* modelName,
 		const std::vector<TextureInfo>& textureSlots
 	);
+
+	//BlockTempInfo(BlockTempInfo&& other) noexcept;
+	//BlockTempInfo& operator=(BlockTempInfo&& other) noexcept;
 };
 
 // Maybe use sound IDs instead of names?
@@ -100,9 +103,9 @@ class BlockRegistry
 	~BlockRegistry() = delete;
 
 	// TODO: Store data in vectors
-	static std::unordered_map<BlockID, BlockData> blockDataStorage;
-	static std::unordered_map<BlockID, BlockTempInfo> blockTempInfoStorage;
-	static std::unordered_map<size_t, BlockModelLoader::BlockModel> blockModelStorage; // TODO: Change modelID to use uint16_t
+	static std::vector<BlockData> blockDataStorage;
+	static std::vector<BlockTempInfo> blockTempInfoStorage;
+	static std::vector<BlockModelLoader::BlockModel> blockModelStorage;
 	static StringIndexer blockIndexer;
 
 	static void registerBlock(

@@ -4,7 +4,6 @@
 #include <algorithm>
 #include <unordered_map>
 #include <fstream>
-#include <algorithm>
 
 #include "Core/Assert.h"
 
@@ -64,9 +63,9 @@ BlockData::BlockData(const BlockProperties& properties, const BlockVisuals& visu
 }
 
 
-std::unordered_map<BlockID, BlockData> BlockRegistry::blockDataStorage;
-std::unordered_map<BlockID, BlockTempInfo> BlockRegistry::blockTempInfoStorage;
-std::unordered_map<size_t, BlockModelLoader::BlockModel> BlockRegistry::blockModelStorage;
+std::vector<BlockData> BlockRegistry::blockDataStorage;
+std::vector<BlockTempInfo> BlockRegistry::blockTempInfoStorage;
+std::vector<BlockModelLoader::BlockModel> BlockRegistry::blockModelStorage;
 StringIndexer BlockRegistry::blockIndexer;
 
 void BlockRegistry::registerBlock(
@@ -82,10 +81,10 @@ void BlockRegistry::registerBlock(
 		return;
 	}
 
-	BlockID blockID = static_cast<BlockID>(blockIndexer.registerAndGetId(blockName));
+	blockIndexer.registerAndGetId(blockName);
 
-	blockDataStorage[blockID] = { properties, BlockVisuals(), sounds };
-	blockTempInfoStorage[blockID] = tempInfo;
+	blockDataStorage.emplace_back( properties, BlockVisuals(), sounds );
+	blockTempInfoStorage.emplace_back(std::move(tempInfo));
 }
 
 void BlockRegistry::registerBlocksFromFile(const std::filesystem::path& filepath)
@@ -293,9 +292,11 @@ void BlockRegistry::postBuild(std::vector<std::string>& textureNames)
 	size_t nextModelID = 0;
 	blockModelStorage.clear();
 
-	for (auto& [blockID, blockData] : blockDataStorage)
+	ASSERT(blockDataStorage.size() < 1 << (sizeof(BlockID) * 8));
+	for (BlockID blockID = 0; blockID < blockDataStorage.size(); blockID++)
 	{
-		const auto& tempInfo = blockTempInfoStorage.find(blockID)->second;
+		auto& blockData = blockDataStorage[blockID];
+		const auto& tempInfo = blockTempInfoStorage[blockID];
 
 		// Set 'hasFaces'
 		const bool hasFaces = !tempInfo.textureInfo.empty();
@@ -335,11 +336,11 @@ void BlockRegistry::postBuild(std::vector<std::string>& textureNames)
 				currentModelID = nextModelID++;
 				if (loadingResult.has_value())
 				{
-					blockModelStorage.emplace(currentModelID, loadingResult.value());
+					blockModelStorage.push_back(loadingResult.value());
 				}
 				else
 				{
-					blockModelStorage.emplace(currentModelID, BlockModelLoader::BlockModel());
+					blockModelStorage.push_back(BlockModelLoader::BlockModel());
 				}
 				registeredModels.emplace(tempInfo.modelName, currentModelID);
 			}
@@ -349,7 +350,7 @@ void BlockRegistry::postBuild(std::vector<std::string>& textureNames)
 			}
 			blockData.visuals.modelID = currentModelID;
 
-			const auto& model = blockModelStorage.find(currentModelID)->second;
+			const auto& model = blockModelStorage[currentModelID];
 
 			// Enable culling for faces that have opaque aligned faces in the model
 			for (int i = 0; i < 6; i++)
@@ -384,8 +385,9 @@ void BlockRegistry::loadBlockSounds()
 {
 	// TODO: Project have a lot of sound file duplicates. Optimize this later.
 	auto& sndMgr = SoundManager::getInstance();
-	for (auto& [blockID, blockData] : blockDataStorage)
+	for (BlockID blockID = 0; blockID < blockDataStorage.size(); blockID++)
 	{
+		auto& blockData = blockDataStorage[blockID];
 		const auto& sounds = blockData.sounds;
 
 		for (const auto& breakSound : sounds.breakSounds)
@@ -413,29 +415,27 @@ BlockID BlockRegistry::getBlockID(const std::string& blockName)
 const BlockData* BlockRegistry::getBlockDataByName(const std::string& blockName)
 {
 	auto result = blockIndexer.getId(blockName);
-	if (result.has_value())
+	if (!result.has_value())
 	{
-		return &blockDataStorage[result.value()];
+		return nullptr;
 	}
-	return nullptr;
+	return getBlockDataByID(result.value());
 }
 
 const BlockData* BlockRegistry::getBlockDataByID(BlockID id)
 {
-	auto it = blockDataStorage.find(id);
-	if (it != blockDataStorage.end())
+	if (id >= blockDataStorage.size())
 	{
-		return &it->second;
+		return nullptr;
 	}
-	return nullptr;
+	return &blockDataStorage[id];
 }
 
 const BlockModelLoader::BlockModel* BlockRegistry::getBlockModelByID(size_t modelID)
 {
-	auto it = blockModelStorage.find(modelID);
-	if (it != blockModelStorage.end())
+	if (modelID >= blockModelStorage.size())
 	{
-		return &it->second;
+		return nullptr;
 	}
-	return nullptr;
+	return &blockModelStorage[modelID];
 }
