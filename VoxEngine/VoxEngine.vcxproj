@@ -189,6 +189,7 @@
     <ClCompile Include="Game\World\WorldVisualSettings.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Game\World\Chunk\ChunkSpecializedQueue.h" />
     <ClInclude Include="Game\World\Chunk\BlockModelLoader.h" />
     <ClInclude Include="Core\Debug.h" />
     <ClInclude Include="Game\World\ChunkLoaders\BaseChunkLoader.h" />

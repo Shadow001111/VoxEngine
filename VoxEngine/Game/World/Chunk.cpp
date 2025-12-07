@@ -108,31 +108,19 @@ void Chunk::destroy()
 	// Clear light BFS queues
 	{
 		std::lock_guard<std::mutex> lock(blockLightBfsMutex);
-		while (!blockLightBfsQueue.empty())
-		{
-			blockLightBfsQueue.pop();
-		}
+		blockLightBfsQueue.clear();
 	}
 	{
 		std::lock_guard<std::mutex> lock(blockLightRemovalBfsMutex);
-		while (!blockLightRemovalBfsQueue.empty())
-		{
-			blockLightRemovalBfsQueue.pop();
-		}
+		blockLightRemovalBfsQueue.clear();
 	}
 	{
 		std::lock_guard<std::mutex> lock(skyLightBfsMutex);
-		while (!skyLightBfsQueue.empty())
-		{
-			skyLightBfsQueue.pop();
-		}
+		skyLightBfsQueue.clear();
 	}
 	{
 		std::lock_guard<std::mutex> lock(skyLightRemovalBfsMutex);
-		while (!skyLightRemovalBfsQueue.empty())
-		{
-			skyLightRemovalBfsQueue.pop();
-		}
+		skyLightRemovalBfsQueue.clear();
 	}
 
 	// TODO: Make it async. Mark chunk as processing.
@@ -733,7 +721,7 @@ void Chunk::buildLight()
 	std::fill(std::begin(lightLevels), std::end(lightLevels), LightLevel(0, 0));
 
 	// Step 1: Collect block light sources
-	std::queue<LightNode> localBlockLightBfsQueue;
+	ChunkSpecializedQueue<LightNode> localBlockLightBfsQueue;
 	{
 		for (int x = 0; x < CHUNK_SIZE; x++)
 		{
@@ -766,7 +754,7 @@ void Chunk::buildLight()
 	const ChunkColumnData* chunkColumnData = TerrainGenerator::getInstance().getChunkColumnData(position.x, position.z);
 	const int* heightMap = chunkColumnData->heightMapRead();
 
-	std::queue<LightNode> localSkyLightBfsQueue;
+	ChunkSpecializedQueue<LightNode> localSkyLightBfsQueue;
 	const Chunk* top = neighbors[3];
 	{
 		if (top && top->getState() > State::BuildingLight)
@@ -950,7 +938,6 @@ void Chunk::buildLight()
 
 	// Step 4: Propagate block light using flood-fill
 	{
-		// TODO: Consider using vector to speed up. Must remove front element!
 		while (!localBlockLightBfsQueue.empty())
 		{
 			// Get node data
@@ -958,8 +945,8 @@ void Chunk::buildLight()
 			int x = data.x;
 			int y = data.y;
 			int z = data.z;
-			size_t index = getIndex(x, y, z);
 			localBlockLightBfsQueue.pop();
+			size_t index = getIndex(x, y, z);
 
 			// Get light level
 			uint8_t blockLight = lightLevels[index].blockLight;
@@ -1023,8 +1010,8 @@ void Chunk::buildLight()
 			int x = data.x;
 			int y = data.y;
 			int z = data.z;
-			size_t index = getIndex(x, y, z);
 			localSkyLightBfsQueue.pop();
+			size_t index = getIndex(x, y, z);
 
 			// Get light level
 			uint8_t skyLight = lightLevels[index].skyLight;
@@ -1096,22 +1083,22 @@ void Chunk::updateLight()
 		return;
 	}
 
-	std::queue<LightNode> localBlockLightBfsQueue;
+	ChunkSpecializedQueue<LightNode> localBlockLightBfsQueue;
 	{
 		std::lock_guard<std::mutex> lock(blockLightBfsMutex);
 		localBlockLightBfsQueue.swap(blockLightBfsQueue);
 	}
-	std::queue<LightRemovalNode> localBlockLightRemovalBfsQueue;
+	ChunkSpecializedQueue<LightRemovalNode> localBlockLightRemovalBfsQueue;
 	{
 		std::lock_guard<std::mutex> lock(blockLightRemovalBfsMutex);
 		localBlockLightRemovalBfsQueue.swap(blockLightRemovalBfsQueue);
 	}
-	std::queue<LightNode> localSkyLightBfsQueue;
+	ChunkSpecializedQueue<LightNode> localSkyLightBfsQueue;
 	{
 		std::lock_guard<std::mutex> lock(skyLightBfsMutex);
 		localSkyLightBfsQueue.swap(skyLightBfsQueue);
 	}
-	std::queue<LightRemovalNode> localSkyLightRemovalBfsQueue;
+	ChunkSpecializedQueue<LightRemovalNode> localSkyLightRemovalBfsQueue;
 	{
 		std::lock_guard<std::mutex> lock(skyLightRemovalBfsMutex);
 		localSkyLightRemovalBfsQueue.swap(skyLightRemovalBfsQueue);
@@ -1135,8 +1122,8 @@ void Chunk::updateLight()
 		int y = data.y;
 		int z = data.z;
 		uint8_t nodeLightLevel = data.lightLevel;
-		size_t index = getIndex(x, y, z);
 		localBlockLightRemovalBfsQueue.pop();
+		size_t index = getIndex(x, y, z);
 
 		// Propagate to neighbors
 		for (int i = 0; i < 6; i++)
@@ -1196,7 +1183,6 @@ void Chunk::updateLight()
 	}
 
 	// Propagate block light
-	// TODO: Consider using vector to speed up. Must remove front element!
 	while (!localBlockLightBfsQueue.empty())
 	{
 		// Get node data
@@ -1204,8 +1190,8 @@ void Chunk::updateLight()
 		int x = data.x;
 		int y = data.y;
 		int z = data.z;
-		size_t index = getIndex(x, y, z);
 		localBlockLightBfsQueue.pop();
+		size_t index = getIndex(x, y, z);
 
 		// Get light level
 		uint8_t blockLight = lightLevels[index].blockLight;
@@ -1272,8 +1258,8 @@ void Chunk::updateLight()
 		int y = data.y;
 		int z = data.z;
 		uint8_t nodeLightLevel = data.lightLevel;
-		size_t index = getIndex(x, y, z);
 		localSkyLightRemovalBfsQueue.pop();
+		size_t index = getIndex(x, y, z);
 
 		// Propagate to neighbors
 		for (int i = 0; i < 6; i++)
@@ -1341,8 +1327,8 @@ void Chunk::updateLight()
 		int x = data.x;
 		int y = data.y;
 		int z = data.z;
-		size_t index = getIndex(x, y, z);
 		localSkyLightBfsQueue.pop();
+		size_t index = getIndex(x, y, z);
 
 		// Get light level
 		uint8_t skyLight = lightLevels[index].skyLight;

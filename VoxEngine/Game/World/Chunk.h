@@ -3,12 +3,12 @@
 #include "Chunk/Block.h"
 #include "Chunk/Metrics.h"
 #include "Chunk/StructureBlockChanges.h"
+#include "Chunk/ChunkSpecializedQueue.h"
 
 #include "Core/Multithreading/ProcessingFence.h"
 #include "Core/AtomicFlags.h"
 
 #include <vector>
-#include <queue>
 #include <mutex>
 #include <atomic>
 #include <cstdint>
@@ -35,14 +35,14 @@ union LightLevel
 
 struct LightNode
 {
-	uint16_t x : 4, y : 4, z : 4;
+	uint8_t x : 4, y : 4, z : 4;
 
 	LightNode(int x, int y, int z);
 };
 
 struct LightRemovalNode
 {
-	uint16_t x : 4, y : 4, z : 4, lightLevel : 4;
+	uint8_t x : 4, y : 4, z : 4, lightLevel : 4;
 
 	LightRemovalNode(int x, int y, int z, uint8_t lightLevel);
 };
@@ -101,16 +101,16 @@ private:
 	LightLevel lightLevels[CHUNK_VOLUME];
 
 	//  Light propagation
-	std::queue<LightNode> blockLightBfsQueue;
+	ChunkSpecializedQueue<LightNode> blockLightBfsQueue;
 	mutable std::mutex blockLightBfsMutex;
 
-	std::queue<LightRemovalNode> blockLightRemovalBfsQueue;
+	ChunkSpecializedQueue<LightRemovalNode> blockLightRemovalBfsQueue;
 	mutable std::mutex blockLightRemovalBfsMutex;
 
-	std::queue<LightNode> skyLightBfsQueue;
+	ChunkSpecializedQueue<LightNode> skyLightBfsQueue;
 	mutable std::mutex skyLightBfsMutex;
-
-	std::queue<LightRemovalNode> skyLightRemovalBfsQueue;
+	
+	ChunkSpecializedQueue<LightRemovalNode> skyLightRemovalBfsQueue;
 	mutable std::mutex skyLightRemovalBfsMutex;
 
 	// Mesh
