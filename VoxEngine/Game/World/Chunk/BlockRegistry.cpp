@@ -84,7 +84,7 @@ void BlockRegistry::registerBlock(
 	blockIndexer.registerAndGetId(blockName);
 
 	blockDataStorage.emplace_back( properties, BlockVisuals(), sounds );
-	blockTempInfoStorage.emplace_back(std::move(tempInfo));
+	blockTempInfoStorage.emplace_back(tempInfo);
 }
 
 void BlockRegistry::registerBlocksFromFile(const std::filesystem::path& filepath)

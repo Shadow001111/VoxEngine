@@ -13,6 +13,7 @@
 #include "Core/Assert.h"
 #endif
 
+// TODO: Add aligment
 template<typename T>
 class ChunkSpecializedQueue
 {
@@ -244,7 +245,18 @@ public:
         size_--;
     }
 
-    T& pop_and_return_unsafe() noexcept
+    /*T& pop_and_return_unsafe() noexcept
+    {
+#if TEST_UNSAFE
+        ASSERT(!empty());
+#endif
+        T& result = data_[front_idx_];
+        front_idx_ = (front_idx_ + 1) & (capacity_ - 1);
+        size_--;
+        return result;
+    }*/
+
+    T pop_and_return_unsafe() noexcept
     {
 #if TEST_UNSAFE
         ASSERT(!empty());

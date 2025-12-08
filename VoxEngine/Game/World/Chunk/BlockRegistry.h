@@ -102,7 +102,6 @@ class BlockRegistry
 	BlockRegistry() = delete;
 	~BlockRegistry() = delete;
 
-	// TODO: Store data in vectors
 	static std::vector<BlockData> blockDataStorage;
 	static std::vector<BlockTempInfo> blockTempInfoStorage;
 	static std::vector<BlockModelLoader::BlockModel> blockModelStorage;

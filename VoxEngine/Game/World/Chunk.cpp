@@ -710,6 +710,9 @@ void Chunk::removeIndexFromMap(BlockID block, uint16_t idx)
 }
 
 // TODO: Underground light is wrong on borders. Sky light is not zero somehow. Problem is in mesh update, not in light propagation.
+// Maybe it is because of chunk's on edge can't be getten for 100% sure.
+// Either look-up directly in map, but then we will should use mutex, or try more ways to reach certain chunks.
+// 
 // TODO: Cache neighbor meshes dirty value and set it once
 void Chunk::buildLight()
 {
@@ -953,7 +956,7 @@ void Chunk::buildLight()
 		while (!localBlockLightBfsQueue.empty())
 		{
 			// Get node data
-			const auto& data = localBlockLightBfsQueue.pop_and_return_unsafe();
+			const auto data = localBlockLightBfsQueue.pop_and_return_unsafe();
 
 			// Get light level
 			uint8_t blockLight = lightLevels[getIndex(data.x, data.y, data.z)].blockLight;
@@ -1013,7 +1016,7 @@ void Chunk::buildLight()
 		while (!localSkyLightBfsQueue.empty())
 		{
 			// Get node data
-			const auto& data = localSkyLightBfsQueue.pop_and_return_unsafe();
+			const auto data = localSkyLightBfsQueue.pop_and_return_unsafe();
 
 			// Get light level
 			uint8_t skyLight = lightLevels[getIndex(data.x, data.y, data.z)].skyLight;
@@ -1115,7 +1118,7 @@ void Chunk::updateLight()
 	while (!localBlockLightRemovalBfsQueue.empty())
 	{
 		// Get node data
-		const auto& data = localBlockLightRemovalBfsQueue.pop_and_return_unsafe();
+		const auto data = localBlockLightRemovalBfsQueue.pop_and_return_unsafe();
 
 		// Propagate to neighbors
 		for (int i = 0; i < 6; i++)
@@ -1178,7 +1181,7 @@ void Chunk::updateLight()
 	while (!localBlockLightBfsQueue.empty())
 	{
 		// Get node data
-		const auto& data = localBlockLightBfsQueue.pop_and_return_unsafe();
+		const auto data = localBlockLightBfsQueue.pop_and_return_unsafe();
 
 		// Get light level
 		uint8_t blockLight = lightLevels[getIndex(data.x, data.y, data.z)].blockLight;
@@ -1236,7 +1239,7 @@ void Chunk::updateLight()
 	while (!localSkyLightRemovalBfsQueue.empty())
 	{
 		// Get node data
-		const auto& data = localSkyLightRemovalBfsQueue.pop_and_return_unsafe();
+		const auto data = localSkyLightRemovalBfsQueue.pop_and_return_unsafe();
 
 		// Propagate to neighbors
 		for (int i = 0; i < 6; i++)
@@ -1300,7 +1303,7 @@ void Chunk::updateLight()
 	while (!localSkyLightBfsQueue.empty())
 	{
 		// Get node data
-		const auto& data = localSkyLightBfsQueue.pop_and_return_unsafe();
+		const auto data = localSkyLightBfsQueue.pop_and_return_unsafe();
 
 		// Get light level
 		uint8_t skyLight = lightLevels[getIndex(data.x, data.y, data.z)].skyLight;
@@ -1417,6 +1420,8 @@ void Chunk::updateMesh()
 		static const TextureSlot fallbackTextureSlot(0, TextureInfo::TextureTransformation::None, false);
 
 		ChunkMeshData::InstancesStorage newInstances; // TODO: Maybe it should be static thread_local?
+		// Ofcourse we can just clear and then fill meshData.instacesStorage directly, but then processing fence should be activated before it, which I don't want to.
+		// Maybe there's a way without processing fence.
 		for (int x = 0; x < CHUNK_SIZE; x++)
 		{
 			for (int y = 0; y < CHUNK_SIZE; y++)
@@ -1708,6 +1713,7 @@ void Chunk::sendMeshesToGPU()
 	{
 		chunkMesh->updateRenderFaceCount();
 		chunkMesh->dirty = false;
+		//chunkMesh->clearInstances(); // Can be cleared, but it won't change anything.
 		chunkMesh->processingFence.stopProcessing();
 	}
 	pendingMeshUploads.clear();
