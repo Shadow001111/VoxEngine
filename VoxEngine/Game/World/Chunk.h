@@ -135,7 +135,13 @@ private:
 
 	// Helper index functions
 	static size_t getIndex(int x, int y, int z) { return (x << (CHUNK_SIZE_LOG2 << 1)) | (y << CHUNK_SIZE_LOG2) | z; };
-	static glm::ivec3 getPositionFromIndex(size_t index);
+	static glm::ivec3 getPositionFromIndex(size_t index) {
+		return {
+			(index >> (CHUNK_SIZE_LOG2 << 1)) & CHUNK_LOWER_BITS_MASK,
+			(index >> CHUNK_SIZE_LOG2) & CHUNK_LOWER_BITS_MASK,
+			index & CHUNK_LOWER_BITS_MASK
+		};
+	};
 public:
 	Chunk* neighbors[6] = { nullptr, nullptr, nullptr, nullptr, nullptr, nullptr }; // Pointers to neighboring chunks for easier access
 	

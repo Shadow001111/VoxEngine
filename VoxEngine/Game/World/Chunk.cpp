@@ -32,15 +32,6 @@ int hash3(unsigned x, unsigned y, unsigned z)
 	return data;
 }
 
-glm::ivec3 Chunk::getPositionFromIndex(size_t index)
-{
-	return {
-		(index >> (CHUNK_SIZE_LOG2 << 1)) & CHUNK_LOWER_BITS_MASK,
-		(index >> CHUNK_SIZE_LOG2) & CHUNK_LOWER_BITS_MASK,
-		index & CHUNK_LOWER_BITS_MASK
-	};
-}
-
 Chunk::Chunk()
 {
 }
@@ -1417,7 +1408,7 @@ void Chunk::updateMesh()
 	}
 
 	meshDirty = false;
-	// TODO: Non-aligned faces meshes don't update properly
+	
 	ScopedProcessingFence scopedFence(processingFence);
 
 	PROFILE_SCOPE("Update chunk mesh", ProfileCategory::ChunkMesh);
@@ -1436,155 +1427,154 @@ void Chunk::updateMesh()
 		const int globalChunkX = position.x * CHUNK_SIZE;
 		const int globalChunkY = position.y * CHUNK_SIZE;
 		const int globalChunkZ = position.z * CHUNK_SIZE;
-		for (int x = 0; x < CHUNK_SIZE; x++)
+		for (size_t currentBlockIndex = 0; currentBlockIndex < CHUNK_VOLUME; currentBlockIndex++)
 		{
-			for (int y = 0; y < CHUNK_SIZE; y++)
+			glm::ivec3 pos = getPositionFromIndex(currentBlockIndex);
+
+			// Generate new faces for this block
+			BlockID block = blocks[currentBlockIndex];
+			const BlockData* blockData = BlockRegistry::getBlockDataByID(block);
+			if (!blockData || !blockData->properties.hasFaces)
 			{
-				for (int z = 0; z < CHUNK_SIZE; z++)
-				{
-					// Generate new faces for this block
-					BlockID block = getBlockAt(x, y, z);
-					const BlockData* blockData = BlockRegistry::getBlockDataByID(block);
-					if (!blockData || !blockData->properties.hasFaces)
-					{
-						continue;
-					}
+				continue;
+			}
 
-					const auto& modelID = blockData->visuals.modelID;
-					const auto& textureSlots = blockData->visuals.textureSlots;
+			const auto& modelID = blockData->visuals.modelID;
+			const auto& textureSlots = blockData->visuals.textureSlots;
 			
-					const auto* model = BlockRegistry::getBlockModelByID(modelID);
-					if (!model)
+			const auto* model = BlockRegistry::getBlockModelByID(modelID);
+			if (!model)
+			{
+				continue;
+			}
+
+			// TODO: Maybe translucent faces shouldn't be culled. Maybe they should be drawn using GL_LEQUAL for depth test.
+
+			// Aligned faces
+			if (!model->alignedFaces.empty())
+			{
+				const uint32_t hash = hash3(
+					globalChunkX + pos.x,
+					globalChunkY + pos.y,
+					globalChunkZ + pos.z
+				);
+				const uint32_t transformationBitMasks[3] = { 0u, 0b11u, 0b111u };
+				for (const auto& face : model->alignedFaces)
+				{
+					int nx = pos.x + dx[face.normal];
+					int ny = pos.y + dy[face.normal];
+					int nz = pos.z + dz[face.normal];
+
+					size_t neighborIndex;
+					const Chunk* neighborChunk = getChunkAndIndex_checkSideNeighbor(nx, ny, nz, face.normal, neighborIndex);
+					if (!neighborChunk)
 					{
 						continue;
 					}
 
-					// TODO: Maybe translucent faces shouldn't be culled. Maybe they should be drawn using GL_LEQUAL for depth test.
+					BlockID neighborBlock = neighborChunk->getBlockAt(neighborIndex);
+					if (block == neighborBlock)
+					{
+						continue;
+					}
 
-					// Aligned faces
-					const uint32_t hash = hash3(
-						globalChunkX + x,
-						globalChunkY + y,
-						globalChunkZ + z
+					const BlockData* neighborBlockData = BlockRegistry::getBlockDataByID(neighborBlock);
+					if (neighborBlockData && neighborBlockData->properties.faceCulling[face.normal ^ 1])
+					{
+						continue;
+					}
+
+					// Calculate shading
+					LightLevel neighborLight = neighborChunk->getLightAt(neighborIndex);
+					unsigned int ao, light;
+					calculateFaceAmbientOcclusionAndLight(ao, light, pos.x, pos.y, pos.z, face.normal, neighborLight);
+
+					// Get texture
+					const auto& textureSlot = face.textureSlot < textureSlots.size() ? textureSlots[face.textureSlot] : fallbackTextureSlot;
+
+					// Calculate texture transformation
+					uint32_t faceTransformation = hash & transformationBitMasks[(size_t)textureSlot.transformation];
+
+					// Add new face
+					auto& instances = textureSlot.isTranslucent ? newInstances.alignedTranslucent : newInstances.alignedOpaque;
+					instances.emplace_back(
+						pos.x, pos.y, pos.z,
+						face.normal,
+						ao,
+						textureSlot.textureID,
+						faceTransformation,
+						light
 					);
-					const uint32_t transformationBitMasks[3] = { 0u, 0b11u, 0b111u};
-					for (const auto& face : model->alignedFaces)
-					{
-						int nx = x + dx[face.normal];
-						int ny = y + dy[face.normal];
-						int nz = z + dz[face.normal];
+				}
+			}
 
-						size_t neighborIndex;
-						const Chunk* neighborChunk = getChunkAndIndex_checkSideNeighbor(nx, ny, nz, face.normal, neighborIndex);
-						if (!neighborChunk)
-						{
-							continue;
-						}
+			// Non-aligned faces
+			// TODO: Non-aligned faces should be culled if they are on the block's border
+			if (!model->nonAlignedFaces.empty())
+			{
+				BlockVertexLightData lightData;
+				calculateBlockVertexLight(lightData, pos.x, pos.y, pos.z);
 
-						BlockID neighborBlock = neighborChunk->getBlockAt(neighborIndex);
-						if (block == neighborBlock)
-						{
-							continue;
-						}
-						// TODO: Translucent block's shouldn't be culled. Render translucent in LEQUAL.
-						const BlockData* neighborBlockData = BlockRegistry::getBlockDataByID(neighborBlock);
-						if (neighborBlockData && neighborBlockData->properties.faceCulling[face.normal ^ 1])
-						{
-							continue;
-						}
+				NonAlignedBlockFace instance;
+				instance.blockX = pos.x;
+				instance.blockY = pos.y;
+				instance.blockZ = pos.z;
 
-						// Calculate shading
-						LightLevel neighborLight = neighborChunk->getLightAt(neighborIndex);
-						unsigned int ao, light;
-						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, face.normal, neighborLight);
+				instance.light0 = lightData.light[0].fullByte;
+				instance.light1 = lightData.light[1].fullByte;
+				instance.light2 = lightData.light[2].fullByte;
+				instance.light3 = lightData.light[3].fullByte;
+				instance.light4 = lightData.light[4].fullByte;
+				instance.light5 = lightData.light[5].fullByte;
+				instance.light6 = lightData.light[6].fullByte;
+				instance.light7 = lightData.light[7].fullByte;
 
-						// Get texture
-						const auto& textureSlot = face.textureSlot < textureSlots.size() ? textureSlots[face.textureSlot] : fallbackTextureSlot;
+				instance.ao0 = lightData.ao[0];
+				instance.ao1 = lightData.ao[1];
+				instance.ao2 = lightData.ao[2];
+				instance.ao3 = lightData.ao[3];
+				instance.ao4 = lightData.ao[4];
+				instance.ao5 = lightData.ao[5];
+				instance.ao6 = lightData.ao[6];
+				instance.ao7 = lightData.ao[7];
 
-						// Calculate texture transformation
-						uint32_t faceTransformation = hash & transformationBitMasks[(size_t)textureSlot.transformation];
+				for (const auto& face : model->nonAlignedFaces)
+				{
+					const auto& textureSlot = face.textureSlot < textureSlots.size() ? textureSlots[face.textureSlot] : fallbackTextureSlot;
 
-						// Add new face
-						auto& instances = textureSlot.isTranslucent ? newInstances.alignedTranslucent : newInstances.alignedOpaque;
-						instances.emplace_back(
-							x, y, z,
-							face.normal,
-							ao,
-							textureSlot.textureID,
-							faceTransformation,
-							light
-						);
-					}
+					instance.x0 = face.x0;
+					instance.y0 = face.y0;
+					instance.z0 = face.z0;
 
-					// Non-aligned faces
-					// TODO: Non-aligned faces should be culled if they are on the block's border
-					if (!model->nonAlignedFaces.empty())
-					{
-						BlockVertexLightData lightData;
-						calculateBlockVertexLight(lightData, x, y, z);
+					instance.x1 = face.x1;
+					instance.y1 = face.y1;
+					instance.z1 = face.z1;
 
-						NonAlignedBlockFace instance;
-						instance.blockX = x;
-						instance.blockY = y;
-						instance.blockZ = z;
+					instance.x2 = face.x2;
+					instance.y2 = face.y2;
+					instance.z2 = face.z2;
 
-						instance.light0 = lightData.light[0].fullByte;
-						instance.light1 = lightData.light[1].fullByte;
-						instance.light2 = lightData.light[2].fullByte;
-						instance.light3 = lightData.light[3].fullByte;
-						instance.light4 = lightData.light[4].fullByte;
-						instance.light5 = lightData.light[5].fullByte;
-						instance.light6 = lightData.light[6].fullByte;
-						instance.light7 = lightData.light[7].fullByte;
+					instance.x3 = face.x3;
+					instance.y3 = face.y3;
+					instance.z3 = face.z3;
 
-						instance.ao0 = lightData.ao[0];
-						instance.ao1 = lightData.ao[1];
-						instance.ao2 = lightData.ao[2];
-						instance.ao3 = lightData.ao[3];
-						instance.ao4 = lightData.ao[4];
-						instance.ao5 = lightData.ao[5];
-						instance.ao6 = lightData.ao[6];
-						instance.ao7 = lightData.ao[7];
+					instance.u0 = face.u0;
+					instance.v0 = face.v0;
 
-						for (const auto& face : model->nonAlignedFaces)
-						{
-							const auto& textureSlot = face.textureSlot < textureSlots.size() ? textureSlots[face.textureSlot] : fallbackTextureSlot;
+					instance.u1 = face.u1;
+					instance.v1 = face.v1;
 
-							instance.x0 = face.x0;
-							instance.y0 = face.y0;
-							instance.z0 = face.z0;
+					instance.u2 = face.u2;
+					instance.v2 = face.v2;
 
-							instance.x1 = face.x1;
-							instance.y1 = face.y1;
-							instance.z1 = face.z1;
+					instance.u3 = face.u3;
+					instance.v3 = face.v3;
 
-							instance.x2 = face.x2;
-							instance.y2 = face.y2;
-							instance.z2 = face.z2;
+					instance.textureID = textureSlot.textureID;
 
-							instance.x3 = face.x3;
-							instance.y3 = face.y3;
-							instance.z3 = face.z3;
+					auto& instances = textureSlot.isTranslucent ? newInstances.nonAlignedTranslucent : newInstances.nonAlignedOpaque;
 
-							instance.u0 = face.u0;
-							instance.v0 = face.v0;
-
-							instance.u1 = face.u1;
-							instance.v1 = face.v1;
-
-							instance.u2 = face.u2;
-							instance.v2 = face.v2;
-
-							instance.u3 = face.u3;
-							instance.v3 = face.v3;
-
-							instance.textureID = textureSlot.textureID;
-
-							auto& instances = textureSlot.isTranslucent ? newInstances.nonAlignedTranslucent : newInstances.nonAlignedOpaque;
-
-							instances.push_back(instance);
-						}
-					}
+					instances.push_back(instance);
 				}
 			}
 		}
