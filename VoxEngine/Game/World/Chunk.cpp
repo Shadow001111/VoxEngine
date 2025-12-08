@@ -21,6 +21,17 @@ std::vector<ChunkMeshData*> Chunk::pendingMeshUploads;
 StructureBlockChangeManager Chunk::structureBlockChangeManager;
 std::filesystem::path Chunk::WORLD_PATH;
 
+int hash3(unsigned x, unsigned y, unsigned z)
+{
+	unsigned data = x * 0x27d4eb2du + y * 0x165667b1u + z * 0x1b873593u;
+	data ^= data >> 15u;
+	data *= 0x85ebca6bu;
+	data ^= data >> 13u;
+	data *= 0xc2b2ae35u;
+	data ^= data >> 16u;
+	return data;
+}
+
 glm::ivec3 Chunk::getPositionFromIndex(size_t index)
 {
 	return {
@@ -1422,6 +1433,9 @@ void Chunk::updateMesh()
 		ChunkMeshData::InstancesStorage newInstances; // TODO: Maybe it should be static thread_local?
 		// Ofcourse we can just clear and then fill meshData.instacesStorage directly, but then processing fence should be activated before it, which I don't want to.
 		// Maybe there's a way without processing fence.
+		const int globalChunkX = position.x * CHUNK_SIZE;
+		const int globalChunkY = position.y * CHUNK_SIZE;
+		const int globalChunkZ = position.z * CHUNK_SIZE;
 		for (int x = 0; x < CHUNK_SIZE; x++)
 		{
 			for (int y = 0; y < CHUNK_SIZE; y++)
@@ -1448,6 +1462,12 @@ void Chunk::updateMesh()
 					// TODO: Maybe translucent faces shouldn't be culled. Maybe they should be drawn using GL_LEQUAL for depth test.
 
 					// Aligned faces
+					const uint32_t hash = hash3(
+						globalChunkX + x,
+						globalChunkY + y,
+						globalChunkZ + z
+					);
+					const uint32_t transformationBitMasks[3] = { 0u, 0b11u, 0b111u};
 					for (const auto& face : model->alignedFaces)
 					{
 						int nx = x + dx[face.normal];
@@ -1473,20 +1493,25 @@ void Chunk::updateMesh()
 							continue;
 						}
 
-						const auto& textureSlot = face.textureSlot < textureSlots.size() ? textureSlots[face.textureSlot] : fallbackTextureSlot;
-
+						// Calculate shading
 						LightLevel neighborLight = neighborChunk->getLightAt(neighborIndex);
 						unsigned int ao, light;
 						calculateFaceAmbientOcclusionAndLight(ao, light, x, y, z, face.normal, neighborLight);
 
-						auto& instances = textureSlot.isTranslucent ? newInstances.alignedTranslucent : newInstances.alignedOpaque;
+						// Get texture
+						const auto& textureSlot = face.textureSlot < textureSlots.size() ? textureSlots[face.textureSlot] : fallbackTextureSlot;
 
+						// Calculate texture transformation
+						uint32_t faceTransformation = hash & transformationBitMasks[(size_t)textureSlot.transformation];
+
+						// Add new face
+						auto& instances = textureSlot.isTranslucent ? newInstances.alignedTranslucent : newInstances.alignedOpaque;
 						instances.emplace_back(
 							x, y, z,
 							face.normal,
 							ao,
 							textureSlot.textureID,
-							(uint32_t)textureSlot.transformation,
+							faceTransformation,
 							light
 						);
 					}

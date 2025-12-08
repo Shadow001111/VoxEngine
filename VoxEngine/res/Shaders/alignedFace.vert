@@ -74,49 +74,33 @@ const vec2 uvOffsets[6] = vec2[6](
     vec2(0, 0)
 );
 
-const mat2 texCoordsRotations[4] = mat2[4](
+const mat2 texCoordsRotations[2] = mat2[2](
     mat2(1, 0,
          0, 1),
     mat2(0, 1,
-         -1, 0),
-    mat2(-1, 0,
-         0, -1),
-    mat2(0, -1,
-         1, 0)
+         -1, 0)
 );
 
-const vec2 texCoordsOffsets[4] = vec2[4](
+const vec2 texCoordsOffsets[2] = vec2[2](
     vec2(0, 0),
-    vec2(1, 0),
-    vec2(1, 1),
-    vec2(0, 1)
+    vec2(1, 0)
 );
 
 const float INV_LIGHT_SCALE = 1.0 / 15.0;
 const float INV_AO_SCALE = 1.0 / 3.0;
 const float AO_RANGE = 0.9; // [0; 1]
 
-uint hash3(ivec3 sv)
-{
-    uvec3 v = uvec3(sv);
-    uint x = v.x * 0x27d4eb2du + v.y * 0x165667b1u + v.z * 0x1b873593u;
-    x ^= x >> 15u;
-    x *= 0x85ebca6bu;
-    x ^= x >> 13u;
-    x *= 0xc2b2ae35u;
-    x ^= x >> 16u;
-    return x;
-}
-
 void main()
 {
-    // Unpack face data
+    // Extract spatial data
     uint x = bitfieldExtract(instanceData.x, 0, 4);
     uint y = bitfieldExtract(instanceData.x, 4, 4);
     uint z = bitfieldExtract(instanceData.x, 8, 4);
 
+    // Extract face orientation
     uint normal = bitfieldExtract(instanceData.x, 12, 3);
 
+    // Extract AO
     vec4 faceAO = vec4(
         bitfieldExtract(instanceData.x, 15, 2),
         bitfieldExtract(instanceData.x, 17, 2),
@@ -124,10 +108,11 @@ void main()
         bitfieldExtract(instanceData.x, 21, 2)
     );
 
-    textureID = bitfieldExtract(instanceData.x, 23, 7);
-    
-    uint textureTransformation = bitfieldExtract(instanceData.x, 30, 2);
+    // Extract texture data
+    textureID = bitfieldExtract(instanceData.x, 23, 6);
+    uint textureTransformation = bitfieldExtract(instanceData.x, 29, 3);
 
+    // Extract lighting
     ivec4 blockLight = ivec4(
         bitfieldExtract(instanceData.y, 0, 4),
         bitfieldExtract(instanceData.y, 8, 4),
@@ -141,19 +126,19 @@ void main()
         bitfieldExtract(instanceData.y, 20, 4),
         bitfieldExtract(instanceData.y, 28, 4)
     );
-    skyLight = skyLight - ivec4(skyLightSub); // Can be less than zero
+    skyLight = skyLight - ivec4(skyLightSub); // NOTE: Can be negative
     
-    // AO
+    // AO: Convert from [0,3] range to [0.1, 1.0]
     ao = vec4(1.0 - AO_RANGE) + faceAO * INV_AO_SCALE * AO_RANGE;
 
-    // Light
+    // Lighting: Max of block vs sky light, normalized to [0,1]
     light = max(blockLight, skyLight) * INV_LIGHT_SCALE;
 
-    // Transform vertex and uv
+    // Transform vertex and uv based on face normal
     vec3 vertexPos = vertexRotations[normal] * vec3(aPos, 0.0) + vertexOffsets[normal];
     uv = uvRotations[normal] * aPos + uvOffsets[normal];
 
-    // Chunk position
+    // Get chunk position from SSBO
     const uint posIndex = uint(gl_DrawID) * 3u;
     const ivec3 chunkPosition = ivec3
 	(
@@ -163,27 +148,17 @@ void main()
 	);
     const ivec3 relativeChunkPosition = chunkPosition - cameraChunkPosition;
 
-    // Transform texCoords. TODO: Remove branching. Idk, maybe it won't change a thing.
+    // Apply texture transformations (flip/rotation)
+    vec2 flip = vec2(textureTransformation & 1u, (textureTransformation >> 1u) & 1u);
+    uint rotation = (textureTransformation >> 2u) & 1u;
     texCoords = uv;
-    if (textureTransformation > 0)
-    {
-        ivec3 blockWorldPos = ivec3(x, y, z) + ivec3(chunkPosition);
-        uint hash = hash3(blockWorldPos);
+    texCoords = mix(texCoords, vec2(1.0) - texCoords, flip);
+    texCoords = texCoordsRotations[rotation] * texCoords + texCoordsOffsets[rotation];
 
-        uint rotation = uint(textureTransformation > 1) * (hash & 3u);
-        uint flip = (hash >> 3) & 3;
-
-        vec2 flipMask = vec2(float((flip & 1u) == 0), float((flip & 2u) == 0));
-
-        texCoords = mix(texCoords, vec2(1.0) - texCoords, flipMask);
-        texCoords = texCoordsRotations[rotation] * texCoords + texCoordsOffsets[rotation];
-    }
-
-    //
+    // Calculate final world position
     vec3 worldPos = vec3(16.0 * relativeChunkPosition) + vertexPos + vec3(x, y, z);
-    vec4 viewPos = view * vec4(worldPos, 1.0);
-
-    viewVertexPosition = viewPos.xyz;
     
+    vec4 viewPos = view * vec4(worldPos, 1.0);
+    viewVertexPosition = viewPos.xyz;
     gl_Position = projection * viewPos;
 }

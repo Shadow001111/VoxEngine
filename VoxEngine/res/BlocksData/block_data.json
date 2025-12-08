@@ -296,32 +296,32 @@
     "textures": [
       {
         "name": "leaves_oak",
-        "transformation": "None",
+        "transformation": "RotateAndFlip",
         "translucent": true
       },
       {
         "name": "leaves_oak",
-        "transformation": "None",
+        "transformation": "RotateAndFlip",
         "translucent": true
       },
       {
         "name": "leaves_oak",
-        "transformation": "None",
+        "transformation": "RotateAndFlip",
         "translucent": true
       },
       {
         "name": "leaves_oak",
-        "transformation": "None",
+        "transformation": "RotateAndFlip",
         "translucent": true
       },
       {
         "name": "leaves_oak",
-        "transformation": "None",
+        "transformation": "RotateAndFlip",
         "translucent": true
       },
       {
         "name": "leaves_oak",
-        "transformation": "None",
+        "transformation": "RotateAndFlip",
         "translucent": true
       }
     ],
