@@ -122,10 +122,8 @@ private:
 	ChunkMeshData meshData;
 	static std::vector<ChunkMeshData*> pendingMeshUploads;
 
-	// Processing fence
-	// TODO: Maybe instead of having one fence per chunk, have some sort of global processing system?
-	// Chunk should check if unordered_set contains chunk position. If yes, wait until it's removed.
-	// It should reduce number of fences significantly. One fence per thread, not per chunk. Reduces memory usage.
+	// Processing fence. I tried global processing system. It reduces memory usage because chunk doesn't have its own processing fence.
+	// But it increases wait time in average from 4ms to 40ms, trading 1mb for around 7000 chunks. Differences aren't that big.
 	ProcessingFence processingFence;
 	
 	// Changed blocks

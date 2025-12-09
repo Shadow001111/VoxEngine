@@ -10,7 +10,7 @@
 
 struct BlockProperties
 {
-	bool absorbsLight = false;
+	bool absorbsLight = false; // TODO: In chunk light propagation use this with culling to determine
 	uint8_t lightEmission = 0;
 	bool hasFaces = false;
 	bool faceCulling[6] = { false, false, false, false, false, false };
@@ -89,12 +89,13 @@ struct BlockSounds
 
 struct BlockData
 {
+	std::string name;
 	BlockProperties properties;
 	BlockVisuals visuals;
 	BlockSounds sounds;
 
 	BlockData() = default;
-	BlockData(const BlockProperties& properties, const BlockVisuals& visuals, const BlockSounds& sounds);
+	BlockData(const std::string& name, const BlockProperties& properties, const BlockVisuals& visuals, const BlockSounds& sounds);
 };
 
 class BlockRegistry
@@ -106,6 +107,7 @@ class BlockRegistry
 	static std::vector<BlockTempInfo> blockTempInfoStorage;
 	static std::vector<BlockModelLoader::BlockModel> blockModelStorage;
 	static StringIndexer blockIndexer;
+	static BlockID AIR_ID;
 
 	static void registerBlock(
 		const std::string& blockName,
@@ -127,6 +129,7 @@ private:
 public:
 	// Retrieve block ID from block name (returns SIZE_MAX if not found)
 	static BlockID getBlockID(const std::string& blockName);
+	static BlockID getBlockIDAirFallback(const std::string& blockName);
 
 	static const BlockData* getBlockDataByName(const std::string& blockName);
 	static const BlockData* getBlockDataByID(BlockID id);

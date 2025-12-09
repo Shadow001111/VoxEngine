@@ -12,6 +12,7 @@
 #include <vector>
 #include <format>
 #include <fstream>
+#include <map>
 
 thread_local ChunkSpecializedQueue<LightNode> Chunk::localBlockLightBfsQueue;
 thread_local ChunkSpecializedQueue<LightRemovalNode> Chunk::localBlockLightRemovalBfsQueue;
@@ -163,10 +164,10 @@ void Chunk::buildBlocks()
 	// Fetch IDs
 	// TODO: Maybe fetch block ids once and make them Chunk's static variables?
 	const BlockID airID = BlockRegistry::getBlockID("core:air");
-	const BlockID waterID = BlockRegistry::getBlockID("core:water");
-	const BlockID grassBlockID = BlockRegistry::getBlockID("core:grass_block");
-	const BlockID dirtID = BlockRegistry::getBlockID("core:dirt");
-	const BlockID stoneID = BlockRegistry::getBlockID("core:stone");
+	const BlockID waterID = BlockRegistry::getBlockIDAirFallback("core:water");
+	const BlockID grassBlockID = BlockRegistry::getBlockIDAirFallback("core:grass_block");
+	const BlockID dirtID = BlockRegistry::getBlockIDAirFallback("core:dirt");
+	const BlockID stoneID = BlockRegistry::getBlockIDAirFallback("core:stone");
 
 	// Terrain
 	bool computeCaveMask = false;
@@ -397,8 +398,8 @@ void Chunk::updateStructureBlocks()
 void Chunk::generateTree(const glm::ivec3& rootPosition)
 {
 	const BlockID airID = BlockRegistry::getBlockID("core:air");
-	const BlockID logOakID = BlockRegistry::getBlockID("core:log_oak");
-	const BlockID leavesOakID = BlockRegistry::getBlockID("core:leaves_oak");
+	const BlockID logOakID = BlockRegistry::getBlockIDAirFallback("core:log_oak");
+	const BlockID leavesOakID = BlockRegistry::getBlockIDAirFallback("core:leaves_oak");
 
 	const int treeHeight = 4;
 
@@ -485,45 +486,126 @@ void Chunk::loadBlocks()
 	}
 
 	std::ifstream in(chunkPath, std::ios::binary);
-	if (!in) return;
+	if (!in)
+	{
+		std::cerr << "[Chunk][loadBlocks]: Failed to open file while loading." << std::endl;
+		return;
+	}
 
-	// Load data from file
+	// Check if file is empty or too small
+	in.seekg(0, std::ios::end);
+	size_t fileSize = in.tellg();
+	in.seekg(0, std::ios::beg);
+
+	if (fileSize < sizeof(uint16_t))
+	{
+		std::cerr << "[Chunk][loadBlocks]: Chunk save file is too small." << std::endl;
+		return;
+	}
+
+	// Read number of unique block types
+	uint16_t uniqueCount = 0;
+	in.read(reinterpret_cast<char*>(&uniqueCount), sizeof(uniqueCount));
+	if (uniqueCount == 0 || uniqueCount > CHUNK_VOLUME)
+	{
+		std::cerr << "[Chunk][loadBlocks]: Unique block count is invalid." << std::endl;
+		return;
+	}
+	
+	// Get air block ID
+	const BlockID AIR_BLOCK_ID = BlockRegistry::getBlockID("core:air");
+
+	// Map local IDs to global BlockIDs
+	std::vector<BlockID> localToGlobal(uniqueCount);
+	uint16_t localID = -1;
+	for (uint16_t i = 0; i < uniqueCount; i++)
+	{
+		localID++;
+
+		// Read string length
+		uint8_t nameLen = 0;
+		in.read(reinterpret_cast<char*>(&nameLen), sizeof(nameLen));
+		if (nameLen < 3)
+		{
+			std::cerr << "[Chunk][loadBlocks]: Block name is too small." << std::endl;
+			return;
+		}
+
+		// Read string
+		std::string name(nameLen, '\0');
+		in.read(&name[0], nameLen);
+
+		// Convert to global BlockID
+		BlockID globalID = BlockRegistry::getBlockID(name);
+		if (globalID == (BlockID)-1)
+		{
+			// Block no longer exists - fallback to air
+			globalID = BlockRegistry::getBlockID("core:air");
+			std::cerr << "[Chunk][loadBlocks]: Block '" << name << "' is not found. It was replaced with air." << std::endl;
+		}
+
+		// Store mapping
+		localToGlobal[localID] = globalID;
+	}
+
+	// Read number of changed block entries
 	uint16_t mapSize = 0;
 	in.read(reinterpret_cast<char*>(&mapSize), sizeof(mapSize));
+	if (mapSize > CHUNK_VOLUME)
+	{
+		std::cerr << "[Chunk][loadBlocks]: Map size is invalid." << std::endl;
+		return;
+	}
 
+	// Load each block type
 	for (uint16_t i = 0; i < mapSize; i++)
 	{
-		BlockID block;
-		uint16_t count;
-		in.read(reinterpret_cast<char*>(&block), sizeof(block));
-		in.read(reinterpret_cast<char*>(&count), sizeof(count));
+		// Read local block ID
+		uint16_t localBlockID = 0;
+		in.read(reinterpret_cast<char*>(&localBlockID), sizeof(localBlockID));
+		if (localBlockID >= CHUNK_VOLUME || localBlockID >= localToGlobal.size())
+		{
+			std::cerr << "[Chunk][loadBlocks]: Block localID is invalid." << std::endl;
+			return;
+		}
 
+		// Convert to global BlockID
+		BlockID globalBlockID = localToGlobal[localBlockID];
+
+		// Read count of indices
+		uint16_t count = 0;
+		in.read(reinterpret_cast<char*>(&count), sizeof(count));
+		if (count == 0 || count > CHUNK_VOLUME)
+		{
+			std::cerr << "[Chunk][loadBlocks]: Count of indices is invalid." << std::endl;
+			return;
+		}
+
+		// Read indices
 		std::vector<uint16_t> indices(count);
 		in.read(reinterpret_cast<char*>(indices.data()), count * sizeof(uint16_t));
 
-		changedBlocks[block] = std::move(indices);
+		// Store in changedBlocks map
+		changedBlocks[globalBlockID] = std::move(indices);
 	}
 
 	// Apply loaded data
-	// Remove unnecessary changes
 	for (auto it = changedBlocks.begin(); it != changedBlocks.end();)
 	{
 		BlockID block = it->first;
 		auto& indices = it->second;
 
-		// We’ll remove redundant ones during iteration
 		size_t writeIndex = 0;
-
 		for (uint16_t index : indices)
 		{
-			if (blocks[index] == block) 
+			if (blocks[index] == block)
 			{
 				continue;
 			}
 
 			// Apply the change
 			blocks[index] = block;
-			indices[writeIndex++] = index; // keep this index as still changed
+			indices[writeIndex++] = index;
 		}
 
 		if (writeIndex == 0)
@@ -539,7 +621,6 @@ void Chunk::loadBlocks()
 	}
 }
 
-// TODO: World should have list for decoding blockNames to IDs, in case block registry will change, but for now it's not needed.
 void Chunk::saveBlocks() const
 {
 	if (changedBlocks.empty())
@@ -547,7 +628,11 @@ void Chunk::saveBlocks() const
 		return;
 	}
 
-	// TODO: If changedBlocks is empty and files exists, maybe delete file? Better do that when world loads. Should seek files with size of sizeof(mapSize)
+	if (changedBlocks.size() > CHUNK_VOLUME)
+	{
+		std::cerr << "[Chunk][saveBlocks]: ChangedBlocks map size is invalid." << std::endl;
+		return;
+	}
 
 	PROFILE_SCOPE("Save chunk blocks", ProfileCategory::ChunkBlocks);
 
@@ -556,13 +641,65 @@ void Chunk::saveBlocks() const
 	fs::path chunkPath = WORLD_PATH / "Chunks" / name;
 
 	std::ofstream out(chunkPath, std::ios::binary);
+	if (!out) return;
+
+	// Collect unique block IDs and map them to strings
+	std::map<BlockID, std::string> idToString;
+	for (const auto& [blockID, _] : changedBlocks)
+	{
+		const BlockData* data = BlockRegistry::getBlockDataByID(blockID);
+		if (data)
+		{
+			idToString[blockID] = data->name;
+		}
+		else
+		{
+			std::cerr << "[Chunk][saveBlocks]: Trying to save unknown block ID." << std::endl;
+		}
+	}
+
+	if (idToString.empty())
+	{
+		return;
+	}
+
+	// Write header: number of unique blocks
+	uint16_t uniqueCount = static_cast<uint16_t>(idToString.size());
+	out.write(reinterpret_cast<const char*>(&uniqueCount), sizeof(uniqueCount));
+
+	// Write mapping: string length + string
+	std::map<BlockID, uint16_t> globalToLocal;
+	uint16_t localID = 0;
+	for (const auto& [globalID, name] : idToString)
+	{
+		globalToLocal[globalID] = localID;
+
+		if (name.size() < 3 || name.size() > 256)
+		{
+			std::cerr << "[Chunk][saveBlocks]: Block name is invalid." << std::endl;
+			return;
+		}
+		uint8_t nameLen = static_cast<uint8_t>(name.size());
+
+		out.write(reinterpret_cast<const char*>(&nameLen), sizeof(nameLen));
+		out.write(name.data(), nameLen);
+
+		localID++;
+	}
+
+	// Write block data using local IDs
 	uint16_t mapSize = static_cast<uint16_t>(changedBlocks.size());
 	out.write(reinterpret_cast<const char*>(&mapSize), sizeof(mapSize));
-
-	for (const auto& [block, indices] : changedBlocks)
+	for (const auto& [globalBlockID, indices] : changedBlocks)
 	{
+		uint16_t localBlockID = globalToLocal[globalBlockID];
 		uint16_t count = static_cast<uint16_t>(indices.size());
-		out.write(reinterpret_cast<const char*>(&block), sizeof(block));
+		if (count == 0 || count > CHUNK_VOLUME)
+		{
+			std::cerr << "[Chunk][saveBlocks]: Indices count is invalid." << std::endl;
+			return;
+		}
+		out.write(reinterpret_cast<const char*>(&localBlockID), sizeof(localBlockID));
 		out.write(reinterpret_cast<const char*>(&count), sizeof(count));
 		out.write(reinterpret_cast<const char*>(indices.data()), count * sizeof(uint16_t));
 	}

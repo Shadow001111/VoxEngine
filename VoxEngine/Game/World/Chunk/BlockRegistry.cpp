@@ -57,8 +57,8 @@ BlockSounds::BlockSounds(
 {
 }
 
-BlockData::BlockData(const BlockProperties& properties, const BlockVisuals& visuals, const BlockSounds& sounds) :
-	properties(properties), visuals(visuals), sounds(sounds)
+BlockData::BlockData(const std::string& name, const BlockProperties& properties, const BlockVisuals& visuals, const BlockSounds& sounds) :
+	name(name), properties(properties), visuals(visuals), sounds(sounds)
 {
 }
 
@@ -67,6 +67,7 @@ std::vector<BlockData> BlockRegistry::blockDataStorage;
 std::vector<BlockTempInfo> BlockRegistry::blockTempInfoStorage;
 std::vector<BlockModelLoader::BlockModel> BlockRegistry::blockModelStorage;
 StringIndexer BlockRegistry::blockIndexer;
+BlockID BlockRegistry::AIR_ID = 0;
 
 void BlockRegistry::registerBlock(
 	const std::string& blockName,
@@ -83,7 +84,7 @@ void BlockRegistry::registerBlock(
 
 	blockIndexer.registerAndGetId(blockName);
 
-	blockDataStorage.emplace_back( properties, BlockVisuals(), sounds );
+	blockDataStorage.emplace_back( blockName, properties, BlockVisuals(), sounds );
 	blockTempInfoStorage.emplace_back(tempInfo);
 }
 
@@ -281,6 +282,12 @@ void BlockRegistry::registerBlocks(
 	postBuild(textureNames);
 	loadBlockSounds();
 	blockTempInfoStorage.clear();
+
+	AIR_ID = getBlockIDAirFallback("core:air");
+	if (AIR_ID == (BlockID)-1)
+	{
+		throw std::runtime_error("[BlockRegistry][registerBlocks]: Air ID was not found.");
+	}
 }
 
 void BlockRegistry::postBuild(std::vector<std::string>& textureNames)
@@ -410,6 +417,13 @@ BlockID BlockRegistry::getBlockID(const std::string& blockName)
 	auto result = blockIndexer.getId(blockName);
 	if (result.has_value()) return result.value();
 	return -1;
+}
+
+BlockID BlockRegistry::getBlockIDAirFallback(const std::string& blockName)
+{
+	auto result = blockIndexer.getId(blockName);
+	if (result.has_value()) return result.value();
+	return AIR_ID;
 }
 
 const BlockData* BlockRegistry::getBlockDataByName(const std::string& blockName)
