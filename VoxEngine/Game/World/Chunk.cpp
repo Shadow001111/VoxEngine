@@ -486,8 +486,10 @@ void Chunk::loadBlocks()
 		return;
 	}
 
-	constexpr size_t MIN_FILE_SIZE = 2 + (1 + 3 + 2 + 2);
-	constexpr size_t MAX_FILE_SIZE = 2 + CHUNK_VOLUME * (1 + 64 + 2 + 2);
+	constexpr size_t MAX_PACKS = CHUNK_VOLUME;
+	constexpr size_t MIN_FILE_SIZE = 2 + 2 + 1 + 1 + 1 + 1 + 2 + 2;
+	constexpr size_t MAX_FILE_SIZE = 2 + (MAX_PACKS * (2 + 1 + 64)) +
+		CHUNK_VOLUME * (1 + 64 + 2 + 2);
 
 	MemoryFileReader file;
 	auto loadResult = file.loadFile(filepath, MAX_FILE_SIZE);
@@ -496,80 +498,132 @@ void Chunk::loadBlocks()
 		std::cerr << "[Chunk][loadBlocks]: Failed to open file." << std::endl;
 		return;
 	}
-
+	
 	// Check file size
 	if (file.getSize() < MIN_FILE_SIZE)
 	{
-		std::cerr << "[Chunk][loadBlocks]: Failed to open file." << std::endl;
+		std::cerr << "[Chunk][loadBlocks]: File too small." << std::endl;
 		return;
 	}
 
-	// Read number of unique block types
-	uint16_t uniqueCount = 0;
-	auto readResult = file.read(&uniqueCount);
+	// Get air block ID
+	const BlockID AIR_BLOCK_ID = BlockRegistry::getBlockID("core:air");
+
+	// Read pack count
+	uint16_t packCount = 0;
+	auto readResult = file.read(&packCount);
 	if (readResult != MemoryFileReader::Result::Success)
 	{
 		std::cerr << "[Chunk][loadBlocks]: Read error." << std::endl;
 		return;
 	}
-	else if (uniqueCount == 0 || uniqueCount > CHUNK_VOLUME)
+	else if (packCount == 0 || packCount > MAX_PACKS)
 	{
-		std::cerr << "[Chunk][loadBlocks]: Unique block count is invalid." << std::endl;
+		std::cerr << "[Chunk][loadBlocks]: Pack count is invalid." << std::endl;
 		return;
 	}
-	
-	// Get air block ID
-	const BlockID AIR_BLOCK_ID = BlockRegistry::getBlockID("core:air");
 
 	// Map local IDs to global BlockIDs
 	std::vector<BlockID> localToGlobal;
-	localToGlobal.reserve(uniqueCount);
+	uint16_t totalBlockCount = 0;
 
-	for (uint16_t localID = 0; localID < uniqueCount; localID++)
+	// Read all packs and blocks
+	for (uint16_t packIndex = 0; packIndex < packCount; packIndex++)
 	{
-		// Read string length
-		uint8_t nameLen = 0;
-		readResult = file.read(&nameLen);
+		// Read block count for this pack
+		uint16_t packBlockCount = 0;
+		readResult = file.read(&packBlockCount);
 		if (readResult != MemoryFileReader::Result::Success)
 		{
 			std::cerr << "[Chunk][loadBlocks]: Read error." << std::endl;
 			return;
 		}
-		else if (nameLen < 3 || nameLen > 64)
+		else if (packBlockCount == 0 || packBlockCount > CHUNK_VOLUME)
 		{
-			std::cerr << "[Chunk][loadBlocks]: Block name is invalid." << std::endl;
+			std::cerr << "[Chunk][loadBlocks]: Block count in pack is invalid." << std::endl;
 			return;
 		}
 
-		// Read string
-		std::string name(nameLen, '\0');
-		readResult = file.read(&name[0], nameLen);
+		totalBlockCount += packBlockCount;
+		if (totalBlockCount > CHUNK_VOLUME)
+		{
+			std::cerr << "[Chunk][loadBlocks]: Total block count exceeds CHUNK_VOLUME." << std::endl;
+			return;
+		}
+
+		// Read pack name
+		uint8_t packNameLen = 0;
+		readResult = file.read(&packNameLen);
 		if (readResult != MemoryFileReader::Result::Success)
 		{
 			std::cerr << "[Chunk][loadBlocks]: Read error." << std::endl;
 			return;
 		}
-		else if (name.find(':') == std::string::npos)
+		else if (packNameLen < 1 || packNameLen > 64)
 		{
-			std::cerr << "[Chunk][loadBlocks]: Block name is invalid." << std::endl;
+			std::cerr << "[Chunk][loadBlocks]: Pack name length is invalid." << std::endl;
 			return;
 		}
 
-		// Convert to global BlockID
-		BlockID globalID = BlockRegistry::getBlockID(name);
-		if (globalID == (BlockID)-1)
+		std::string packName(packNameLen, '\0');
+		readResult = file.read(&packName[0], packNameLen);
+		if (readResult != MemoryFileReader::Result::Success)
 		{
-			// Block no longer exists - fallback to air
-			globalID = AIR_BLOCK_ID;
-			std::cerr << "[Chunk][loadBlocks]: Block '" << name << "' is not found. Replaced with air." << std::endl;
+			std::cerr << "[Chunk][loadBlocks]: Read error." << std::endl;
+			return;
 		}
 
-		// Store mapping
-		localToGlobal.push_back(globalID);
+		// Read all blocks in this pack
+		for (uint16_t blockIndex = 0; blockIndex < packBlockCount; blockIndex++)
+		{
+			// Read block name length
+			uint8_t blockNameLen = 0;
+			readResult = file.read(&blockNameLen);
+			if (readResult != MemoryFileReader::Result::Success)
+			{
+				std::cerr << "[Chunk][loadBlocks]: Read error." << std::endl;
+				return;
+			}
+			else if (blockNameLen < 1 || blockNameLen > 64)
+			{
+				std::cerr << "[Chunk][loadBlocks]: Block name length is invalid." << std::endl;
+				return;
+			}
+
+			// Read block name
+			std::string blockName(blockNameLen, '\0');
+			readResult = file.read(&blockName[0], blockNameLen);
+			if (readResult != MemoryFileReader::Result::Success)
+			{
+				std::cerr << "[Chunk][loadBlocks]: Read error." << std::endl;
+				return;
+			}
+
+			// Construct full block name
+			std::string fullName = std::format("{}:{}", packName, blockName);
+
+			// Convert to global BlockID
+			BlockID globalID = BlockRegistry::getBlockID(fullName);
+			if (globalID == (BlockID)-1)
+			{
+				// Block no longer exists - fallback to air
+				globalID = AIR_BLOCK_ID;
+				std::cerr << "[Chunk][loadBlocks]: Block '" << fullName << "' is not found. Replaced with air." << std::endl;
+			}
+
+			// Store mapping
+			localToGlobal.push_back(globalID);
+		}
 	}
 
-	// Load each block type
-	for (uint16_t localID = 0; localID < uniqueCount; localID++)
+	if (localToGlobal.empty())
+	{
+		std::cerr << "[Chunk][loadBlocks]: No blocks loaded." << std::endl;
+		return;
+	}
+
+	// Load indices for each block (in same order as above)
+	for (uint16_t localID = 0; localID < localToGlobal.size(); localID++)
 	{
 		// Read count of indices
 		uint16_t count = 0;
@@ -579,27 +633,42 @@ void Chunk::loadBlocks()
 			std::cerr << "[Chunk][loadBlocks]: Read error." << std::endl;
 			return;
 		}
-		else if (count == 0 || count > CHUNK_VOLUME)
+		else if (count > CHUNK_VOLUME)
 		{
 			std::cerr << "[Chunk][loadBlocks]: Count of indices is invalid." << std::endl;
 			return;
 		}
 
-		// Read indices
-		std::vector<uint16_t> indices(count);
-		readResult = file.read(indices.data(), count);
-		if (readResult != MemoryFileReader::Result::Success)
+		// Read indices (empty count is allowed for removed blocks)
+		std::vector<uint16_t> indices;
+		if (count > 0)
 		{
-			std::cerr << "[Chunk][loadBlocks]: Read error." << std::endl;
-			return;
+			indices.resize(count);
+			readResult = file.read(indices.data(), count);
+			if (readResult != MemoryFileReader::Result::Success)
+			{
+				std::cerr << "[Chunk][loadBlocks]: Read error." << std::endl;
+				return;
+			}
 		}
 
 		// Store in changedBlocks map
 		BlockID globalBlockID = localToGlobal[localID];
-		changedBlocks[globalBlockID] = std::move(indices);
+		if (!indices.empty() || globalBlockID != AIR_BLOCK_ID)
+		{
+			changedBlocks[globalBlockID] = std::move(indices);
+		}
 	}
 
-	// Apply loaded data
+	// Verify we read the entire file
+	if (file.getPosition() != file.getSize())
+	{
+		std::cerr << "[Chunk][loadBlocks]: File size mismatch. Possible corruption." << std::endl;
+		changedBlocks.clear();
+		return;
+	}
+
+	// Apply loaded data to blocks array
 	for (auto it = changedBlocks.begin(); it != changedBlocks.end();)
 	{
 		BlockID block = it->first;
@@ -649,7 +718,9 @@ void Chunk::saveBlocks()
 	std::string name = std::format("{}_{}_{}.bin", position.x, position.y, position.z);
 	fs::path filepath = WORLD_PATH / "Chunks" / name;
 
-	constexpr size_t MAX_FILE_SIZE = 2 + CHUNK_VOLUME * (1 + 64 + 2 + 2);
+	constexpr size_t MAX_PACKS = CHUNK_VOLUME;
+	constexpr size_t MAX_FILE_SIZE = 2 + (MAX_PACKS * (2 + 1 + 64)) +
+		CHUNK_VOLUME * (1 + 64 + 2 + 2);
 
 	MemoryFileWriter file;
 	auto initResult = file.initialize(MAX_FILE_SIZE);
@@ -683,35 +754,78 @@ void Chunk::saveBlocks()
 		return;
 	}
 
-	// Write number of unique blocks
-	uint16_t uniqueCount = static_cast<uint16_t>(idToString.size());
-	file.write(&uniqueCount);
+	// Extract pack information from block names
+	struct PackInfo
+	{
+		std::string name;
+		std::vector<std::pair<BlockID, std::string>> blocks; // globalID -> blockName
+	};
 
-	// Fill ID conversions
-	// Write  string length and string
+	std::unordered_map<std::string, PackInfo> packMap;
+	for (const auto& [globalID, fullName] : idToString)
+	{
+		size_t colonPos = fullName.find(':'); // Should be found, since we filtered out invalid cases
+
+		std::string packName = fullName.substr(0, colonPos);
+		std::string blockName = fullName.substr(colonPos + 1);
+
+		auto& pack = packMap[packName];
+		pack.name = packName;
+		pack.blocks.emplace_back(globalID, blockName);
+	}
+
+	// Create sorted list of packs
+	std::vector<PackInfo> packs;
+	packs.reserve(packMap.size());
+	for (auto& [name, pack] : packMap)
+	{
+		// Sort blocks within each pack for consistent ordering
+		std::sort(pack.blocks.begin(), pack.blocks.end(),
+			[](const auto& a, const auto& b) { return a.first < b.first; });
+		packs.push_back(std::move(pack));
+	}
+
+	// Sort packs by name for consistent ordering
+	std::sort(packs.begin(), packs.end(),
+		[](const auto& a, const auto& b) { return a.name < b.name; });
+
+	// Build local ID mapping
 	std::unordered_map<BlockID, uint16_t> globalToLocal;
 	std::vector<BlockID> localToGlobal;
 
-	uint16_t localID = 0;
-	for (const auto& [globalID, name] : idToString)
+	// Write pack count
+	uint16_t packCount = static_cast<uint16_t>(packs.size());
+	file.write(&packCount);
+
+	// Write pack info and collect all blocks
+	for (const auto& pack : packs)
 	{
-		globalToLocal[globalID] = localID;
-		localToGlobal.push_back(globalID);
+		// Write block count for this pack
+		uint16_t blockCount = static_cast<uint16_t>(pack.blocks.size());
+		file.write(&blockCount);
 
-		uint8_t nameLen = static_cast<uint8_t>(name.size());
+		// Write pack name
+		uint8_t packNameLen = static_cast<uint8_t>(pack.name.size());
+		file.write(&packNameLen);
+		file.writeBytes(pack.name.data(), packNameLen);
 
-		file.write(&nameLen);
-		file.writeBytes(name.data(), nameLen);
+		// Write block names and build ID mappings
+		for (const auto& [globalID, blockName] : pack.blocks)
+		{
+			globalToLocal[globalID] = static_cast<uint16_t>(localToGlobal.size());
+			localToGlobal.push_back(globalID);
 
-		localID++;
+			uint8_t blockNameLen = static_cast<uint8_t>(blockName.size());
+			file.write(&blockNameLen);
+			file.writeBytes(blockName.data(), blockNameLen);
+		}
 	}
 
-	// Write indices
-	for (localID = 0; localID < changedBlocks.size(); localID++)
+	// Write indices for each block (in same order as written above)
+	for (BlockID globalID : localToGlobal)
 	{
-		BlockID globalID = localToGlobal[localID];
 		const auto& indices = changedBlocks.at(globalID);
-		uint16_t indicesCount = indices.size();
+		uint16_t indicesCount = static_cast<uint16_t>(indices.size());
 
 		file.write(&indicesCount);
 		file.write(indices.data(), indicesCount);
@@ -750,8 +864,9 @@ bool Chunk::filterChanges(BlockID blockID, std::vector<uint16_t>& indices, const
 	{
 		return true;
 	}
-	// Check if name has ':' symbol
-	if (name.find(':') == std::string::npos)
+	// Check for ':' symbol
+	size_t colonPos = name.find(':');
+	if (colonPos == std::string::npos || colonPos == 0 || colonPos == name.size() - 1)
 	{
 		return true;
 	}

@@ -1,10 +1,10 @@
 {
-  "air": {
+  "core:air": {
     "absorbs_light": false,
     "light_emission": 0,
     "raycastable": false
   },
-  "grass_block": {
+  "core:grass_block": {
     "absorbs_light": true,
     "light_emission": 0,
     "raycastable": true,
@@ -45,7 +45,7 @@
     "place_sounds": [ "grass1", "grass2", "grass3", "grass4" ],
     "step_sounds": []
   },
-  "dirt": {
+  "core:dirt": {
     "absorbs_light": true,
     "light_emission": 0,
     "raycastable": true,
@@ -86,7 +86,7 @@
     "place_sounds": [ "dirt1", "dirt2", "dirt3", "dirt4" ],
     "step_sounds": []
   },
-  "stone": {
+  "core:stone": {
     "absorbs_light": true,
     "light_emission": 0,
     "raycastable": true,
@@ -127,7 +127,7 @@
     "place_sounds": [ "stone1", "stone2", "stone3", "stone4" ],
     "step_sounds": []
   },
-  "glass": {
+  "core:glass": {
     "absorbs_light": false,
     "light_emission": 0,
     "raycastable": true,
@@ -168,7 +168,7 @@
     "place_sounds": [ "stone1", "stone2", "stone3", "stone4" ],
     "step_sounds": []
   },
-  "colored_glass": {
+  "core:colored_glass": {
     "absorbs_light": false,
     "light_emission": 15,
     "raycastable": true,
@@ -209,7 +209,7 @@
     "place_sounds": [ "stone1", "stone2", "stone3", "stone4" ],
     "step_sounds": []
   },
-  "water": {
+  "core:water": {
     "absorbs_light": false,
     "light_emission": 0,
     "raycastable": false,
@@ -247,7 +247,7 @@
       }
     ]
   },
-  "log_oak": {
+  "core:log_oak": {
     "absorbs_light": true,
     "light_emission": 0,
     "raycastable": true,
@@ -288,7 +288,7 @@
     "place_sounds": [ "wood1", "wood2", "wood3", "wood4" ],
     "step_sounds": []
   },
-  "leaves_oak": {
+  "core:leaves_oak": {
     "absorbs_light": false,
     "light_emission": 0,
     "raycastable": true,
@@ -329,7 +329,7 @@
     "place_sounds": [ "grass1", "grass2", "grass3", "grass4" ],
     "step_sounds": []
   },
-  "stairs": {
+  "core:stairs": {
     "absorbs_light": true,
     "light_emission": 0,
     "raycastable": true,

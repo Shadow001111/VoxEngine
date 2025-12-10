@@ -124,7 +124,17 @@ void BlockRegistry::registerBlocksFromJson(const json& j)
 {
 	for (auto pair : j.items())
 	{
-		const std::string& blockName = "core:" + pair.key();
+		const std::string& blockName = pair.key();
+		/*size_t colonPos = blockName.find(':');
+		if (
+			colonPos == std::string::npos || colonPos == 0 || colonPos == blockName.size() - 1 ||
+			colonPos < 3
+			)
+		{
+			std::cerr << "[BlockRegistry]: Block name is invalid." << std::endl;
+			continue;
+		}*/
+
 		const json& blockJson = pair.value();
 
 		// Parse properties
