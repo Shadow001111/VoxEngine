@@ -151,6 +151,8 @@
     <ClCompile Include="Game\World\Entity.cpp" />
     <ClCompile Include="Game\World\Chunk\ChunkMeshManager.cpp" />
     <ClCompile Include="Core\BlockAllocator.cpp" />
+    <ClCompile Include="Core\MemoryFileReader.cpp" />
+    <ClCompile Include="Core\MemoryFileWriter.cpp" />
     <ClCompile Include="OpenGLWrappers\OpenGL_Buffer.cpp" />
     <ClCompile Include="Game\World\ChunkPool.cpp" />
     <ClCompile Include="Game\World\Chunk\MeshData.cpp" />
@@ -200,6 +202,8 @@
     <ClInclude Include="Game\World\Entity.h" />
     <ClInclude Include="Game\World\Chunk\ChunkMeshManager.h" />
     <ClInclude Include="Core\BlockAllocator.h" />
+    <ClInclude Include="Core\MemoryFileReader.h" />
+    <ClInclude Include="Core\MemoryFileWriter.h" />
     <ClInclude Include="OpenGLWrappers\OpenGLDebug.h" />
     <ClInclude Include="OpenGLWrappers\OpenGL_Buffer.h" />
     <ClInclude Include="Game\World\ChunkPool.h" />

@@ -8,6 +8,8 @@
 #include "Core/SymmetricBitMatrix.h"
 #include "Core/ASSERT.h"
 #include "Core/Hashes/ivec2Hasher.h"
+#include "Core/MemoryFileReader.h"
+#include "Core/MemoryFileWriter.h"
 
 #include <vector>
 #include <format>
@@ -473,40 +475,44 @@ void Chunk::generateTree(const glm::ivec3& rootPosition)
 
 void Chunk::loadBlocks()
 {
-	ASSERT(changedBlocks.empty());
 	PROFILE_SCOPE("Load chunk blocks", ProfileCategory::ChunkBlocks);
 
 	namespace fs = std::filesystem;
 	std::string name = std::format("{}_{}_{}.bin", position.x, position.y, position.z);
-	fs::path chunkPath = WORLD_PATH / "Chunks" / name;
+	fs::path filepath = WORLD_PATH / "Chunks" / name;
 
-	if (!fs::exists(chunkPath))
+	if (!fs::exists(filepath))
 	{
 		return;
 	}
 
-	std::ifstream in(chunkPath, std::ios::binary);
-	if (!in)
+	constexpr size_t MIN_FILE_SIZE = 2 + (1 + 3 + 2 + 2);
+	constexpr size_t MAX_FILE_SIZE = 2 + CHUNK_VOLUME * (1 + 64 + 2 + 2);
+
+	MemoryFileReader file;
+	auto loadResult = file.loadFile(filepath, MAX_FILE_SIZE);
+	if (loadResult != MemoryFileReader::Result::Success)
 	{
-		std::cerr << "[Chunk][loadBlocks]: Failed to open file while loading." << std::endl;
+		std::cerr << "[Chunk][loadBlocks]: Failed to open file." << std::endl;
 		return;
 	}
 
-	// Check if file is empty or too small
-	/*in.seekg(0, std::ios::end);
-	size_t fileSize = in.tellg();
-	in.seekg(0, std::ios::beg);
-
-	if (fileSize < sizeof(uint16_t))
+	// Check file size
+	if (file.getSize() < MIN_FILE_SIZE)
 	{
-		std::cerr << "[Chunk][loadBlocks]: Chunk save file is too small." << std::endl;
+		std::cerr << "[Chunk][loadBlocks]: Failed to open file." << std::endl;
 		return;
-	}*/
+	}
 
 	// Read number of unique block types
 	uint16_t uniqueCount = 0;
-	in.read(reinterpret_cast<char*>(&uniqueCount), sizeof(uniqueCount));
-	if (uniqueCount == 0 || uniqueCount > CHUNK_VOLUME)
+	auto readResult = file.read(&uniqueCount);
+	if (readResult != MemoryFileReader::Result::Success)
+	{
+		std::cerr << "[Chunk][loadBlocks]: Read error." << std::endl;
+		return;
+	}
+	else if (uniqueCount == 0 || uniqueCount > CHUNK_VOLUME)
 	{
 		std::cerr << "[Chunk][loadBlocks]: Unique block count is invalid." << std::endl;
 		return;
@@ -523,8 +529,13 @@ void Chunk::loadBlocks()
 	{
 		// Read string length
 		uint8_t nameLen = 0;
-		in.read(reinterpret_cast<char*>(&nameLen), sizeof(nameLen));
-		if (nameLen < 3)
+		readResult = file.read(&nameLen);
+		if (readResult != MemoryFileReader::Result::Success)
+		{
+			std::cerr << "[Chunk][loadBlocks]: Read error." << std::endl;
+			return;
+		}
+		else if (nameLen < 3 || nameLen > 64)
 		{
 			std::cerr << "[Chunk][loadBlocks]: Block name is invalid." << std::endl;
 			return;
@@ -532,10 +543,13 @@ void Chunk::loadBlocks()
 
 		// Read string
 		std::string name(nameLen, '\0');
-		in.read(&name[0], nameLen);
-
-		// Validate name
-		if (name.find(':') == std::string::npos)
+		readResult = file.read(&name[0], nameLen);
+		if (readResult != MemoryFileReader::Result::Success)
+		{
+			std::cerr << "[Chunk][loadBlocks]: Read error." << std::endl;
+			return;
+		}
+		else if (name.find(':') == std::string::npos)
 		{
 			std::cerr << "[Chunk][loadBlocks]: Block name is invalid." << std::endl;
 			return;
@@ -546,7 +560,7 @@ void Chunk::loadBlocks()
 		if (globalID == (BlockID)-1)
 		{
 			// Block no longer exists - fallback to air
-			globalID = BlockRegistry::getBlockID("core:air");
+			globalID = AIR_BLOCK_ID;
 			std::cerr << "[Chunk][loadBlocks]: Block '" << name << "' is not found. Replaced with air." << std::endl;
 		}
 
@@ -559,8 +573,13 @@ void Chunk::loadBlocks()
 	{
 		// Read count of indices
 		uint16_t count = 0;
-		in.read(reinterpret_cast<char*>(&count), sizeof(count));
-		if (count == 0 || count > CHUNK_VOLUME)
+		readResult = file.read(&count);
+		if (readResult != MemoryFileReader::Result::Success)
+		{
+			std::cerr << "[Chunk][loadBlocks]: Read error." << std::endl;
+			return;
+		}
+		else if (count == 0 || count > CHUNK_VOLUME)
 		{
 			std::cerr << "[Chunk][loadBlocks]: Count of indices is invalid." << std::endl;
 			return;
@@ -568,7 +587,12 @@ void Chunk::loadBlocks()
 
 		// Read indices
 		std::vector<uint16_t> indices(count);
-		in.read(reinterpret_cast<char*>(indices.data()), count * sizeof(uint16_t));
+		readResult = file.read(indices.data(), count);
+		if (readResult != MemoryFileReader::Result::Success)
+		{
+			std::cerr << "[Chunk][loadBlocks]: Read error." << std::endl;
+			return;
+		}
 
 		// Store in changedBlocks map
 		BlockID globalBlockID = localToGlobal[localID];
@@ -613,8 +637,7 @@ void Chunk::saveBlocks()
 	{
 		return;
 	}
-
-	if (changedBlocks.size() > CHUNK_VOLUME)
+	else if (changedBlocks.size() > CHUNK_VOLUME)
 	{
 		std::cerr << "[Chunk][saveBlocks]: ChangedBlocks map size is invalid." << std::endl;
 		return;
@@ -624,10 +647,17 @@ void Chunk::saveBlocks()
 
 	namespace fs = std::filesystem;
 	std::string name = std::format("{}_{}_{}.bin", position.x, position.y, position.z);
-	fs::path chunkPath = WORLD_PATH / "Chunks" / name;
+	fs::path filepath = WORLD_PATH / "Chunks" / name;
 
-	std::ofstream out(chunkPath, std::ios::binary);
-	if (!out) return;
+	constexpr size_t MAX_FILE_SIZE = 2 + CHUNK_VOLUME * (1 + 64 + 2 + 2);
+
+	MemoryFileWriter file;
+	auto initResult = file.initialize(MAX_FILE_SIZE);
+	if (initResult != MemoryFileWriter::Result::Success)
+	{
+		std::cerr << "[Chunk][saveBlocks]: MemoryFileWriter failed to initialize." << std::endl;
+		return;
+	}
 
 	// Filter valid changes and collect block names
 	std::map<BlockID, std::string> idToString;
@@ -653,12 +683,12 @@ void Chunk::saveBlocks()
 		return;
 	}
 
-	// Write header: number of unique blocks
+	// Write number of unique blocks
 	uint16_t uniqueCount = static_cast<uint16_t>(idToString.size());
-	out.write(reinterpret_cast<const char*>(&uniqueCount), sizeof(uniqueCount));
+	file.write(&uniqueCount);
 
 	// Fill ID conversions
-	// Write  string length and string to file
+	// Write  string length and string
 	std::unordered_map<BlockID, uint16_t> globalToLocal;
 	std::vector<BlockID> localToGlobal;
 
@@ -670,21 +700,29 @@ void Chunk::saveBlocks()
 
 		uint8_t nameLen = static_cast<uint8_t>(name.size());
 
-		out.write(reinterpret_cast<const char*>(&nameLen), sizeof(nameLen));
-		out.write(name.data(), nameLen);
+		file.write(&nameLen);
+		file.writeBytes(name.data(), nameLen);
 
 		localID++;
 	}
 
-	// Write indices to file
+	// Write indices
 	for (localID = 0; localID < changedBlocks.size(); localID++)
 	{
 		BlockID globalID = localToGlobal[localID];
 		const auto& indices = changedBlocks.at(globalID);
 		uint16_t indicesCount = indices.size();
 
-		out.write(reinterpret_cast<const char*>(&indicesCount), sizeof(indicesCount));
-		out.write(reinterpret_cast<const char*>(indices.data()), indicesCount * sizeof(uint16_t));
+		file.write(&indicesCount);
+		file.write(indices.data(), indicesCount);
+	}
+
+	// Save file
+	auto saveResult = file.saveToFile(filepath);
+	if (saveResult != MemoryFileWriter::Result::Success)
+	{
+		std::cerr << "[Chunk][saveBlocks]: Failed to save file." << std::endl;
+		return;
 	}
 }
 
@@ -708,7 +746,7 @@ bool Chunk::filterChanges(BlockID blockID, std::vector<uint16_t>& indices, const
 	}
 	// Check name length
 	const auto& name = outBlockData->name;
-	if (name.size() < 3 || name.size() > 256)
+	if (name.size() < 3 || name.size() > 64)
 	{
 		return true;
 	}

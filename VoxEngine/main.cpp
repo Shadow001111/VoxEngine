@@ -18,7 +18,7 @@
 #include <iomanip>
 
 #ifdef NDEBUG
-constexpr int CHUNK_LOAD_DISTANCE = 4;
+constexpr int CHUNK_LOAD_DISTANCE = 12;
 #else
 constexpr int CHUNK_LOAD_DISTANCE = 3;
 #endif
