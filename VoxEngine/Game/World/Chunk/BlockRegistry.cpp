@@ -299,7 +299,8 @@ void BlockRegistry::postBuild(std::vector<std::string>& textureNames)
 	size_t nextModelID = 0;
 	blockModelStorage.clear();
 
-	ASSERT(blockDataStorage.size() < 1 << (sizeof(BlockID) * 8));
+	// Reserve one, because it represents invalid block ID
+	ASSERT(blockDataStorage.size() + 1 < 1 << (sizeof(BlockID) * 8));
 	for (BlockID blockID = 0; blockID < blockDataStorage.size(); blockID++)
 	{
 		auto& blockData = blockDataStorage[blockID];

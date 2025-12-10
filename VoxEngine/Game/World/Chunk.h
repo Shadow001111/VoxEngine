@@ -64,6 +64,8 @@ struct BlockVertexLightData
 	LightLevel light[8];     // Light values for each vertex
 };
 
+struct BlockData;
+
 class Chunk
 {
 public:
@@ -170,7 +172,9 @@ private:
 private:
 	// IO
 	void loadBlocks();
-	void saveBlocks() const;
+	void saveBlocks();
+
+	bool filterChanges(BlockID blockID, std::vector<uint16_t>& indices, const BlockData*& outBlockData) const;
 private:
 	// Connectivity
 	bool findFloodFillStartIndex(uint16_t& startIndex, const bool* floodFillMask) const;

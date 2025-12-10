@@ -493,7 +493,7 @@ void Chunk::loadBlocks()
 	}
 
 	// Check if file is empty or too small
-	in.seekg(0, std::ios::end);
+	/*in.seekg(0, std::ios::end);
 	size_t fileSize = in.tellg();
 	in.seekg(0, std::ios::beg);
 
@@ -501,7 +501,7 @@ void Chunk::loadBlocks()
 	{
 		std::cerr << "[Chunk][loadBlocks]: Chunk save file is too small." << std::endl;
 		return;
-	}
+	}*/
 
 	// Read number of unique block types
 	uint16_t uniqueCount = 0;
@@ -516,18 +516,17 @@ void Chunk::loadBlocks()
 	const BlockID AIR_BLOCK_ID = BlockRegistry::getBlockID("core:air");
 
 	// Map local IDs to global BlockIDs
-	std::vector<BlockID> localToGlobal(uniqueCount);
-	uint16_t localID = -1;
-	for (uint16_t i = 0; i < uniqueCount; i++)
-	{
-		localID++;
+	std::vector<BlockID> localToGlobal;
+	localToGlobal.reserve(uniqueCount);
 
+	for (uint16_t localID = 0; localID < uniqueCount; localID++)
+	{
 		// Read string length
 		uint8_t nameLen = 0;
 		in.read(reinterpret_cast<char*>(&nameLen), sizeof(nameLen));
 		if (nameLen < 3)
 		{
-			std::cerr << "[Chunk][loadBlocks]: Block name is too small." << std::endl;
+			std::cerr << "[Chunk][loadBlocks]: Block name is invalid." << std::endl;
 			return;
 		}
 
@@ -535,43 +534,29 @@ void Chunk::loadBlocks()
 		std::string name(nameLen, '\0');
 		in.read(&name[0], nameLen);
 
+		// Validate name
+		if (name.find(':') == std::string::npos)
+		{
+			std::cerr << "[Chunk][loadBlocks]: Block name is invalid." << std::endl;
+			return;
+		}
+
 		// Convert to global BlockID
 		BlockID globalID = BlockRegistry::getBlockID(name);
 		if (globalID == (BlockID)-1)
 		{
 			// Block no longer exists - fallback to air
 			globalID = BlockRegistry::getBlockID("core:air");
-			std::cerr << "[Chunk][loadBlocks]: Block '" << name << "' is not found. It was replaced with air." << std::endl;
+			std::cerr << "[Chunk][loadBlocks]: Block '" << name << "' is not found. Replaced with air." << std::endl;
 		}
 
 		// Store mapping
-		localToGlobal[localID] = globalID;
-	}
-
-	// Read number of changed block entries
-	uint16_t mapSize = 0;
-	in.read(reinterpret_cast<char*>(&mapSize), sizeof(mapSize));
-	if (mapSize > CHUNK_VOLUME)
-	{
-		std::cerr << "[Chunk][loadBlocks]: Map size is invalid." << std::endl;
-		return;
+		localToGlobal.push_back(globalID);
 	}
 
 	// Load each block type
-	for (uint16_t i = 0; i < mapSize; i++)
+	for (uint16_t localID = 0; localID < uniqueCount; localID++)
 	{
-		// Read local block ID
-		uint16_t localBlockID = 0;
-		in.read(reinterpret_cast<char*>(&localBlockID), sizeof(localBlockID));
-		if (localBlockID >= CHUNK_VOLUME || localBlockID >= localToGlobal.size())
-		{
-			std::cerr << "[Chunk][loadBlocks]: Block localID is invalid." << std::endl;
-			return;
-		}
-
-		// Convert to global BlockID
-		BlockID globalBlockID = localToGlobal[localBlockID];
-
 		// Read count of indices
 		uint16_t count = 0;
 		in.read(reinterpret_cast<char*>(&count), sizeof(count));
@@ -586,6 +571,7 @@ void Chunk::loadBlocks()
 		in.read(reinterpret_cast<char*>(indices.data()), count * sizeof(uint16_t));
 
 		// Store in changedBlocks map
+		BlockID globalBlockID = localToGlobal[localID];
 		changedBlocks[globalBlockID] = std::move(indices);
 	}
 
@@ -598,7 +584,7 @@ void Chunk::loadBlocks()
 		size_t writeIndex = 0;
 		for (uint16_t index : indices)
 		{
-			if (blocks[index] == block)
+			if (index >= CHUNK_VOLUME || blocks[index] == block)
 			{
 				continue;
 			}
@@ -621,7 +607,7 @@ void Chunk::loadBlocks()
 	}
 }
 
-void Chunk::saveBlocks() const
+void Chunk::saveBlocks()
 {
 	if (changedBlocks.empty())
 	{
@@ -643,21 +629,25 @@ void Chunk::saveBlocks() const
 	std::ofstream out(chunkPath, std::ios::binary);
 	if (!out) return;
 
-	// Collect unique block IDs and map them to strings
+	// Filter valid changes and collect block names
 	std::map<BlockID, std::string> idToString;
-	for (const auto& [blockID, _] : changedBlocks)
 	{
-		const BlockData* data = BlockRegistry::getBlockDataByID(blockID);
-		if (data)
+		const BlockData* blockData = nullptr;
+		auto it = changedBlocks.begin();
+		while (it != changedBlocks.end())
 		{
-			idToString[blockID] = data->name;
-		}
-		else
-		{
-			std::cerr << "[Chunk][saveBlocks]: Trying to save unknown block ID." << std::endl;
+			if (filterChanges(it->first, it->second, blockData))
+			{
+				it = changedBlocks.erase(it);
+			}
+			else
+			{
+				idToString[it->first] = blockData->name;
+				++it;
+			}
 		}
 	}
-
+	ASSERT(idToString.size() == changedBlocks.size());
 	if (idToString.empty())
 	{
 		return;
@@ -667,18 +657,17 @@ void Chunk::saveBlocks() const
 	uint16_t uniqueCount = static_cast<uint16_t>(idToString.size());
 	out.write(reinterpret_cast<const char*>(&uniqueCount), sizeof(uniqueCount));
 
-	// Write mapping: string length + string
-	std::map<BlockID, uint16_t> globalToLocal;
+	// Fill ID conversions
+	// Write  string length and string to file
+	std::unordered_map<BlockID, uint16_t> globalToLocal;
+	std::vector<BlockID> localToGlobal;
+
 	uint16_t localID = 0;
 	for (const auto& [globalID, name] : idToString)
 	{
 		globalToLocal[globalID] = localID;
+		localToGlobal.push_back(globalID);
 
-		if (name.size() < 3 || name.size() > 256)
-		{
-			std::cerr << "[Chunk][saveBlocks]: Block name is invalid." << std::endl;
-			return;
-		}
 		uint8_t nameLen = static_cast<uint8_t>(name.size());
 
 		out.write(reinterpret_cast<const char*>(&nameLen), sizeof(nameLen));
@@ -687,22 +676,48 @@ void Chunk::saveBlocks() const
 		localID++;
 	}
 
-	// Write block data using local IDs
-	uint16_t mapSize = static_cast<uint16_t>(changedBlocks.size());
-	out.write(reinterpret_cast<const char*>(&mapSize), sizeof(mapSize));
-	for (const auto& [globalBlockID, indices] : changedBlocks)
+	// Write indices to file
+	for (localID = 0; localID < changedBlocks.size(); localID++)
 	{
-		uint16_t localBlockID = globalToLocal[globalBlockID];
-		uint16_t count = static_cast<uint16_t>(indices.size());
-		if (count == 0 || count > CHUNK_VOLUME)
-		{
-			std::cerr << "[Chunk][saveBlocks]: Indices count is invalid." << std::endl;
-			return;
-		}
-		out.write(reinterpret_cast<const char*>(&localBlockID), sizeof(localBlockID));
-		out.write(reinterpret_cast<const char*>(&count), sizeof(count));
-		out.write(reinterpret_cast<const char*>(indices.data()), count * sizeof(uint16_t));
+		BlockID globalID = localToGlobal[localID];
+		const auto& indices = changedBlocks.at(globalID);
+		uint16_t indicesCount = indices.size();
+
+		out.write(reinterpret_cast<const char*>(&indicesCount), sizeof(indicesCount));
+		out.write(reinterpret_cast<const char*>(indices.data()), indicesCount * sizeof(uint16_t));
 	}
+}
+
+bool Chunk::filterChanges(BlockID blockID, std::vector<uint16_t>& indices, const BlockData*& outBlockData) const
+{
+	// Remove invalid indices
+	{
+		indices.erase(std::remove_if(indices.begin(), indices.end(),
+			[](uint16_t index) { return index >= CHUNK_VOLUME; }), indices.end());
+	}
+	// Check indices range
+	if (indices.size() == 0 || indices.size() > CHUNK_VOLUME)
+	{
+		return true;
+	}
+	// Get block data
+	outBlockData = BlockRegistry::getBlockDataByID(blockID);
+	if (!outBlockData)
+	{
+		return true;
+	}
+	// Check name length
+	const auto& name = outBlockData->name;
+	if (name.size() < 3 || name.size() > 256)
+	{
+		return true;
+	}
+	// Check if name has ':' symbol
+	if (name.find(':') == std::string::npos)
+	{
+		return true;
+	}
+	return false;
 }
 
 bool Chunk::findFloodFillStartIndex(uint16_t& startIndex, const bool* floodFillMask) const
