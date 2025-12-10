@@ -5,7 +5,6 @@
 #include "Chunk/BlockModelLoader.h"
 
 #include "Core/Profiler.h"
-#include "Core/SymmetricBitMatrix.h"
 #include "Core/ASSERT.h"
 #include "Core/Hashes/ivec2Hasher.h"
 #include "Core/MemoryFileReader.h"
@@ -13,7 +12,6 @@
 
 #include <vector>
 #include <format>
-#include <fstream>
 #include <map>
 
 thread_local ChunkSpecializedQueue<LightNode> Chunk::localBlockLightBfsQueue;
@@ -22,7 +20,7 @@ thread_local ChunkSpecializedQueue<LightNode> Chunk::localSkyLightBfsQueue;
 thread_local ChunkSpecializedQueue<LightRemovalNode> Chunk::localSkyLightRemovalBfsQueue;
 std::vector<ChunkMeshData*> Chunk::pendingMeshUploads;
 StructureBlockChangeManager Chunk::structureBlockChangeManager;
-std::filesystem::path Chunk::WORLD_PATH;
+std::filesystem::path Chunk::CHUNK_SAVES_PATH;
 
 int hash3(unsigned x, unsigned y, unsigned z)
 {
@@ -479,7 +477,7 @@ void Chunk::loadBlocks()
 
 	namespace fs = std::filesystem;
 	std::string name = std::format("{}_{}_{}.bin", position.x, position.y, position.z);
-	fs::path filepath = WORLD_PATH / "Chunks" / name;
+	fs::path filepath = CHUNK_SAVES_PATH / name;
 
 	if (!fs::exists(filepath))
 	{
@@ -498,7 +496,7 @@ void Chunk::loadBlocks()
 		std::cerr << "[Chunk][loadBlocks]: Failed to open file." << std::endl;
 		return;
 	}
-	
+
 	// Check file size
 	if (file.getSize() < MIN_FILE_SIZE)
 	{
@@ -523,11 +521,10 @@ void Chunk::loadBlocks()
 		return;
 	}
 
-	// Map local IDs to global BlockIDs
-	std::vector<BlockID> localToGlobal;
-	uint16_t totalBlockCount = 0;
+	// Clear existing changes
+	changedBlocks.clear();
 
-	// Read all packs and blocks
+	// Read all packs, blocks, and their indices
 	for (uint16_t packIndex = 0; packIndex < packCount; packIndex++)
 	{
 		// Read block count for this pack
@@ -536,18 +533,13 @@ void Chunk::loadBlocks()
 		if (readResult != MemoryFileReader::Result::Success)
 		{
 			std::cerr << "[Chunk][loadBlocks]: Read error." << std::endl;
+			changedBlocks.clear();
 			return;
 		}
 		else if (packBlockCount == 0 || packBlockCount > CHUNK_VOLUME)
 		{
 			std::cerr << "[Chunk][loadBlocks]: Block count in pack is invalid." << std::endl;
-			return;
-		}
-
-		totalBlockCount += packBlockCount;
-		if (totalBlockCount > CHUNK_VOLUME)
-		{
-			std::cerr << "[Chunk][loadBlocks]: Total block count exceeds CHUNK_VOLUME." << std::endl;
+			changedBlocks.clear();
 			return;
 		}
 
@@ -557,11 +549,13 @@ void Chunk::loadBlocks()
 		if (readResult != MemoryFileReader::Result::Success)
 		{
 			std::cerr << "[Chunk][loadBlocks]: Read error." << std::endl;
+			changedBlocks.clear();
 			return;
 		}
 		else if (packNameLen < 1 || packNameLen > 64)
 		{
 			std::cerr << "[Chunk][loadBlocks]: Pack name length is invalid." << std::endl;
+			changedBlocks.clear();
 			return;
 		}
 
@@ -570,10 +564,11 @@ void Chunk::loadBlocks()
 		if (readResult != MemoryFileReader::Result::Success)
 		{
 			std::cerr << "[Chunk][loadBlocks]: Read error." << std::endl;
+			changedBlocks.clear();
 			return;
 		}
 
-		// Read all blocks in this pack
+		// Read all blocks in this pack (with their indices immediately following)
 		for (uint16_t blockIndex = 0; blockIndex < packBlockCount; blockIndex++)
 		{
 			// Read block name length
@@ -582,11 +577,13 @@ void Chunk::loadBlocks()
 			if (readResult != MemoryFileReader::Result::Success)
 			{
 				std::cerr << "[Chunk][loadBlocks]: Read error." << std::endl;
+				changedBlocks.clear();
 				return;
 			}
 			else if (blockNameLen < 1 || blockNameLen > 64)
 			{
 				std::cerr << "[Chunk][loadBlocks]: Block name length is invalid." << std::endl;
+				changedBlocks.clear();
 				return;
 			}
 
@@ -596,6 +593,7 @@ void Chunk::loadBlocks()
 			if (readResult != MemoryFileReader::Result::Success)
 			{
 				std::cerr << "[Chunk][loadBlocks]: Read error." << std::endl;
+				changedBlocks.clear();
 				return;
 			}
 
@@ -611,57 +609,46 @@ void Chunk::loadBlocks()
 				std::cerr << "[Chunk][loadBlocks]: Block '" << fullName << "' is not found. Replaced with air." << std::endl;
 			}
 
-			// Store mapping
-			localToGlobal.push_back(globalID);
+			// Read indices count for this block
+			uint16_t indicesCount = 0;
+			readResult = file.read(&indicesCount);
+			if (readResult != MemoryFileReader::Result::Success)
+			{
+				std::cerr << "[Chunk][loadBlocks]: Read error." << std::endl;
+				changedBlocks.clear();
+				return;
+			}
+			else if (indicesCount == 0 || indicesCount > CHUNK_VOLUME)
+			{
+				std::cerr << "[Chunk][loadBlocks]: Indices count is invalid." << std::endl;
+				changedBlocks.clear();
+				return;
+			}
+
+			// Read indices (empty count is allowed for removed blocks)
+			std::vector<uint16_t> indices;
+			indices.resize(indicesCount);
+			readResult = file.read(indices.data(), indicesCount);
+			if (readResult != MemoryFileReader::Result::Success)
+			{
+				std::cerr << "[Chunk][loadBlocks]: Read error." << std::endl;
+				changedBlocks.clear();
+				return;
+			}
+
+			// Store in changedBlocks map
+			changedBlocks[globalID] = std::move(indices);
 		}
 	}
 
-	if (localToGlobal.empty())
+	if (changedBlocks.empty())
 	{
 		std::cerr << "[Chunk][loadBlocks]: No blocks loaded." << std::endl;
 		return;
 	}
 
-	// Load indices for each block (in same order as above)
-	for (uint16_t localID = 0; localID < localToGlobal.size(); localID++)
-	{
-		// Read count of indices
-		uint16_t count = 0;
-		readResult = file.read(&count);
-		if (readResult != MemoryFileReader::Result::Success)
-		{
-			std::cerr << "[Chunk][loadBlocks]: Read error." << std::endl;
-			return;
-		}
-		else if (count > CHUNK_VOLUME)
-		{
-			std::cerr << "[Chunk][loadBlocks]: Count of indices is invalid." << std::endl;
-			return;
-		}
-
-		// Read indices (empty count is allowed for removed blocks)
-		std::vector<uint16_t> indices;
-		if (count > 0)
-		{
-			indices.resize(count);
-			readResult = file.read(indices.data(), count);
-			if (readResult != MemoryFileReader::Result::Success)
-			{
-				std::cerr << "[Chunk][loadBlocks]: Read error." << std::endl;
-				return;
-			}
-		}
-
-		// Store in changedBlocks map
-		BlockID globalBlockID = localToGlobal[localID];
-		if (!indices.empty() || globalBlockID != AIR_BLOCK_ID)
-		{
-			changedBlocks[globalBlockID] = std::move(indices);
-		}
-	}
-
 	// Verify we read the entire file
-	if (file.getPosition() != file.getSize())
+	if (!file.isEndOfFile())
 	{
 		std::cerr << "[Chunk][loadBlocks]: File size mismatch. Possible corruption." << std::endl;
 		changedBlocks.clear();
@@ -716,7 +703,7 @@ void Chunk::saveBlocks()
 
 	namespace fs = std::filesystem;
 	std::string name = std::format("{}_{}_{}.bin", position.x, position.y, position.z);
-	fs::path filepath = WORLD_PATH / "Chunks" / name;
+	fs::path filepath = CHUNK_SAVES_PATH / name;
 
 	constexpr size_t MAX_PACKS = CHUNK_VOLUME;
 	constexpr size_t MAX_FILE_SIZE = 2 + (MAX_PACKS * (2 + 1 + 64)) +
@@ -762,6 +749,7 @@ void Chunk::saveBlocks()
 	};
 
 	std::unordered_map<std::string, PackInfo> packMap;
+	packMap.reserve(idToString.size());
 	for (const auto& [globalID, fullName] : idToString)
 	{
 		size_t colonPos = fullName.find(':'); // Should be found, since we filtered out invalid cases
@@ -789,15 +777,11 @@ void Chunk::saveBlocks()
 	std::sort(packs.begin(), packs.end(),
 		[](const auto& a, const auto& b) { return a.name < b.name; });
 
-	// Build local ID mapping
-	std::unordered_map<BlockID, uint16_t> globalToLocal;
-	std::vector<BlockID> localToGlobal;
-
 	// Write pack count
 	uint16_t packCount = static_cast<uint16_t>(packs.size());
 	file.write(&packCount);
 
-	// Write pack info and collect all blocks
+	// Write each pack and its blocks with indices immediately after each block
 	for (const auto& pack : packs)
 	{
 		// Write block count for this pack
@@ -809,44 +793,36 @@ void Chunk::saveBlocks()
 		file.write(&packNameLen);
 		file.writeBytes(pack.name.data(), packNameLen);
 
-		// Write block names and build ID mappings
+		// Write each block in pack
 		for (const auto& [globalID, blockName] : pack.blocks)
 		{
-			globalToLocal[globalID] = static_cast<uint16_t>(localToGlobal.size());
-			localToGlobal.push_back(globalID);
-
+			// Write block name
 			uint8_t blockNameLen = static_cast<uint8_t>(blockName.size());
 			file.write(&blockNameLen);
 			file.writeBytes(blockName.data(), blockNameLen);
+
+			// Write indices for this block
+			const auto& indices = changedBlocks.at(globalID);
+			uint16_t indicesCount = static_cast<uint16_t>(indices.size());
+			file.write(&indicesCount);
+			if (indicesCount > 0)
+			{
+				file.write(indices.data(), indicesCount);
+			}
 		}
-	}
-
-	// Write indices for each block (in same order as written above)
-	for (BlockID globalID : localToGlobal)
-	{
-		const auto& indices = changedBlocks.at(globalID);
-		uint16_t indicesCount = static_cast<uint16_t>(indices.size());
-
-		file.write(&indicesCount);
-		file.write(indices.data(), indicesCount);
 	}
 
 	// Save file
 	auto saveResult = file.saveToFile(filepath);
 	if (saveResult != MemoryFileWriter::Result::Success)
 	{
-		std::cerr << "[Chunk][saveBlocks]: Failed to save file." << std::endl;
+		std::cerr << "[Chunk][saveBlocks]: Failed to save file: " << static_cast<int>(saveResult) << std::endl;
 		return;
 	}
 }
 
-bool Chunk::filterChanges(BlockID blockID, std::vector<uint16_t>& indices, const BlockData*& outBlockData) const
+bool Chunk::filterChanges(BlockID blockID, const std::vector<uint16_t>& indices, const BlockData*& outBlockData) const
 {
-	// Remove invalid indices
-	{
-		indices.erase(std::remove_if(indices.begin(), indices.end(),
-			[](uint16_t index) { return index >= CHUNK_VOLUME; }), indices.end());
-	}
 	// Check indices range
 	if (indices.size() == 0 || indices.size() > CHUNK_VOLUME)
 	{
@@ -866,7 +842,13 @@ bool Chunk::filterChanges(BlockID blockID, std::vector<uint16_t>& indices, const
 	}
 	// Check for ':' symbol
 	size_t colonPos = name.find(':');
-	if (colonPos == std::string::npos || colonPos == 0 || colonPos == name.size() - 1)
+	if (colonPos == std::string::npos)
+	{
+		return true;
+	}
+	size_t leftSize = colonPos;
+	size_t rightSize = name.size() - 1 - colonPos;
+	if (leftSize < 1 || leftSize > 64 || rightSize < 1 || rightSize > 64)
 	{
 		return true;
 	}

@@ -145,7 +145,7 @@ private:
 public:
 	Chunk* neighbors[6] = { nullptr, nullptr, nullptr, nullptr, nullptr, nullptr }; // Pointers to neighboring chunks for easier access
 	
-	static std::filesystem::path WORLD_PATH;
+	static std::filesystem::path CHUNK_SAVES_PATH;
 
 	// Constructors, destructors, assigments
 	Chunk();
@@ -174,7 +174,7 @@ private:
 	void loadBlocks();
 	void saveBlocks();
 
-	bool filterChanges(BlockID blockID, std::vector<uint16_t>& indices, const BlockData*& outBlockData) const;
+	bool filterChanges(BlockID blockID, const std::vector<uint16_t>& indices, const BlockData*& outBlockData) const;
 private:
 	// Connectivity
 	bool findFloodFillStartIndex(uint16_t& startIndex, const bool* floodFillMask) const;

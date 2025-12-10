@@ -138,16 +138,16 @@ World::World() :
 	try
 	{
 		const std::string worldName = "Test1";
-		std::filesystem::path worldPath = std::filesystem::path("Worlds") / worldName;
-		if (!std::filesystem::exists(worldPath))
+		std::filesystem::path chunkSavesPath = std::filesystem::path("Worlds") / worldName / "Chunks";
+		if (!std::filesystem::exists(chunkSavesPath))
 		{
-			if (!std::filesystem::create_directories(worldPath / "Chunks"))
+			if (!std::filesystem::create_directories(chunkSavesPath))
 			{
-				throw std::runtime_error("Failed to create world directory: " + worldPath.string());
+				throw std::runtime_error("Failed to create world directory: " + chunkSavesPath.string());
 			}
 		}
 
-		Chunk::WORLD_PATH = worldPath;
+		Chunk::CHUNK_SAVES_PATH = chunkSavesPath;
 	}
 	catch (const std::filesystem::filesystem_error& e)
 	{
@@ -459,6 +459,7 @@ void World::renderOpaqueChunks(
 	std::vector<glm::ivec3>& chunkPositions
 	)
 {
+	//glDepthFunc(GL_LESS);
 	glEnable(GL_CULL_FACE);
 	glDisable(GL_BLEND);
 
@@ -531,8 +532,9 @@ void World::renderOpaqueChunks(
 
 void World::renderTranslucentChunks(const std::vector<ChunkRenderInfo>& chunksToRender, std::vector<DrawArraysIndirectCommand>& chunkDrawCommands, std::vector<glm::ivec3>& chunkPositions)
 {
-	glDisable(GL_CULL_FACE);
+	//glDepthFunc(GL_LEQUAL);
 	glDepthMask(GL_FALSE);
+	glDisable(GL_CULL_FACE);
 	glEnable(GL_BLEND);
 	glBlendFunci(0, GL_ONE, GL_ONE);					// accumulation buffer
 	glBlendFunci(1, GL_ZERO, GL_ONE_MINUS_SRC_COLOR);	// revealage buffer

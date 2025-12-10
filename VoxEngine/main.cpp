@@ -256,6 +256,9 @@ int main()
 {
     constexpr float CAMERA_FAR_PLANE = (CHUNK_LOAD_DISTANCE + 0.5f) * (CHUNK_SIZE * 1.41f);
 
+    //
+    std::ios_base::sync_with_stdio(false);
+
     // Window
     WindowManager wnd({ 1280, 720, "VoxEngine", true, true, true });
 
