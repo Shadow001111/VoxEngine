@@ -5,7 +5,7 @@
 struct RaycastResult
 {
 	bool hit = false;
-	BlockID hitBlock;
+	BlockId hitBlock;
 	glm::dvec3 hitPosition;
 	glm::ivec3 hitBlockPosition;
 	Chunk* hitChunk = nullptr;

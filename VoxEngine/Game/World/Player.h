@@ -1,7 +1,7 @@
 #pragma once
 #include "Graphics/Camera.h"
 
-#include "Chunk/Block.h"
+#include "Game/DataPackManagment/DataTypes/BlockData.h"
 
 #include "RaycastResult.h"
 #include "Entity.h"
@@ -40,7 +40,7 @@ class Player : public Entity
 	Camera camera;
 
 	// TODO: Load names later
-	BlockID hotbar[PLAYER_HOTBAR_SIZE] = {
+	BlockId hotbar[PLAYER_HOTBAR_SIZE] = {
 		1, 2, 3, 4, 5, 6, 7, 8, 9
 	};
 	uint8_t selectedItemIndex = 0;
@@ -77,6 +77,6 @@ public:
 	Transform getPreviousTransform() const;
 	Camera& getCamera();
 
-	BlockID getSelectedItem() const;
+	BlockId getSelectedItem() const;
 };
 

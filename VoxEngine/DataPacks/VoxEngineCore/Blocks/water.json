@@ -1,0 +1,38 @@
+{
+  "absorbs_light": false,
+  "light_emission": 0,
+  "raycastable": false,
+  "model": "core:cube",
+  "textures": [
+    {
+      "name": "water",
+      "transformation": "None",
+      "translucent": true
+    },
+    {
+      "name": "water",
+      "transformation": "None",
+      "translucent": true
+    },
+    {
+      "name": "water",
+      "transformation": "None",
+      "translucent": true
+    },
+    {
+      "name": "water",
+      "transformation": "None",
+      "translucent": true
+    },
+    {
+      "name": "water",
+      "transformation": "None",
+      "translucent": true
+    },
+    {
+      "name": "water",
+      "transformation": "None",
+      "translucent": true
+    }
+  ]
+}

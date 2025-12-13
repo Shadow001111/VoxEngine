@@ -1,0 +1,41 @@
+{
+  "absorbs_light": true,
+  "light_emission": 0,
+  "raycastable": true,
+  "model": "core:cube",
+  "textures": [
+    {
+      "name": "grass_block_side",
+      "transformation": "None",
+      "translucent": false
+    },
+    {
+      "name": "grass_block_side",
+      "transformation": "None",
+      "translucent": false
+    },
+    {
+      "name": "dirt",
+      "transformation": "RotateAndFlip",
+      "translucent": false
+    },
+    {
+      "name": "grass_block_top",
+      "transformation": "RotateAndFlip",
+      "translucent": false
+    },
+    {
+      "name": "grass_block_side",
+      "transformation": "None",
+      "translucent": false
+    },
+    {
+      "name": "grass_block_side",
+      "transformation": "None",
+      "translucent": false
+    }
+  ],
+  "break_sounds": [ "grass1", "grass2", "grass3", "grass4" ],
+  "place_sounds": [ "grass1", "grass2", "grass3", "grass4" ],
+  "step_sounds": []
+}

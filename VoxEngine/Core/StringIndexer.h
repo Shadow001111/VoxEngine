@@ -20,4 +20,6 @@ public:
 	std::optional<size_t> getId(const std::string& str) const;
 
 	const std::unordered_map<std::string, size_t>& getNameToIDMap() const;
+
+	void clear();
 };

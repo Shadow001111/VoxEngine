@@ -3,7 +3,8 @@
 #include "World/Chunk/TerrainGenerator.h"
 #include "World/Chunk/ChunkMeshManager.h"
 
-#include "World/Chunk/BlockRegistry.h"
+#include "DataPackManagment/DataPackManager.h"
+#include "DataPackManagment/AssetRegistry.h"
 
 #include "Core/Profiler.h"
 #include "Core/Multithreading/ThreadPool.h"
@@ -86,8 +87,9 @@ World::World() :
 	// Block data base
 	std::vector<std::string> blockTextureNames;
 	{
-		PROFILE_SCOPE("Blocks registration and assets loading", ProfileCategory::General);
-		BlockRegistry::registerBlocks(blockTextureNames);
+		PROFILE_SCOPE("Data packs loading", ProfileCategory::General);
+		DataPackManager::loadAllDataPacks();
+		blockTextureNames = AssetRegistry::getTextureNames();
 	}
 
 	// Block textures
@@ -362,7 +364,7 @@ void World::renderChunks(const Camera& camera, const OpenGL_FBO* opaqueFBO, cons
 		const auto& fogColor = visualSettings.backgroundColor;
 
 		auto viewMatrix = camera.getViewMatrixModified(glm::dvec3(CHUNK_SIZE));
-		auto projectioMatrix = camera.getProjectionMatrix();
+		auto projectionMatrix = camera.getProjectionMatrix();
 
 		const Shader* shaders[4] =
 		{
@@ -379,7 +381,7 @@ void World::renderChunks(const Camera& camera, const OpenGL_FBO* opaqueFBO, cons
 			shader->setIvec3("cameraChunkPosition", cameraChunkPos.x, cameraChunkPos.y, cameraChunkPos.z);
 
 			shader->setMat4("view", viewMatrix);
-			shader->setMat4("projection", projectioMatrix);
+			shader->setMat4("projection", projectionMatrix);
 
 			shader->setVec3("fogColor", fogColor.r, fogColor.g, fogColor.b);
 			shader->setFloat("fogDensity", visualSettings.fogDensity);
@@ -450,7 +452,6 @@ void World::renderChunks(const Camera& camera, const OpenGL_FBO* opaqueFBO, cons
 		translucentFBO->getTexture("revealage"),
 		opaqueFBO->getTexture("color")
 	);
-	opaqueFBO->unbind();
 }
 
 void World::renderOpaqueChunks(
@@ -644,13 +645,14 @@ void World::renderVoxelMarker(const Camera& camera, const RaycastResult& raycast
 
 	voxelMarkerShader.use();
 	{
-		// Camera chunk position
 		const glm::ivec3 cameraChunkPos = glm::ivec3(glm::floor(camera.getPosition())) >> CHUNK_SIZE_LOG2;
-		voxelMarkerShader.setIvec3("cameraChunkPosition", cameraChunkPos.x, cameraChunkPos.y, cameraChunkPos.z);
+		auto viewMatrix = camera.getViewMatrixModified(glm::dvec3(CHUNK_SIZE));
+		auto projectionMatrix = camera.getProjectionMatrix();
 
-		// Matrices
-		voxelMarkerShader.setMat4("view", camera.getViewMatrixModified(glm::dvec3(CHUNK_SIZE)));
-		voxelMarkerShader.setMat4("projection", camera.getProjectionMatrix());
+		// Camera chunk position
+		voxelMarkerShader.setIvec3("cameraChunkPosition", cameraChunkPos.x, cameraChunkPos.y, cameraChunkPos.z);
+		voxelMarkerShader.setMat4("view", viewMatrix);
+		voxelMarkerShader.setMat4("projection", projectionMatrix);
 	}
 
 	auto placePos = raycast.hitBlockPosition;
@@ -764,9 +766,9 @@ RaycastResult World::raycast(const glm::dvec3& origin, const glm::dvec3& directi
 			// Local block position within chunk
 			glm::ivec3 localBlockPos = blockPos & CHUNK_LOWER_BITS_MASK;
 
-			BlockID block = chunk->getBlockAt(localBlockPos.x, localBlockPos.y, localBlockPos.z);
-			const BlockData* blockData = BlockRegistry::getBlockDataByID(block);
-			if (blockData && blockData->properties.raycastable)
+			BlockId block = chunk->getBlockAt(localBlockPos.x, localBlockPos.y, localBlockPos.z);
+			const BlockData* blockData = AssetRegistry::getBlockData(block);
+			if (blockData && blockData->raycastable)
 			{
 				result.hit = true;
 				result.hitBlock = block;
@@ -1104,7 +1106,7 @@ void World::updateChunkMeshes()
 	}
 }
 
-bool World::placeBlock(const RaycastResult& raycast, BlockID block)
+bool World::placeBlock(const RaycastResult& raycast, BlockId block)
 {
 	// TODO: Don't place block if entity is there
 	if (!raycast.hit)
@@ -1127,11 +1129,11 @@ bool World::placeBlock(const RaycastResult& raycast, BlockID block)
 
 	updateBlockAt(placePos, block);
 
-	const BlockData* blockData = BlockRegistry::getBlockDataByID(block);
-	if (blockData && !blockData->sounds.placeSounds.empty())
+	const BlockData* blockData = AssetRegistry::getBlockData(block);
+	if (blockData && !blockData->placeSounds.empty())
 	{
 		// Choose random sounds from vector
-		const auto& sounds = blockData->sounds.placeSounds;
+		const auto& sounds = blockData->placeSounds;
 		int soundIndex = rand() % sounds.size();
 		auto& sndMgr = SoundManager::getInstance();
 		sndMgr.play("block/place/" + sounds[soundIndex]);
@@ -1147,13 +1149,13 @@ bool World::breakBlock(const RaycastResult& raycast)
 		return false;
 	}
 
-	updateBlockAt(raycast.hitBlockPosition, BlockRegistry::getBlockID("core:air"));
+	updateBlockAt(raycast.hitBlockPosition, AssetRegistry::getBlockNumericalId("core:air"));
 
-	const BlockData* blockData = BlockRegistry::getBlockDataByID(raycast.hitBlock);
-	if (blockData && !blockData->sounds.breakSounds.empty())
+	const BlockData* blockData = AssetRegistry::getBlockData(raycast.hitBlock);
+	if (blockData && !blockData->breakSounds.empty())
 	{
 		// Choose random sounds from vector
-		const auto& sounds = blockData->sounds.breakSounds;
+		const auto& sounds = blockData->breakSounds;
 		int soundIndex = rand() % sounds.size();
 		auto& sndMgr = SoundManager::getInstance();
 		sndMgr.play("block/break/" + sounds[soundIndex]);
@@ -1162,7 +1164,7 @@ bool World::breakBlock(const RaycastResult& raycast)
 	return true;
 }
 
-void World::updateBlockAt(const glm::ivec3& worldPos, BlockID block)
+void World::updateBlockAt(const glm::ivec3& worldPos, BlockId block)
 {
 	// Convert world position to chunk position and local position
 	glm::ivec3 chunkPos = worldPos >> CHUNK_SIZE_LOG2;
@@ -1194,7 +1196,7 @@ void World::setChunkLoadingDistance(int renderDistance)
 	visualSettings.fogDensity = visualSettings.calculateFogDensity(fogDistance, visualSettings.fogGradient);
 }
 
-std::optional<BlockID> World::getBlockAt(const glm::ivec3& globalPosition) const
+std::optional<BlockId> World::getBlockAt(const glm::ivec3& globalPosition) const
 {
 	glm::ivec3 chunkPos = globalPosition >> CHUNK_SIZE_LOG2;
 

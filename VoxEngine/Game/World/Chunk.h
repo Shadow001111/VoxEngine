@@ -1,12 +1,14 @@
 #pragma once
 #include "Chunk/MeshData.h"
-#include "Chunk/Block.h"
 #include "Chunk/Metrics.h"
 #include "Chunk/StructureBlockChanges.h"
 #include "Chunk/ChunkSpecializedQueue.h"
 
 #include "Core/Multithreading/ProcessingFence.h"
 #include "Core/AtomicFlags.h"
+
+#include "Game/DataPackManagment/DataPackManager.h"
+#include "Game/DataPackManagment/DataTypes/BlockData.h"
 
 #include <vector>
 #include <mutex>
@@ -99,7 +101,7 @@ private:
 	uint8_t loaderCount = 0;
 
 	// Grid data
-	BlockID blocks[CHUNK_VOLUME];
+	BlockId blocks[CHUNK_VOLUME];
 	LightLevel lightLevels[CHUNK_VOLUME];
 
 	//  Light propagation
@@ -129,7 +131,7 @@ private:
 	ProcessingFence processingFence;
 	
 	// Changed blocks
-	std::unordered_map<BlockID, std::vector<uint16_t>> changedBlocks;
+	std::unordered_map<BlockId, std::vector<uint16_t>> changedBlocks;
 	
 	static StructureBlockChangeManager structureBlockChangeManager;
 
@@ -174,14 +176,14 @@ private:
 	void loadBlocks();
 	void saveBlocks();
 
-	bool filterChanges(BlockID blockID, const std::vector<uint16_t>& indices, const BlockData*& outBlockData) const;
+	bool filterChanges(BlockId BlockId, const std::vector<uint16_t>& indices, const BlockData*& outBlockData) const;
 private:
 	// Connectivity
 	bool findFloodFillStartIndex(uint16_t& startIndex, const bool* floodFillMask) const;
 	void computeConnectivity();
 
 	// Blocks
-	void removeIndexFromMap(BlockID block, uint16_t idx);
+	void removeIndexFromMap(BlockId block, uint16_t idx);
 public:
 	// Light
 	void buildLight();
@@ -211,16 +213,16 @@ private:
 	Chunk* getChunkAndIndex_checkNeighborsTraverse(int x, int y, int z, size_t& outIndex);
 public:
 	// Grid getters
-	BlockID getBlockAt(int x, int y, int z) const;
+	BlockId getBlockAt(int x, int y, int z) const;
 	LightLevel getLightAt(int x, int y, int z) const;
-	std::pair<BlockID, LightLevel> getBlockAndLightAt(int x, int y, int z) const;
+	std::pair<BlockId, LightLevel> getBlockAndLightAt(int x, int y, int z) const;
 
-	BlockID getBlockAt(size_t index) const;
+	BlockId getBlockAt(size_t index) const;
 	LightLevel getLightAt(size_t index) const;
-	std::pair<BlockID, LightLevel> getBlockAndLightAt(size_t index) const;
+	std::pair<BlockId, LightLevel> getBlockAndLightAt(size_t index) const;
 
 	// Grid setters
-	void setBlockAt(int x, int y, int z, BlockID block, bool saveBlockChanges = true);
+	void setBlockAt(int x, int y, int z, BlockId block, bool saveBlockChanges = true);
 	void setLightAt(int x, int y, int z, LightLevel lightLevel);
 	void setBlockLightAt(int x, int y, int z, uint8_t lightLevel);
 	void setSkyLightAt(int x, int y, int z, uint8_t lightLevel);

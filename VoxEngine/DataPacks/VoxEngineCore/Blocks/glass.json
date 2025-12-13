@@ -1,0 +1,41 @@
+{
+  "absorbs_light": false,
+  "light_emission": 0,
+  "raycastable": true,
+  "model": "core:cube",
+  "textures": [
+    {
+      "name": "glass",
+      "transformation": "None",
+      "translucent": true
+    },
+    {
+      "name": "glass",
+      "transformation": "None",
+      "translucent": true
+    },
+    {
+      "name": "glass",
+      "transformation": "None",
+      "translucent": true
+    },
+    {
+      "name": "glass",
+      "transformation": "None",
+      "translucent": true
+    },
+    {
+      "name": "glass",
+      "transformation": "None",
+      "translucent": true
+    },
+    {
+      "name": "glass",
+      "transformation": "None",
+      "translucent": true
+    }
+  ],
+  "break_sounds": [ "glass1", "glass2", "glass3" ],
+  "place_sounds": [ "stone1", "stone2", "stone3", "stone4" ],
+  "step_sounds": []
+}

@@ -1,0 +1,41 @@
+{
+  "absorbs_light": true,
+  "light_emission": 0,
+  "raycastable": true,
+  "model": "core:cube",
+  "textures": [
+    {
+      "name": "dirt",
+      "transformation": "RotateAndFlip",
+      "translucent": false
+    },
+    {
+      "name": "dirt",
+      "transformation": "RotateAndFlip",
+      "translucent": false
+    },
+    {
+      "name": "dirt",
+      "transformation": "RotateAndFlip",
+      "translucent": false
+    },
+    {
+      "name": "dirt",
+      "transformation": "RotateAndFlip",
+      "translucent": false
+    },
+    {
+      "name": "dirt",
+      "transformation": "RotateAndFlip",
+      "translucent": false
+    },
+    {
+      "name": "dirt",
+      "transformation": "RotateAndFlip",
+      "translucent": false
+    }
+  ],
+  "break_sounds": [ "dirt1", "dirt2", "dirt3", "dirt4" ],
+  "place_sounds": [ "dirt1", "dirt2", "dirt3", "dirt4" ],
+  "step_sounds": []
+}

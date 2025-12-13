@@ -1,0 +1,16 @@
+{
+  "absorbs_light": true,
+  "light_emission": 0,
+  "raycastable": true,
+  "model": "core:stairs",
+  "textures": [
+    {
+      "name": "stone",
+      "transformation": "None",
+      "translucent": false
+    }
+  ],
+  "break_sounds": [ "stone1", "stone2", "stone3", "stone4" ],
+  "place_sounds": [ "stone1", "stone2", "stone3", "stone4" ],
+  "step_sounds": []
+}

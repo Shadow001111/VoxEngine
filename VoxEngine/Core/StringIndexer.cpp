@@ -31,3 +31,8 @@ const std::unordered_map<std::string, size_t>& StringIndexer::getNameToIDMap() c
 {
     return nameToID;
 }
+
+void StringIndexer::clear()
+{
+    nameToID.clear();
+}

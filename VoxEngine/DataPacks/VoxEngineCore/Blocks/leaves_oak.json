@@ -1,0 +1,41 @@
+{
+  "absorbs_light": false,
+  "light_emission": 0,
+  "raycastable": true,
+  "model": "core:cube",
+  "textures": [
+    {
+      "name": "leaves_oak",
+      "transformation": "RotateAndFlip",
+      "translucent": true
+    },
+    {
+      "name": "leaves_oak",
+      "transformation": "RotateAndFlip",
+      "translucent": true
+    },
+    {
+      "name": "leaves_oak",
+      "transformation": "RotateAndFlip",
+      "translucent": true
+    },
+    {
+      "name": "leaves_oak",
+      "transformation": "RotateAndFlip",
+      "translucent": true
+    },
+    {
+      "name": "leaves_oak",
+      "transformation": "RotateAndFlip",
+      "translucent": true
+    },
+    {
+      "name": "leaves_oak",
+      "transformation": "RotateAndFlip",
+      "translucent": true
+    }
+  ],
+  "break_sounds": [ "grass1", "grass2", "grass3", "grass4" ],
+  "place_sounds": [ "grass1", "grass2", "grass3", "grass4" ],
+  "step_sounds": []
+}

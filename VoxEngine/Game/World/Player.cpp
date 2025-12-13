@@ -296,7 +296,7 @@ Camera& Player::getCamera()
 	return camera;
 }
 
-BlockID Player::getSelectedItem() const
+BlockId Player::getSelectedItem() const
 {
 	return hotbar[selectedItemIndex];
 }

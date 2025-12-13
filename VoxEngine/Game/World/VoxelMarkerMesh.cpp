@@ -1,8 +1,5 @@
 #include "VoxelMarkerMesh.h"
 
-#include <glm/vec2.hpp>
-#include <glm/vec3.hpp>
-
 #include "OpenGLWrappers/OpenGLDebug.h"
 
 VoxelMarkerMesh::VoxelMarkerMesh()

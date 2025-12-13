@@ -15,7 +15,7 @@ public:
 	};
 private:
 	size_t capacity;
-	size_t nextBlockID = 0;
+	size_t nextBlockId = 0;
 	std::vector<Block> blocks; // Always sorted
 
 	std::optional<size_t> findFreeBlock(size_t requestedSize) const;

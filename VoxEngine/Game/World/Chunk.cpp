@@ -1,8 +1,8 @@
 #include "Chunk.h"
 #include "Chunk/TerrainGenerator.h"
 #include "Chunk/ChunkMeshManager.h"
-#include "Chunk/BlockRegistry.h"
-#include "Chunk/BlockModelLoader.h"
+
+#include "Game/DataPackManagment/AssetRegistry.h"
 
 #include "Core/Profiler.h"
 #include "Core/ASSERT.h"
@@ -12,7 +12,6 @@
 
 #include <vector>
 #include <format>
-#include <map>
 
 thread_local ChunkSpecializedQueue<LightNode> Chunk::localBlockLightBfsQueue;
 thread_local ChunkSpecializedQueue<LightRemovalNode> Chunk::localBlockLightRemovalBfsQueue;
@@ -163,11 +162,11 @@ void Chunk::buildBlocks()
 
 	// Fetch IDs
 	// TODO: Maybe fetch block ids once and make them Chunk's static variables?
-	const BlockID airID = BlockRegistry::getBlockID("core:air");
-	const BlockID waterID = BlockRegistry::getBlockIDAirFallback("core:water");
-	const BlockID grassBlockID = BlockRegistry::getBlockIDAirFallback("core:grass_block");
-	const BlockID dirtID = BlockRegistry::getBlockIDAirFallback("core:dirt");
-	const BlockID stoneID = BlockRegistry::getBlockIDAirFallback("core:stone");
+	const BlockId airID = AssetRegistry::getBlockNumericalId("core:air");
+	const BlockId waterID = AssetRegistry::getBlockNumericalId("core:water");
+	const BlockId grassBlockId = AssetRegistry::getBlockNumericalId("core:grass_block");
+	const BlockId dirtID = AssetRegistry::getBlockNumericalId("core:dirt");
+	const BlockId stoneID = AssetRegistry::getBlockNumericalId("core:stone");
 
 	// Terrain
 	bool computeCaveMask = false;
@@ -187,14 +186,14 @@ void Chunk::buildBlocks()
 
 					size_t index = getIndex(x, y, z);
 
-					BlockID block;
+					BlockId block;
 					if (globalY > globalHeight)
 					{
 						block = ocean ? waterID : airID;
 					}
 					else if (globalY == globalHeight)
 					{
-						block = grassBlockID;
+						block = grassBlockId;
 					}
 					else if (globalY > globalHeight - 4)
 					{
@@ -380,7 +379,7 @@ bool Chunk::hasStructureBlockUpdates() const
 
 void Chunk::updateStructureBlocks()
 {
-	const BlockID airID = BlockRegistry::getBlockID("core:air");
+	const BlockId airID = AssetRegistry::getBlockNumericalId("core:air");
 
 	ScopedProcessingFence scopedFence(processingFence);
 
@@ -397,9 +396,9 @@ void Chunk::updateStructureBlocks()
 
 void Chunk::generateTree(const glm::ivec3& rootPosition)
 {
-	const BlockID airID = BlockRegistry::getBlockID("core:air");
-	const BlockID logOakID = BlockRegistry::getBlockIDAirFallback("core:log_oak");
-	const BlockID leavesOakID = BlockRegistry::getBlockIDAirFallback("core:leaves_oak");
+	const BlockId airID = AssetRegistry::getBlockNumericalId("core:air");
+	const BlockId logOakID = AssetRegistry::getBlockNumericalId("core:log_oak");
+	const BlockId leavesOakID = AssetRegistry::getBlockNumericalId("core:leaves_oak");
 
 	const int treeHeight = 4;
 
@@ -479,7 +478,7 @@ void Chunk::loadBlocks()
 	std::string name = std::format("{}_{}_{}.bin", position.x, position.y, position.z);
 	fs::path filepath = CHUNK_SAVES_PATH / name;
 
-	if (!fs::exists(filepath))
+	if (!fs::exists(filepath) || !fs::is_regular_file(filepath))
 	{
 		return;
 	}
@@ -505,7 +504,7 @@ void Chunk::loadBlocks()
 	}
 
 	// Get air block ID
-	const BlockID AIR_BLOCK_ID = BlockRegistry::getBlockID("core:air");
+	const BlockId AIR_BLOCK_ID = AssetRegistry::getBlockNumericalId("core:air");
 
 	// Read pack count
 	uint16_t packCount = 0;
@@ -600,9 +599,9 @@ void Chunk::loadBlocks()
 			// Construct full block name
 			std::string fullName = std::format("{}:{}", packName, blockName);
 
-			// Convert to global BlockID
-			BlockID globalID = BlockRegistry::getBlockID(fullName);
-			if (globalID == (BlockID)-1)
+			// Convert to global BlockId
+			BlockId globalID = AssetRegistry::getBlockNumericalId(fullName);
+			if (globalID == (BlockId)-1)
 			{
 				// Block no longer exists - fallback to air
 				globalID = AIR_BLOCK_ID;
@@ -658,7 +657,7 @@ void Chunk::loadBlocks()
 	// Apply loaded data to blocks array
 	for (auto it = changedBlocks.begin(); it != changedBlocks.end();)
 	{
-		BlockID block = it->first;
+		BlockId block = it->first;
 		auto& indices = it->second;
 
 		size_t writeIndex = 0;
@@ -718,7 +717,7 @@ void Chunk::saveBlocks()
 	}
 
 	// Filter valid changes and collect block names
-	std::map<BlockID, std::string> idToString;
+	std::map<BlockId, std::string> idToString;
 	{
 		const BlockData* blockData = nullptr;
 		auto it = changedBlocks.begin();
@@ -730,7 +729,7 @@ void Chunk::saveBlocks()
 			}
 			else
 			{
-				idToString[it->first] = blockData->name;
+				idToString[it->first] = blockData->blockStringId;
 				++it;
 			}
 		}
@@ -745,7 +744,7 @@ void Chunk::saveBlocks()
 	struct PackInfo
 	{
 		std::string name;
-		std::vector<std::pair<BlockID, std::string>> blocks; // globalID -> blockName
+		std::vector<std::pair<BlockId, std::string>> blocks; // globalID -> blockName
 	};
 
 	std::unordered_map<std::string, PackInfo> packMap;
@@ -821,7 +820,7 @@ void Chunk::saveBlocks()
 	}
 }
 
-bool Chunk::filterChanges(BlockID blockID, const std::vector<uint16_t>& indices, const BlockData*& outBlockData) const
+bool Chunk::filterChanges(BlockId BlockId, const std::vector<uint16_t>& indices, const BlockData*& outBlockData) const
 {
 	// Check indices range
 	if (indices.size() == 0 || indices.size() > CHUNK_VOLUME)
@@ -829,13 +828,13 @@ bool Chunk::filterChanges(BlockID blockID, const std::vector<uint16_t>& indices,
 		return true;
 	}
 	// Get block data
-	outBlockData = BlockRegistry::getBlockDataByID(blockID);
+	outBlockData = AssetRegistry::getBlockData(BlockId);
 	if (!outBlockData)
 	{
 		return true;
 	}
 	// Check name length
-	const auto& name = outBlockData->name;
+	const auto& name = outBlockData->blockStringId;
 	if (name.size() < 3 || name.size() > 64)
 	{
 		return true;
@@ -978,7 +977,7 @@ void Chunk::computeConnectivity()
 	//// Check flood fill mask if it filled all the space
 }
 
-void Chunk::removeIndexFromMap(BlockID block, uint16_t idx)
+void Chunk::removeIndexFromMap(BlockId block, uint16_t idx)
 {
 	auto it = changedBlocks.find(block);
 	if (it == changedBlocks.end()) return;
@@ -1040,13 +1039,13 @@ void Chunk::buildLight()
 				{
 					size_t index = getIndex(x, y, z);
 
-					const auto* blockData = BlockRegistry::getBlockDataByID(blocks[index]);
+					const auto* blockData = AssetRegistry::getBlockData(blocks[index]);
 					if (!blockData)
 					{
 						continue;
 					}
 
-					uint8_t emission = blockData->properties.lightEmission;
+					uint8_t emission = blockData->lightEmission;
 					if (emission == 0)
 					{
 						continue;
@@ -1071,8 +1070,8 @@ void Chunk::buildLight()
 				for (int z = 0; z < CHUNK_SIZE; z++)
 				{
 					size_t index = getIndex(x, y, z);
-					const auto* blockData = BlockRegistry::getBlockDataByID(blocks[index]);
-					if (blockData && blockData->properties.absorbsLight)
+					const auto* blockData = AssetRegistry::getBlockData(blocks[index]);
+					if (blockData && blockData->absorbsLight)
 					{
 						continue;
 					}
@@ -1125,8 +1124,8 @@ void Chunk::buildLight()
 		auto processNeighborFace = [&](int x, int y, int z, int nx, int ny, int nz, const Chunk* neighbor, bool propagatingFromTop)
 			{
 				size_t index = getIndex(x, y, z);
-				const auto* blockData = BlockRegistry::getBlockDataByID(blocks[index]);
-				if (blockData && blockData->properties.absorbsLight)
+				const auto* blockData = AssetRegistry::getBlockData(blocks[index]);
+				if (blockData && blockData->absorbsLight)
 				{
 					return;
 				}
@@ -1269,9 +1268,9 @@ void Chunk::buildLight()
 					continue;
 				}
 
-				const BlockID neighborBlock = neighborChunk->getBlockAt(neighborIndex);
-				const auto* neighborBlockData = BlockRegistry::getBlockDataByID(neighborBlock);
-				if (neighborBlockData && neighborBlockData->properties.absorbsLight)
+				const BlockId neighborBlock = neighborChunk->getBlockAt(neighborIndex);
+				const auto* neighborBlockData = AssetRegistry::getBlockData(neighborBlock);
+				if (neighborBlockData && neighborBlockData->absorbsLight)
 				{
 					continue;
 				}
@@ -1328,9 +1327,9 @@ void Chunk::buildLight()
 					continue;
 				}
 
-				const BlockID neighborBlock = neighborChunk->getBlockAt(neighborIndex);
-				const auto* neighborBlockData = BlockRegistry::getBlockDataByID(neighborBlock);
-				if (neighborBlockData && neighborBlockData->properties.absorbsLight)
+				const BlockId neighborBlock = neighborChunk->getBlockAt(neighborIndex);
+				const auto* neighborBlockData = AssetRegistry::getBlockData(neighborBlock);
+				if (neighborBlockData && neighborBlockData->absorbsLight)
 				{
 					continue;
 				}
@@ -1423,9 +1422,9 @@ void Chunk::updateLight()
 				continue;
 			}
 
-			BlockID neighborBlock = neighborChunk->getBlockAt(neighborIndex);
-			const auto* neighborBlockData = BlockRegistry::getBlockDataByID(neighborBlock);
-			if (neighborBlockData && neighborBlockData->properties.absorbsLight)
+			BlockId neighborBlock = neighborChunk->getBlockAt(neighborIndex);
+			const auto* neighborBlockData = AssetRegistry::getBlockData(neighborBlock);
+			if (neighborBlockData && neighborBlockData->absorbsLight)
 			{
 				continue;
 			}
@@ -1494,9 +1493,9 @@ void Chunk::updateLight()
 				continue;
 			}
 
-			BlockID neighborBlock = neighborChunk->getBlockAt(neighborIndex);
-			const auto* neighborBlockData = BlockRegistry::getBlockDataByID(neighborBlock);
-			if (neighborBlockData && neighborBlockData->properties.absorbsLight)
+			BlockId neighborBlock = neighborChunk->getBlockAt(neighborIndex);
+			const auto* neighborBlockData = AssetRegistry::getBlockData(neighborBlock);
+			if (neighborBlockData && neighborBlockData->absorbsLight)
 			{
 				continue;
 			}
@@ -1544,9 +1543,9 @@ void Chunk::updateLight()
 				continue;
 			}
 
-			BlockID neighborBlock = neighborChunk->getBlockAt(neighborIndex);
-			const auto* neighborBlockData = BlockRegistry::getBlockDataByID(neighborBlock);
-			if (neighborBlockData && neighborBlockData->properties.absorbsLight)
+			BlockId neighborBlock = neighborChunk->getBlockAt(neighborIndex);
+			const auto* neighborBlockData = AssetRegistry::getBlockData(neighborBlock);
+			if (neighborBlockData && neighborBlockData->absorbsLight)
 			{
 				continue;
 			}
@@ -1615,9 +1614,9 @@ void Chunk::updateLight()
 				continue;
 			}
 
-			BlockID neighborBlock = neighborChunk->getBlockAt(neighborIndex);
-			const auto* neighborBlockData = BlockRegistry::getBlockDataByID(neighborBlock);
-			if (neighborBlockData && neighborBlockData->properties.absorbsLight)
+			BlockId neighborBlock = neighborChunk->getBlockAt(neighborIndex);
+			const auto* neighborBlockData = AssetRegistry::getBlockData(neighborBlock);
+			if (neighborBlockData && neighborBlockData->absorbsLight)
 			{
 				continue;
 			}
@@ -1706,7 +1705,7 @@ void Chunk::updateMesh()
 		const int dy[] = { 0, 0, -1, 1, 0, 0 };
 		const int dz[] = { 0, 0, 0, 0, -1, 1 };
 
-		static const TextureSlot fallbackTextureSlot(0, TextureInfo::TextureTransformation::None, false);
+		static const BlockData::TextureSlot fallbackTextureSlot(0, BlockData::TextureSlot::TextureTransformation::None, false);
 
 		ChunkMeshData::InstancesStorage newInstances; // TODO: Maybe it should be static thread_local?
 		// Ofcourse we can just clear and then fill meshData.instacesStorage directly, but then processing fence should be activated before it, which I don't want to.
@@ -1719,17 +1718,17 @@ void Chunk::updateMesh()
 			glm::ivec3 pos = getPositionFromIndex(currentBlockIndex);
 
 			// Generate new faces for this block
-			BlockID block = blocks[currentBlockIndex];
-			const BlockData* blockData = BlockRegistry::getBlockDataByID(block);
-			if (!blockData || !blockData->properties.hasFaces)
+			BlockId block = blocks[currentBlockIndex];
+			const BlockData* blockData = AssetRegistry::getBlockData(block);
+			if (!blockData || !blockData->hasFaces)
 			{
 				continue;
 			}
 
-			const auto& modelID = blockData->visuals.modelID;
-			const auto& textureSlots = blockData->visuals.textureSlots;
+			const auto& modelID = blockData->modelId;
+			const auto& textureSlots = blockData->textureSlots;
 			
-			const auto* model = BlockRegistry::getBlockModelByID(modelID);
+			const auto* model = AssetRegistry::getBlockModelData(modelID);
 			if (!model)
 			{
 				continue;
@@ -1759,14 +1758,14 @@ void Chunk::updateMesh()
 						continue;
 					}
 
-					BlockID neighborBlock = neighborChunk->getBlockAt(neighborIndex);
+					BlockId neighborBlock = neighborChunk->getBlockAt(neighborIndex);
 					if (block == neighborBlock)
 					{
 						continue;
 					}
 
-					const BlockData* neighborBlockData = BlockRegistry::getBlockDataByID(neighborBlock);
-					if (neighborBlockData && neighborBlockData->properties.faceCulling[face.normal ^ 1])
+					const BlockData* neighborBlockData = AssetRegistry::getBlockData(neighborBlock);
+					if (neighborBlockData && neighborBlockData->faceCulling[face.normal ^ 1])
 					{
 						continue;
 					}
@@ -1788,7 +1787,7 @@ void Chunk::updateMesh()
 						pos.x, pos.y, pos.z,
 						face.normal,
 						ao,
-						textureSlot.textureID,
+						textureSlot.textureId,
 						faceTransformation,
 						light
 					);
@@ -1857,7 +1856,7 @@ void Chunk::updateMesh()
 					instance.u3 = face.u3;
 					instance.v3 = face.v3;
 
-					instance.textureID = textureSlot.textureID;
+					instance.textureID = textureSlot.textureId;
 
 					auto& instances = textureSlot.isTranslucent ? newInstances.nonAlignedTranslucent : newInstances.nonAlignedOpaque;
 
@@ -2139,7 +2138,7 @@ Chunk* Chunk::getChunkAndIndex_checkNeighborsTraverse(int x, int y, int z, size_
 	return const_cast<Chunk*>(const_cast<const Chunk*>(this)->getChunkAndIndex_checkNeighborsTraverse(x, y, z, outIndex));
 }
 
-BlockID Chunk::getBlockAt(int x, int y, int z) const
+BlockId Chunk::getBlockAt(int x, int y, int z) const
 {
 	return blocks[getIndex(x, y, z)];
 }
@@ -2149,13 +2148,13 @@ LightLevel Chunk::getLightAt(int x, int y, int z) const
 	return lightLevels[getIndex(x, y, z)];
 }
 
-std::pair<BlockID, LightLevel> Chunk::getBlockAndLightAt(int x, int y, int z) const
+std::pair<BlockId, LightLevel> Chunk::getBlockAndLightAt(int x, int y, int z) const
 {
 	size_t index = getIndex(x, y, z);
 	return std::make_pair(blocks[index], lightLevels[index]);
 }
 
-BlockID Chunk::getBlockAt(size_t index) const
+BlockId Chunk::getBlockAt(size_t index) const
 {
 	return blocks[index];
 }
@@ -2165,16 +2164,16 @@ LightLevel Chunk::getLightAt(size_t index) const
 	return lightLevels[index];
 }
 
-std::pair<BlockID, LightLevel> Chunk::getBlockAndLightAt(size_t index) const
+std::pair<BlockId, LightLevel> Chunk::getBlockAndLightAt(size_t index) const
 {
 	return std::make_pair(blocks[index], lightLevels[index]);
 }
 
-void Chunk::setBlockAt(int x, int y, int z, BlockID block, bool saveBlockChanges)
+void Chunk::setBlockAt(int x, int y, int z, BlockId block, bool saveBlockChanges)
 {
 	size_t index = getIndex(x, y, z);
 
-	BlockID previousBlock = blocks[index];
+	BlockId previousBlock = blocks[index];
 	if (previousBlock == block)
 	{
 		return;
@@ -2194,24 +2193,16 @@ void Chunk::setBlockAt(int x, int y, int z, BlockID block, bool saveBlockChanges
 	markBlockMeshDirty(x, y, z);
 
 	// Light update
-	const BlockData* previousBlockData = BlockRegistry::getBlockDataByID(previousBlock);
-	if (!previousBlockData)
-	{
-		return;
-	}
-	uint8_t previousEmission = previousBlockData->properties.lightEmission;
+	const BlockData* previousBlockData = AssetRegistry::getBlockDataSafe(previousBlock);
+	uint8_t previousEmission = previousBlockData->lightEmission;
 
-	const BlockData* newBlockData = BlockRegistry::getBlockDataByID(block);
-	if (!newBlockData)
-	{
-		return;
-	}
-	uint8_t newEmission = newBlockData->properties.lightEmission;
+	const BlockData* newBlockData = AssetRegistry::getBlockDataSafe(block);
+	uint8_t newEmission = newBlockData->lightEmission;
 
 	const int dx[] = { -1, 1, 0, 0, 0, 0 };
 	const int dy[] = { 0, 0, -1, 1, 0, 0 };
 	const int dz[] = { 0, 0, 0, 0, -1, 1 };
-	if (previousBlockData->properties.absorbsLight && !newBlockData->properties.absorbsLight)
+	if (previousBlockData->absorbsLight && !newBlockData->absorbsLight)
 	{
 		// Collect maximum light level from neighbors and propagate it to this block
 		uint8_t maxBlockLightToSet = 0;
@@ -2254,7 +2245,7 @@ void Chunk::setBlockAt(int x, int y, int z, BlockID block, bool saveBlockChanges
 			if (maxSkyLightToSet > 1) addSkyLightNodeToQueue(x, y, z);
 		}
 	}
-	else if (!previousBlockData->properties.absorbsLight && newBlockData->properties.absorbsLight)
+	else if (!previousBlockData->absorbsLight && newBlockData->absorbsLight)
 	{
 		// Remove light at this block
 		uint8_t currentBlockLight = lightLevels[index].blockLight;
@@ -2522,8 +2513,8 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(unsigned int& ao, unsigned int
 			{
 				auto data = c->getBlockAndLightAt(idx);
 				neighborData[dataIdx].first = data.second;
-				const auto* blockData = BlockRegistry::getBlockDataByID(data.first);
-				neighborData[dataIdx].second = blockData && blockData->properties.faceCulling[normal ^ 1];
+				const auto* blockData = AssetRegistry::getBlockData(data.first);
+				neighborData[dataIdx].second = blockData && blockData->faceCulling[normal ^ 1];
 			}
 		};
 

@@ -1,0 +1,41 @@
+{
+  "absorbs_light": true,
+  "light_emission": 0,
+  "raycastable": true,
+  "model": "core:cube",
+  "textures": [
+    {
+      "name": "log_oak",
+      "transformation": "None",
+      "translucent": false
+    },
+    {
+      "name": "log_oak",
+      "transformation": "None",
+      "translucent": false
+    },
+    {
+      "name": "log_oak_top",
+      "transformation": "None",
+      "translucent": false
+    },
+    {
+      "name": "log_oak_top",
+      "transformation": "None",
+      "translucent": false
+    },
+    {
+      "name": "log_oak",
+      "transformation": "None",
+      "translucent": false
+    },
+    {
+      "name": "log_oak",
+      "transformation": "None",
+      "translucent": false
+    }
+  ],
+  "break_sounds": [ "wood1", "wood2", "wood3", "wood4" ],
+  "place_sounds": [ "wood1", "wood2", "wood3", "wood4" ],
+  "step_sounds": []
+}

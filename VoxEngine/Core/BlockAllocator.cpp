@@ -59,7 +59,7 @@ std::optional<BlockAllocator::Block> BlockAllocator::allocate(size_t size)
         return std::nullopt; // Not enough space
     }
 
-    Block block{ offset.value(), size, nextBlockID++ };
+    Block block{ offset.value(), size, nextBlockId++ };
 
     // Insert block in sorted position by offset
     auto insertPos = std::lower_bound(blocks.begin(), blocks.end(), block,

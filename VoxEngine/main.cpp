@@ -250,6 +250,7 @@ void APIENTRY glDebugOutput(GLenum source,
     std::cout << std::endl;
 }
 
+#include "Game/DataPackManagment/DataPackManager.h"
 
 // TODO: Modern OpenGl
 int main()
@@ -372,7 +373,8 @@ int main()
 
         // Rendering world
         world.renderChunks(player->getCamera(), wnd.getOpaqueFBO(), wnd.getTranslucentFBO());
-        //world.renderVoxelMarker(player->getCamera(), player->raycastResult);
+        world.renderVoxelMarker(player->getCamera(), player->raycastResult);
+        wnd.getOpaqueFBO()->unbind();
 
         // Rendering to screen
         // TODO: Maybe we are rendering same FBO twice. Avoid that.

@@ -116,7 +116,8 @@
       <Command>taskkill /f /fi "imagename eq $(TargetFileName)"</Command>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>xcopy "$(ProjectDir)res" "$(TargetDir)res" /E /I /Y</Command>
+      <Command>xcopy "$(ProjectDir)res" "$(TargetDir)res" /E /I /Y
+xcopy "$(ProjectDir)DataPacks" "$(TargetDir)DataPacks" /E /I /Y</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -141,27 +142,34 @@
       <Command>taskkill /f /fi "imagename eq $(TargetFileName)"</Command>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>xcopy "$(ProjectDir)res" "$(TargetDir)res" /E /I /Y</Command>
+      <Command>xcopy "$(ProjectDir)res" "$(TargetDir)res" /E /I /Y
+xcopy "$(ProjectDir)DataPacks" "$(TargetDir)DataPacks" /E /I /Y</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Game\World\Chunk\BlockModelLoader.cpp" />
-    <ClCompile Include="Game\World\ChunkLoaders\BaseChunkLoader.cpp" />
-    <ClCompile Include="Game\World\Chunk\StructureBlockChanges.cpp" />
-    <ClCompile Include="Game\World\Entity.cpp" />
-    <ClCompile Include="Game\World\Chunk\ChunkMeshManager.cpp" />
+    <ClCompile Include="Game\DataPackManagment\AssetRegistry.cpp" />
     <ClCompile Include="Core\BlockAllocator.cpp" />
     <ClCompile Include="Core\MemoryFileReader.cpp" />
     <ClCompile Include="Core\MemoryFileWriter.cpp" />
-    <ClCompile Include="OpenGLWrappers\OpenGL_Buffer.cpp" />
+    <ClCompile Include="Game\World.cpp" />
+    <ClCompile Include="Game\World\Chunk.cpp" />
+    <ClCompile Include="Game\World\ChunkLoaders\BaseChunkLoader.cpp" />
+    <ClCompile Include="Game\World\ChunkLoaders\SphericalChunkLoader.cpp" />
     <ClCompile Include="Game\World\ChunkPool.cpp" />
+    <ClCompile Include="Game\World\Chunk\ChunkMeshManager.cpp" />
     <ClCompile Include="Game\World\Chunk\MeshData.cpp" />
     <ClCompile Include="Game\World\Chunk\MeshTemplates\AlignedBlockFace.cpp" />
+    <ClCompile Include="Game\World\Chunk\MeshTemplates\NonAlignedBlockFace.cpp" />
+    <ClCompile Include="Game\World\Chunk\StructureBlockChanges.cpp" />
+    <ClCompile Include="Game\World\Chunk\TerrainGenerator.cpp" />
+    <ClCompile Include="Game\World\Entity.cpp" />
+    <ClCompile Include="Game\World\Player.cpp" />
+    <ClCompile Include="Game\World\VoxelMarkerMesh.cpp" />
+    <ClCompile Include="Game\World\WorldVisualSettings.cpp" />
+    <ClCompile Include="OpenGLWrappers\OpenGL_Buffer.cpp" />
     <ClCompile Include="Graphics\BlockTextureArray.cpp" />
     <ClCompile Include="Core\StringIndexer.cpp" />
     <ClCompile Include="Core\Multithreading\ProcessingFence.cpp" />
-    <ClCompile Include="Game\World\Chunk\BlockRegistry.cpp" />
-    <ClCompile Include="Game\World\Chunk.cpp" />
     <ClCompile Include="Core\Profiler.cpp" />
     <ClCompile Include="Core\Shapes.cpp" />
     <ClCompile Include="Core\Multithreading\ThreadPool.cpp" />
@@ -177,45 +185,50 @@
     <ClCompile Include="Core\UpdateTimer.cpp" />
     <ClCompile Include="Core\Transform.cpp" />
     <ClCompile Include="Core\Shapes\Plane.cpp" />
-    <ClCompile Include="Game\World\Player.cpp" />
-    <ClCompile Include="Game\World\Chunk\TerrainGenerator.cpp" />
-    <ClCompile Include="Game\World\VoxelMarkerMesh.cpp" />
     <ClCompile Include="Graphics\TextRenderer.cpp" />
     <ClCompile Include="OpenGLWrappers\OpenGL_FBO.cpp" />
-    <ClCompile Include="Game\World\ChunkLoaders\SphericalChunkLoader.cpp" />
-    <ClCompile Include="Game\World\Chunk\MeshTemplates\NonAlignedBlockFace.cpp" />
     <ClCompile Include="OpenGLWrappers\OpenGL_Texture.cpp" />
+    <ClCompile Include="Game\DataPackManagment\DataPackManager.cpp" />
     <ClCompile Include="SoundManager.cpp" />
     <ClCompile Include="WindowManager.cpp" />
-    <ClCompile Include="Game\World.cpp" />
-    <ClCompile Include="Game\World\WorldVisualSettings.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Game\World\Chunk\ChunkSpecializedQueue.h" />
-    <ClInclude Include="Game\World\Chunk\BlockModelLoader.h" />
+    <ClInclude Include="Game\DataPackManagment\AssetTypes\BlockAsset.h" />
+    <ClInclude Include="Game\DataPackManagment\AssetRegistry.h" />
+    <ClInclude Include="Game\DataPackManagment\DataTypes\BlockData.h" />
+    <ClInclude Include="Game\DataPackManagment\DataTypes\BlockModelData.h" />
     <ClInclude Include="Core\Debug.h" />
-    <ClInclude Include="Game\World\ChunkLoaders\BaseChunkLoader.h" />
     <ClInclude Include="Core\Assert.h" />
     <ClInclude Include="Core\AtomicFlags.h" />
     <ClInclude Include="Core\SymmetricBitMatrix.h" />
-    <ClInclude Include="Game\World\Chunk\StructureBlockChanges.h" />
-    <ClInclude Include="Game\World\Entity.h" />
-    <ClInclude Include="Game\World\Chunk\ChunkMeshManager.h" />
     <ClInclude Include="Core\BlockAllocator.h" />
     <ClInclude Include="Core\MemoryFileReader.h" />
     <ClInclude Include="Core\MemoryFileWriter.h" />
-    <ClInclude Include="OpenGLWrappers\OpenGLDebug.h" />
-    <ClInclude Include="OpenGLWrappers\OpenGL_Buffer.h" />
+    <ClInclude Include="Game\World.h" />
+    <ClInclude Include="Game\World\Chunk.h" />
+    <ClInclude Include="Game\World\ChunkLoaders\BaseChunkLoader.h" />
+    <ClInclude Include="Game\World\ChunkLoaders\SphericalChunkLoader.h" />
     <ClInclude Include="Game\World\ChunkPool.h" />
+    <ClInclude Include="Game\World\Chunk\ChunkMeshManager.h" />
+    <ClInclude Include="Game\World\Chunk\ChunkSpecializedQueue.h" />
+    <ClInclude Include="Game\World\Chunk\Item.h" />
+    <ClInclude Include="Game\World\Chunk\ItemProperties.h" />
     <ClInclude Include="Game\World\Chunk\MeshData.h" />
     <ClInclude Include="Game\World\Chunk\MeshTemplates\AlignedBlockFace.h" />
+    <ClInclude Include="Game\World\Chunk\MeshTemplates\NonAlignedBlockFace.h" />
     <ClInclude Include="Game\World\Chunk\Metrics.h" />
+    <ClInclude Include="Game\World\Chunk\StructureBlockChanges.h" />
+    <ClInclude Include="Game\World\Chunk\TerrainGenerator.h" />
+    <ClInclude Include="Game\World\Entity.h" />
+    <ClInclude Include="Game\World\Player.h" />
+    <ClInclude Include="Game\World\RaycastResult.h" />
+    <ClInclude Include="Game\World\VoxelMarkerMesh.h" />
+    <ClInclude Include="Game\World\WorldVisualSettings.h" />
+    <ClInclude Include="OpenGLWrappers\OpenGLDebug.h" />
+    <ClInclude Include="OpenGLWrappers\OpenGL_Buffer.h" />
     <ClInclude Include="Graphics\BlockTextureArray.h" />
     <ClInclude Include="Core\StringIndexer.h" />
     <ClInclude Include="Core\Multithreading\ProcessingFence.h" />
-    <ClInclude Include="Game\World\Chunk\Block.h" />
-    <ClInclude Include="Game\World\Chunk\BlockRegistry.h" />
-    <ClInclude Include="Game\World\Chunk.h" />
     <ClInclude Include="Core\CoreMath.h" />
     <ClInclude Include="Core\Profiler.h" />
     <ClInclude Include="Core\Shapes.h" />
@@ -229,21 +242,14 @@
     <ClInclude Include="Core\UpdateTimer.h" />
     <ClInclude Include="Core\Transform.h" />
     <ClInclude Include="Core\Shapes\Plane.h" />
-    <ClInclude Include="Game\World\Player.h" />
-    <ClInclude Include="Game\World\Chunk\TerrainGenerator.h" />
-    <ClInclude Include="Game\World\VoxelMarkerMesh.h" />
     <ClInclude Include="Graphics\TextRenderer.h" />
     <ClInclude Include="OpenGLWrappers\OpenGL_FBO.h" />
-    <ClInclude Include="Game\World\RaycastResult.h" />
-    <ClInclude Include="Game\World\ChunkLoaders\SphericalChunkLoader.h" />
     <ClInclude Include="Core\Hashes\ivec3Hasher.h" />
     <ClInclude Include="Core\Hashes\ivec2Hasher.h" />
-    <ClInclude Include="Game\World\Chunk\MeshTemplates\NonAlignedBlockFace.h" />
     <ClInclude Include="OpenGLWrappers\OpenGL_Texture.h" />
+    <ClInclude Include="Game\DataPackManagment\DataPackManager.h" />
     <ClInclude Include="SoundManager.h" />
     <ClInclude Include="WindowManager.h" />
-    <ClInclude Include="Game\World.h" />
-    <ClInclude Include="Game\World\WorldVisualSettings.h" />
   </ItemGroup>
   <ItemGroup>
     <CopyFileToFolders Include="..\Libraries\bin\FastNoise.dll">

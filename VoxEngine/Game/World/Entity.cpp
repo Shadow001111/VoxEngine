@@ -1,6 +1,7 @@
 #include "Entity.h"
 #include "../World.h"
-#include "Chunk/BlockRegistry.h"
+
+#include "Game/DataPackManagment/AssetRegistry.h"
 
 Entity::Id Entity::globalEntityId = 0;
 World* Entity::world = nullptr;
@@ -257,11 +258,6 @@ bool Entity::isBlockSolidAt(const glm::ivec3 pos) const
 		return false;
 	}
 
-	const auto* blockData = BlockRegistry::getBlockDataByID(block.value());
-	if (!blockData)
-	{
-		return false;
-	}
-
-	return blockData->properties.hasFaces;
+	const auto* blockData = AssetRegistry::getBlockData(block.value());
+	return blockData ? blockData->hasFaces : false;
 }

@@ -4,19 +4,19 @@
 #include <unordered_map>
 #include <mutex>
 
-#include "Block.h"
+#include "Game/DataPackManagment/DataTypes/BlockData.h"
 
 #include "Core/Hashes/ivec3Hasher.h"
 
 struct StructureBlockChange
 {
-	BlockID block;
+	BlockId block;
 	uint16_t index : 12;
     uint16_t placeIfBlockIsAir : 1;
     uint16_t padding : 3;
 
 	StructureBlockChange() = default;
-	StructureBlockChange(BlockID block, uint16_t index, bool placeIfBlockIsAir)
+	StructureBlockChange(BlockId block, uint16_t index, bool placeIfBlockIsAir)
 		: block(block), index(index), placeIfBlockIsAir(placeIfBlockIsAir) {}
 };
 
@@ -32,7 +32,7 @@ public:
     ~StructureBlockChangeManager() = default;
 
     // Add a block change for a specific chunk
-    void addChange(const glm::ivec3& chunkPos, BlockID block, uint16_t index, bool placeIfBlockIsAir);
+    void addChange(const glm::ivec3& chunkPos, BlockId block, uint16_t index, bool placeIfBlockIsAir);
 
     // Get and remove all pending changes for a chunk (called when chunk loads)
     std::vector<StructureBlockChange> retrieveAndClearChanges(const glm::ivec3& chunkPos);
