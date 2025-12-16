@@ -729,7 +729,7 @@ void Chunk::saveBlocks()
 			}
 			else
 			{
-				idToString[it->first] = blockData->blockStringId;
+				idToString[it->first] = blockData->stringId;
 				++it;
 			}
 		}
@@ -834,7 +834,7 @@ bool Chunk::filterChanges(BlockId BlockId, const std::vector<uint16_t>& indices,
 		return true;
 	}
 	// Check name length
-	const auto& name = outBlockData->blockStringId;
+	const auto& name = outBlockData->stringId;
 	if (name.size() < 3 || name.size() > 64)
 	{
 		return true;

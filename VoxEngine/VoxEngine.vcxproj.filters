@@ -57,7 +57,7 @@
     <ClCompile Include="Core\StringIndexer.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="Graphics\BlockTextureArray.cpp">
+    <ClCompile Include="Graphics\TextureLoader.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
     <ClCompile Include="Core\Multithreading\ProcessingFence.cpp">
@@ -188,7 +188,7 @@
     <ClInclude Include="Core\StringIndexer.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="Graphics\BlockTextureArray.h">
+    <ClInclude Include="Graphics\TextureLoader.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Core\Multithreading\ProcessingFence.h">
@@ -318,6 +318,15 @@
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Game\World.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\DataPackManagment\AssetTypes\ItemAsset.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\DataPackManagment\DataTypes\ItemData.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\DataPackManagment\ObjectTypes.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
   </ItemGroup>

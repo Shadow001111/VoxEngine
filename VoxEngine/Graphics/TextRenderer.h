@@ -50,6 +50,7 @@ struct GlyphInstance
 
 constexpr size_t GLYPH_INSTANCE_BATCH_SIZE = 1024;
 
+// TODO: Use opengl wrappers
 class TextRenderer
 {
     std::unordered_map<std::string, Font> fonts;

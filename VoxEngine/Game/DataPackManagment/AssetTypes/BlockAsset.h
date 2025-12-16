@@ -19,8 +19,8 @@ struct BlockAsset
 		bool isTranslucent = false;
 	};
 
-	// {packName}:{blockName}
-	std::string blockStringId;
+	//
+	std::string stringId;
 
 	// Properties
 	bool absorbsLight = false;

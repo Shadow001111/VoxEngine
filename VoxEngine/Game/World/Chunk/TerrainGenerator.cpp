@@ -166,7 +166,7 @@ void TerrainGenerator::initThread()
 	simplexNoise = FastNoise::New<FastNoise::Simplex>();
 	internalLayeredNoiseArray.resize(CHUNK_VOLUME);
 	caveNoiseArray.resize(CHUNK_VOLUME);
-	std::this_thread::sleep_for(std::chrono::milliseconds(10)); // his sleep makes sure values will initialize
+	std::this_thread::sleep_for(std::chrono::milliseconds(10)); // This sleep makes sure values will initialize. For some reason program crashes if not wait.
 }
 
 const ChunkColumnData* TerrainGenerator::loadChunkColumnData(int chunkX, int chunkZ)
@@ -328,7 +328,6 @@ size_t TerrainGenerator::getChunkColumnDataCount() const
 void TerrainGenerator::initChunkColumnData(ChunkColumnData* column, int chunkX, int chunkZ)
 {
 	column->init(chunkX, chunkZ);
-
 	computeInitialHeightMap(column->heightMapWrite(), chunkX, chunkZ);
 }
 

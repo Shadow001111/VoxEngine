@@ -18,7 +18,7 @@
 #include <iomanip>
 
 #ifdef NDEBUG
-constexpr int CHUNK_LOAD_DISTANCE = 12;
+constexpr int CHUNK_LOAD_DISTANCE = 4;
 #else
 constexpr int CHUNK_LOAD_DISTANCE = 3;
 #endif
@@ -250,8 +250,6 @@ void APIENTRY glDebugOutput(GLenum source,
     std::cout << std::endl;
 }
 
-#include "Game/DataPackManagment/DataPackManager.h"
-
 // TODO: Modern OpenGl
 int main()
 {
@@ -374,6 +372,7 @@ int main()
         // Rendering world
         world.renderChunks(player->getCamera(), wnd.getOpaqueFBO(), wnd.getTranslucentFBO());
         world.renderVoxelMarker(player->getCamera(), player->raycastResult);
+        world.renderUI();
         wnd.getOpaqueFBO()->unbind();
 
         // Rendering to screen

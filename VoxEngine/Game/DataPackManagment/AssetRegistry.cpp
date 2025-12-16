@@ -4,13 +4,18 @@
 #include "SoundManager.h"
 
 std::vector<BlockAsset> AssetRegistry::blockAssetStorage;
+std::vector<ItemAsset> AssetRegistry::itemAssetStorage;
 
 std::vector<BlockData> AssetRegistry::blockDataStorage;
 std::vector<BlockModelData> AssetRegistry::blockModelDataStorage;
+std::vector<ItemData> AssetRegistry::itemDataStorage;
 
 StringIndexer AssetRegistry::blockIndexer;
 StringIndexer AssetRegistry::blockModelIndexer;
+StringIndexer AssetRegistry::itemIndexer;
+
 StringIndexer AssetRegistry::blockTextureIndexer;
+StringIndexer AssetRegistry::itemTextureIndexer;
 
 BlockId AssetRegistry::FALLBACK_BLOCK_ID;
 BlockModelId AssetRegistry::FALLBACK_BLOCK_MODEL_ID;
@@ -179,23 +184,29 @@ void printObjectNameValidationError(std::ostream& os,
 void AssetRegistry::reset()
 {
 	blockAssetStorage.clear();
+	itemAssetStorage.clear();
 
 	blockDataStorage.clear();
 	blockModelDataStorage.clear();
+	itemDataStorage.clear();
 
 	blockIndexer.clear();
 	blockModelIndexer.clear();
+	itemIndexer.clear();
+
+	blockTextureIndexer.clear();
+	itemTextureIndexer.clear();
 }
 
 void AssetRegistry::registerBlock(const BlockAsset& asset)
 {
 	// Index
-	if (blockIndexer.isRegistered(asset.blockStringId))
+	if (blockIndexer.isRegistered(asset.stringId))
 	{
-		std::cerr << "[AssetRegistry]: Block " << asset.blockStringId << " was already registered\n";
+		std::cerr << "[AssetRegistry]: Block " << asset.stringId << " was already registered\n";
 		return;
 	}
-	blockIndexer.registerAndGetId(asset.blockStringId);
+	blockIndexer.registerAndGetId(asset.stringId);
 	
 	// Store asset
 	blockAssetStorage.push_back(asset);
@@ -204,7 +215,7 @@ void AssetRegistry::registerBlock(const BlockAsset& asset)
 	BlockData& data = blockDataStorage.emplace_back();
 
 	// Properties
-	data.blockStringId = asset.blockStringId;
+	data.stringId = asset.stringId; // TODO: May move
 	data.absorbsLight = asset.absorbsLight;
 	data.lightEmission = asset.lightEmission;
 	data.raycastable = asset.raycastable;
@@ -224,24 +235,50 @@ void AssetRegistry::registerBlock(const BlockAsset& asset)
 	data.stepSounds = asset.stepSounds;
 }
 
-void AssetRegistry::registerBlockModel(const BlockModelData& asset, const std::string& modelName)
+void AssetRegistry::registerBlockModel(const BlockModelData& asset, const std::string& modelStringId)
 {
 	// Index
-	if (blockModelIndexer.isRegistered(modelName))
+	if (blockModelIndexer.isRegistered(modelStringId))
 	{
-		std::cerr << "[AssetRegistry]: Block model " << modelName << " was already registered\n";
+		std::cerr << "[AssetRegistry]: Block model " << modelStringId << " is already registered\n";
 		return;
 	}
-	blockModelIndexer.registerAndGetId(modelName);
+	blockModelIndexer.registerAndGetId(modelStringId);
 
 	// Store data
 	blockModelDataStorage.push_back(asset);
 }
 
+void AssetRegistry::registerItem(const ItemAsset& asset)
+{
+	// Index
+	if (itemIndexer.isRegistered(asset.stringId))
+	{
+		std::cerr << "[AssetRegistry]: Item " << asset.stringId << " is already registered\n";
+		return;
+	}
+	itemIndexer.registerAndGetId(asset.stringId);
+
+	// Store asset
+	itemAssetStorage.push_back(asset);
+
+	// Create data object
+	ItemData& data = itemDataStorage.emplace_back();
+
+	// Copy data
+	data.stringId = asset.stringId; // TOOD: May move
+	data.stackSize = asset.stackSize;
+	data.hasBlockPlaceable = asset.hasBlockPlaceable;
+	data.textureId = itemTextureIndexer.registerAndGetId(asset.textureName);
+}
+
 bool AssetRegistry::linkAssets()
 {
 	// Check
-	if (blockAssetStorage.size() != blockDataStorage.size())
+	if (
+		blockAssetStorage.size() != blockDataStorage.size() ||
+		itemAssetStorage.size() != itemDataStorage.size()
+		)
 	{
 		std::cerr << "[AssetRegistry]: Asset count does not match data count";
 		return false;
@@ -263,13 +300,17 @@ bool AssetRegistry::linkAssets()
 	FALLBACK_BLOCK_MODEL_ID = -1;
 
 	// Link
-	if (!linkBlockAssets())
+	if (
+		!linkBlockAssets() ||
+		!linkItemAssets()
+		)
 	{
 		return false;
 	}
 
 	// End
 	blockAssetStorage.clear();
+	itemAssetStorage.clear();
 	return true;
 }
 
@@ -355,6 +396,32 @@ bool AssetRegistry::linkBlockAssets()
 	return true;
 }
 
+bool AssetRegistry::linkItemAssets()
+{
+	const size_t itemCount = itemAssetStorage.size();
+	for (size_t i = 0; i < itemCount; i++)
+	{
+		const auto& asset = itemAssetStorage[i];
+		auto& data = itemDataStorage[i];
+
+		// Block placeable
+		if (data.hasBlockPlaceable)
+		{
+			auto blockIdResult = blockIndexer.getId(asset.blockPlaceableStringId);
+			if (blockIdResult.has_value())
+			{
+				data.blockPlaceableId = static_cast<BlockId>(blockIdResult.value());
+			}
+			else
+			{
+				std::cerr << "[AssetRegistry]: Block " << asset.blockPlaceableStringId << " is not registered\n";
+				data.hasBlockPlaceable = false;
+			}
+		}
+	}
+	return true;
+}
+
 BlockId AssetRegistry::getBlockNumericalId(const std::string& stringId)
 {
 	auto result = blockIndexer.getId(stringId);
@@ -382,10 +449,8 @@ const BlockModelData* AssetRegistry::getBlockModelData(BlockModelId numericalId)
 	return numericalId < blockModelDataStorage.size() ? &blockModelDataStorage[numericalId] : nullptr;
 }
 
-std::vector<std::string> AssetRegistry::getTextureNames()
+std::vector<std::string> AssetRegistry::sortMapAndReturnNames(const std::unordered_map<std::string, size_t> map)
 {
-	const auto& map = blockTextureIndexer.getNameToIDMap();
-
 	// Copy pairs to vector and sort
 	std::vector<std::pair<std::string, size_t>> sortedPairs(
 		map.begin(), map.end()
@@ -406,4 +471,14 @@ std::vector<std::string> AssetRegistry::getTextureNames()
 	}
 
 	return names;
+}
+
+std::vector<std::string> AssetRegistry::getBlockTextureNames()
+{
+	return sortMapAndReturnNames(blockTextureIndexer.getNameToIDMap());
+}
+
+std::vector<std::string> AssetRegistry::getItemTextureNames()
+{
+	return sortMapAndReturnNames(itemTextureIndexer.getNameToIDMap());
 }

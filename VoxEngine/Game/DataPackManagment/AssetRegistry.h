@@ -1,9 +1,11 @@
 #pragma once
 #include "AssetTypes/BlockAsset.h"
 #include "DataTypes/BlockModelData.h"
+#include "AssetTypes/ItemAsset.h"
 
 #include "DataTypes/BlockData.h"
 //#include "DataTypes/BlockModelData.h"
+#include "DataTypes/ItemData.h"
 
 #include "Core/StringIndexer.h"
 
@@ -41,15 +43,20 @@ class AssetRegistry
 {
 	// Assets are used for loading and linking data objects
 	static std::vector<BlockAsset> blockAssetStorage;
+	static std::vector<ItemAsset> itemAssetStorage;
 
 	// Data objects are used directly in game
 	static std::vector<BlockData> blockDataStorage;
 	static std::vector<BlockModelData> blockModelDataStorage;
+	static std::vector<ItemData> itemDataStorage;
 
 	// Indexers
 	static StringIndexer blockIndexer;
 	static StringIndexer blockModelIndexer;
+	static StringIndexer itemIndexer;
+
 	static StringIndexer blockTextureIndexer;
+	static StringIndexer itemTextureIndexer;
 	
 	// Fallback ids
 	static BlockId FALLBACK_BLOCK_ID;
@@ -60,12 +67,14 @@ public:
 
 	// Registration methods
 	static void registerBlock(const BlockAsset& asset);
-	static void registerBlockModel(const BlockModelData& asset, const std::string& modelName);
+	static void registerBlockModel(const BlockModelData& asset, const std::string& modelStringId);
+	static void registerItem(const ItemAsset& asset);
 
 	//
 	static bool linkAssets();
 private:
 	static bool linkBlockAssets();
+	static bool linkItemAssets();
 public:
 	// Data id getters
 	static BlockId getBlockNumericalId(const std::string& stringId);
@@ -79,6 +88,10 @@ public:
 	static const BlockModelData* getBlockModelData(BlockModelId numericalId);
 
 	//
-	static std::vector<std::string> getTextureNames();
+private:
+	static std::vector<std::string> sortMapAndReturnNames(const std::unordered_map<std::string, size_t> map);
+public:
+	static std::vector<std::string> getBlockTextureNames();
+	static std::vector<std::string> getItemTextureNames();
 };
 

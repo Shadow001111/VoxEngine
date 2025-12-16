@@ -167,7 +167,7 @@ xcopy "$(ProjectDir)DataPacks" "$(TargetDir)DataPacks" /E /I /Y</Command>
     <ClCompile Include="Game\World\VoxelMarkerMesh.cpp" />
     <ClCompile Include="Game\World\WorldVisualSettings.cpp" />
     <ClCompile Include="OpenGLWrappers\OpenGL_Buffer.cpp" />
-    <ClCompile Include="Graphics\BlockTextureArray.cpp" />
+    <ClCompile Include="Graphics\TextureLoader.cpp" />
     <ClCompile Include="Core\StringIndexer.cpp" />
     <ClCompile Include="Core\Multithreading\ProcessingFence.cpp" />
     <ClCompile Include="Core\Profiler.cpp" />
@@ -195,6 +195,7 @@ xcopy "$(ProjectDir)DataPacks" "$(TargetDir)DataPacks" /E /I /Y</Command>
   <ItemGroup>
     <ClInclude Include="Game\DataPackManagment\AssetTypes\BlockAsset.h" />
     <ClInclude Include="Game\DataPackManagment\AssetRegistry.h" />
+    <ClInclude Include="Game\DataPackManagment\AssetTypes\ItemAsset.h" />
     <ClInclude Include="Game\DataPackManagment\DataTypes\BlockData.h" />
     <ClInclude Include="Game\DataPackManagment\DataTypes\BlockModelData.h" />
     <ClInclude Include="Core\Debug.h" />
@@ -204,6 +205,8 @@ xcopy "$(ProjectDir)DataPacks" "$(TargetDir)DataPacks" /E /I /Y</Command>
     <ClInclude Include="Core\BlockAllocator.h" />
     <ClInclude Include="Core\MemoryFileReader.h" />
     <ClInclude Include="Core\MemoryFileWriter.h" />
+    <ClInclude Include="Game\DataPackManagment\DataTypes\ItemData.h" />
+    <ClInclude Include="Game\DataPackManagment\ObjectTypes.h" />
     <ClInclude Include="Game\World.h" />
     <ClInclude Include="Game\World\Chunk.h" />
     <ClInclude Include="Game\World\ChunkLoaders\BaseChunkLoader.h" />
@@ -226,7 +229,7 @@ xcopy "$(ProjectDir)DataPacks" "$(TargetDir)DataPacks" /E /I /Y</Command>
     <ClInclude Include="Game\World\WorldVisualSettings.h" />
     <ClInclude Include="OpenGLWrappers\OpenGLDebug.h" />
     <ClInclude Include="OpenGLWrappers\OpenGL_Buffer.h" />
-    <ClInclude Include="Graphics\BlockTextureArray.h" />
+    <ClInclude Include="Graphics\TextureLoader.h" />
     <ClInclude Include="Core\StringIndexer.h" />
     <ClInclude Include="Core\Multithreading\ProcessingFence.h" />
     <ClInclude Include="Core\CoreMath.h" />

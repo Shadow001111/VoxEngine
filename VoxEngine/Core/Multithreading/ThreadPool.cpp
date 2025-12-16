@@ -20,16 +20,22 @@ ThreadPool::~ThreadPool()
 
 void ThreadPool::shutdown()
 {
+    stop.store(true, std::memory_order_relaxed);
+    condition.notify_all();
     {
         std::unique_lock<std::mutex> lock(queueMutex);
-        stop = true;
+        while (!tasks.empty())
+        {
+            tasks.pop();
+        }
     }
-    condition.notify_all();
 
     for (std::thread& worker : workers)
     {
         worker.join();
     }
+
+    workers.clear();
 }
 
 void ThreadPool::waitForCompletion()
@@ -52,7 +58,7 @@ void ThreadPool::workerThread()
             std::unique_lock<std::mutex> lock(queueMutex);
             condition.wait(lock, [this] { return stop || !tasks.empty(); });
 
-            if (stop)
+            if (stop.load(std::memory_order_relaxed))
             {
                 return;
             }

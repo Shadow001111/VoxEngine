@@ -2,9 +2,7 @@
 #include <cstdint>
 #include <vector>
 #include <string>
-
-using BlockId = uint8_t;
-using BlockModelId = uint8_t;
+#include "../ObjectTypes.h"
 
 struct BlockData
 {
@@ -17,13 +15,13 @@ struct BlockData
 			RotateAndFlip = 2
 		};
 
-		uint32_t textureId = 0;
+		TextureId textureId = 0;
 		TextureTransformation transformation = TextureTransformation::None;
 		bool isTranslucent = false;
 	};
 
-	// {packName}:{blockName}
-	std::string blockStringId;
+	//
+	std::string stringId;
 
 	// Properties
 	bool absorbsLight = false; // TODO: In chunk light propagation use this with culling to determine. Then it must to check current and next blocks' culling values.

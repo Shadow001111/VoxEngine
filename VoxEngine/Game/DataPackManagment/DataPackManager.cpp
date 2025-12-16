@@ -68,6 +68,7 @@ void DataPackManager::loadDataPack(const fs::path& dataPackPath)
     // Load assets
     loadBlocks(dataPackPath, metadata.id);
     loadBlockModels(dataPackPath, metadata.id);
+    loadItems(dataPackPath, metadata.id);
 }
 
 std::optional<DataPackManager::DatapackMetadata> DataPackManager::getDatapackMetadata(const std::filesystem::path& dataPackPath)
@@ -143,11 +144,6 @@ void DataPackManager::loadBlocks(const std::filesystem::path& dataPackPath, cons
     //
     BlockAsset asset;
 
-    asset.blockStringId.resize(dataPackStringId.size() * MAX_OBJECT_NAME_SIZE + 1, '\0');
-    asset.blockStringId.replace(0, dataPackStringId.size(), dataPackStringId);
-    asset.blockStringId[dataPackStringId.size()] = ':';
-    const size_t blockNameOffset = dataPackStringId.size() + 1;
-
     // Iterate through all JSON files in directory
     for (const auto& entry : fs::directory_iterator(blocksDir))
     {
@@ -177,12 +173,10 @@ void DataPackManager::loadBlocks(const std::filesystem::path& dataPackPath, cons
             return;
         }
 
-        // Set name
-        asset.blockStringId.replace(blockNameOffset, blockName.size(), blockName);
-        asset.blockStringId.resize(blockNameOffset + blockName.size());
-
         // Parse
-        std::cout << "[DataPackManager]: Loading block " << asset.blockStringId << "\n";
+        BlockAsset asset;
+        asset.stringId = dataPackStringId + ":" + blockName;
+        std::cout << "[DataPackManager]: Loading block " << asset.stringId << "\n";
         try
         {
             json j;
@@ -218,10 +212,6 @@ bool DataPackManager::parseBlockJson(const json& j, BlockAsset& outAsset)
 
 bool DataPackManager::parseBlockPropertiesJson(const json& j, BlockAsset& outAsset)
 {
-    outAsset.absorbsLight = false;
-    outAsset.lightEmission = 0;
-    outAsset.raycastable = true;
-
     if (j.contains("absorbs_light"))
     {
         if (j.at("absorbs_light").is_boolean())
@@ -263,9 +253,6 @@ bool DataPackManager::parseBlockPropertiesJson(const json& j, BlockAsset& outAss
 
 bool DataPackManager::parseBlockVisualsJson(const json& j, BlockAsset& outAsset)
 {
-    outAsset.modelName.clear();
-    outAsset.textureInfo.clear();
-
     // Model name
     if (!j.contains("model"))
     {
@@ -387,10 +374,6 @@ bool DataPackManager::parseBlockVisualsJson(const json& j, BlockAsset& outAsset)
 
 bool DataPackManager::parseBlockSoundsJson(const json& j, BlockAsset& outAsset)
 {
-    outAsset.breakSounds.clear();
-    outAsset.placeSounds.clear();
-    outAsset.stepSounds.clear();
-
     // Break sounds
     if (j.contains("break_sounds"))
     {
@@ -451,7 +434,6 @@ bool DataPackManager::parseBlockSoundsJson(const json& j, BlockAsset& outAsset)
     return true;
 }
 
-// TODO: Consider loading only required models
 void DataPackManager::loadBlockModels(const std::filesystem::path& dataPackPath, const std::string& dataPackStringId)
 {
     fs::path modelsDir = dataPackPath / "BlockModels";
@@ -491,6 +473,8 @@ void DataPackManager::loadBlockModels(const std::filesystem::path& dataPackPath,
 
         // Parse
         BlockModelData asset;
+        const std::string stringId = dataPackStringId + ":" + modelName;
+        std::cout << "[DataPackManager]: Loading block model " << stringId << "\n";
         try
         {
             json j;
@@ -512,12 +496,7 @@ void DataPackManager::loadBlockModels(const std::filesystem::path& dataPackPath,
         }
 
         // Register
-        const std::string stringId = dataPackStringId + ":" + modelName;
-
         AssetRegistry::registerBlockModel(asset, stringId);
-
-        //
-        std::cout << "[DataPackManager]: Loaded block model: " << stringId << "\n";
     }
 }
 
@@ -729,4 +708,131 @@ std::optional<BlockModelData::NonAlignedFace> DataPackManager::parseBlockModelNo
     face.textureSlot = faceJson.at("texture_slot");
 
     return face;
+}
+
+void DataPackManager::loadItems(const std::filesystem::path& dataPackPath, const std::string& dataPackStringId)
+{
+    fs::path itemsDir = dataPackPath / "Items";
+    if (!fs::exists(itemsDir) || !fs::is_directory(itemsDir))
+    {
+        return;
+    }
+
+    // Iterate through all JSON files in directory
+    for (const auto& entry : fs::directory_iterator(itemsDir))
+    {
+        // Check if entry is file and its extension is json
+        if (!entry.is_regular_file() || entry.path().extension() != ".json")
+        {
+            continue;
+        }
+
+        // Get item name
+        fs::path itemFilepath = entry.path();
+        std::string itemName = itemFilepath.stem().string();
+
+        // Check block name
+        auto nameValidationResult = validateObjectName(itemName);
+        if (nameValidationResult != ObjectNameValidationResult::Success)
+        {
+            printObjectNameValidationError(std::cerr, nameValidationResult, "[DataPackManager]: ", "Block model name");
+            continue;
+        }
+
+        // Open json file
+        std::ifstream file(entry.path());
+        if (!file)
+        {
+            std::cerr << "[DataPackManager]: Failed to open iem file: " << itemFilepath << "\n";
+            return;
+        }
+
+        // Parse
+        ItemAsset asset;
+        asset.stringId = dataPackStringId + ":" + itemName;
+        std::cout << "[DataPackManager]: Loading item " << asset.stringId << "\n";
+        try
+        {
+            json j;
+            file >> j;
+            if (!parseItemJson(j, asset))
+            {
+                continue;
+            }
+        }
+        catch (const json::exception& e)
+        {
+            std::cerr << "[DataPackManager]: JSON parsing error in file " << itemFilepath << ": " << e.what() << "\n";
+            continue;
+        }
+        catch (const std::exception& e)
+        {
+            std::cerr << "[DataPackManager]: Error reading file " << itemFilepath << ": " << e.what() << "\n";
+            continue;
+        }
+
+        // Register
+        AssetRegistry::registerItem(asset);
+    }
+}
+
+bool DataPackManager::parseItemJson(const json& j, ItemAsset& outAsset)
+{
+    // Stack size
+    if (!j.contains("stack_size"))
+    {
+        std::cerr << "[DataPackManager]: Item is missing 'stack_size' field\n";
+        outAsset.stackSize = 64;
+        return true;
+    }
+    else if (!j.at("stack_size").is_number_unsigned())
+    {
+        std::cerr << "[DataPackManager]: Item 'stack_size' field is not an unsigned number\n";
+        outAsset.stackSize = 64;
+        return true;
+    }
+    uint32_t stackSize = j.at("stack_size").get<uint32_t>();
+    if (stackSize > 255)
+    {
+        std::cerr << "[DataPackManager]: Item 'stack_size' field value is larger than limit of 255\n";
+        stackSize = 255;
+    }
+    outAsset.stackSize = static_cast<uint8_t>(stackSize);
+
+    // Block placeable
+    if (j.contains("block_placeable"))
+    {
+        if (!j.at("block_placeable").is_string())
+        {
+            std::cerr << "[DataPackManager]: Item 'block_placeable' field is not a string\n";
+        }
+        else
+        {
+            outAsset.blockPlaceableStringId = j.at("block_placeable").get<std::string>();
+            auto nameValidationResult = validateObjectStringId(outAsset.blockPlaceableStringId);
+            if (nameValidationResult != ObjectNameValidationResult::Success)
+            {
+                printObjectNameValidationError(std::cerr, nameValidationResult, "[DataPackManager]: ", "Item string id");
+                outAsset.blockPlaceableStringId.clear();
+            }
+            else
+            {
+                outAsset.hasBlockPlaceable = true;
+            }
+        }
+    }
+
+    // Texture
+    if (!j.contains("texture"))
+    {
+        return true;
+    }
+    else if (!j.at("texture").is_string())
+    {
+        std::cerr << "[DataPackManager]: Item 'texture' field is not a string \n";
+        return true;
+    }
+    outAsset.textureName = j.at("texture").get<std::string>();
+
+    return true;
 }

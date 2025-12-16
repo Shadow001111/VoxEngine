@@ -6,6 +6,7 @@
 
 #include "AssetTypes/BlockAsset.h"
 #include "DataTypes/BlockModelData.h"
+#include "AssetTypes/ItemAsset.h"
 
 using json = nlohmann::json;
 
@@ -34,5 +35,8 @@ private:
 	static bool parseBlockModelJson(const json& j, BlockModelData& outAsset);
 	static std::optional<BlockModelData::AlignedFace> parseBlockModelAlignedFacesJson(const json& j);
 	static std::optional<BlockModelData::NonAlignedFace> parseBlockModelNonAlignedFacesJson(const json& j);
+
+	static void loadItems(const std::filesystem::path& dataPackPath, const std::string& dataPackStringId);
+	static bool parseItemJson(const json& j, ItemAsset& outAsset);
 };
 

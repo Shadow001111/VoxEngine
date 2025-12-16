@@ -11,7 +11,7 @@
 class ThreadPool
 {
 	std::vector<std::thread> workers;
-	std::queue<std::function<void()>> tasks;
+	std::queue<std::function<void()>> tasks; // TODO: Maybe use something better
 	std::mutex queueMutex;
 	std::condition_variable condition;
 	std::atomic<bool> stop;
@@ -47,14 +47,12 @@ inline auto ThreadPool::enqueue(F&& f, Args && ...args) -> std::future<typename 
     );
 
     std::future<return_type> res = task->get_future();
+    if (stop.load(std::memory_order_relaxed))
+    {
+        return res;
+    }
     {
         std::unique_lock<std::mutex> lock(queueMutex);
-
-        if (stop)
-        {
-            return res;
-        }
-
         tasks.emplace([task]() { (*task)(); });
     }
     condition.notify_one();
@@ -66,7 +64,7 @@ inline auto ThreadPool::broadcast(F&& f, Args&&... args)
 {
     std::vector<std::future<void>> futures;
 
-    if (stop)
+    if (stop.load(std::memory_order_relaxed))
     {
         return futures;
     }
@@ -122,16 +120,19 @@ void ParallelUtils::parallelFor(size_t start, size_t end, size_t minChunkSize, F
     ThreadPool& pool = getGlobalThreadPool();
     size_t numThreads = pool.getThreadCount();
     size_t chunkSize = std::max(minChunkSize, (totalItems + numThreads - 1) / numThreads);
+    
+    size_t chunks = (totalItems + chunkSize - 1) / chunkSize;
+    chunkSize = (totalItems + chunks - 1) / chunks;
 
     std::vector<std::future<void>> futures;
-    futures.reserve((totalItems + chunkSize - 1) / chunkSize);
+    futures.reserve(chunks);
 
     for (size_t i = start; i < end; i += chunkSize)
     {
         size_t chunkEnd = std::min(i + chunkSize, end);
         futures.emplace_back(pool.enqueue([i, chunkEnd, func]()
             {
-            for (size_t j = i; j < chunkEnd; ++j)
+            for (size_t j = i; j < chunkEnd; j++)
             {
                 func(j);
             }
