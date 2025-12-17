@@ -206,7 +206,9 @@ xcopy "$(ProjectDir)DataPacks" "$(TargetDir)DataPacks" /E /I /Y</Command>
     <ClInclude Include="Core\MemoryFileReader.h" />
     <ClInclude Include="Core\MemoryFileWriter.h" />
     <ClInclude Include="Game\DataPackManagment\DataTypes\ItemData.h" />
+    <ClInclude Include="Game\DataPackManagment\DataTypes\ItemModelData.h" />
     <ClInclude Include="Game\DataPackManagment\ObjectTypes.h" />
+    <ClInclude Include="Game\Item.h" />
     <ClInclude Include="Game\World.h" />
     <ClInclude Include="Game\World\Chunk.h" />
     <ClInclude Include="Game\World\ChunkLoaders\BaseChunkLoader.h" />

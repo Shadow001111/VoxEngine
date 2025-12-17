@@ -5,9 +5,11 @@
 
 #include "Game/World.h"
 #include "Game/World/Player.h"
+#include "Game/DataPackManagment/AssetRegistry.h"
 
 #include "Graphics/TextRenderer.h"
 #include "Graphics/quad_vertices.h"
+#include "Graphics/TextureLoader.h"
 
 #include "OpenGLWrappers/OpenGL_VAO.h"
 
@@ -16,9 +18,10 @@
 #include <iostream>
 #include <sstream>
 #include <iomanip>
+#include <glm/gtc/matrix_transform.hpp>
 
 #ifdef NDEBUG
-constexpr int CHUNK_LOAD_DISTANCE = 4;
+constexpr int CHUNK_LOAD_DISTANCE = 12;
 #else
 constexpr int CHUNK_LOAD_DISTANCE = 3;
 #endif
@@ -130,6 +133,173 @@ static void collectPlayerInput(PlayerInput& input, const WindowManager& wnd, glm
     wnd.getMousePos(mouseX, mouseY);
     input.mouseDelta += glm::vec2(mouseX - previousMousePos.x, mouseY - previousMousePos.y);
     previousMousePos = glm::vec2(mouseX, mouseY);
+}
+
+struct ContainerUI
+{
+    Shader hotbarShader;
+    OpenGL_Texture hotbarSlotImage;
+    OpenGL_VAO hotbarVAO;
+    OpenGL_Buffer hotbarVBO{ GL_ARRAY_BUFFER, GL_STATIC_DRAW };
+
+    OpenGL_Texture itemUITextureArray;
+};
+
+static void setupContainerUI(ContainerUI& c)
+{
+    {
+        std::vector<Shader::ShaderSource> sources =
+        {
+            {GL_VERTEX_SHADER, "res/Shaders/hotbar.vert"},
+            {GL_FRAGMENT_SHADER, "res/Shaders/hotbar.frag"}
+        };
+        c.hotbarShader = Shader(sources);
+        c.hotbarShader.use();
+        c.hotbarShader.setInt("uTexture", 0);
+    }
+
+    {
+        c.hotbarVAO.bind();
+
+        c.hotbarVBO.bind();
+        c.hotbarVBO.allocateMemory(sizeof(quadVertices));
+        c.hotbarVBO.write(quadVertices, sizeof(quadVertices));
+
+        c.hotbarVAO.enableAttribute(0);
+        c.hotbarVAO.setFloatAttribute(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    }
+
+    {
+        std::vector<std::string> itemTextureNames = AssetRegistry::getItemUITextureNames();
+
+        TextureLoader::TextureParams params;
+
+        PROFILE_SCOPE("Item ui texture array creation", ProfileCategory::General);
+        TextureLoader::createAndLoadTextureArray(c.itemUITextureArray, "res/ItemUITextures", itemTextureNames, 128, params);
+    }
+
+    {
+        TextureLoader::TextureParams params;
+
+        TextureLoader::createAndLoadTextureArray(c.hotbarSlotImage, "res/UITextures", { "empty_hotbar_slot", "selected_hotbar_slot" }, 24, params);
+    }
+}
+
+static void renderHotbar(const ContainerUI& c, const Player* player)
+{
+    const Item* hotbar = player->getHotbar();
+
+    //
+    constexpr int   slotCount = PLAYER_HOTBAR_SIZE;
+    constexpr float slotSize = 0.2f;
+    constexpr float bottomOffset = 0.0f;
+
+    // Texture pixel sizes
+    constexpr float TEXTURE_PX = 24.0f;
+    constexpr float EMPTY_PX = 16.0f;
+    constexpr float SELECTED_PX = 22.0f;
+    constexpr float ITEM_PX = EMPTY_PX - 4.0f;
+
+    // World-space scaling
+    const float emptyScale = (TEXTURE_PX / EMPTY_PX) * slotSize;
+    const float selectedScale = emptyScale;
+    const float itemScale = (ITEM_PX / EMPTY_PX) * slotSize;
+
+    float totalWidth = slotCount * slotSize;
+    float startX = -totalWidth * 0.5f + slotSize * 0.5f;
+
+    int viewport[4];
+    glGetIntegerv(GL_VIEWPORT, viewport);
+    float aspect = float(viewport[2]) / float(viewport[3]);
+
+    glm::mat4 projection = glm::ortho(
+        -aspect, aspect,
+        -1.0f, 1.0f,
+        -1.0f, 1.0f
+    );
+
+    c.hotbarVAO.bind();
+    c.hotbarShader.use();
+    c.hotbarShader.setMat4("projection", projection);
+
+    /* =========================
+       1. EMPTY HOTBAR SLOTS
+       ========================= */
+    c.hotbarSlotImage.bind(0);
+    c.hotbarShader.setUint("uTextureId", 0); // array layer 0
+
+    for (int i = 0; i < slotCount; i++)
+    {
+        float x = startX + i * slotSize;
+        float y = -1.0f + bottomOffset + slotSize * 0.5f;
+
+        glm::mat4 model(1.0f);
+        model = glm::translate(model, { x, y, 0.0f });
+        model = glm::scale(model, { emptyScale * 0.5f, emptyScale * 0.5f, 1.0f });
+
+        c.hotbarShader.setMat4("model", model);
+        glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+    }
+
+    /* =========================
+       2. ITEMS (24x24)
+       ========================= */
+    c.itemUITextureArray.bind(0);
+
+    for (int i = 0; i < slotCount; i++)
+    {
+        const Item& item = hotbar[i];
+        if (item.count == 0)
+        {
+            continue;
+        }
+
+        const auto* itemData = AssetRegistry::getItemData(item.id);
+        if (!itemData)
+        {
+            continue;
+        }
+
+        float x = startX + i * slotSize;
+        float y = -1.0f + bottomOffset + slotSize * 0.5f;
+
+        glm::mat4 model(1.0f);
+        model = glm::translate(model, { x, y, 0.0f });
+        model = glm::scale(model, { itemScale * 0.5f, itemScale * 0.5f, 1.0f });
+
+        c.hotbarShader.setMat4("model", model);
+        c.hotbarShader.setUint("uTextureId", itemData->uiTextureId);
+
+        glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+    }
+
+    /* =========================
+       3. SELECTED OVERLAY
+       ========================= */
+    c.hotbarSlotImage.bind(0);
+    c.hotbarShader.setUint("uTextureId", 1); // array layer 1 (selected)
+
+    int selectedSlot = player->getSelectedItemIndex();
+    {
+        float x = startX + selectedSlot * slotSize;
+        float y = -1.0f + bottomOffset + slotSize * 0.5f;
+
+        glm::mat4 model(1.0f);
+        model = glm::translate(model, { x, y, 0.0f });
+        model = glm::scale(model, { selectedScale * 0.5f, selectedScale * 0.5f, 1.0f });
+
+        c.hotbarShader.setMat4("model", model);
+        glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+    }
+}
+
+static void renderUI(const ContainerUI& c, const Player* player)
+{
+    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    renderHotbar(c, player);
 }
 
 static void renderDebugData(const World::DebugData& debug, const WindowManager& wnd, Player* player, float FPS)
@@ -317,6 +487,10 @@ int main()
     float accumulatedTime = 0.0f;
     int accumulatedFrames = 0;
 
+    // Container UI
+    ContainerUI containerUI;
+    setupContainerUI(containerUI);
+
     // Main loop
     while (!wnd.shouldClose())
     {
@@ -372,7 +546,7 @@ int main()
         // Rendering world
         world.renderChunks(player->getCamera(), wnd.getOpaqueFBO(), wnd.getTranslucentFBO());
         world.renderVoxelMarker(player->getCamera(), player->raycastResult);
-        world.renderUI();
+        renderUI(containerUI, player);
         wnd.getOpaqueFBO()->unbind();
 
         // Rendering to screen

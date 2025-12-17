@@ -1,0 +1,32 @@
+{
+  "stack_size": 64,
+  "block_placeable": "core:colored_glass",
+  "ui_texture": "colored_glass",
+  "model": "core:cube",
+  "model_textures": [
+    {
+      "name": "colored_glass",
+      "translucent": true
+    },
+    {
+      "name": "colored_glass",
+      "translucent": true
+    },
+    {
+      "name": "colored_glass",
+      "translucent": true
+    },
+    {
+      "name": "colored_glass",
+      "translucent": true
+    },
+    {
+      "name": "colored_glass",
+      "translucent": true
+    },
+    {
+      "name": "colored_glass",
+      "translucent": true
+    }
+  ]
+}

@@ -2,6 +2,7 @@
 #include "Graphics/Camera.h"
 
 #include "Game/DataPackManagment/DataTypes/BlockData.h"
+#include "Game/Item.h"
 
 #include "RaycastResult.h"
 #include "Entity.h"
@@ -39,10 +40,7 @@ class Player : public Entity
 {
 	Camera camera;
 
-	// TODO: Load names later
-	BlockId hotbar[PLAYER_HOTBAR_SIZE] = {
-		1, 2, 3, 4, 5, 6, 7, 8, 9
-	};
+	Item hotbar[PLAYER_HOTBAR_SIZE];
 	uint8_t selectedItemIndex = 0;
 	GameMode gameMode = GameMode::Normal;
 public:
@@ -77,6 +75,8 @@ public:
 	Transform getPreviousTransform() const;
 	Camera& getCamera();
 
-	BlockId getSelectedItem() const;
+	const Item* getHotbar() const { return hotbar; }
+	int getSelectedItemIndex() const { return selectedItemIndex; }
+	const Item& getSelectedItem() const { return hotbar[selectedItemIndex]; };
 };
 

@@ -1,0 +1,32 @@
+{
+  "stack_size": 64,
+  "block_placeable": "core:oak_log",
+  "ui_texture": "oak_log",
+  "model": "core:cube",
+  "model_textures": [
+    {
+      "name": "oak_log",
+      "translucent": false
+    },
+    {
+      "name": "oak_log",
+      "translucent": false
+    },
+    {
+      "name": "oak_log",
+      "translucent": false
+    },
+    {
+      "name": "oak_log",
+      "translucent": false
+    },
+    {
+      "name": "oak_log",
+      "translucent": false
+    },
+    {
+      "name": "oak_log",
+      "translucent": false
+    }
+  ]
+}

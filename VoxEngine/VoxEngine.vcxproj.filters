@@ -329,6 +329,12 @@
     <ClInclude Include="Game\DataPackManagment\ObjectTypes.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
+    <ClInclude Include="Game\DataPackManagment\DataTypes\ItemModelData.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Item.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CopyFileToFolders Include="..\Libraries\bin\FastNoise.dll">

@@ -69,6 +69,7 @@ void DataPackManager::loadDataPack(const fs::path& dataPackPath)
     loadBlocks(dataPackPath, metadata.id);
     loadBlockModels(dataPackPath, metadata.id);
     loadItems(dataPackPath, metadata.id);
+    loadItemModels(dataPackPath, metadata.id);
 }
 
 std::optional<DataPackManager::DatapackMetadata> DataPackManager::getDatapackMetadata(const std::filesystem::path& dataPackPath)
@@ -297,9 +298,9 @@ bool DataPackManager::parseBlockVisualsJson(const json& j, BlockAsset& outAsset)
         std::cerr << "[DataPackManager]: Block 'textures' field is not an array\n";
         return true;
     }
-    else if (j.at("textures").size() >= MAX_BLOCK_TEXTURE_SLOT_COUNT)
+    else if (j.at("textures").size() >= MAX_TEXTURE_SLOT_COUNT)
     {
-        std::cerr << "[DataPackManager]: Block 'textures' array is bigger than limit of: " << MAX_BLOCK_TEXTURE_SLOT_COUNT << "\n";
+        std::cerr << "[DataPackManager]: Block 'textures' array is bigger than limit of: " << MAX_TEXTURE_SLOT_COUNT << "\n";
         return true;
     }
     
@@ -502,10 +503,6 @@ void DataPackManager::loadBlockModels(const std::filesystem::path& dataPackPath,
 
 bool DataPackManager::parseBlockModelJson(const json& j, BlockModelData& outAsset)
 {
-    // Clear previous data
-    outAsset.alignedFaces.clear();
-    outAsset.nonAlignedFaces.clear();
-
     // Check faces field
     if (!j.contains("faces"))
     {
@@ -537,7 +534,7 @@ bool DataPackManager::parseBlockModelJson(const json& j, BlockModelData& outAsse
 
         if (type == "aligned")
         {
-            auto result = parseBlockModelAlignedFacesJson(faceJson);
+            auto result = parseBlockModelAlignedFaceJson(faceJson);
             if (result.has_value())
             {
                 const auto& face = result.value();
@@ -546,7 +543,7 @@ bool DataPackManager::parseBlockModelJson(const json& j, BlockModelData& outAsse
         }
         else if (type == "non_aligned")
         {
-            auto result = parseBlockModelNonAlignedFacesJson(faceJson);
+            auto result = parseBlockModelNonAlignedFaceJson(faceJson);
             if (result.has_value())
             {
                 const auto& face = result.value();
@@ -562,11 +559,9 @@ bool DataPackManager::parseBlockModelJson(const json& j, BlockModelData& outAsse
     return true;
 }
 
-std::optional<BlockModelData::AlignedFace> DataPackManager::parseBlockModelAlignedFacesJson(const json& j)
+std::optional<BlockModelData::AlignedFace> DataPackManager::parseBlockModelAlignedFaceJson(const json& j)
 {
-    BlockModelData::AlignedFace face;
-
-    // Normal
+    // Check
     if (!j.contains("normal"))
     {
         std::cerr << "[DataPackManager]: Block model aligned face is missing 'normal' field\n";
@@ -577,9 +572,7 @@ std::optional<BlockModelData::AlignedFace> DataPackManager::parseBlockModelAlign
         std::cerr << "[DataPackManager]: Block model aligned face 'normal' field is not an unsigned integer\n";
         return std::nullopt;
     }
-    face.normal = j.at("normal");
 
-    // Texture slot
     if (!j.contains("texture_slot"))
     {
         std::cerr << "[DataPackManager]: Block model aligned face is missing 'texture_slot' field\n";
@@ -590,31 +583,57 @@ std::optional<BlockModelData::AlignedFace> DataPackManager::parseBlockModelAlign
         std::cerr << "[DataPackManager]: Block model aligned face 'texture_slot' field is not an unsigned integer\n";
         return std::nullopt;
     }
+
+    // Get
+    BlockModelData::AlignedFace face;
+    face.normal = j.at("normal");
     face.textureSlot = j.at("texture_slot");
 
     return face;
 }
 
-std::optional<BlockModelData::NonAlignedFace> DataPackManager::parseBlockModelNonAlignedFacesJson(const json& faceJson)
+std::optional<BlockModelData::NonAlignedFace> DataPackManager::parseBlockModelNonAlignedFaceJson(const json& j)
 {
-    BlockModelData::NonAlignedFace face;
-
-    // Parse vertices
-    if (!faceJson.contains("vertices"))
+    // Check fields
+    if (!j.contains("vertices"))
     {
         std::cerr << "[DataPackManager]: Block model non-aligned face is missing 'vertices' field\n";
         return std::nullopt;
     }
-    else if (!faceJson.at("vertices").is_array() || faceJson.at("vertices").size() != 4)
+    else if (!j.at("vertices").is_array() || j.at("vertices").size() != 4)
     {
         std::cerr << "[DataPackManager]: Block model non-aligned face 'vertices' field is not an array of 4 elements\n";
         return std::nullopt;
     }
 
+    if (!j.contains("uv"))
+    {
+        std::cerr << "[DataPackManager]: Block model non-aligned face is missing 'uv' field\n";
+        return std::nullopt;
+    }
+    else if (!j.at("uv").is_array() || j.at("uv").size() != 4)
+    {
+        std::cerr << "[DataPackManager]: Block model non-aligned face 'uv' field is not an array of 4 elements\n";
+        return std::nullopt;
+    }
+
+    if (!j.contains("texture_slot"))
+    {
+        std::cerr << "[DataPackManager]: Block model non-aligned face is missing 'texture_slot' field\n";
+        return std::nullopt;
+    }
+    else if (!j.at("texture_slot").is_number_unsigned())
+    {
+        std::cerr << "[DataPackManager]: Block model non-aligned face 'texture_slot' field is not an unsigned integer\n";
+        return std::nullopt;
+    }
+
+    // Parse vertices
     int vertices[4][3];
+    const auto& verticesJson = j.at("vertices");
     for (int i = 0; i < 4; i++)
     {
-        const auto& vertexJson = faceJson["vertices"][i];
+        const auto& vertexJson = verticesJson[i];
         if (!vertexJson.contains("x") || !vertexJson.at("x").is_number() ||
             !vertexJson.contains("y") || !vertexJson.at("y").is_number() ||
             !vertexJson.contains("z") || !vertexJson.at("z").is_number())
@@ -633,7 +652,30 @@ std::optional<BlockModelData::NonAlignedFace> DataPackManager::parseBlockModelNo
         vertices[i][2] = 16.0f * fminf(1.0f, fmaxf(0.0f, z));
     }
 
+    // Parse UV coordinates
+    int uvs[4][2];
+    const auto& uvsJson = j.at("uv");
+    for (int i = 0; i < 4; i++)
+    {
+        const auto& uvJson = uvsJson[i];
+        if (!uvJson.contains("u") || !uvJson.at("u").is_number() ||
+            !uvJson.contains("v") || !uvJson.at("v").is_number())
+        {
+            std::cerr << "[DataPackManager]: Block model non-aligned face UV " << i << " is missing or has invalid coordinates\n";
+            return std::nullopt;
+        }
+
+        float u, v;
+        uvJson.at("u").get_to(u);
+        uvJson.at("v").get_to(v);
+
+        uvs[i][0] = 16.0f * fminf(1.0f, fmaxf(0.0f, u));
+        uvs[i][1] = 16.0f * fminf(1.0f, fmaxf(0.0f, v));
+    }
+
     // Pack vertices
+    BlockModelData::NonAlignedFace face;
+
     face.x0 = vertices[0][0];
     face.y0 = vertices[0][1];
     face.z0 = vertices[0][2];
@@ -650,37 +692,6 @@ std::optional<BlockModelData::NonAlignedFace> DataPackManager::parseBlockModelNo
     face.y3 = vertices[3][1];
     face.z3 = vertices[3][2];
 
-    // Parse UV coordinates
-    if (!faceJson.contains("uv"))
-    {
-        std::cerr << "[DataPackManager]: Block model non-aligned face is missing 'uv' field\n";
-        return std::nullopt;
-    }
-    else if (!faceJson.at("uv").is_array() || faceJson.at("uv").size() != 4)
-    {
-        std::cerr << "[DataPackManager]: Block model non-aligned face 'uv' field is not an array of 4 elements\n";
-        return std::nullopt;
-    }
-
-    int uvs[4][2];
-    for (int i = 0; i < 4; i++)
-    {
-        const auto& uvJson = faceJson["uv"][i];
-        if (!uvJson.contains("u") || !uvJson.at("u").is_number() ||
-            !uvJson.contains("v") || !uvJson.at("v").is_number())
-        {
-            std::cerr << "[DataPackManager]: Block model non-aligned face UV " << i << " is missing or has invalid coordinates\n";
-            return std::nullopt;
-        }
-
-        float u, v;
-        uvJson.at("u").get_to(u);
-        uvJson.at("v").get_to(v);
-
-        uvs[i][0] = 16.0f * fminf(1.0f, fmaxf(0.0f, u));
-        uvs[i][1] = 16.0f * fminf(1.0f, fmaxf(0.0f, v));
-    }
-
     // Pack UV coordinates
     face.u0 = uvs[0][0];
     face.v0 = uvs[0][1];
@@ -695,17 +706,7 @@ std::optional<BlockModelData::NonAlignedFace> DataPackManager::parseBlockModelNo
     face.v3 = uvs[3][1];
 
     // Parse texture slot
-    if (!faceJson.contains("texture_slot"))
-    {
-        std::cerr << "[DataPackManager]: Block model non-aligned face is missing 'texture_slot' field\n";
-        return std::nullopt;
-    }
-    else if (!faceJson.at("texture_slot").is_number_unsigned())
-    {
-        std::cerr << "[DataPackManager]: Block model non-aligned face 'texture_slot' field is not an unsigned integer\n";
-        return std::nullopt;
-    }
-    face.textureSlot = faceJson.at("texture_slot");
+    face.textureSlot = j.at("texture_slot");
 
     return face;
 }
@@ -823,16 +824,229 @@ bool DataPackManager::parseItemJson(const json& j, ItemAsset& outAsset)
     }
 
     // Texture
-    if (!j.contains("texture"))
+    if (!j.contains("ui_texture"))
     {
         return true;
     }
-    else if (!j.at("texture").is_string())
+    else if (!j.at("ui_texture").is_string())
     {
-        std::cerr << "[DataPackManager]: Item 'texture' field is not a string \n";
+        std::cerr << "[DataPackManager]: Item 'ui_texture' field is not a string\n";
         return true;
     }
-    outAsset.textureName = j.at("texture").get<std::string>();
+    outAsset.uiTextureName = j.at("ui_texture").get<std::string>();
 
     return true;
+}
+
+void DataPackManager::loadItemModels(const std::filesystem::path& dataPackPath, const std::string& dataPackStringId)
+{
+    fs::path modelsDir = dataPackPath / "ItemModels";
+    if (!fs::exists(modelsDir) || !fs::is_directory(modelsDir))
+    {
+        return;
+    }
+
+    // Iterate through all JSON files in directory
+    for (const auto& entry : fs::directory_iterator(modelsDir))
+    {
+        // Check if entry is file and its extension is json
+        if (!entry.is_regular_file() || entry.path().extension() != ".json")
+        {
+            continue;
+        }
+
+        // Get model name
+        fs::path modelFilepath = entry.path();
+        std::string modelName = modelFilepath.stem().string();
+
+        // Check block name
+        auto nameValidationResult = validateObjectName(modelName);
+        if (nameValidationResult != ObjectNameValidationResult::Success)
+        {
+            printObjectNameValidationError(std::cerr, nameValidationResult, "[DataPackManager]: ", "Item model name");
+            continue;
+        }
+
+        // Open json file
+        std::ifstream file(entry.path());
+        if (!file)
+        {
+            std::cerr << "[DataPackManager]: Failed to open item model file: " << modelFilepath << "\n";
+            return;
+        }
+
+        // Parse
+        ItemModelData asset;
+        const std::string stringId = dataPackStringId + ":" + modelName;
+        std::cout << "[DataPackManager]: Loading item model " << stringId << "\n";
+        try
+        {
+            json j;
+            file >> j;
+            if (!parseItemModelJson(j, asset))
+            {
+                continue;
+            }
+        }
+        catch (const json::exception& e)
+        {
+            std::cerr << "[DataPackManager]: JSON parsing error in file " << modelFilepath << ": " << e.what() << "\n";
+            continue;
+        }
+        catch (const std::exception& e)
+        {
+            std::cerr << "[DataPackManager]: Error reading file " << modelFilepath << ": " << e.what() << "\n";
+            continue;
+        }
+
+        // Register
+        AssetRegistry::registerItemModel(asset, stringId);
+    }
+}
+
+bool DataPackManager::parseItemModelJson(const json& j, ItemModelData& outAsset)
+{
+    // Check faces field
+    if (!j.contains("faces"))
+    {
+        std::cerr << "[DataPackManager]: Item model is missing 'faces' field\n";
+        return false;
+    }
+    else if (!j.at("faces").is_array())
+    {
+        std::cerr << "[DataPackManager]: Item model 'faces' field is not an array\n";
+        return false;
+    }
+
+    // Parse faces
+    for (const auto& faceJson : j.at("faces"))
+    {
+        auto result = parseItemModelFacesJson(faceJson);
+        if (result.has_value())
+        {
+            const auto& face = result.value();
+            outAsset.faces.push_back(face);
+        }
+    }
+
+    return true;
+}
+
+std::optional<ItemModelData::Face> DataPackManager::parseItemModelFacesJson(const json& j)
+{
+    // Check fields
+    if (!j.contains("vertices"))
+    {
+        std::cerr << "[DataPackManager]: Item model face is missing 'vertices' field\n";
+        return std::nullopt;
+    }
+    else if (!j.at("vertices").is_array() || j.at("vertices").size() != 4)
+    {
+        std::cerr << "[DataPackManager]: Item model face 'vertices' field is not an array of 4 elements\n";
+        return std::nullopt;
+    }
+
+    if (!j.contains("uv"))
+    {
+        std::cerr << "[DataPackManager]: Item model face is missing 'uv' field\n";
+        return std::nullopt;
+    }
+    else if (!j.at("uv").is_array() || j.at("uv").size() != 4)
+    {
+        std::cerr << "[DataPackManager]: Item model face 'uv' field is not an array of 4 elements\n";
+        return std::nullopt;
+    }
+
+    if (!j.contains("texture_slot"))
+    {
+        std::cerr << "[DataPackManager]: Item model face is missing 'texture_slot' field\n";
+        return std::nullopt;
+    }
+    else if (!j.at("texture_slot").is_number_unsigned())
+    {
+        std::cerr << "[DataPackManager]: Item model face 'texture_slot' field is not an unsigned integer\n";
+        return std::nullopt;
+    }
+
+    // Parse vertices
+    int vertices[4][3];
+    const auto& verticesJson = j.at("vertices");
+    for (int i = 0; i < 4; i++)
+    {
+        const auto& vertexJson = verticesJson[i];
+        if (!vertexJson.contains("x") || !vertexJson.at("x").is_number() ||
+            !vertexJson.contains("y") || !vertexJson.at("y").is_number() ||
+            !vertexJson.contains("z") || !vertexJson.at("z").is_number())
+        {
+            std::cerr << "[DataPackManager]: Item model face vertex " << i << " is missing or has invalid coordinates\n";
+            return std::nullopt;
+        }
+
+        float x, y, z;
+        vertexJson.at("x").get_to(x);
+        vertexJson.at("y").get_to(y);
+        vertexJson.at("z").get_to(z);
+
+        vertices[i][0] = 16.0f * fminf(1.0f, fmaxf(0.0f, x));
+        vertices[i][1] = 16.0f * fminf(1.0f, fmaxf(0.0f, y));
+        vertices[i][2] = 16.0f * fminf(1.0f, fmaxf(0.0f, z));
+    }
+
+    // Parse UV coordinates
+    int uvs[4][2];
+    const auto& uvsJson = j.at("uv");
+    for (int i = 0; i < 4; i++)
+    {
+        const auto& uvJson = uvsJson[i];
+        if (!uvJson.contains("u") || !uvJson.at("u").is_number() ||
+            !uvJson.contains("v") || !uvJson.at("v").is_number())
+        {
+            std::cerr << "[DataPackManager]: Item model face UV " << i << " is missing or has invalid coordinates\n";
+            return std::nullopt;
+        }
+
+        float u, v;
+        uvJson.at("u").get_to(u);
+        uvJson.at("v").get_to(v);
+
+        uvs[i][0] = 16.0f * fminf(1.0f, fmaxf(0.0f, u));
+        uvs[i][1] = 16.0f * fminf(1.0f, fmaxf(0.0f, v));
+    }
+
+    // Pack vertices
+    ItemModelData::Face face;
+
+    face.x0 = vertices[0][0];
+    face.y0 = vertices[0][1];
+    face.z0 = vertices[0][2];
+
+    face.x1 = vertices[1][0];
+    face.y1 = vertices[1][1];
+    face.z1 = vertices[1][2];
+
+    face.x2 = vertices[2][0];
+    face.y2 = vertices[2][1];
+    face.z2 = vertices[2][2];
+
+    face.x3 = vertices[3][0];
+    face.y3 = vertices[3][1];
+    face.z3 = vertices[3][2];
+
+    // Pack UV coordinates
+    face.u0 = uvs[0][0];
+    face.v0 = uvs[0][1];
+
+    face.u1 = uvs[1][0];
+    face.v1 = uvs[1][1];
+
+    face.u2 = uvs[2][0];
+    face.v2 = uvs[2][1];
+
+    face.u3 = uvs[3][0];
+    face.v3 = uvs[3][1];
+
+    // Parse texture slot
+    face.textureSlot = j.at("texture_slot");
+
+    return face;
 }

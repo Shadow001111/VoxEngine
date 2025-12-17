@@ -1,0 +1,32 @@
+{
+  "stack_size": 64,
+  "block_placeable": "core:glass",
+  "ui_texture": "glass",
+  "model": "core:cube",
+  "model_textures": [
+    {
+      "name": "glass",
+      "translucent": true
+    },
+    {
+      "name": "glass",
+      "translucent": true
+    },
+    {
+      "name": "glass",
+      "translucent": true
+    },
+    {
+      "name": "glass",
+      "translucent": true
+    },
+    {
+      "name": "glass",
+      "translucent": true
+    },
+    {
+      "name": "glass",
+      "translucent": true
+    }
+  ]
+}

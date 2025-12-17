@@ -16,10 +16,12 @@
 #include "Graphics/quad_vertices.h"
 
 #include <stdexcept>
+#include <glm/glm.hpp>
 
 // BINDINGS
 constexpr unsigned BLOCK_TEXTURE_ARRAY_BINDING = 0;
-constexpr unsigned ITEM_TEXTURE_ARRAY_BINDING = 0;
+constexpr unsigned ITEM_UI_TEXTURE_ARRAY_BINDING = 0;
+constexpr unsigned HOTBAR_TEXTURE_BINDING = ITEM_UI_TEXTURE_ARRAY_BINDING;
 
 constexpr unsigned OUTPUT_IMAGE_BINDING = 0;
 constexpr unsigned OPAQUE_TEX_BINDING = 1;
@@ -29,8 +31,7 @@ constexpr unsigned REVEALAGE_TEX_BINDING = 3;
 
 World::World() :
 	chunkDrawCommandBuffer(GL_DRAW_INDIRECT_BUFFER, GL_DYNAMIC_DRAW),
-	chunkPositionSSBO(GL_SHADER_STORAGE_BUFFER, GL_DYNAMIC_DRAW),
-	hotbarVBO(GL_ARRAY_BUFFER, GL_STATIC_DRAW)
+	chunkPositionSSBO(GL_SHADER_STORAGE_BUFFER, GL_DYNAMIC_DRAW)
 {
 	// Visual settings
 	visualSettings.backgroundColor = { 0.52f, 0.8f, 0.92f }; // Sky color
@@ -40,39 +41,39 @@ World::World() :
 	{
 		std::vector<Shader::ShaderSource> sources =
 		{
-			{GL_VERTEX_SHADER, "res/Shaders/alignedFace.vert"},
-			{GL_FRAGMENT_SHADER, "res/Shaders/alignedOpaqueFace.frag"}
+			{GL_VERTEX_SHADER, "res/Shaders/Chunk/alignedFace.vert"},
+			{GL_FRAGMENT_SHADER, "res/Shaders/Chunk/alignedOpaqueFace.frag"}
 		};
 		alignedOpaqueFaceShader = Shader(sources);
 	}
 	{
 		std::vector<Shader::ShaderSource> sources =
 		{
-			{GL_VERTEX_SHADER, "res/Shaders/alignedFace.vert"},
-			{GL_FRAGMENT_SHADER, "res/Shaders/alignedTranslucentFace.frag"}
+			{GL_VERTEX_SHADER, "res/Shaders/Chunk/alignedFace.vert"},
+			{GL_FRAGMENT_SHADER, "res/Shaders/Chunk/alignedTranslucentFace.frag"}
 		};
 		alignedTranslucentFaceShader = Shader(sources);
 	}
 	{
 		std::vector<Shader::ShaderSource> sources =
 		{
-			{GL_VERTEX_SHADER, "res/Shaders/nonAlignedFace.vert"},
-			{GL_FRAGMENT_SHADER, "res/Shaders/nonAlignedOpaqueFace.frag"}
+			{GL_VERTEX_SHADER, "res/Shaders/Chunk/nonAlignedFace.vert"},
+			{GL_FRAGMENT_SHADER, "res/Shaders/Chunk/nonAlignedOpaqueFace.frag"}
 		};
 		nonAlignedOpaqueFaceShader = Shader(sources);
 	}
 	{
 		std::vector<Shader::ShaderSource> sources =
 		{
-			{GL_VERTEX_SHADER, "res/Shaders/nonAlignedFace.vert"},
-			{GL_FRAGMENT_SHADER, "res/Shaders/nonAlignedTranslucentFace.frag"}
+			{GL_VERTEX_SHADER, "res/Shaders/Chunk/nonAlignedFace.vert"},
+			{GL_FRAGMENT_SHADER, "res/Shaders/Chunk/nonAlignedTranslucentFace.frag"}
 		};
 		nonAlignedTranslucentFaceShader = Shader(sources);
 	}
 	{
 		std::vector<Shader::ShaderSource> sources =
 		{
-			{GL_COMPUTE_SHADER, "res/Shaders/faceComposite.comp"}
+			{GL_COMPUTE_SHADER, "res/Shaders/Chunk/faceComposite.comp"}
 		};
 		compositeFaceShader = Shader(sources);
 		compositeFaceShader.use();
@@ -89,34 +90,13 @@ World::World() :
 		};
 		voxelMarkerShader = Shader(sources);
 	}
-	{
-		std::vector<Shader::ShaderSource> sources =
-		{
-			{GL_VERTEX_SHADER, "res/Shaders/quad.vert"},
-			{GL_FRAGMENT_SHADER, "res/Shaders/hotbar.frag"}
-		};
-		hotbarShader = Shader(sources);
-	}
-
-	{
-		hotbarVAO.bind();
-
-		hotbarVBO.bind();
-		hotbarVBO.allocateMemory(sizeof(quadVertices));
-		hotbarVBO.write(quadVertices, sizeof(quadVertices));
-
-		hotbarVAO.enableAttribute(0);
-		hotbarVAO.setFloatAttribute(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
-	}
 
 	// Datapack loading and registering assets
 	std::vector<std::string> blockTextureNames;
-	std::vector<std::string> itemTextureNames;
 	{
 		PROFILE_SCOPE("Data packs loading", ProfileCategory::General);
 		DataPackManager::loadAllDataPacks();
 		blockTextureNames = AssetRegistry::getBlockTextureNames();
-		itemTextureNames = AssetRegistry::getItemTextureNames();
 	}
 
 	// Block textures
@@ -127,21 +107,6 @@ World::World() :
 
 		PROFILE_SCOPE("Block texture array creation", ProfileCategory::General);
 		TextureLoader::createAndLoadTextureArray(blockTextureArray, "res/BlockTextures", blockTextureNames, 16, params);
-	}
-
-	// Item textures
-	{
-		TextureLoader::TextureParams params;
-
-		PROFILE_SCOPE("Item texture array creation", ProfileCategory::General);
-		TextureLoader::createAndLoadTextureArray(itemTextureArray, "res/ItemTextures", itemTextureNames, 128, params);
-	}
-
-	// Hotbar slot texture
-	{
-		TextureLoader::TextureParams params;
-
-		TextureLoader::createAndLoadTexture2D(hotbarSlotImage, "res/UITextures/hotbar_slot.png", 48, params);
 	}
 
 	{
@@ -743,22 +708,6 @@ void World::renderVoxelMarker(const Camera& camera, const RaycastResult& raycast
 		voxelMarkerShader.setVec3("color", 1.0f, 0.0f, 0.0f);
 		voxelMarkerMesh.draw();
 	}
-}
-
-void World::renderUI()
-{
-	//glDisable(GL_DEPTH_TEST);
-	//glEnable(GL_BLEND);
-	//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	//
-	//renderHotbar();
-}
-
-void World::renderHotbar()
-{
-	hotbarShader.use();
-	hotbarVAO.bind();
-	glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
 }
 
 // TODO: Make raycast undependable of float precision. Or do the same for voxel marker rendering.

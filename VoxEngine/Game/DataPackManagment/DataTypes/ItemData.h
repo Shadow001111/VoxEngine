@@ -9,5 +9,5 @@ struct ItemData
 	uint8_t stackSize = 0;
 	bool hasBlockPlaceable = false;
 	BlockId blockPlaceableId;
-	TextureId textureId;
+	TextureId uiTextureId;
 };

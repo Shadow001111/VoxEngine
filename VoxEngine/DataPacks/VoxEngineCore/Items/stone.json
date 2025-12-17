@@ -1,0 +1,32 @@
+{
+  "stack_size": 64,
+  "block_placeable": "core:stone",
+  "ui_texture": "stone",
+  "model": "core:cube",
+  "model_textures": [
+    {
+      "name": "stone",
+      "translucent": false
+    },
+    {
+      "name": "stone",
+      "translucent": false
+    },
+    {
+      "name": "stone",
+      "translucent": false
+    },
+    {
+      "name": "stone",
+      "translucent": false
+    },
+    {
+      "name": "stone",
+      "translucent": false
+    },
+    {
+      "name": "stone",
+      "translucent": false
+    }
+  ]
+}

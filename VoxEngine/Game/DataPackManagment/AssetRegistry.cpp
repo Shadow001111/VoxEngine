@@ -9,16 +9,20 @@ std::vector<ItemAsset> AssetRegistry::itemAssetStorage;
 std::vector<BlockData> AssetRegistry::blockDataStorage;
 std::vector<BlockModelData> AssetRegistry::blockModelDataStorage;
 std::vector<ItemData> AssetRegistry::itemDataStorage;
+std::vector<ItemModelData> AssetRegistry::itemModelDataStorage;
 
 StringIndexer AssetRegistry::blockIndexer;
 StringIndexer AssetRegistry::blockModelIndexer;
 StringIndexer AssetRegistry::itemIndexer;
+StringIndexer AssetRegistry::itemModelIndexer;
 
 StringIndexer AssetRegistry::blockTextureIndexer;
-StringIndexer AssetRegistry::itemTextureIndexer;
+StringIndexer AssetRegistry::itemUITextureIndexer;
 
 BlockId AssetRegistry::FALLBACK_BLOCK_ID;
-BlockModelId AssetRegistry::FALLBACK_BLOCK_MODEL_ID;
+ModelId AssetRegistry::FALLBACK_BLOCK_MODEL_ID;
+BlockId AssetRegistry::FALLBACK_ITEM_ID;
+ModelId AssetRegistry::FALLBACK_ITEM_MODEL_ID;
 
 // Object name validation
 ObjectNameValidationResult validateObjectName(std::string_view name) noexcept
@@ -189,13 +193,15 @@ void AssetRegistry::reset()
 	blockDataStorage.clear();
 	blockModelDataStorage.clear();
 	itemDataStorage.clear();
+	itemModelDataStorage.clear();
 
 	blockIndexer.clear();
 	blockModelIndexer.clear();
 	itemIndexer.clear();
+	itemModelIndexer.clear();
 
 	blockTextureIndexer.clear();
-	itemTextureIndexer.clear();
+	itemUITextureIndexer.clear();
 }
 
 void AssetRegistry::registerBlock(const BlockAsset& asset)
@@ -269,7 +275,21 @@ void AssetRegistry::registerItem(const ItemAsset& asset)
 	data.stringId = asset.stringId; // TOOD: May move
 	data.stackSize = asset.stackSize;
 	data.hasBlockPlaceable = asset.hasBlockPlaceable;
-	data.textureId = itemTextureIndexer.registerAndGetId(asset.textureName);
+	data.uiTextureId = itemUITextureIndexer.registerAndGetId(asset.uiTextureName);
+}
+
+void AssetRegistry::registerItemModel(const ItemModelData& asset, const std::string& modelStringId)
+{
+	// Index
+	if (itemModelIndexer.isRegistered(modelStringId))
+	{
+		std::cerr << "[AssetRegistry]: Item model " << modelStringId << " is already registered\n";
+		return;
+	}
+	itemModelIndexer.registerAndGetId(modelStringId);
+
+	// Store data
+	itemModelDataStorage.push_back(asset);
 }
 
 bool AssetRegistry::linkAssets()
@@ -298,6 +318,8 @@ bool AssetRegistry::linkAssets()
 		}
 	}
 	FALLBACK_BLOCK_MODEL_ID = -1;
+	FALLBACK_ITEM_ID = -1;
+	FALLBACK_ITEM_MODEL_ID = -1;
 
 	// Link
 	if (
@@ -333,7 +355,7 @@ bool AssetRegistry::linkBlockAssets()
 			auto blockModelIdResult = blockModelIndexer.getId(asset.modelName);
 			if (blockModelIdResult.has_value())
 			{
-				data.modelId = static_cast<BlockModelId>(blockModelIdResult.value());
+				data.modelId = static_cast<ModelId>(blockModelIdResult.value());
 			}
 			else
 			{
@@ -428,10 +450,16 @@ BlockId AssetRegistry::getBlockNumericalId(const std::string& stringId)
 	return result.has_value() ? static_cast<BlockId>(result.value()) : FALLBACK_BLOCK_ID;
 }
 
-BlockModelId AssetRegistry::getBlockModelNumericalId(const std::string& stringId)
+//ModelId AssetRegistry::getBlockModelNumericalId(const std::string& stringId)
+//{
+//	auto result = blockModelIndexer.getId(stringId);
+//	return result.has_value() ? static_cast<ModelId>(result.value()) : FALLBACK_BLOCK_MODEL_ID;
+//}
+
+ItemId AssetRegistry::getItemNumericalId(const std::string& stringId)
 {
-	auto result = blockModelIndexer.getId(stringId);
-	return result.has_value() ? static_cast<BlockModelId>(result.value()) : FALLBACK_BLOCK_MODEL_ID;
+	auto result = itemIndexer.getId(stringId);
+	return result.has_value() ? static_cast<ItemId>(result.value()) : FALLBACK_ITEM_ID;
 }
 
 const BlockData* AssetRegistry::getBlockDataSafe(BlockId numericalId)
@@ -444,9 +472,24 @@ const BlockData* AssetRegistry::getBlockData(BlockId numericalId)
 	return numericalId < blockDataStorage.size() ? &blockDataStorage[numericalId] : nullptr;
 }
 
-const BlockModelData* AssetRegistry::getBlockModelData(BlockModelId numericalId)
+const BlockModelData* AssetRegistry::getBlockModelData(ModelId numericalId)
 {
 	return numericalId < blockModelDataStorage.size() ? &blockModelDataStorage[numericalId] : nullptr;
+}
+
+const ItemData* AssetRegistry::getItemDataSafe(ItemId numericalId)
+{
+	return numericalId < itemDataStorage.size() ? &itemDataStorage[numericalId] : &itemDataStorage[FALLBACK_ITEM_ID];
+}
+
+const ItemData* AssetRegistry::getItemData(ItemId numericalId)
+{
+	return numericalId < itemDataStorage.size() ? &itemDataStorage[numericalId] : nullptr;
+}
+
+const ItemModelData* AssetRegistry::getItemModelData(ModelId numericalId)
+{
+	return numericalId < itemModelDataStorage.size() ? &itemModelDataStorage[numericalId] : nullptr;
 }
 
 std::vector<std::string> AssetRegistry::sortMapAndReturnNames(const std::unordered_map<std::string, size_t> map)
@@ -478,7 +521,7 @@ std::vector<std::string> AssetRegistry::getBlockTextureNames()
 	return sortMapAndReturnNames(blockTextureIndexer.getNameToIDMap());
 }
 
-std::vector<std::string> AssetRegistry::getItemTextureNames()
+std::vector<std::string> AssetRegistry::getItemUITextureNames()
 {
-	return sortMapAndReturnNames(itemTextureIndexer.getNameToIDMap());
+	return sortMapAndReturnNames(itemUITextureIndexer.getNameToIDMap());
 }

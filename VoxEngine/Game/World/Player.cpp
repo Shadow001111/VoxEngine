@@ -1,6 +1,7 @@
 #include "Player.h"
 
 #include "../World.h"
+#include "Game/DataPackManagment/AssetRegistry.h"
 
 glm::dvec3 makeVectorFlatNormalized(const glm::dvec3& vec)
 {
@@ -21,6 +22,16 @@ Player::Player(const glm::dvec3& position, float yaw, float pitch) :
 	camera(position, yaw, pitch, glm::radians(90.0f), 1.0f, 0.1f, 1.0f)
 {
 	setGameMode(GameMode::Fly);
+
+	for (int i = 0; i < 9; i++)
+	{
+		hotbar[i].id = i;
+		hotbar[i].count = 1;
+		if (AssetRegistry::getItemData(i) == nullptr)
+		{
+			break;
+		}
+	}
 }
 
 void Player::update(double deltaTime)
@@ -143,13 +154,20 @@ void Player::update(double deltaTime)
 	{
 		if (input.leftMouseClicked)
 		{
-			world->placeBlock(raycastResult, hotbar[selectedItemIndex]);
 			input.leftMouseClicked = false;
+
+			const auto& item = hotbar[selectedItemIndex];
+			const auto* itemData = AssetRegistry::getItemData(item.id);
+			if (itemData && itemData->hasBlockPlaceable)
+			{
+				world->placeBlock(raycastResult, itemData->blockPlaceableId);
+			}
 		}
 		if (input.rightMouseClicked)
 		{
-			world->breakBlock(raycastResult);
 			input.rightMouseClicked = false;
+
+			world->breakBlock(raycastResult);
 		}
 	}
 
@@ -294,9 +312,4 @@ Transform Player::getPreviousTransform() const
 Camera& Player::getCamera()
 {
 	return camera;
-}
-
-BlockId Player::getSelectedItem() const
-{
-	return hotbar[selectedItemIndex];
 }

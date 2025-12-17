@@ -5,32 +5,32 @@
   "model": "core:cube",
   "textures": [
     {
-      "name": "log_oak",
+      "name": "oak_log",
       "transformation": "None",
       "translucent": false
     },
     {
-      "name": "log_oak",
+      "name": "oak_log",
       "transformation": "None",
       "translucent": false
     },
     {
-      "name": "log_oak_top",
+      "name": "oak_log_top",
       "transformation": "None",
       "translucent": false
     },
     {
-      "name": "log_oak_top",
+      "name": "oak_log_top",
       "transformation": "None",
       "translucent": false
     },
     {
-      "name": "log_oak",
+      "name": "oak_log",
       "transformation": "None",
       "translucent": false
     },
     {
-      "name": "log_oak",
+      "name": "oak_log",
       "transformation": "None",
       "translucent": false
     }

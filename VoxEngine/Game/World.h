@@ -74,15 +74,9 @@ private:
 	VoxelMarkerMesh voxelMarkerMesh;
 
 	OpenGL_Texture blockTextureArray;
-	OpenGL_Texture itemTextureArray;
 
 	OpenGL_Buffer chunkDrawCommandBuffer;
 	OpenGL_Buffer chunkPositionSSBO;
-
-	Shader hotbarShader;
-	OpenGL_Texture hotbarSlotImage;
-	OpenGL_VAO hotbarVAO;
-	OpenGL_Buffer hotbarVBO;
 
 	// Debug
 	mutable DebugData debugData;
@@ -122,9 +116,6 @@ private:
 	void compositePass(const OpenGL_Texture& accumTex, const OpenGL_Texture& revTex, const OpenGL_Texture& colorTex) const;
 public:
 	void renderVoxelMarker(const Camera& camera, const RaycastResult& raycast) const;
-	
-	void renderUI();
-	void renderHotbar();
 
 	RaycastResult raycast(const glm::dvec3& origin, const glm::dvec3& direction, float maxDistance = 100.0f) const;
 

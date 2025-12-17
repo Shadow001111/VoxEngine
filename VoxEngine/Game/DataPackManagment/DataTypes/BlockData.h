@@ -32,7 +32,7 @@ struct BlockData
 	bool faceCulling[6] = { false, false, false, false, false, false };
 
 	// Visuals
-	BlockModelId modelId = 0;
+	ModelId modelId = 0;
 	std::vector<TextureSlot> textureSlots;
 
 	// Sounds

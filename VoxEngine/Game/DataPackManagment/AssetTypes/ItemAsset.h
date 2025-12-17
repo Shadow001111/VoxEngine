@@ -8,5 +8,5 @@ struct ItemAsset
 	uint8_t stackSize = 0;
 	bool hasBlockPlaceable = false;
 	std::string blockPlaceableStringId;
-	std::string textureName;
+	std::string uiTextureName;
 };

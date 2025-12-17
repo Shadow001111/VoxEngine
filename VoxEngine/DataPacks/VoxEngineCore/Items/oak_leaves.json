@@ -1,0 +1,32 @@
+{
+  "stack_size": 64,
+  "block_placeable": "core:oak_leaves",
+  "ui_texture": "oak_leaves",
+  "model": "core:cube",
+  "model_textures": [
+    {
+      "name": "oak_leaves",
+      "translucent": true
+    },
+    {
+      "name": "oak_leaves",
+      "translucent": true
+    },
+    {
+      "name": "oak_leaves",
+      "translucent": true
+    },
+    {
+      "name": "oak_leaves",
+      "translucent": true
+    },
+    {
+      "name": "oak_leaves",
+      "translucent": true
+    },
+    {
+      "name": "oak_leaves",
+      "translucent": true
+    }
+  ]
+}

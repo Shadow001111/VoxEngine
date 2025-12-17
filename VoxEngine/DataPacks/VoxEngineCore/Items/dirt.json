@@ -1,0 +1,32 @@
+{
+  "stack_size": 64,
+  "block_placeable": "core:dirt",
+  "ui_texture": "dirt",
+  "model": "core:cube",
+  "model_textures": [
+    {
+      "name": "dirt",
+      "translucent": false
+    },
+    {
+      "name": "dirt",
+      "translucent": false
+    },
+    {
+      "name": "dirt",
+      "translucent": false
+    },
+    {
+      "name": "dirt",
+      "translucent": false
+    },
+    {
+      "name": "dirt",
+      "translucent": false
+    },
+    {
+      "name": "dirt",
+      "translucent": false
+    }
+  ]
+}

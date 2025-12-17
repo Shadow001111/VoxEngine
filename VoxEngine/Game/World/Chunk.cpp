@@ -397,8 +397,8 @@ void Chunk::updateStructureBlocks()
 void Chunk::generateTree(const glm::ivec3& rootPosition)
 {
 	const BlockId airID = AssetRegistry::getBlockNumericalId("core:air");
-	const BlockId logOakID = AssetRegistry::getBlockNumericalId("core:log_oak");
-	const BlockId leavesOakID = AssetRegistry::getBlockNumericalId("core:leaves_oak");
+	const BlockId logID = AssetRegistry::getBlockNumericalId("core:oak_log");
+	const BlockId leavesID = AssetRegistry::getBlockNumericalId("core:oak_leaves");
 
 	const int treeHeight = 4;
 
@@ -412,7 +412,7 @@ void Chunk::generateTree(const glm::ivec3& rootPosition)
 	for (int i = 0; i < treeHeight; i++)
 	{
 		size_t index = getIndex(rootPosition.x, rootPosition.y + i, rootPosition.z);
-		blocks[index] = logOakID;
+		blocks[index] = logID;
 	}
 	
 	// Leaves - create a spherical canopy
@@ -442,7 +442,7 @@ void Chunk::generateTree(const glm::ivec3& rootPosition)
 					size_t index = getIndex(lx, ly, lz);
 					if (blocks[index] == airID)
 					{
-						blocks[index] = leavesOakID;
+						blocks[index] = leavesID;
 					}
 				}
 				else
@@ -463,7 +463,7 @@ void Chunk::generateTree(const glm::ivec3& rootPosition)
 					int nz = lz & CHUNK_LOWER_BITS_MASK;
 					size_t index = getIndex(nx, ny, nz);
 
-					structureBlockChangeManager.addChange(chunkPos, leavesOakID, index, true);
+					structureBlockChangeManager.addChange(chunkPos, leavesID, index, true);
 				}
 			}
 		}
