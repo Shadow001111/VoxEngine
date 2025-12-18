@@ -6,6 +6,17 @@ class World;
 
 class Entity
 {
+	struct MoveResult
+	{
+		bool collided = false;
+		int collisionAxis = -1;
+		double stepDirection = 0.0;
+		double collisionTime = 0.0;
+		glm::dvec3 startPos;
+		glm::dvec3 ray;
+		glm::dvec3 actualMovement;
+		glm::ivec3 collisionPos;
+	};
 public:
 	using Id = uint64_t;
 private:
@@ -34,8 +45,14 @@ public:
 	Id getId() const noexcept { return id; }
 private:
 	void moveAndCheckForCollisions(const glm::dvec3& dpos);
+
+	void moveAndCheckForCollisions_SpeedSafe(const glm::dvec3& dpos);
+
 	void moveAndCheckForCollisions_DDA(const glm::dvec3& dpos);
-	bool isAnyBlocksSolidAt(const glm::ivec3& min, const glm::ivec3& max, glm::ivec3& outPos);
+	bool checkCollisionTiles(const glm::dvec3& pos, const glm::dvec3& move, const glm::ivec3& checkPos, double distance, int checkAxis) const;
+
+	bool isAnyBlocksSolidInside(double sign, int axis, glm::ivec3& outPos) const;
+	bool isAnyBlocksSolidAt(const glm::ivec3& min, const glm::ivec3& max, glm::ivec3& outPos) const;
 	bool isBlockSolidAt(const glm::ivec3 pos) const;
 };
 

@@ -272,12 +272,6 @@
     <ClInclude Include="Game\World\Chunk\ChunkSpecializedQueue.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="Game\World\Chunk\Item.h">
-      <Filter>Файлы заголовков</Filter>
-    </ClInclude>
-    <ClInclude Include="Game\World\Chunk\ItemProperties.h">
-      <Filter>Файлы заголовков</Filter>
-    </ClInclude>
     <ClInclude Include="Game\World\Chunk\MeshData.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>

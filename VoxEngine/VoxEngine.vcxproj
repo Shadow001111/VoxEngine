@@ -216,8 +216,6 @@ xcopy "$(ProjectDir)DataPacks" "$(TargetDir)DataPacks" /E /I /Y</Command>
     <ClInclude Include="Game\World\ChunkPool.h" />
     <ClInclude Include="Game\World\Chunk\ChunkMeshManager.h" />
     <ClInclude Include="Game\World\Chunk\ChunkSpecializedQueue.h" />
-    <ClInclude Include="Game\World\Chunk\Item.h" />
-    <ClInclude Include="Game\World\Chunk\ItemProperties.h" />
     <ClInclude Include="Game\World\Chunk\MeshData.h" />
     <ClInclude Include="Game\World\Chunk\MeshTemplates\AlignedBlockFace.h" />
     <ClInclude Include="Game\World\Chunk\MeshTemplates\NonAlignedBlockFace.h" />
