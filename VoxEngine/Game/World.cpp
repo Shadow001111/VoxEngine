@@ -34,7 +34,8 @@ World::World() :
 	chunkPositionSSBO(GL_SHADER_STORAGE_BUFFER, GL_DYNAMIC_DRAW)
 {
 	// Visual settings
-	visualSettings.backgroundColor = { 0.52f, 0.8f, 0.92f }; // Sky color
+	visualSettings.dayBackgroundColor = { 0.52f, 0.8f, 0.92f };
+	visualSettings.nightBackgroundColor = { 0.0f, 0.0f, 0.1f };
 	visualSettings.fogGradient = 5.0f;
 
 	// Shaders
@@ -258,6 +259,15 @@ void World::loadChunks(const glm::vec3& playerPos)
 
 void World::update(float deltaTime)
 {
+	// Time
+	worldTime = (worldTime + 1) % TICKS_PER_24_HOURS;
+	{
+		const float t = (float)worldTime / (float)TICKS_PER_24_HOURS;
+		const float cosValue = cosf(t * 2.0f * 3.14159f);
+		dayNightCycleValue = (cosValue + 1.0f) * 0.5f;
+		skyLightSub = (1.0f - dayNightCycleValue) * 15.0f;
+	}
+
 	// Chunks
 	chunkPool.returnProcessingChunksToPool();
 
@@ -370,9 +380,9 @@ void World::collectChunksToRenderAndSortThem(std::vector<ChunkRenderInfo>& chunk
 
 void World::renderChunks(const Camera& camera, const OpenGL_FBO* opaqueFBO, const OpenGL_FBO* translucentFBO)
 {
+	glm::vec3 fogColor = glm::mix(visualSettings.nightBackgroundColor, visualSettings.dayBackgroundColor, dayNightCycleValue);
 	{
 		const glm::ivec3 cameraChunkPos = glm::ivec3(glm::floor(camera.getPosition())) >> CHUNK_SIZE_LOG2;
-		const auto& fogColor = visualSettings.backgroundColor;
 
 		auto viewMatrix = camera.getViewMatrixModified(glm::dvec3(CHUNK_SIZE));
 		auto projectionMatrix = camera.getProjectionMatrix();
@@ -399,6 +409,8 @@ void World::renderChunks(const Camera& camera, const OpenGL_FBO* opaqueFBO, cons
 			shader->setFloat("fogGradient", visualSettings.fogGradient);
 
 			shader->setFloat("farPlane", chunkLoadingDistance * CHUNK_SIZE);
+
+			shader->setFloat("skyLightSub", skyLightSub);
 		}
 	}
 
@@ -432,8 +444,8 @@ void World::renderChunks(const Camera& camera, const OpenGL_FBO* opaqueFBO, cons
 		opaqueFBO->unbind();
 		return;
 	}
-	const auto& bg = visualSettings.backgroundColor;
-	float bgColor[4] = { bg.r, bg.g, bg.b, 1.0f };
+
+	float bgColor[4] = { fogColor.r, fogColor.g, fogColor.b, 1.0f };
 	opaqueFBO->clear();
 	opaqueFBO->clearAttachment("color", bgColor);
 	renderOpaqueChunks(chunksToRender, chunkDrawCommands, chunkPositions);

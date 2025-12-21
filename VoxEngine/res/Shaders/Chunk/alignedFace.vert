@@ -11,7 +11,7 @@ layout(binding = 0) restrict readonly buffer chunkPositionSSBO
 uniform mat4 view;
 uniform mat4 projection;
 uniform ivec3 cameraChunkPosition;
-uniform int skyLightSub = 0; // TODO: Maybe make it float for smooth sky light transition
+uniform float skyLightSub;
 
 out vec2 uv;
 out vec2 texCoords;
@@ -113,20 +113,19 @@ void main()
     uint textureTransformation = bitfieldExtract(instanceData.x, 29, 3);
 
     // Extract lighting
-    ivec4 blockLight = ivec4(
+    vec4 blockLight = vec4(
         bitfieldExtract(instanceData.y, 0, 4),
         bitfieldExtract(instanceData.y, 8, 4),
         bitfieldExtract(instanceData.y, 16, 4),
         bitfieldExtract(instanceData.y, 24, 4)
     );
 
-    ivec4 skyLight = ivec4(
+    vec4 skyLight = vec4(
         bitfieldExtract(instanceData.y, 4, 4),
         bitfieldExtract(instanceData.y, 12, 4),
         bitfieldExtract(instanceData.y, 20, 4),
         bitfieldExtract(instanceData.y, 28, 4)
-    );
-    skyLight = skyLight - ivec4(skyLightSub); // NOTE: Can be negative
+    ) - skyLightSub; // NOTE: Can be negative, I don't care because blockLight is always greater than 0
     
     // AO: Convert from [0,3] range to [0.1, 1.0]
     ao = vec4(1.0 - AO_RANGE) + faceAO * INV_AO_SCALE * AO_RANGE;

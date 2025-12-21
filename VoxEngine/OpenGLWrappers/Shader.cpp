@@ -90,7 +90,7 @@ GLint Shader::getUniformLocation(const std::string& name) const
         return it->second;
 
     GLint location = glGetUniformLocation(ID, name.c_str());
-    uniformLocationCache[name] = location;
+    uniformLocationCache.emplace(name, location);
     return location;
 }
 

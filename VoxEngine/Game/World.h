@@ -87,6 +87,12 @@ private:
 
 	// Entities
 	robin_hood::unordered_flat_map<Entity::Id, std::unique_ptr<Entity>> entities;
+
+	// Time
+	size_t worldTime = 0;
+	float dayNightCycleValue = 0.0f; // 1 day; 0 night
+	float skyLightSub = 0.0f;
+	static constexpr int TICKS_PER_24_HOURS = 240;// 24000;
 public:
 	World();
 	~World();

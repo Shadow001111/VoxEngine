@@ -53,7 +53,8 @@ void main()
 
     vec3 baseColor = textureColor.rgb;
 
-    vec3 shadedColor = baseColor * interpolateAO_Triang() * interpolateLight_Quad();
+    float shade = interpolateAO_Triang() * interpolateLight_Quad();
+    vec3 shadedColor = baseColor * shade;
 
     float depth = length(viewVertexPosition);
     float fogFactor = exp(-pow((depth * fogDensity), fogGradient));
