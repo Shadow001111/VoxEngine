@@ -1,6 +1,6 @@
 #pragma once
 #include <glad/glad.h>
-#include <unordered_map>
+#include "robin_hood.h"
 #include <vector>
 #include <string>
 #include "OpenGL_Texture.h"
@@ -34,7 +34,7 @@ class OpenGL_FBO
     GLuint id;
     int width, height;
 
-    std::unordered_map<std::string, Attachment> attachments;
+    robin_hood::unordered_flat_map<std::string, Attachment> attachments;
     std::vector<GLenum> drawBuffers;
 public:
     OpenGL_FBO(int width, int height);

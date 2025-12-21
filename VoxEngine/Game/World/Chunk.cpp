@@ -747,7 +747,7 @@ void Chunk::saveBlocks()
 		std::vector<std::pair<BlockId, std::string>> blocks; // globalID -> blockName
 	};
 
-	std::unordered_map<std::string, PackInfo> packMap;
+	robin_hood::unordered_flat_map<std::string, PackInfo> packMap;
 	packMap.reserve(idToString.size());
 	for (const auto& [globalID, fullName] : idToString)
 	{

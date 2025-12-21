@@ -15,11 +15,9 @@
 
 #include "Core/Hashes/ivec3Hasher.h"
 
-#include <unordered_map>
-#include <unordered_set>
 #include <memory>
-
 #include <mutex>
+#include "robin_hood.h"
 
 class World
 {
@@ -49,12 +47,12 @@ private:
 
 	//
 	ChunkPool chunkPool;
-	std::unordered_map<glm::ivec3, std::unique_ptr<Chunk>, ivec3Hasher> chunks;
+	robin_hood::unordered_flat_map<glm::ivec3, std::unique_ptr<Chunk>, ivec3Hasher> chunks;
 	
-	std::unordered_set<Chunk*> buildBlocksContainer;
+	robin_hood::unordered_flat_set<Chunk*> buildBlocksContainer;
 	std::mutex buildBlocksMutex;
 
-	std::unordered_set<Chunk*> buildLightContainer;
+	robin_hood::unordered_flat_set<Chunk*> buildLightContainer;
 	std::mutex buildLightMutex;
 
 	std::vector<Chunk*> lightUpdateContainerA;
@@ -88,7 +86,7 @@ private:
 	std::vector<std::unique_ptr<BaseChunkLoader>> chunkLoaders;
 
 	// Entities
-	std::unordered_map<Entity::Id, std::unique_ptr<Entity>> entities;
+	robin_hood::unordered_flat_map<Entity::Id, std::unique_ptr<Entity>> entities;
 public:
 	World();
 	~World();

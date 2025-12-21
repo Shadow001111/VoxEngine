@@ -2,7 +2,7 @@
 #include <AL/al.h>
 #include <AL/alc.h>
 #include <vector>
-#include <unordered_map>
+#include "robin_hood.h"
 #include <string>
 
 class SoundManager
@@ -12,7 +12,7 @@ class SoundManager
 	ALCdevice* device = nullptr;
 	ALCcontext* context = nullptr;
 
-	std::unordered_map<std::string, ALuint> buffers;
+	robin_hood::unordered_flat_map<std::string, ALuint> buffers;
 	std::vector<ALuint> sources;
 public:
 	static SoundManager& getInstance();

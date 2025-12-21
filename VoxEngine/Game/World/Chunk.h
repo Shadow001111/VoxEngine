@@ -16,7 +16,6 @@
 #include <cstdint>
 #include <glm/glm.hpp>
 #include <filesystem>
-#include <unordered_map>
 
 union LightLevel
 {
@@ -131,7 +130,7 @@ private:
 	ProcessingFence processingFence;
 	
 	// Changed blocks
-	std::unordered_map<BlockId, std::vector<uint16_t>> changedBlocks;
+	robin_hood::unordered_flat_map<BlockId, std::vector<uint16_t>> changedBlocks;
 	
 	static StructureBlockChangeManager structureBlockChangeManager;
 

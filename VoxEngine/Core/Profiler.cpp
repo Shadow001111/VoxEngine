@@ -26,13 +26,13 @@ void Profiler::ProfileData::reset()
 }
 
 // Static member definitions
-std::unordered_map<std::string, Profiler::ProfileData> Profiler::profileData;
-std::chrono::high_resolution_clock::time_point Profiler::frameStartTime;
+robin_hood::unordered_flat_map<std::string, Profiler::ProfileData> Profiler::profileData;
+std::chrono::steady_clock::time_point Profiler::frameStartTime;
 std::mutex Profiler::profileDataMutex;
 
 thread_local std::string Profiler::manualProfileName;
 thread_local ProfileCategory Profiler::manualProfileCategory;
-thread_local std::chrono::high_resolution_clock::time_point Profiler::manualProfileStartTime;
+thread_local std::chrono::steady_clock::time_point Profiler::manualProfileStartTime;
 
 namespace ProfilerColors
 {
@@ -179,16 +179,16 @@ const Profiler::ProfileData* Profiler::getProfileData(const std::string& name)
     return (it != profileData.end()) ? &it->second : nullptr;
 }
 
-std::vector<std::pair<std::string, Profiler::ProfileData>> Profiler::getAllProfileData()
+std::vector<robin_hood::pair<std::string, Profiler::ProfileData>> Profiler::getAllProfileData()
 {
-    std::vector<std::pair<std::string, ProfileData>> result;
+    std::vector<robin_hood::pair<std::string, ProfileData>> result;
 
     {
         std::lock_guard<std::mutex> lock(profileDataMutex);
         result.reserve(profileData.size());
         for (const auto& pair : profileData)
         {
-            result.push_back(pair);
+            result.emplace_back(pair.first, pair.second);
         }
     }
 
@@ -275,7 +275,7 @@ void Profiler::printProfileEntry(std::ostringstream& ss, const std::string& name
     ss << ProfilerColors::RESET << "\n";
 }
 
-void Profiler::printCategoryStatistics(std::ostringstream& ss, const std::unordered_map<ProfileCategory, double>& categoryTotals, double frameTotalTime)
+void Profiler::printCategoryStatistics(std::ostringstream& ss, const robin_hood::unordered_flat_map<ProfileCategory, double>& categoryTotals, double frameTotalTime)
 {
     if (categoryTotals.empty()) return;
 
@@ -287,7 +287,7 @@ void Profiler::printCategoryStatistics(std::ostringstream& ss, const std::unorde
     ss << std::string(ProfilerReport::TOTAL_WIDTH, '-') << "\n";
 
     // Sort categories by total time (descending)
-    std::vector<std::pair<ProfileCategory, double>> sortedCategories(categoryTotals.begin(), categoryTotals.end());
+    std::vector<robin_hood::pair<ProfileCategory, double>> sortedCategories(categoryTotals.begin(), categoryTotals.end());
     std::sort(sortedCategories.begin(), sortedCategories.end(),
         [](const auto& a, const auto& b) { return a.second > b.second; });
 
@@ -325,7 +325,7 @@ void Profiler::printProfileReport()
     const ProfileData* frameData = getProfileData("Frame Total");
 
     // Track time per category and total time
-    std::unordered_map<ProfileCategory, double> categoryTotals;
+    robin_hood::unordered_flat_map<ProfileCategory, double> categoryTotals;
     double totalTime = 0.0f;
 
     for (const auto& pair : sortedData)

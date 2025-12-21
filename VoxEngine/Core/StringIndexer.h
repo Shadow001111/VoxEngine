@@ -1,11 +1,12 @@
 #pragma once
 #include <string>
-#include <unordered_map>
 #include <optional>
+
+#include "robin_hood.h"
 
 class StringIndexer
 {
-	std::unordered_map<std::string, size_t> nameToID;
+	robin_hood::unordered_flat_map<std::string, size_t> nameToID;
 public:
 	StringIndexer() = default;
 	~StringIndexer() = default;
@@ -19,7 +20,7 @@ public:
 	bool isRegistered(const std::string& str) const;
 	std::optional<size_t> getId(const std::string& str) const;
 
-	const std::unordered_map<std::string, size_t>& getNameToIDMap() const;
+	const robin_hood::unordered_flat_map<std::string, size_t>& getNameToIDMap() const { return nameToID; };
 
 	void clear();
 };

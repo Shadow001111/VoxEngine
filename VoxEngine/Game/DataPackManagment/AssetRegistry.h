@@ -104,7 +104,7 @@ public:
 
 	//
 private:
-	static std::vector<std::string> sortMapAndReturnNames(const std::unordered_map<std::string, size_t> map);
+	static std::vector<std::string> sortMapAndReturnNames(const robin_hood::unordered_flat_map<std::string, size_t>& map);
 public:
 	static std::vector<std::string> getBlockTextureNames();
 	static std::vector<std::string> getItemUITextureNames();

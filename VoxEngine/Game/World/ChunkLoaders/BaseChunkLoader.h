@@ -1,13 +1,13 @@
 #pragma once
 #include <glm/glm.hpp>
 #include <vector>
-#include <unordered_set>
+#include "robin_hood.h"
 
 #include "Core/Hashes/ivec3Hasher.h"
 
 class BaseChunkLoader
 {
-    using ChunkSet = std::unordered_set < glm::ivec3, ivec3Hasher>;
+    using ChunkSet = robin_hood::unordered_flat_set<glm::ivec3, ivec3Hasher>;
 
     ChunkSet loaded;
     ChunkSet prevLoaded;

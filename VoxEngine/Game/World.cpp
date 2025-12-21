@@ -1001,7 +1001,7 @@ void World::startBuildingChunkLights()
 			return;
 		}
 
-		std::unordered_set<Chunk*> remainingChunks;
+		robin_hood::unordered_flat_set<Chunk*> remainingChunks;
 		remainingChunks.reserve(buildLightContainer.size());
 
 		chunksToProcess.reserve(buildLightContainer.size());

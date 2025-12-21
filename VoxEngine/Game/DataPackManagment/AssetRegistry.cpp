@@ -492,10 +492,10 @@ const ItemModelData* AssetRegistry::getItemModelData(ModelId numericalId)
 	return numericalId < itemModelDataStorage.size() ? &itemModelDataStorage[numericalId] : nullptr;
 }
 
-std::vector<std::string> AssetRegistry::sortMapAndReturnNames(const std::unordered_map<std::string, size_t> map)
+std::vector<std::string> AssetRegistry::sortMapAndReturnNames(const robin_hood::unordered_flat_map<std::string, size_t>& map)
 {
 	// Copy pairs to vector and sort
-	std::vector<std::pair<std::string, size_t>> sortedPairs(
+	std::vector<robin_hood::pair<std::string, size_t>> sortedPairs(
 		map.begin(), map.end()
 	);
 
@@ -506,11 +506,10 @@ std::vector<std::string> AssetRegistry::sortMapAndReturnNames(const std::unorder
 
 	// Create result vector
 	std::vector<std::string> names;
-	names.reserve(names.size());
-
+	names.reserve(sortedPairs.size());
 	for (const auto& item : sortedPairs)
 	{
-		names.push_back(item.first);
+		names.emplace_back(std::move(item.first));
 	}
 
 	return names;

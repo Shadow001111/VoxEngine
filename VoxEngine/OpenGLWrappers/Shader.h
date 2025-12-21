@@ -1,7 +1,7 @@
 #pragma once
 #include <string>
 #include <vector>
-#include <unordered_map>
+#include "robin_hood.h"
 #include <glad/glad.h>
 #include <glm/mat4x4.hpp>
 
@@ -9,7 +9,7 @@ class Shader
 {
     GLuint ID = 0;
     bool initialized = false;
-    mutable std::unordered_map<std::string, GLint> uniformLocationCache;
+    mutable robin_hood::unordered_flat_map<std::string, GLint> uniformLocationCache;
 public:
     struct ShaderSource
     {

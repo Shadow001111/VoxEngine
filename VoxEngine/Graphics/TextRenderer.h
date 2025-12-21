@@ -26,7 +26,7 @@ struct Glyph
 
 struct Font
 {
-    std::unordered_map<uint32_t, Glyph> glyphs;
+    robin_hood::unordered_flat_map<uint32_t, Glyph> glyphs;
     float fontSize = 0.0f;
     glm::ivec2 maxGlyphSize = { 0, 0 };
     GLuint textureArrayID = 0;
@@ -53,7 +53,7 @@ constexpr size_t GLYPH_INSTANCE_BATCH_SIZE = 1024;
 // TODO: Use opengl wrappers
 class TextRenderer
 {
-    std::unordered_map<std::string, Font> fonts;
+    robin_hood::unordered_flat_map<std::string, Font> fonts;
     Font* currentFont = nullptr;
 
     GLuint textVAO = 0, textVBO = 0, textInstanceVBO = 0;

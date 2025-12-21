@@ -27,7 +27,7 @@ protected:
 	Transform previousTransform;
 
 	glm::dvec3 velocity;
-	glm::dvec3 size; // Half - extents of the entity's bounding box
+	glm::dvec3 size; // Full extents of the entity's bounding box
 
 	bool hasGravity = false;
 

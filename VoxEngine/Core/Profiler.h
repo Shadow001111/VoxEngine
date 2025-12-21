@@ -1,6 +1,6 @@
 #pragma once
 #include <chrono>
-#include <unordered_map>
+#include "robin_hood.h"
 #include <string>
 #include <vector>
 #include <limits>
@@ -36,13 +36,13 @@ class Profiler
         void reset();
     };
 
-    static std::unordered_map<std::string, ProfileData> profileData;
-    static std::chrono::high_resolution_clock::time_point frameStartTime;
+    static robin_hood::unordered_flat_map<std::string, ProfileData> profileData;
+    static std::chrono::steady_clock::time_point frameStartTime;
     static std::mutex profileDataMutex;
 
     static thread_local std::string manualProfileName;
     static thread_local ProfileCategory manualProfileCategory;
-    static thread_local std::chrono::high_resolution_clock::time_point manualProfileStartTime;
+    static thread_local std::chrono::steady_clock::time_point manualProfileStartTime;
 
     static const char* getCategoryColor(ProfileCategory category);
     static const char* getCategoryName(ProfileCategory category);
@@ -52,7 +52,7 @@ public:
     static void endProfile();
 
     static const ProfileData* getProfileData(const std::string& name);
-    static std::vector<std::pair<std::string, ProfileData>> getAllProfileData();
+    static std::vector<robin_hood::pair<std::string, ProfileData>> getAllProfileData();
 
     static void addSample(const std::string& name, double duration, ProfileCategory category);
 
@@ -60,7 +60,7 @@ public:
 private:
     static void printTableHeader(std::ostringstream& ss);
     static void printProfileEntry(std::ostringstream& ss, const std::string& name, const ProfileData& data, double frameTotalTime);
-    static void printCategoryStatistics(std::ostringstream& ss, const std::unordered_map<ProfileCategory, double>& categoryTotals, double frameTotalTime);
+    static void printCategoryStatistics(std::ostringstream& ss, const robin_hood::unordered_flat_map<ProfileCategory, double>& categoryTotals, double frameTotalTime);
 public:
     static void printProfileReport();
 };
@@ -71,7 +71,7 @@ class ScopedProfiler
 private:
     std::string name;
     ProfileCategory category;
-    std::chrono::high_resolution_clock::time_point startTime;
+    std::chrono::steady_clock::time_point startTime;
 public:
     ScopedProfiler(const char* profileName, ProfileCategory category);
     ~ScopedProfiler();

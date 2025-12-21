@@ -1,7 +1,7 @@
 #pragma once
 #include <glm/glm.hpp>
 #include <vector>
-#include <unordered_map>
+#include "robin_hood.h"
 #include <mutex>
 
 #include "Game/DataPackManagment/DataTypes/BlockData.h"
@@ -24,7 +24,7 @@ class StructureBlockChangeManager
 {
 private:
     // Map of chunk position to pending changes
-    std::unordered_map<glm::ivec3, std::vector<StructureBlockChange>, ivec3Hasher> pendingChanges;
+    robin_hood::unordered_flat_map<glm::ivec3, std::vector<StructureBlockChange>, ivec3Hasher> pendingChanges;
     mutable std::mutex changesMutex;
 
 public:

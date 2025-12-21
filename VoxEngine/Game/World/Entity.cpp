@@ -139,9 +139,8 @@ void Entity::moveAndCheckForCollisions_SpeedSafe(const glm::dvec3& dpos)
 
 void Entity::moveAndCheckForCollisions_DDA(const glm::dvec3& dpos)
 {
-	glm::dvec3 pos = transform.position;
 	glm::dvec3 move = dpos;
-	glm::dvec3 halfSize = size * 0.5;
+	const glm::dvec3 halfSize = size * 0.5;
 
 	constexpr double COLLISION_SEPARATION = 1e-6;
 
@@ -149,7 +148,6 @@ void Entity::moveAndCheckForCollisions_DDA(const glm::dvec3& dpos)
 	{
 		if (glm::length(move) < 1e-6)
 		{
-			transform.position = pos;
 			return;
 		}
 
@@ -168,7 +166,7 @@ void Entity::moveAndCheckForCollisions_DDA(const glm::dvec3& dpos)
 			}
 		}
 
-		glm::dvec3 startEdge = pos + halfSize * step;
+		glm::dvec3 startEdge = transform.position + halfSize * step;
 
 		glm::ivec3 mapPos = glm::floor(startEdge);
 
@@ -217,9 +215,9 @@ void Entity::moveAndCheckForCollisions_DDA(const glm::dvec3& dpos)
 				break;
 			}
 
-			if (checkCollisionTiles(pos, move, mapPos, totalDist, hitAxis))
+			if (checkCollisionTiles(transform.position, move, mapPos, totalDist, hitAxis))
 			{
-				pos += move * (totalDist / maxDist);
+				transform.position += move * (totalDist / maxDist);
 				hit = true;
 				hitMapPos = mapPos;
 				break;
@@ -230,11 +228,11 @@ void Entity::moveAndCheckForCollisions_DDA(const glm::dvec3& dpos)
 		{
 			if (step[hitAxis] > 0)
 			{
-				pos[hitAxis] = hitMapPos[hitAxis] - halfSize[hitAxis] - COLLISION_SEPARATION;
+				transform.position[hitAxis] = hitMapPos[hitAxis] - halfSize[hitAxis] - COLLISION_SEPARATION;
 			}
 			else
 			{
-				pos[hitAxis] = (hitMapPos[hitAxis] + 1) + halfSize[hitAxis] + COLLISION_SEPARATION;
+				transform.position[hitAxis] = (hitMapPos[hitAxis] + 1) + halfSize[hitAxis] + COLLISION_SEPARATION;
 			}
 			move[hitAxis] = 0.0;
 			velocity[hitAxis] = 0.0;
@@ -245,12 +243,10 @@ void Entity::moveAndCheckForCollisions_DDA(const glm::dvec3& dpos)
 		}
 		else
 		{
-			pos += move;
-			transform.position = pos;
+			transform.position += move;
 			return;
 		}
 	}
-	transform.position = pos;
 }
 
 bool Entity::checkCollisionTiles(const glm::dvec3& pos, const glm::dvec3& move, const glm::ivec3& checkPos, double distance, int checkAxis) const

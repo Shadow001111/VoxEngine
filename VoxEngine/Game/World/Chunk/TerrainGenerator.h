@@ -4,7 +4,7 @@
 #define FASTNOISE_STATIC_LIB
 #include "FastNoise/FastNoise.h"
 
-#include <unordered_map>
+#include "robin_hood.h"
 #include <memory>
 #include <mutex>
 #include <condition_variable>
@@ -63,7 +63,7 @@ class TerrainGenerator
 	};
 
 	ChunkColumnDataPool chunkColumnDataPool;
-	std::unordered_map<glm::ivec2, std::unique_ptr<ChunkColumnData>, Int2Hasher> chunkColumnData;
+	robin_hood::unordered_flat_map<glm::ivec2, std::unique_ptr<ChunkColumnData>, Int2Hasher> chunkColumnData;
 	mutable std::mutex dataMutex; // Protects chunkColumnData map
 	
 	static int seed;

@@ -27,11 +27,6 @@ std::optional<size_t> StringIndexer::getId(const std::string& str) const
     return it->second;
 }
 
-const std::unordered_map<std::string, size_t>& StringIndexer::getNameToIDMap() const
-{
-    return nameToID;
-}
-
 void StringIndexer::clear()
 {
     nameToID.clear();
