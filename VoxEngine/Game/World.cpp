@@ -15,6 +15,8 @@
 
 #include "Graphics/quad_vertices.h"
 
+#include "SeamlessPerlinNoise/Perlin.h"
+
 #include <stdexcept>
 #include <glm/glm.hpp>
 
@@ -28,10 +30,40 @@ constexpr unsigned OPAQUE_TEX_BINDING = 1;
 constexpr unsigned ACCUMULATION_TEX_BINDING = 2;
 constexpr unsigned REVEALAGE_TEX_BINDING = 3;
 
+constexpr unsigned BACKGROUND_TEXTURE_BINDING = 1;
+constexpr unsigned NOISE_TEXTURE_BINDING = 2;
+
+struct ViewRays
+{
+	glm::vec4 bottomLeft;
+	glm::vec4 bottomRight;
+	glm::vec4 topLeft;
+	glm::vec4 topRight;
+};
+
+ViewRays computeViewRays(const Camera& cam)
+{
+	// Half extents of the view plane at unit distance
+	float halfHeight = tan(cam.getFOV() * 0.5f);
+	float halfWidth = halfHeight * cam.getAspectRatio();
+
+	// Scale basis vectors
+	glm::vec3 forward = cam.getForward();
+	glm::vec3 right = glm::vec3(cam.getRight()) * halfWidth;
+	glm::vec3 up = glm::vec3(cam.getUp()) * halfHeight;
+
+	ViewRays rays;
+	rays.bottomLeft	= glm::vec4(forward - right - up, 0);
+	rays.bottomRight= glm::vec4(forward + right - up, 0);
+	rays.topLeft	= glm::vec4(forward - right + up, 0);
+	rays.topRight	= glm::vec4(forward + right + up, 0);
+	return rays;
+}
 
 World::World() :
 	chunkDrawCommandBuffer(GL_DRAW_INDIRECT_BUFFER, GL_DYNAMIC_DRAW),
-	chunkPositionSSBO(GL_SHADER_STORAGE_BUFFER, GL_DYNAMIC_DRAW)
+	chunkPositionSSBO(GL_SHADER_STORAGE_BUFFER, GL_DYNAMIC_DRAW),
+	skyUBO(GL_UNIFORM_BUFFER, GL_DYNAMIC_DRAW)
 {
 	// Visual settings
 	visualSettings.dayBackgroundColor = { 0.52f, 0.8f, 0.92f };
@@ -91,6 +123,21 @@ World::World() :
 		};
 		voxelMarkerShader = Shader(sources);
 	}
+	{
+		std::vector<Shader::ShaderSource> sources =
+		{
+			{GL_COMPUTE_SHADER, "res/Shaders/sky.comp"}
+		};
+		skyShader = Shader(sources);
+	}
+
+	// Buffers
+	{
+		chunkPositionSSBO.bindBase(0);
+
+		skyUBO.bind();
+		skyUBO.allocateMemory(sizeof(ViewRays));
+	}
 
 	// Datapack loading and registering assets
 	std::vector<std::string> blockTextureNames;
@@ -102,15 +149,15 @@ World::World() :
 
 	// Block textures
 	{
+		// Load
 		TextureLoader::TextureParams params;
 		params.createMipmaps = true;
 		params.minFilter = GL_NEAREST_MIPMAP_LINEAR;
 
 		PROFILE_SCOPE("Block texture array creation", ProfileCategory::General);
 		TextureLoader::createAndLoadTextureArray(blockTextureArray, "res/BlockTextures", blockTextureNames, 16, params);
-	}
 
-	{
+		// Set
 		alignedOpaqueFaceShader.use();
 		alignedOpaqueFaceShader.setInt("blockTextures", BLOCK_TEXTURE_ARRAY_BINDING);
 
@@ -124,6 +171,27 @@ World::World() :
 		nonAlignedTranslucentFaceShader.setInt("blockTextures", BLOCK_TEXTURE_ARRAY_BINDING);
 	}
 
+	// Sky noise texture
+	{
+		TextureLoader::TextureParams params;
+		params.minFilter = GL_LINEAR;
+		params.magFilter = GL_LINEAR;
+		params.wrapMode = GL_REPEAT;
+		params.desiredChannels = 1;
+
+		const size_t textureSize = 128;
+
+		std::vector<float> data;
+		SeamlessPerlinNoise::generatePerlinNoise3D(data, textureSize, textureSize, textureSize, 1.0f / 20.0f, 1.0f, 2.0f, true, 0);
+
+		PROFILE_SCOPE("Noise texture creation", ProfileCategory::General);
+		TextureLoader::createAndLoadTexture3DFromFloatData(tilingPerlinNoise3DTexture, data, textureSize, params);
+
+		// Set
+		skyShader.use();
+		skyShader.setInt("noiseTex", NOISE_TEXTURE_BINDING);
+	}
+
 	// Terrain generator
 	{
 		auto futures = ParallelUtils::getGlobalThreadPool().broadcast([]()
@@ -135,9 +203,6 @@ World::World() :
 			future.wait();
 		}
 	}
-
-	// Chunk position SSBO
-	chunkPositionSSBO.bindBase(0);
 
 	// Chunks
 	Chunk::globalInit();
@@ -378,10 +443,66 @@ void World::collectChunksToRenderAndSortThem(std::vector<ChunkRenderInfo>& chunk
 		});
 }
 
+void World::renderBackround(const Camera& camera, const OpenGL_FBO* opaqueFBO) const
+{
+	// Clear
+	{
+		opaqueFBO->bind();
+		if (!opaqueFBO->isComplete())
+		{
+			std::cerr << "[Render]: Opaque FBO is not complete!" << std::endl;
+			opaqueFBO->unbind();
+			return;
+		}
+
+		glm::vec3 fogColor = glm::mix(visualSettings.nightBackgroundColor, visualSettings.dayBackgroundColor, dayNightCycleValue);
+
+		const float bgColor[4] = { fogColor.r, fogColor.g, fogColor.b, 1.0f };
+		const float depth = 0.0f;
+
+		opaqueFBO->clear();
+		opaqueFBO->clearAttachment("color", bgColor);
+	}
+
+	// Sky
+	{
+		// Compute rays
+		auto viewRays = computeViewRays(camera);
+		skyUBO.bind();
+		skyUBO.write(&viewRays, sizeof(viewRays));
+		skyUBO.bindBase(0);
+
+		// Get output texture
+		const OpenGL_Texture& outputTex = opaqueFBO->getTexture("color");
+
+		// Get texture dimensions
+		int width = outputTex.getWidth();
+		int height = outputTex.getHeight();
+
+		// Dispatch compute shader
+		const int localSize = 16;
+		int groupsX = (width + localSize - 1) / localSize;
+		int groupsY = (height + localSize - 1) / localSize;
+
+		skyShader.use();
+		skyShader.setIvec2("texSize", width, height);
+		skyShader.setFloat("time", appTime);
+		skyShader.setFloat("dayNightCycleValue", dayNightCycleValue);
+
+		glBindImageTexture(OUTPUT_IMAGE_BINDING, outputTex.getID(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
+		glBindTextureUnit(BACKGROUND_TEXTURE_BINDING, outputTex.getID());
+		glBindTextureUnit(NOISE_TEXTURE_BINDING, tilingPerlinNoise3DTexture.getID());
+
+		glDispatchCompute(groupsX, groupsY, 1);
+		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+	}
+}
+
 void World::renderChunks(const Camera& camera, const OpenGL_FBO* opaqueFBO, const OpenGL_FBO* translucentFBO)
 {
-	glm::vec3 fogColor = glm::mix(visualSettings.nightBackgroundColor, visualSettings.dayBackgroundColor, dayNightCycleValue);
 	{
+		glm::vec3 fogColor = glm::mix(visualSettings.nightBackgroundColor, visualSettings.dayBackgroundColor, dayNightCycleValue);
+
 		const glm::ivec3 cameraChunkPos = glm::ivec3(glm::floor(camera.getPosition())) >> CHUNK_SIZE_LOG2;
 
 		auto viewMatrix = camera.getViewMatrixModified(glm::dvec3(CHUNK_SIZE));
@@ -445,9 +566,6 @@ void World::renderChunks(const Camera& camera, const OpenGL_FBO* opaqueFBO, cons
 		return;
 	}
 
-	float bgColor[4] = { fogColor.r, fogColor.g, fogColor.b, 1.0f };
-	opaqueFBO->clear();
-	opaqueFBO->clearAttachment("color", bgColor);
 	renderOpaqueChunks(chunksToRender, chunkDrawCommands, chunkPositions);
 	opaqueFBO->unbind();
 
@@ -1231,6 +1349,11 @@ std::optional<BlockId> World::getBlockAt(const glm::ivec3& globalPosition) const
 
 	glm::ivec3 localBlockPos = globalPosition & CHUNK_LOWER_BITS_MASK;
 	return chunk->getBlockAt(localBlockPos.x, localBlockPos.y, localBlockPos.z);
+}
+
+void World::setAppTime(float time)
+{
+	this->appTime = time;
 }
 
 //============================================================================

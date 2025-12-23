@@ -141,26 +141,6 @@ void Camera::rotate(float deltaYaw, float deltaPitch)
 	frustumUpdateRequired = true;
 }
 
-glm::dvec3 Camera::getPosition() const
-{
-	return transform.position;
-}
-
-float Camera::getYaw() const
-{
-	return transform.yaw;
-}
-
-float Camera::getPitch() const
-{
-	return transform.pitch;
-}
-
-Transform Camera::getTransform() const
-{
-	return transform;
-}
-
 glm::dvec3 Camera::getForward() const
 {
 	updateCameraVectors();
@@ -183,14 +163,4 @@ const Frustum& Camera::getFrustum() const
 {
 	updateFrustum();
 	return frustum;
-}
-
-float Camera::getNear() const
-{
-	return nearPlane;
-}
-
-float Camera::getFar() const
-{
-	return farPlane;
 }

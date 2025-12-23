@@ -517,6 +517,7 @@ int main()
         collectPlayerInput(player->input, wnd, previousMousePos);
 
         // World
+        world.setAppTime(time);
         if (worldUpdateTimer.peek())
         {
             glm::vec3 playerPos = player->getPosition();
@@ -544,6 +545,7 @@ int main()
         world.sendChunkMeshesToGPU();
 
         // Rendering world
+        world.renderBackround(player->getCamera(), wnd.getOpaqueFBO());
         world.renderChunks(player->getCamera(), wnd.getOpaqueFBO(), wnd.getTranslucentFBO());
         world.renderVoxelMarker(player->getCamera(), player->raycastResult);
         renderUI(containerUI, player);

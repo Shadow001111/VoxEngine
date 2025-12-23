@@ -76,6 +76,11 @@ private:
 	OpenGL_Buffer chunkDrawCommandBuffer;
 	OpenGL_Buffer chunkPositionSSBO;
 
+	Shader skyShader;
+	OpenGL_Buffer skyUBO;
+
+	OpenGL_Texture tilingPerlinNoise3DTexture;
+
 	// Debug
 	mutable DebugData debugData;
 
@@ -89,6 +94,7 @@ private:
 	robin_hood::unordered_flat_map<Entity::Id, std::unique_ptr<Entity>> entities;
 
 	// Time
+	float appTime = 0.0;
 	size_t worldTime = 0;
 	float dayNightCycleValue = 0.0f; // 1 day; 0 night
 	float skyLightSub = 0.0f;
@@ -109,6 +115,7 @@ public:
 private:
 	void collectChunksToRenderAndSortThem(std::vector<ChunkRenderInfo>& chunksToRender, const Camera& camera) const;
 public:
+	void renderBackround(const Camera& camera, const OpenGL_FBO* opaqueFBO) const;
 	void renderChunks(const Camera& camera, const OpenGL_FBO* opaqueFBO, const OpenGL_FBO* translucentFBO);
 private:
 	void renderOpaqueChunks(const std::vector<ChunkRenderInfo>& chunksToRender,
@@ -175,5 +182,7 @@ public:
 	void setChunkLoadingDistance(int renderDistance);
 public:
 	std::optional<BlockId> getBlockAt(const glm::ivec3& globalPosition) const;
+
+	void setAppTime(float time);
 };
 

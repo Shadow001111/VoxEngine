@@ -1,0 +1,218 @@
+#version 460 core
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+layout(std140, binding = 0) uniform CameraRays
+{
+    vec4 bottomLeft;
+    vec4 bottomRight;
+    vec4 topLeft;
+    vec4 topRight;
+};
+
+layout(rgba8, binding = 0) writeonly uniform image2D outputImage;
+layout(binding = 1) uniform sampler2D backgroundTex;
+layout(binding = 2) uniform sampler3D noiseTex;
+
+uniform ivec2 texSize;
+uniform float time;
+uniform float dayNightCycleValue;
+
+float noise(vec3 pos)
+{
+    return texture(noiseTex, pos).r;
+}
+
+struct AuroraSettings
+{
+    vec4 bottom_color;
+    vec4 color_top;
+    float alpha;
+    float density;
+    float sharpness;
+    int num_samples;
+    float start_height;
+    float end_height;
+    float flow_scale;
+    float flow_strength;
+    float flow_speed;
+    float flow_x_speed;
+    float wiggle_scale;
+    float wiggle_strength;
+    float wiggle_speed;
+    vec4 undersparkle_color_primary;
+    vec4 undersparkle_color_secondary;
+    float undersparkle_scale;
+    float undersparkle_speed;
+    float undersparkle_threshold;
+    float undersparkle_max_height;
+    float opacity_per_sample;
+};
+
+float make_stripe(float x, float half_size_normalized) {
+    float base_value = fract(x);
+    float left = smoothstep(0.5 - half_size_normalized, 0.5, base_value);
+    float right = smoothstep(0.5 + half_size_normalized, 0.5, base_value);
+    // float stripe = pow(left * right, settings.sharpness);
+    float stripe = left * right;
+    return stripe;
+}
+
+vec4 aurora(
+    vec3 view_dir,
+    AuroraSettings settings,
+    float global_time
+) {
+    // Ensure at least 2 samples
+    int samples = max(settings.num_samples, 2);
+    
+    vec3 accumulated_color = vec3(0.0);
+    float accumulated_alpha = 0.0;
+
+    float flow_time = global_time * settings.flow_speed;
+    float wiggle_time = global_time * settings.wiggle_speed;
+    
+    // ---- Step 1: Sample along the view ray at different heights ----
+    for (int i = 0; i < samples; i++)
+    {
+        float height_factor = float(i) / float(samples - 1);
+        float height = settings.start_height + (settings.end_height - settings.start_height) * height_factor;
+        
+        // early exit, below horizon pixels don't need rendering
+        float t = height / view_dir.y;
+        
+        vec3 p = view_dir * t;
+        vec2 world_pos = p.xz;
+        
+        // global band warping
+        vec2 s_wp = (world_pos * settings.flow_scale);
+        vec2 flow = vec2(
+            noise(vec3(s_wp.x, s_wp.y, flow_time)),
+            noise(vec3(s_wp.x, s_wp.y, 0.5 + flow_time))
+            );
+        vec2 flow_dir = normalize(flow);
+
+        vec2 w_wo = (world_pos * settings.wiggle_scale);
+        // time_offset, is needed to desyncronize the timing of the wiggle. 
+        // otherwise, the wiggle looks uniform across the sky 
+        float time_offset = w_wo.x + w_wo.y;
+        vec2 wiggle_noise = vec2(
+            noise(vec3(w_wo.x, w_wo.y, wiggle_time + time_offset)),
+            noise(vec3(w_wo.x, w_wo.y, 0.5 + wiggle_time + time_offset))
+            );
+        vec2 wiggle = wiggle_noise * settings.wiggle_strength;
+       
+        vec2 warped_pos = world_pos + flow_dir * settings.flow_strength + wiggle + settings.flow_x_speed * global_time;
+        
+        // Create 2 bands, one thicker, one less thick and spaced further away
+        float large_bands = make_stripe(warped_pos.x * settings.density, 0.2);
+        float smaller_bands = make_stripe(warped_pos.x * settings.density * 1.7, 0.1);
+        
+        // merge the bands
+        float base_bands = pow(max(large_bands, smaller_bands), settings.sharpness);
+       
+        // Vertical falloff - bright at bottom, fade at top (this creates the curtain look)
+        float vertical_intensity = smoothstep(0.0, 0.15, height_factor) * 
+                                 smoothstep(1.0, 0.5, height_factor);
+
+        // sparkles
+        float undersparkle_intensity = 1.0 - smoothstep(0.0, settings.undersparkle_max_height, height_factor);
+        vec2 sn = (warped_pos * settings.undersparkle_scale);
+        float k = global_time * settings.undersparkle_speed;
+        float undersparkle_noise = smoothstep(settings.undersparkle_threshold, 1.0, 1.0 - noise(vec3(sn.x+k, sn.y+k, k*0.3)));
+        
+        float undersparkle_color_noise = noise(vec3(sn.x*0.3+10.0, sn.y*0.3+10.0, 0.0));
+        vec3 undersparkle_color = mix(settings.undersparkle_color_primary.rgb, 
+                                     settings.undersparkle_color_secondary.rgb, 
+                                     smoothstep(0.4, 1.0, undersparkle_color_noise));
+        
+        // the undersparkle is in 50% of the middle of the base band 
+        float undersparkle_visibility = smoothstep(0.5, 1.0, base_bands);
+        vec3 sparkle = undersparkle_visibility * undersparkle_intensity * undersparkle_color * undersparkle_noise;
+        
+        float curtain = base_bands * vertical_intensity;
+        
+        float sample_alpha = curtain * settings.opacity_per_sample;
+        float sample_weight = sample_alpha * (1.0 - accumulated_alpha);
+
+        vec3 selected_color = mix(settings.bottom_color.rgb, settings.color_top.rgb, height_factor);
+        
+        accumulated_color += selected_color * curtain * sample_weight + sparkle * vertical_intensity * sample_weight;
+        accumulated_alpha += sample_alpha * (1.0 - accumulated_alpha);
+        
+        if (accumulated_alpha > 0.95)
+        {
+            break;
+        }
+    }
+    
+    // Fade by view angle
+    float up_factor = smoothstep(0.05, 0.7, view_dir.y);
+    float final_alpha = accumulated_alpha * up_factor * settings.alpha;
+    
+    return vec4(accumulated_color * up_factor * settings.alpha, final_alpha);
+}
+
+void main()
+{
+    ivec2 texelCoord = ivec2(gl_GlobalInvocationID.xy);
+    if (texelCoord.x >= texSize.x || texelCoord.y >= texSize.y) return;
+
+    vec2 uv = (vec2(texelCoord) + 0.5) / vec2(texSize);
+    
+    vec3 rayBottom = mix(bottomLeft.xyz, bottomRight.xyz, uv.x);
+    vec3 rayTop    = mix(topLeft.xyz, topRight.xyz, uv.x);
+    vec3 viewDir   = normalize(mix(rayBottom, rayTop, uv.y));
+
+    if (viewDir.y < 0.0) return;
+
+    AuroraSettings settings;
+
+    // Main colors
+    settings.bottom_color = vec4(0.1, 0.8, 0.3, 1.0);  // Bright green at bottom
+    settings.color_top = vec4(0.3, 0.1, 0.8, 1.0);     // Purple-blue at top
+
+    // Transparency and intensity
+    settings.alpha = pow(1.0 - dayNightCycleValue, 10.0);           // Overall opacity (0.0-1.0)
+    if (settings.alpha < 0.1)
+    {
+        return;
+    }
+    settings.opacity_per_sample = 0.1;  // How much each sample contributes
+
+    // Band structure
+    settings.density = 0.5;        // Controls band spacing (higher = more bands)
+    settings.sharpness = 0.1;       // How sharp the bands are (higher = sharper)
+    settings.num_samples = 20;       // Raymarching samples (more = smoother but slower)
+
+    // Height range
+    settings.start_height = 1.0;  // Where aurora starts (in world units)
+    settings.end_height = settings.start_height + 0.025 * settings.num_samples;    // Where aurora ends
+
+    // Flow/movement
+    settings.flow_scale = 0.05;     // Scale of large-scale flow patterns
+    settings.flow_strength = 2.0;  // How much flow affects the aurora
+    settings.flow_speed = 0.01;      // Speed of flow movement
+    settings.flow_x_speed = 0.1;   // Horizontal drift speed
+
+    // Wiggling/small details
+    settings.wiggle_scale = 0.05;   // Scale of small wiggles
+    settings.wiggle_strength = 0.0;//1.0;// How prominent wiggles are
+    settings.wiggle_speed = 0.01;   // Speed of wiggles
+
+    // Sparkles (under-layer detail)
+    settings.undersparkle_color_primary = vec4(1.0, 0.0, 0.0, 1.0);  // Warm white
+    settings.undersparkle_color_secondary = vec4(0.0, 0.0, 1.0, 1.0); // Cool white
+    settings.undersparkle_scale = 0.1;    // Scale of sparkle pattern
+    settings.undersparkle_speed = 0.05;   // Sparkle movement speed
+    settings.undersparkle_threshold = 0.7; // Controls sparkle density (higher = fewer)
+    settings.undersparkle_max_height = 0.9; // How high sparkles appear (0-1 relative height)
+
+    vec4 aurora_color = aurora(viewDir, settings, time);
+    vec4 background_color = texture(backgroundTex, uv);
+
+    // Standard alpha blending
+    vec4 final_color = mix(background_color, aurora_color, aurora_color.a);
+
+    imageStore(outputImage, texelCoord, final_color);
+}

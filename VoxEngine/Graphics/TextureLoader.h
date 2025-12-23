@@ -31,4 +31,11 @@ namespace TextureLoader
         int textureSize,
         const TextureParams& params = TextureParams()
     );
+
+    void createAndLoadTexture3DFromFloatData(
+        OpenGL_Texture& texture,
+        const std::vector<float>& data,
+        int textureSize,
+        const TextureParams& params = TextureParams()
+    );
 }

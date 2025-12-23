@@ -43,15 +43,18 @@ public:
 	void move(const glm::dvec3& delta);
 	void rotate(float deltaYaw, float deltaPitch);
 
-	glm::dvec3 getPosition() const;
-	float getYaw() const;
-	float getPitch() const;
-	Transform getTransform() const;
+	glm::dvec3 getPosition() const { return transform.position; };
+	float getYaw() const { return transform.yaw; };
+	float getPitch() const { return transform.pitch; };
+	Transform getTransform() const { return transform; };
+	float getFOV() const { return FOV; };
+	float getAspectRatio() const { return aspectRatio; };
+	float getNear() const { return nearPlane; };
+	float getFar() const { return farPlane; };
+
 	glm::dvec3 getForward() const;
 	glm::dvec3 getUp() const;
 	glm::dvec3 getRight() const;
 	const Frustum& getFrustum() const;
-	float getNear() const;
-	float getFar() const;
 };
 

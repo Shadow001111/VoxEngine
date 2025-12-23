@@ -9,12 +9,12 @@ layout(binding = 3) uniform sampler2D opaqueTex;
 void main()
 {
     ivec2 texelCoord = ivec2(gl_GlobalInvocationID.xy);
-    ivec2 imageSize = imageSize(outputImage);
+    ivec2 imageSize_ = imageSize(outputImage);
     
-    if (texelCoord.x >= imageSize.x || texelCoord.y >= imageSize.y)
+    if (texelCoord.x >= imageSize_.x || texelCoord.y >= imageSize_.y)
         return;
     
-    vec2 texCoords = (vec2(texelCoord) + 0.5) / vec2(imageSize);
+    vec2 texCoords = (vec2(texelCoord) + 0.5) / vec2(imageSize_);
     
     vec4 accumulation = texture(accumulationTex, texCoords);
     float revealage = texture(revealageTex, texCoords).r;

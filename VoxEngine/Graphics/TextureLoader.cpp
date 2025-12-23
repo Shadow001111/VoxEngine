@@ -39,7 +39,7 @@ namespace TextureLoader
                 }
             }
         }
-        else // channels == 3
+        else if (channels == 3)
         {
             size_t index = 0;
             for (int y = 0; y < textureSize; y++)
@@ -62,21 +62,85 @@ namespace TextureLoader
                 }
             }
         }
+        else if (channels == 2)
+        {
+            size_t index = 0;
+            for (int y = 0; y < textureSize; y++)
+            {
+                bool hy = y > (textureSize >> 1);
+                for (int x = 0; x < textureSize; x++)
+                {
+                    bool hx = x > (textureSize >> 1);
+                    bool hxy = hx ^ hy;
+
+                    unsigned char r, a;
+                    r = hxy ? 255 : 0;
+                    a = 255;
+
+                    undefinedTexture[index] = r;
+                    undefinedTexture[index + 1] = a;
+                    index += 2;
+                }
+            }
+        }
+        else if (channels == 1)
+        {
+            size_t index = 0;
+            for (int y = 0; y < textureSize; y++)
+            {
+                bool hy = y > (textureSize >> 1);
+                for (int x = 0; x < textureSize; x++)
+                {
+                    bool hx = x > (textureSize >> 1);
+                    bool hxy = hx ^ hy;
+
+                    unsigned char r;
+                    r = hxy ? 255 : 0;
+
+                    undefinedTexture[index] = r;
+                    index += 1;
+                }
+            }
+        }
 
         return undefinedTexture;
     }
 
+    GLenum getInternalFormat(int channels)
+    {
+        switch (channels)
+        {
+        case 1: return GL_R8;
+        case 2: return GL_RG8;
+        case 3: return GL_RGB8;
+        case 4: return GL_RGBA8;
+        default: return GL_RGBA8;
+        }
+    }
+
+    GLenum getFormat(int channels)
+    {
+        switch (channels)
+        {
+        case 1: return GL_RED;
+        case 2: return GL_RG;
+        case 3: return GL_RGB;
+        case 4: return GL_RGBA;
+        default: return GL_RGBA;
+        }
+    }
+
     void createAndLoadTexture2D(OpenGL_Texture& texture, const std::filesystem::path& texturePath, int textureSize, const TextureParams& params)
     {
-        if (params.desiredChannels != 3 && params.desiredChannels != 4)
+        if (params.desiredChannels < 1 || params.desiredChannels > 4)
         {
-            std::cerr << "[TextureLoader]: Only 3 (RGB) or 4 (RGBA) channels are supported. Got: " << params.desiredChannels << std::endl;
+            std::cerr << "[TextureLoader][createAndLoadTexture2D]: Only 1-4 channels are supported. Got: " << params.desiredChannels << std::endl;
             return;
         }
 
         if (!fs::exists(texturePath) || !fs::is_regular_file(texturePath))
         {
-            std::cerr << "[TextureLoader]: Texture file is not found " << texturePath << std::endl;
+            std::cerr << "[TextureLoader][createAndLoadTexture2D]: Texture file is not found " << texturePath << std::endl;
             return;
         }
 
@@ -84,8 +148,8 @@ namespace TextureLoader
 
         std::vector<unsigned char> undefinedTexture = createUndefinedTexture(textureSize, params.desiredChannels);
 
-        GLenum internalFormat = params.desiredChannels == 4 ? GL_RGBA8 : GL_RGB8;
-        GLenum format = params.desiredChannels == 4 ? GL_RGBA : GL_RGB;
+        GLenum internalFormat = getInternalFormat(params.desiredChannels);
+        GLenum format = getFormat(params.desiredChannels);
 
         texture.create2D(textureSize, textureSize, internalFormat, format, GL_UNSIGNED_BYTE, mipmapLevels);
         texture.bind();
@@ -100,20 +164,21 @@ namespace TextureLoader
         stbi_set_flip_vertically_on_load(true);
 
         int width, height, channels;
-        unsigned char* data = stbi_load(texturePath.string().c_str(), &width, &height, &channels, params.desiredChannels);
+        // Load with original channels first to see what we have
+        unsigned char* data = stbi_load(texturePath.string().c_str(), &width, &height, &channels, 0);
 
         if (!data)
         {
-            std::cerr << "[TextureLoader]: Failed to load texture: " << texturePath << "\n";
+            std::cerr << "[TextureLoader][createAndLoadTexture2D]: Failed to load texture: " << texturePath << "\n";
             // Upload fallback texture
             texture.uploadSubData(undefinedTexture.data(), 0, 0, 0,
                 textureSize, textureSize, 1, 0);
-            return;;
+            return;
         }
 
         if (width != textureSize || height != textureSize)
         {
-            std::cerr << "[TextureLoader]: Texture " << texturePath.stem()
+            std::cerr << "[TextureLoader][createAndLoadTexture2D]: Texture " << texturePath.stem()
                 << " is not " << textureSize << "x" << textureSize
                 << " (" << width << "x" << height << ")\n";
             stbi_image_free(data);
@@ -123,8 +188,61 @@ namespace TextureLoader
             return;
         }
 
-        // Upload the actual texture data
-        texture.uploadSubData(data, 0, 0, 0, textureSize, textureSize, 1, 0);
+        // Convert data to desired channel format
+        std::vector<unsigned char> convertedData;
+        if (channels != params.desiredChannels)
+        {
+            convertedData.resize(textureSize * textureSize * params.desiredChannels);
+            int srcStride = textureSize * channels;
+            int dstStride = textureSize * params.desiredChannels;
+
+            for (int y = 0; y < textureSize; y++)
+            {
+                for (int x = 0; x < textureSize; x++)
+                {
+                    int srcIndex = y * srcStride + x * channels;
+                    int dstIndex = y * dstStride + x * params.desiredChannels;
+
+                    // Copy available channels, pad missing ones with 0 (or 255 for alpha if needed)
+                    for (int c = 0; c < params.desiredChannels; c++)
+                    {
+                        if (c < channels)
+                        {
+                            // Copy existing channel
+                            convertedData[dstIndex + c] = data[srcIndex + c];
+                        }
+                        else
+                        {
+                            // Pad with 0 for RGB channels, 255 for alpha if it's the 4th channel
+                            if (params.desiredChannels == 4 && c == 3)
+                            {
+                                // If we're adding an alpha channel, default to fully opaque
+                                convertedData[dstIndex + c] = 255;
+                            }
+                            else if (params.desiredChannels == 2 && c == 1)
+                            {
+                                // For 2-channel, if we need a second channel, default to 255
+                                convertedData[dstIndex + c] = 255;
+                            }
+                            else
+                            {
+                                convertedData[dstIndex + c] = 0;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Upload the texture data
+        if (channels == params.desiredChannels)
+        {
+            texture.uploadSubData(data, 0, 0, 0, textureSize, textureSize, 1, 0);
+        }
+        else
+        {
+            texture.uploadSubData(convertedData.data(), 0, 0, 0, textureSize, textureSize, 1, 0);
+        }
 
         stbi_image_free(data);
     }
@@ -137,15 +255,15 @@ namespace TextureLoader
         const TextureParams& params
     )
     {
-        if (params.desiredChannels != 3 && params.desiredChannels != 4)
+        if (params.desiredChannels < 1 || params.desiredChannels > 4)
         {
-            std::cerr << "[TextureLoader]: Only 3 (RGB) or 4 (RGBA) channels are supported. Got: " << params.desiredChannels << std::endl;
+            std::cerr << "[TextureLoader][createAndLoadTextureArray]: Only 1-4 channels are supported. Got: " << params.desiredChannels << std::endl;
             return;
         }
 
         if (!fs::exists(texturesFolderPath))
         {
-            std::cerr << "[TextureLoader]: Textures folder is not found for path " << texturesFolderPath << std::endl;
+            std::cerr << "[TextureLoader][createAndLoadTextureArray]: Textures folder is not found for path " << texturesFolderPath << std::endl;
             return;
         }
 
@@ -154,8 +272,8 @@ namespace TextureLoader
 
         std::vector<unsigned char> undefinedTexture = createUndefinedTexture(textureSize, params.desiredChannels);
 
-        GLenum internalFormat = params.desiredChannels == 4 ? GL_RGBA8 : GL_RGB8;
-        GLenum format = params.desiredChannels == 4 ? GL_RGBA : GL_RGB;
+        GLenum internalFormat = getInternalFormat(params.desiredChannels);
+        GLenum format = getFormat(params.desiredChannels);
 
         // Create the texture array using OpenGL_Texture
         texture.create2DArray(textureSize, textureSize, static_cast<int>(layerCount),
@@ -177,11 +295,12 @@ namespace TextureLoader
         {
             fs::path fullPath = texturesFolderPath / (textureNames[i] + ".png");
             int width, height, channels;
-            unsigned char* data = stbi_load(fullPath.string().c_str(), &width, &height, &channels, params.desiredChannels);
+            // Load with original channels first to see what we have
+            unsigned char* data = stbi_load(fullPath.string().c_str(), &width, &height, &channels, 0);
 
             if (!data)
             {
-                std::cerr << "[TextureLoader]: Failed to load texture: " << fullPath << "\n";
+                std::cerr << "[TextureLoader][createAndLoadTextureArray]: Failed to load texture: " << fullPath << "\n";
                 // Upload fallback texture
                 texture.uploadSubData(undefinedTexture.data(), 0, 0, static_cast<int>(i),
                     textureSize, textureSize, 1, 0);
@@ -190,7 +309,7 @@ namespace TextureLoader
 
             if (width != textureSize || height != textureSize)
             {
-                std::cerr << "[TextureLoader]: Texture " << textureNames[i]
+                std::cerr << "[TextureLoader][createAndLoadTextureArray]: Texture " << textureNames[i]
                     << " is not " << textureSize << "x" << textureSize
                     << " (" << width << "x" << height << ")\n";
                 stbi_image_free(data);
@@ -200,9 +319,63 @@ namespace TextureLoader
                 continue;
             }
 
-            // Upload the actual texture data
-            texture.uploadSubData(data, 0, 0, static_cast<int>(i),
-                textureSize, textureSize, 1, 0);
+            // Convert data to desired channel format
+            std::vector<unsigned char> convertedData;
+            if (channels != params.desiredChannels)
+            {
+                convertedData.resize(textureSize * textureSize * params.desiredChannels);
+                int srcStride = textureSize * channels;
+                int dstStride = textureSize * params.desiredChannels;
+
+                for (int y = 0; y < textureSize; y++)
+                {
+                    for (int x = 0; x < textureSize; x++)
+                    {
+                        int srcIndex = y * srcStride + x * channels;
+                        int dstIndex = y * dstStride + x * params.desiredChannels;
+
+                        // Copy available channels, pad missing ones with 0 (or 255 for alpha if needed)
+                        for (int c = 0; c < params.desiredChannels; c++)
+                        {
+                            if (c < channels)
+                            {
+                                // Copy existing channel
+                                convertedData[dstIndex + c] = data[srcIndex + c];
+                            }
+                            else
+                            {
+                                // Pad with 0 for RGB channels, 255 for alpha if it's the 4th channel
+                                if (params.desiredChannels == 4 && c == 3)
+                                {
+                                    // If we're adding an alpha channel, default to fully opaque
+                                    convertedData[dstIndex + c] = 255;
+                                }
+                                else if (params.desiredChannels == 2 && c == 1)
+                                {
+                                    // For 2-channel, if we need a second channel, default to 255
+                                    convertedData[dstIndex + c] = 255;
+                                }
+                                else
+                                {
+                                    convertedData[dstIndex + c] = 0;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Upload the texture data
+            if (channels == params.desiredChannels)
+            {
+                texture.uploadSubData(data, 0, 0, static_cast<int>(i),
+                    textureSize, textureSize, 1, 0);
+            }
+            else
+            {
+                texture.uploadSubData(convertedData.data(), 0, 0, static_cast<int>(i),
+                    textureSize, textureSize, 1, 0);
+            }
 
             stbi_image_free(data);
         }
@@ -212,5 +385,43 @@ namespace TextureLoader
         {
             texture.generateMipmaps();
         }
+    }
+
+    void createAndLoadTexture3DFromFloatData(OpenGL_Texture& texture, const std::vector<float>& data, int textureSize, const TextureParams& params)
+    {
+        if (params.desiredChannels < 1 || params.desiredChannels > 4)
+        {
+            std::cerr << "[TextureLoader][createAndLoadTexture3DFromFloatData]: Only 1-4 channels are supported. Got: " << params.desiredChannels << std::endl;
+            return;
+        }
+
+        const int expectedSize = textureSize * textureSize * textureSize;
+        if (data.size() < expectedSize)
+        {
+            std::cerr << "[TextureLoader][createAndLoadTexture3D]: Provided data size is not enough\n";
+            return;
+        }
+        if (data.size() > expectedSize)
+        {
+            std::cerr << "[TextureLoader][createAndLoadTexture3D]: Provided data size is too big, truncating\n";
+        }
+
+        const int mipmapLevels = 1 + (params.createMipmaps ? static_cast<int>(std::ceil(std::log2(textureSize))) : 0);
+
+        GLenum internalFormat = getInternalFormat(params.desiredChannels);
+        GLenum format = getFormat(params.desiredChannels);
+
+        texture.create3D(textureSize, textureSize, textureSize, internalFormat, format, GL_FLOAT, mipmapLevels);
+        texture.bind();
+
+        texture.setParameters(
+            params.minFilter,
+            params.magFilter,
+            params.wrapMode,
+            params.wrapMode,
+            params.wrapMode);
+
+        // Upload the texture data
+        texture.uploadSubData(data.data(), 0, 0, 0, textureSize, textureSize, textureSize, 0);
     }
 }
