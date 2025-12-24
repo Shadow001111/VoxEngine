@@ -2,27 +2,25 @@
 #include "OpenGLWrappers/openGLDebug.h"
 #include <iostream>
 
-// TODO: Add 'SAFE_OPENGL' macro to enable binds in methods for safety
-
 OpenGL_Texture::OpenGL_Texture()
 {
-	glGenTextures(1, &ID);
+	glGenTextures(1, &id);
 }
 
 OpenGL_Texture::~OpenGL_Texture()
 {
-	if (ID)
+	if (id)
 	{
-		glDeleteTextures(1, &ID);
+		glDeleteTextures(1, &id);
 	}
 }
 
 OpenGL_Texture::OpenGL_Texture(OpenGL_Texture&& other) noexcept
-	: ID(other.ID), type(other.type), internalFormat(other.internalFormat),
+	: id(other.id), type(other.type), internalFormat(other.internalFormat),
 	format(other.format), dataType(other.dataType), width(other.width),
 	height(other.height), depth(other.depth), mipLevels(other.mipLevels)
 {
-	other.ID = 0;
+	other.id = 0;
 	other.type = GL_TEXTURE_2D;
 	other.internalFormat = 0;
 	other.format = 0;
@@ -37,12 +35,12 @@ OpenGL_Texture& OpenGL_Texture::operator=(OpenGL_Texture&& other) noexcept
 {
 	if (this != &other)
 	{
-		if (ID)
+		if (id)
 		{
-			glDeleteTextures(1, &ID);
+			glDeleteTextures(1, &id);
 		}
 
-		ID = other.ID;
+		id = other.id;
 		type = other.type;
 		internalFormat = other.internalFormat;
 		format = other.format;
@@ -52,7 +50,7 @@ OpenGL_Texture& OpenGL_Texture::operator=(OpenGL_Texture&& other) noexcept
 		depth = other.depth;
 		mipLevels = other.mipLevels;
 
-		other.ID = 0;
+		other.id = 0;
 		other.type = GL_TEXTURE_2D;
 		other.internalFormat = 0;
 		other.format = 0;
@@ -76,7 +74,7 @@ void OpenGL_Texture::create1D(int width, GLenum internalFormat, GLenum format, G
 	this->depth = 1;
 	this->mipLevels = mipLevels;
 
-	glBindTexture(type, ID);
+	glBindTexture(type, id);
 	glTexStorage1D(type, mipLevels, internalFormat, width);
 }
 
@@ -91,7 +89,7 @@ void OpenGL_Texture::create2D(int width, int height, GLenum internalFormat, GLen
 	this->depth = 1;
 	this->mipLevels = mipLevels;
 
-	glBindTexture(type, ID);
+	glBindTexture(type, id);
 	glTexStorage2D(type, mipLevels, internalFormat, width, height);
 }
 
@@ -106,7 +104,7 @@ void OpenGL_Texture::create3D(int width, int height, int depth, GLenum internalF
 	this->depth = depth;
 	this->mipLevels = mipLevels;
 
-	glBindTexture(type, ID);
+	glBindTexture(type, id);
 	glTexStorage3D(type, mipLevels, internalFormat, width, height, depth);
 }
 
@@ -121,7 +119,7 @@ void OpenGL_Texture::create2DArray(int width, int height, int layers, GLenum int
 	this->depth = layers;
 	this->mipLevels = mipLevels;
 
-	glBindTexture(type, ID);
+	glBindTexture(type, id);
 	glTexStorage3D(type, mipLevels, internalFormat, width, height, layers);
 }
 
@@ -136,13 +134,40 @@ void OpenGL_Texture::createCubeMap(int size, GLenum internalFormat, GLenum forma
 	this->depth = 6;
 	this->mipLevels = mipLevels;
 
-	glBindTexture(type, ID);
+	glBindTexture(type, id);
 	glTexStorage2D(type, mipLevels, internalFormat, size, size);
+}
+
+void OpenGL_Texture::resize1D(int width)
+{
+	this->width = width;
+
+	glBindTexture(type, id);
+	glTexStorage1D(type, mipLevels, internalFormat, width);
+}
+
+void OpenGL_Texture::resize2D(int width, int height)
+{
+	this->width = width;
+	this->height = height;
+
+	glBindTexture(type, id);
+	glTexStorage2D(type, mipLevels, internalFormat, width, height);
+}
+
+void OpenGL_Texture::resize3D(int width, int height, int depth)
+{
+	this->width = width;
+	this->height = height;
+	this->depth = depth;
+
+	glBindTexture(type, id);
+	glTexStorage3D(type, mipLevels, internalFormat, width, height, depth);
 }
 
 void OpenGL_Texture::uploadData(const void* data, int level)
 {
-	OPENGL_CHECK_BIND_TARGET(ID, type);
+	OPENGL_CHECK_BIND_TARGET(id, type);
 
 	switch (type)
 	{
@@ -168,7 +193,7 @@ void OpenGL_Texture::uploadData(const void* data, int level)
 void OpenGL_Texture::uploadSubData(const void* data, int xOffset, int yOffset, int zOffset,
 	int width, int height, int depth, int level)
 {
-	OPENGL_CHECK_BIND_TARGET(ID, type);
+	OPENGL_CHECK_BIND_TARGET(id, type);
 
 	switch (type)
 	{
@@ -199,7 +224,7 @@ void OpenGL_Texture::generateMipmaps()
 {
 	if (mipLevels > 1)
 	{
-		OPENGL_CHECK_BIND_TARGET(ID, type);
+		OPENGL_CHECK_BIND_TARGET(id, type);
 		glGenerateMipmap(type);
 	}
 }
@@ -207,7 +232,7 @@ void OpenGL_Texture::generateMipmaps()
 void OpenGL_Texture::setParameters(GLenum minFilter, GLenum magFilter,
 	GLenum wrapS, GLenum wrapT, GLenum wrapR)
 {
-	OPENGL_CHECK_BIND_TARGET(ID, type);
+	OPENGL_CHECK_BIND_TARGET(id, type);
 
 	glTexParameteri(type, GL_TEXTURE_MIN_FILTER, minFilter);
 	glTexParameteri(type, GL_TEXTURE_MAG_FILTER, magFilter);
@@ -223,12 +248,12 @@ void OpenGL_Texture::setParameters(GLenum minFilter, GLenum magFilter,
 void OpenGL_Texture::bind(GLuint unit) const
 {
 	glActiveTexture(GL_TEXTURE0 + unit);
-	glBindTexture(type, ID);
+	glBindTexture(type, id);
 }
 
 void OpenGL_Texture::bind() const
 {
-	glBindTexture(type, ID);
+	glBindTexture(type, id);
 }
 
 void OpenGL_Texture::unbind() const

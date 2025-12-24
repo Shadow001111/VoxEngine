@@ -72,13 +72,13 @@ void OpenGL_Buffer::bindBase(GLuint index) const
 	glBindBufferBase(target, index, id);
 }
 
-void OpenGL_Buffer::allocateMemory(size_t newSize)
+void OpenGL_Buffer::allocateMemory(size_t newSize, const void* optionalReadFrom)
 {
 	if (newSize > capacity)
 	{
 		capacity = newSize;
 		glBindBuffer(target, id);
-		glBufferData(target, capacity, nullptr, usage);
+		glBufferData(target, capacity, optionalReadFrom, usage);
 	}
 }
 
@@ -88,26 +88,21 @@ void OpenGL_Buffer::write(const void* data, size_t dataSize, size_t offset) cons
 	{
 		return;
 	}
-
-	if (offset + dataSize > capacity)
+	else if (offset + dataSize > capacity)
 	{
-		std::cerr << "OpenGL_Buffer::write: Index out of bounds! Attempted write end = " << (offset + dataSize) <<
-			", capacity = " << capacity <<
-			"." << std::endl;
+		std::cerr << "[OpenGL_Buffer][write]: Index out of bounds! Attempted write end = " << (offset + dataSize) << ", capacity = " << capacity << "\n";
 		return;
 	}
-	else
-	{
-		OPENGL_CHECK_BIND_TARGET(id, target);
-		glBufferSubData(target, offset, dataSize, data);
-	}
+
+	OPENGL_CHECK_BIND_TARGET(id, target);
+	glBufferSubData(target, offset, dataSize, data);
 }
 
 void OpenGL_Buffer::copyRangeFrom(const OpenGL_Buffer& src, size_t srcOffset, size_t dstOffset, size_t size) const
 {
 	if (srcOffset + size > src.capacity || dstOffset + size > capacity)
 	{
-		std::cerr << "OpenGL_Buffer::copyRangeFrom: Range exceeds buffer capacity." << std::endl;
+		std::cerr << "[OpenGL_Buffer][copyRangeFrom]: Range exceeds buffer capacity\n";
 		return;
 	}
 
@@ -118,15 +113,4 @@ void OpenGL_Buffer::copyRangeFrom(const OpenGL_Buffer& src, size_t srcOffset, si
 		static_cast<GLintptr>(srcOffset),
 		static_cast<GLintptr>(dstOffset),
 		static_cast<GLsizeiptr>(size));
-}
-
-
-GLuint OpenGL_Buffer::getID() const
-{
-	return id;
-}
-
-size_t OpenGL_Buffer::getCapacity() const
-{
-	return capacity;
 }

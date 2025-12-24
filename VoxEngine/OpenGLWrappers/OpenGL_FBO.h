@@ -1,9 +1,8 @@
 #pragma once
-#include <glad/glad.h>
-#include "robin_hood.h"
-#include <vector>
-#include <string>
 #include "OpenGL_Texture.h"
+#include "robin_hood.h"
+#include <string>
+#include <optional>
 
 class OpenGL_FBO
 {
@@ -35,7 +34,6 @@ class OpenGL_FBO
     int width, height;
 
     robin_hood::unordered_flat_map<std::string, Attachment> attachments;
-    std::vector<GLenum> drawBuffers;
 public:
     OpenGL_FBO(int width, int height);
     ~OpenGL_FBO();
@@ -68,7 +66,7 @@ public:
         GLenum wrapS = GL_CLAMP_TO_EDGE, GLenum wrapT = GL_CLAMP_TO_EDGE);
 
     // Link existing textures
-    void linkColorTexture(const std::string& name, OpenGL_Texture& texture, int attachmentPoint = -1);
+    void linkColorTexture(const std::string& name, OpenGL_Texture& texture);
     void linkDepthTexture(const std::string& name, OpenGL_Texture& texture);
     void linkStencilTexture(const std::string& name, OpenGL_Texture& texture);
     void linkDepthStencilTexture(const std::string& name, OpenGL_Texture& texture);
@@ -78,19 +76,17 @@ public:
 
     // FBO operations
     void bind() const;
-    void unbind() const;
-    static void unbindGlobal();
+    static void unbind();
 
+    void setupDrawBuffers() const;
     void resize(int newWidth, int newHeight);
     void clear() const;
     void clearAttachment(const std::string& name, const float* clearValue) const;
 
     // Texture access
-    OpenGL_Texture& getTexture(const std::string& name);
-    const OpenGL_Texture& getTexture(const std::string& name) const;
+    std::optional<OpenGL_Texture*> getTexture(const std::string& name);
+    std::optional<const OpenGL_Texture*> getTexture(const std::string& name) const;
     bool hasTexture(const std::string& name) const;
-
-    // Bind textures for shader use
     void bindTexture(const std::string& name, GLuint textureUnit) const;
 
     // Getters
@@ -98,10 +94,8 @@ public:
     GLuint getID() const { return id; }
     int getWidth() const { return width; }
     int getHeight() const { return height; }
-    const std::vector<GLenum>& getDrawBuffers() const { return drawBuffers; }
 private:
-    void setupDrawBuffers();
-    GLenum getAttachmentPoint(AttachmentType type, int preferredPoint = -1);
+    GLenum getAttachmentPoint(AttachmentType type);
     void createTexture(Attachment& attachment, GLenum internalFormat, GLenum format, GLenum dataType,
         GLenum minFilter, GLenum magFilter, GLenum wrapS, GLenum wrapT);
 };

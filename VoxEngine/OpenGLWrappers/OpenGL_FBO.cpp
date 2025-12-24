@@ -12,15 +12,12 @@ OpenGL_FBO::OpenGL_FBO(int width, int height) : width(width), height(height)
 
 OpenGL_FBO::~OpenGL_FBO()
 {
-    // Textures are automatically managed by OpenGL_Texture destructor
-    if (id)
-        glDeleteFramebuffers(1, &id);
+    if (id) glDeleteFramebuffers(1, &id);
 }
 
 OpenGL_FBO::OpenGL_FBO(OpenGL_FBO&& other) noexcept
     : id(other.id), width(other.width), height(other.height),
-    attachments(std::move(other.attachments)),
-    drawBuffers(std::move(other.drawBuffers))
+    attachments(std::move(other.attachments))
 {
     other.id = 0;
     other.width = 0;
@@ -31,18 +28,13 @@ OpenGL_FBO& OpenGL_FBO::operator=(OpenGL_FBO&& other) noexcept
 {
     if (this != &other)
     {
-        // Clean up current resources
-        if (id)
-            glDeleteFramebuffers(1, &id);
+        if (id) glDeleteFramebuffers(1, &id);
 
-        // Move resources
         id = other.id;
         width = other.width;
         height = other.height;
         attachments = std::move(other.attachments);
-        drawBuffers = std::move(other.drawBuffers);
 
-        // Reset other
         other.id = 0;
         other.width = 0;
         other.height = 0;
@@ -62,13 +54,6 @@ void OpenGL_FBO::createColorAttachment(const std::string& name, GLenum internalF
 
     createTexture(attachment, internalFormat, format, dataType, minFilter, magFilter, wrapS, wrapT);
     attachments[name] = std::move(attachment);
-
-    setupDrawBuffers();
-
-    if (!isComplete())
-    {
-        std::cerr << "Framebuffer is not complete after adding color attachment: " << name << std::endl;
-    }
 }
 
 void OpenGL_FBO::createDepthAttachment(const std::string& name, GLenum internalFormat,
@@ -83,11 +68,6 @@ void OpenGL_FBO::createDepthAttachment(const std::string& name, GLenum internalF
 
     createTexture(attachment, internalFormat, format, dataType, minFilter, magFilter, wrapS, wrapT);
     attachments[name] = std::move(attachment);
-
-    if (!isComplete())
-    {
-        std::cerr << "Framebuffer is not complete after adding depth attachment: " << name << std::endl;
-    }
 }
 
 void OpenGL_FBO::createStencilAttachment(const std::string& name, GLenum internalFormat,
@@ -102,11 +82,6 @@ void OpenGL_FBO::createStencilAttachment(const std::string& name, GLenum interna
     createTexture(attachment, internalFormat, GL_STENCIL_INDEX, GL_UNSIGNED_BYTE,
         minFilter, magFilter, wrapS, wrapT);
     attachments[name] = std::move(attachment);
-
-    if (!isComplete())
-    {
-        std::cerr << "Framebuffer is not complete after adding stencil attachment: " << name << std::endl;
-    }
 }
 
 void OpenGL_FBO::createDepthStencilAttachment(const std::string& name, GLenum internalFormat,
@@ -121,33 +96,20 @@ void OpenGL_FBO::createDepthStencilAttachment(const std::string& name, GLenum in
     createTexture(attachment, internalFormat, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8,
         minFilter, magFilter, wrapS, wrapT);
     attachments[name] = std::move(attachment);
-
-    if (!isComplete())
-    {
-        std::cerr << "Framebuffer is not complete after adding depth-stencil attachment: " << name << std::endl;
-    }
 }
 
-void OpenGL_FBO::linkColorTexture(const std::string& name, OpenGL_Texture& texture, int attachmentPoint)
+void OpenGL_FBO::linkColorTexture(const std::string& name, OpenGL_Texture& texture)
 {
     Attachment attachment;
     attachment.texture = std::move(texture);
     attachment.type = AttachmentType::COLOR;
     attachment.isExternal = true;
-    attachment.attachmentPoint = getAttachmentPoint(AttachmentType::COLOR, attachmentPoint);
+    attachment.attachmentPoint = getAttachmentPoint(AttachmentType::COLOR);
 
     OPENGL_CHECK_BIND_TARGET(id, GL_FRAMEBUFFER);
 
-    glFramebufferTexture2D(GL_FRAMEBUFFER, attachment.attachmentPoint, GL_TEXTURE_2D,
-        attachment.texture.getID(), 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, attachment.attachmentPoint, GL_TEXTURE_2D, attachment.texture.getID(), 0);
     attachments[name] = std::move(attachment);
-
-    setupDrawBuffers();
-
-    if (!isComplete())
-    {
-        std::cerr << "Framebuffer is not complete after linking color texture: " << name << std::endl;
-    }
 }
 
 void OpenGL_FBO::linkDepthTexture(const std::string& name, OpenGL_Texture& texture)
@@ -160,14 +122,8 @@ void OpenGL_FBO::linkDepthTexture(const std::string& name, OpenGL_Texture& textu
 
     OPENGL_CHECK_BIND_TARGET(id, GL_FRAMEBUFFER);
 
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D,
-        attachment.texture.getID(), 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, attachment.texture.getID(), 0);
     attachments[name] = std::move(attachment);
-
-    if (!isComplete())
-    {
-        std::cerr << "Framebuffer is not complete after linking depth texture: " << name << std::endl;
-    }
 }
 
 void OpenGL_FBO::linkStencilTexture(const std::string& name, OpenGL_Texture& texture)
@@ -180,14 +136,8 @@ void OpenGL_FBO::linkStencilTexture(const std::string& name, OpenGL_Texture& tex
 
     OPENGL_CHECK_BIND_TARGET(id, GL_FRAMEBUFFER);
 
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D,
-        attachment.texture.getID(), 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, attachment.texture.getID(), 0);
     attachments[name] = std::move(attachment);
-
-    if (!isComplete())
-    {
-        std::cerr << "Framebuffer is not complete after linking stencil texture: " << name << std::endl;
-    }
 }
 
 void OpenGL_FBO::linkDepthStencilTexture(const std::string& name, OpenGL_Texture& texture)
@@ -200,14 +150,8 @@ void OpenGL_FBO::linkDepthStencilTexture(const std::string& name, OpenGL_Texture
 
     OPENGL_CHECK_BIND_TARGET(id, GL_FRAMEBUFFER);
 
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D,
-        attachment.texture.getID(), 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, attachment.texture.getID(), 0);
     attachments[name] = std::move(attachment);
-
-    if (!isComplete())
-    {
-        std::cerr << "Framebuffer is not complete after linking depth-stencil texture: " << name << std::endl;
-    }
 }
 
 void OpenGL_FBO::removeAttachment(const std::string& name)
@@ -220,7 +164,6 @@ void OpenGL_FBO::removeAttachment(const std::string& name)
         // Detach from framebuffer
         glFramebufferTexture2D(GL_FRAMEBUFFER, it->second.attachmentPoint, GL_TEXTURE_2D, 0, 0);
         attachments.erase(it);
-        setupDrawBuffers();
     }
 }
 
@@ -229,20 +172,14 @@ void OpenGL_FBO::bind() const
     glBindFramebuffer(GL_FRAMEBUFFER, id);
 }
 
-void OpenGL_FBO::unbind() const
-{
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-}
-
-void OpenGL_FBO::unbindGlobal()
+void OpenGL_FBO::unbind()
 {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 void OpenGL_FBO::resize(int newWidth, int newHeight)
 {
-    if (newWidth == width && newHeight == height)
-        return;
+    if (newWidth == width && newHeight == height) return;
 
     width = newWidth;
     height = newHeight;
@@ -253,17 +190,7 @@ void OpenGL_FBO::resize(int newWidth, int newHeight)
     {
         if (!attachment.isExternal)
         {
-            // Get format information from the existing texture
-            GLenum internalFormat = attachment.texture.getInternalFormat();
-            GLenum format = attachment.texture.getFormat();
-            GLenum dataType = attachment.texture.getDataType();
-
-            // Recreate the texture with new size
-            attachment.texture.create2D(width, height, internalFormat, format, dataType);
-
-            // Reattach to framebuffer
-            glFramebufferTexture2D(GL_FRAMEBUFFER, attachment.attachmentPoint, GL_TEXTURE_2D,
-                attachment.texture.getID(), 0);
+            attachment.texture.resize2D(width, height);
         }
     }
 }
@@ -276,45 +203,42 @@ void OpenGL_FBO::clear() const
 void OpenGL_FBO::clearAttachment(const std::string& name, const float* clearValue) const
 {
     auto it = attachments.find(name);
-    if (it != attachments.end())
-    {
-        OPENGL_CHECK_BIND_TARGET(id, GL_FRAMEBUFFER);
+    if (it == attachments.end()) return;
 
-        switch (it->second.type)
-        {
-        case AttachmentType::COLOR:
-            glClearBufferfv(GL_COLOR, it->second.attachmentPoint - GL_COLOR_ATTACHMENT0, clearValue);
-            break;
-        case AttachmentType::DEPTH:
-            glClearBufferfv(GL_DEPTH, 0, clearValue);
-            break;
-        case AttachmentType::STENCIL:
-        {
-            GLint stencilValue = static_cast<GLint>(clearValue[0]);
-            glClearBufferiv(GL_STENCIL, 0, &stencilValue);
-            break;
-        }
-        case AttachmentType::DEPTH_STENCIL:
-            glClearBufferfi(GL_DEPTH_STENCIL, 0, clearValue[0], static_cast<GLint>(clearValue[1]));
-            break;
-        }
+    OPENGL_CHECK_BIND_TARGET(id, GL_FRAMEBUFFER);
+
+    switch (it->second.type)
+    {
+    case AttachmentType::COLOR:
+        glClearBufferfv(GL_COLOR, it->second.attachmentPoint - GL_COLOR_ATTACHMENT0, clearValue);
+        break;
+    case AttachmentType::DEPTH:
+        glClearBufferfv(GL_DEPTH, 0, clearValue);
+        break;
+    case AttachmentType::STENCIL:
+    {
+        GLint stencilValue = static_cast<GLint>(clearValue[0]);
+        glClearBufferiv(GL_STENCIL, 0, &stencilValue);
+        break;
+    }
+    case AttachmentType::DEPTH_STENCIL:
+        glClearBufferfi(GL_DEPTH_STENCIL, 0, clearValue[0], static_cast<GLint>(clearValue[1]));
+        break;
     }
 }
 
-OpenGL_Texture& OpenGL_FBO::getTexture(const std::string& name)
+std::optional<OpenGL_Texture*> OpenGL_FBO::getTexture(const std::string& name)
 {
     auto it = attachments.find(name);
-    if (it != attachments.end())
-        return it->second.texture;
-    throw std::runtime_error("Texture not found: " + name);
+    if (it != attachments.end()) return &it->second.texture;
+    return std::nullopt;
 }
 
-const OpenGL_Texture& OpenGL_FBO::getTexture(const std::string& name) const
+std::optional<const OpenGL_Texture*> OpenGL_FBO::getTexture(const std::string& name) const
 {
     auto it = attachments.find(name);
-    if (it != attachments.end())
-        return it->second.texture;
-    throw std::runtime_error("Texture not found: " + name);
+    if (it != attachments.end()) return &it->second.texture;
+    return std::nullopt;
 }
 
 bool OpenGL_FBO::hasTexture(const std::string& name) const
@@ -340,6 +264,7 @@ bool OpenGL_FBO::isComplete() const
     {
         return true;
     }
+
     std::string errorMsg;
     switch (status)
     {
@@ -371,15 +296,15 @@ bool OpenGL_FBO::isComplete() const
         errorMsg = "Unknown error: " + std::to_string(status);
         break;
     }
-    std::cerr << "[OpenGL][Framebuffer]: Framebuffer is not complete: " << errorMsg << std::endl;
+    std::cerr << "[OpenGL][Framebuffer]: Framebuffer is not complete: " << errorMsg << "\n";
     return false;
 }
 
-void OpenGL_FBO::setupDrawBuffers()
+void OpenGL_FBO::setupDrawBuffers() const
 {
     OPENGL_CHECK_BIND_TARGET(id, GL_FRAMEBUFFER);
 
-    drawBuffers.clear();
+    std::vector<GLenum> drawBuffers;
 
     for (const auto& [name, attachment] : attachments)
     {
@@ -397,11 +322,11 @@ void OpenGL_FBO::setupDrawBuffers()
     }
     else
     {
-        glDrawBuffers(static_cast<GLsizei>(drawBuffers.size()), drawBuffers.data());
+        glDrawBuffers(drawBuffers.size(), drawBuffers.data());
     }
 }
 
-GLenum OpenGL_FBO::getAttachmentPoint(AttachmentType type, int preferredPoint)
+GLenum OpenGL_FBO::getAttachmentPoint(AttachmentType type)
 {
     if (type != AttachmentType::COLOR)
     {
@@ -412,12 +337,6 @@ GLenum OpenGL_FBO::getAttachmentPoint(AttachmentType type, int preferredPoint)
         case AttachmentType::DEPTH_STENCIL: return GL_DEPTH_STENCIL_ATTACHMENT;
         default: return GL_COLOR_ATTACHMENT0;
         }
-    }
-
-    // For color attachments, find the next available slot
-    if (preferredPoint >= 0)
-    {
-        return GL_COLOR_ATTACHMENT0 + preferredPoint;
     }
 
     int maxPoint = -1;

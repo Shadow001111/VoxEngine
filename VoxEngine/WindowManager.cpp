@@ -6,7 +6,7 @@ WindowManager::WindowManager(const WindowParams& params)
 {
     if (!glfwInit())
     {
-        std::cerr << "Failed to initialize GLFW" << std::endl;
+        std::cerr << "[WindowManager]: Failed to initialize GLFW" << std::endl;
         return;
     }
 
@@ -21,8 +21,8 @@ WindowManager::WindowManager(const WindowParams& params)
     window = glfwCreateWindow(params.width, params.height, params.title.c_str(), nullptr, nullptr);
     if (!window)
     {
+        std::cerr << "[WindowManager]: Failed to create GLFW window" << std::endl;
         glfwTerminate();
-        std::cerr << "Failed to create GLFW window" << std::endl;
         return;
     }
 
@@ -31,9 +31,9 @@ WindowManager::WindowManager(const WindowParams& params)
     // Load OpenGL via GLAD
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
     {
+        std::cerr << "[WindowManager]: Failed to initialize GLAD" << std::endl;
         glfwDestroyWindow(window);
         glfwTerminate();
-        std::cerr << "Failed to initialize GLAD" << std::endl;
         return;
     }
 
@@ -53,18 +53,32 @@ WindowManager::WindowManager(const WindowParams& params)
 	aspectRatio = static_cast<float>(width) / static_cast<float>(height);
     vsync = params.vsync;
 
-    //this->monitor = glfwGetPrimaryMonitor();
-
     opaqueFramebuffer = std::make_unique<OpenGL_FBO>(width, height);
     opaqueFramebuffer->bind();
     opaqueFramebuffer->createColorAttachment("color", GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE);
     opaqueFramebuffer->createDepthAttachment("depth", GL_DEPTH_COMPONENT32F, GL_DEPTH_COMPONENT, GL_FLOAT);
+    opaqueFramebuffer->setupDrawBuffers();
+    if (!opaqueFramebuffer->isComplete())
+    {
+        std::cerr << "[WindowManager]: Failed to create opaque framebuffer" << std::endl;
+        glfwDestroyWindow(window);
+        glfwTerminate();
+        return;
+    }
 
     translucentFramebuffer = std::make_unique<OpenGL_FBO>(width, height);
     translucentFramebuffer->bind();
     translucentFramebuffer->createColorAttachment("accumulation", GL_RGBA16F, GL_RGBA, GL_FLOAT);
     translucentFramebuffer->createColorAttachment("revealage", GL_R8, GL_RED, GL_FLOAT);
-    translucentFramebuffer->linkDepthTexture("depth", opaqueFramebuffer->getTexture("depth"));
+    translucentFramebuffer->linkDepthTexture("depth", *opaqueFramebuffer->getTexture("depth").value());
+    translucentFramebuffer->setupDrawBuffers();
+    if (!translucentFramebuffer->isComplete())
+    {
+        std::cerr << "[WindowManager]: Failed to create translucent framebuffer" << std::endl;
+        glfwDestroyWindow(window);
+        glfwTerminate();
+        return;
+    }
 }
 
 WindowManager::~WindowManager()
@@ -151,8 +165,6 @@ void WindowManager::getMousePos(float& xpos, float& ypos) const
 
 void WindowManager::framebufferSizeCallback(GLFWwindow* window, int width, int height)
 {
-    glViewport(0, 0, width, height);
-
     auto* gm = static_cast<WindowManager*>(glfwGetWindowUserPointer(window));
 	if (gm) gm->onResize(width, height);
 }
@@ -169,7 +181,12 @@ void WindowManager::onResize(int width, int height)
     this->height = height;
     this->aspectRatio = static_cast<float>(width) / static_cast<float>(height);
 
+    glViewport(0, 0, width, height);
+
+    opaqueFramebuffer->bind();
     opaqueFramebuffer->resize(width, height);
+
+    translucentFramebuffer->bind();
     translucentFramebuffer->resize(width, height);
 }
 

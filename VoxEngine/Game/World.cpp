@@ -13,8 +13,6 @@
 
 #include "SoundManager.h"
 
-#include "Graphics/quad_vertices.h"
-
 #include "SeamlessPerlinNoise/Perlin.h"
 
 #include <stdexcept>
@@ -30,15 +28,51 @@ constexpr unsigned OPAQUE_TEX_BINDING = 1;
 constexpr unsigned ACCUMULATION_TEX_BINDING = 2;
 constexpr unsigned REVEALAGE_TEX_BINDING = 3;
 
-constexpr unsigned BACKGROUND_TEXTURE_BINDING = 1;
-constexpr unsigned NOISE_TEXTURE_BINDING = 2;
-
 struct ViewRays
 {
 	glm::vec4 bottomLeft;
 	glm::vec4 bottomRight;
 	glm::vec4 topLeft;
 	glm::vec4 topRight;
+};
+
+struct AuroraSettings
+{
+	// Main colors
+	glm::vec4 bottom_color = glm::vec4(0.1f, 0.8f, 0.3f, 1.0f);
+	glm::vec4 color_top = glm::vec4(0.3f, 0.1f, 0.8f, 1.0f);
+
+	// Transparency and intensity
+	float alpha = 1.0f;
+	float opacity_per_sample = 0.1f;
+
+	// Band structure
+	float density = 0.5f;
+	float sharpness = 0.1f;
+	int num_samples = 20;
+
+	// Height range
+	float start_height = 1.0f;
+	float end_height = 1.0f + 0.025f * 20.0f;
+
+	// Flow/movement
+	float flow_scale = 0.05f;
+	float flow_strength = 2.0f;
+	float flow_speed = 0.01f;
+	float flow_x_speed = 0.1f;
+
+	// Wiggling/small details
+	float wiggle_scale = 0.05f;
+	float wiggle_strength = 1.0f;
+	float wiggle_speed = 0.01f;
+
+	// Sparkles (under-layer detail)
+	glm::vec4 undersparkle_color_primary = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
+	glm::vec4 undersparkle_color_secondary = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);
+	float undersparkle_scale = 0.1f;
+	float undersparkle_speed = 0.05f;
+	float undersparkle_threshold = 0.7f;
+	float undersparkle_max_height = 0.5f;
 };
 
 ViewRays computeViewRays(const Camera& cam)
@@ -63,7 +97,8 @@ ViewRays computeViewRays(const Camera& cam)
 World::World() :
 	chunkDrawCommandBuffer(GL_DRAW_INDIRECT_BUFFER, GL_DYNAMIC_DRAW),
 	chunkPositionSSBO(GL_SHADER_STORAGE_BUFFER, GL_DYNAMIC_DRAW),
-	skyUBO(GL_UNIFORM_BUFFER, GL_DYNAMIC_DRAW)
+	skyViewRaysUBO(GL_UNIFORM_BUFFER, GL_DYNAMIC_DRAW),
+	skyAuroraSettingsUBO(GL_UNIFORM_BUFFER, GL_STATIC_DRAW)
 {
 	// Visual settings
 	visualSettings.dayBackgroundColor = { 0.52f, 0.8f, 0.92f };
@@ -135,8 +170,11 @@ World::World() :
 	{
 		chunkPositionSSBO.bindBase(0);
 
-		skyUBO.bind();
-		skyUBO.allocateMemory(sizeof(ViewRays));
+		skyViewRaysUBO.bind();
+		skyViewRaysUBO.allocateMemory(sizeof(ViewRays));
+
+		skyAuroraSettingsUBO.bind();
+		skyAuroraSettingsUBO.allocateMemory(sizeof(AuroraSettings));
 	}
 
 	// Datapack loading and registering assets
@@ -186,10 +224,6 @@ World::World() :
 
 		PROFILE_SCOPE("Noise texture creation", ProfileCategory::General);
 		TextureLoader::createAndLoadTexture3DFromFloatData(tilingPerlinNoise3DTexture, data, textureSize, params);
-
-		// Set
-		skyShader.use();
-		skyShader.setInt("noiseTex", NOISE_TEXTURE_BINDING);
 	}
 
 	// Terrain generator
@@ -325,7 +359,8 @@ void World::loadChunks(const glm::vec3& playerPos)
 void World::update(float deltaTime)
 {
 	// Time
-	worldTime = (worldTime + 1) % TICKS_PER_24_HOURS;
+	//worldTime = (worldTime + 1) % TICKS_PER_24_HOURS;
+	worldTime = TICKS_PER_24_HOURS / 2;
 	{
 		const float t = (float)worldTime / (float)TICKS_PER_24_HOURS;
 		const float cosValue = cosf(t * 2.0f * 3.14159f);
@@ -443,62 +478,90 @@ void World::collectChunksToRenderAndSortThem(std::vector<ChunkRenderInfo>& chunk
 		});
 }
 
-void World::renderBackround(const Camera& camera, const OpenGL_FBO* opaqueFBO) const
+void World::renderBackround(const Camera& camera, const OpenGL_FBO& opaqueFBO) const
 {
 	// Clear
+	opaqueFBO.bind();
+	if (!opaqueFBO.isComplete())
 	{
-		opaqueFBO->bind();
-		if (!opaqueFBO->isComplete())
-		{
-			std::cerr << "[Render]: Opaque FBO is not complete!" << std::endl;
-			opaqueFBO->unbind();
-			return;
-		}
-
-		glm::vec3 fogColor = glm::mix(visualSettings.nightBackgroundColor, visualSettings.dayBackgroundColor, dayNightCycleValue);
-
-		const float bgColor[4] = { fogColor.r, fogColor.g, fogColor.b, 1.0f };
-		const float depth = 0.0f;
-
-		opaqueFBO->clear();
-		opaqueFBO->clearAttachment("color", bgColor);
+		std::cerr << "[World][renderBackround]: Opaque FBO is not complete!" << std::endl;
+		opaqueFBO.unbind();
+		return;
 	}
 
-	// Sky
-	{
-		// Compute rays
-		auto viewRays = computeViewRays(camera);
-		skyUBO.bind();
-		skyUBO.write(&viewRays, sizeof(viewRays));
-		skyUBO.bindBase(0);
+	glm::vec3 fogColor = glm::mix(visualSettings.nightBackgroundColor, visualSettings.dayBackgroundColor, dayNightCycleValue);
 
-		// Get output texture
-		const OpenGL_Texture& outputTex = opaqueFBO->getTexture("color");
+	const float bgColor[4] = { fogColor.r, fogColor.g, fogColor.b, 1.0f };
+	const float depth = 0.0f;
 
-		// Get texture dimensions
-		int width = outputTex.getWidth();
-		int height = outputTex.getHeight();
-
-		// Dispatch compute shader
-		const int localSize = 16;
-		int groupsX = (width + localSize - 1) / localSize;
-		int groupsY = (height + localSize - 1) / localSize;
-
-		skyShader.use();
-		skyShader.setIvec2("texSize", width, height);
-		skyShader.setFloat("time", appTime);
-		skyShader.setFloat("dayNightCycleValue", dayNightCycleValue);
-
-		glBindImageTexture(OUTPUT_IMAGE_BINDING, outputTex.getID(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
-		glBindTextureUnit(BACKGROUND_TEXTURE_BINDING, outputTex.getID());
-		glBindTextureUnit(NOISE_TEXTURE_BINDING, tilingPerlinNoise3DTexture.getID());
-
-		glDispatchCompute(groupsX, groupsY, 1);
-		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-	}
+	opaqueFBO.clear();
+	opaqueFBO.clearAttachment("color", bgColor);
 }
 
-void World::renderChunks(const Camera& camera, const OpenGL_FBO* opaqueFBO, const OpenGL_FBO* translucentFBO)
+void World::renderAurora(const Camera& camera, const OpenGL_FBO& opaqueFBO) const
+{
+	// Bind FBO
+	opaqueFBO.bind();
+	if (!opaqueFBO.isComplete())
+	{
+		std::cerr << "[World][renderAurora]: Opaque FBO is not complete\n";
+		opaqueFBO.unbind();
+		return;
+	}
+
+	// Get textures
+	auto getTextureResult = opaqueFBO.getTexture("color");
+	if (!getTextureResult.has_value())
+	{
+		std::cerr << "[World][renderAurora]: Opaque FBO does not have 'color' texture\n";
+		return;
+	}
+	const OpenGL_Texture& outputTex = *getTextureResult.value();
+
+	getTextureResult = opaqueFBO.getTexture("depth");
+	if (!getTextureResult.has_value())
+	{
+		std::cerr << "[World][renderAurora]: Opaque FBO does not have 'depth' texture\n";
+		return;
+	}
+	const OpenGL_Texture& depthTex = *getTextureResult.value();
+
+	// Compute rays and pass them to UBO
+	auto viewRays = computeViewRays(camera);
+	skyViewRaysUBO.bind();
+	skyViewRaysUBO.write(&viewRays, sizeof(viewRays));
+	skyViewRaysUBO.bindBase(0);
+
+	// Pass aurora settings to UBO
+	AuroraSettings settings;
+	skyAuroraSettingsUBO.bind();
+	skyAuroraSettingsUBO.write(&settings, sizeof(settings));
+	skyAuroraSettingsUBO.bindBase(1);
+
+	// Get texture dimensions
+	int width = outputTex.getWidth();
+	int height = outputTex.getHeight();
+
+	// Dispatch compute shader
+	const int localSize = 16;
+	int groupsX = (width + localSize - 1) / localSize;
+	int groupsY = (height + localSize - 1) / localSize;
+
+	skyShader.use();
+	skyShader.setIvec2("texSize", width, height);
+	skyShader.setFloat("time", appTime);
+	skyShader.setFloat("dayNightCycleValue", dayNightCycleValue);
+
+	glBindImageTexture(0, outputTex.getID(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
+	glBindTextureUnit(1, outputTex.getID());
+	glBindTextureUnit(2, tilingPerlinNoise3DTexture.getID());
+	glBindTextureUnit(3, depthTex.getID());
+
+	glDispatchCompute(groupsX, groupsY, 1);
+	glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
+}
+
+void World::renderChunks(const Camera& camera, const OpenGL_FBO& opaqueFBO, const OpenGL_FBO& translucentFBO)
 {
 	{
 		glm::vec3 fogColor = glm::mix(visualSettings.nightBackgroundColor, visualSettings.dayBackgroundColor, dayNightCycleValue);
@@ -558,41 +621,37 @@ void World::renderChunks(const Camera& camera, const OpenGL_FBO* opaqueFBO, cons
 	std::vector<glm::ivec3> chunkPositions;
 
 	// Opaque
-	opaqueFBO->bind();
-	if (!opaqueFBO->isComplete())
+	opaqueFBO.bind();
+	if (!opaqueFBO.isComplete())
 	{
 		std::cerr << "[Render]: Opaque FBO is not complete!" << std::endl;
-		opaqueFBO->unbind();
+		opaqueFBO.unbind();
 		return;
 	}
 
 	renderOpaqueChunks(chunksToRender, chunkDrawCommands, chunkPositions);
-	opaqueFBO->unbind();
+	opaqueFBO.unbind();
 
 	// Translucent
-	translucentFBO->bind();
-	if(!translucentFBO->isComplete())
+	translucentFBO.bind();
+	if(!translucentFBO.isComplete())
 	{
 		std::cerr << "[Render]: Translucent FBO is not complete!" << std::endl;
-		translucentFBO->unbind();
+		translucentFBO.unbind();
 		return;
 	}
 
 	float clearAccumulation[] = { 0.0f, 0.0f, 0.0f, 0.0f };
 	float clearRevealage[] = { 1.0f, 0.0f, 0.0f, 0.0f };
-	translucentFBO->clearAttachment("accumulation", clearAccumulation);
-	translucentFBO->clearAttachment("revealage", clearRevealage);
+	translucentFBO.clearAttachment("accumulation", clearAccumulation);
+	translucentFBO.clearAttachment("revealage", clearRevealage);
 
 	renderTranslucentChunks(chunksToRender, chunkDrawCommands, chunkPositions);
-	translucentFBO->unbind();
+	translucentFBO.unbind();
 
 	// Composite
-	opaqueFBO->bind();
-	compositePass(
-		translucentFBO->getTexture("accumulation"),
-		translucentFBO->getTexture("revealage"),
-		opaqueFBO->getTexture("color")
-	);
+	opaqueFBO.bind();
+	compositePass(opaqueFBO, translucentFBO);
 }
 
 void World::renderOpaqueChunks(
@@ -751,8 +810,32 @@ void World::renderTranslucentChunks(const std::vector<ChunkRenderInfo>& chunksTo
 	glDepthMask(GL_TRUE);
 }
 
-void World::compositePass(const OpenGL_Texture& accumTex, const OpenGL_Texture& revTex, const OpenGL_Texture& colorTex) const
+void World::compositePass(const OpenGL_FBO& opaqueFBO, const OpenGL_FBO& translucentFBO) const
 {
+	auto getTextureResult = opaqueFBO.getTexture("color");
+	if (!getTextureResult.has_value())
+	{
+		std::cerr << "[World][compositePass]: Opaque FBO does not have 'color' texture\n";
+		return;
+	}
+	const OpenGL_Texture& colorTex = *getTextureResult.value();
+
+	getTextureResult = translucentFBO.getTexture("accumulation");
+	if (!getTextureResult.has_value())
+	{
+		std::cerr << "[World][compositePass]: Translucent FBO does not have 'accumulation' texture\n";
+		return;
+	}
+	const OpenGL_Texture& accumulationTex = *getTextureResult.value();
+
+	getTextureResult = translucentFBO.getTexture("revealage");
+	if (!getTextureResult.has_value())
+	{
+		std::cerr << "[World][compositePass]: Translucent FBO does not have 'revealage' texture\n";
+		return;
+	}
+	const OpenGL_Texture& revealageTex = *getTextureResult.value();
+
 	const OpenGL_Texture& outputTex = colorTex;
 
 	// Get texture dimensions
@@ -760,10 +843,10 @@ void World::compositePass(const OpenGL_Texture& accumTex, const OpenGL_Texture& 
 	int height = outputTex.getHeight();
 
 	// Bind textures
-	glBindImageTexture(OUTPUT_IMAGE_BINDING, outputTex.getID(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
-	glBindTextureUnit(ACCUMULATION_TEX_BINDING, accumTex.getID());
-	glBindTextureUnit(REVEALAGE_TEX_BINDING, revTex.getID());
-	glBindTextureUnit(OPAQUE_TEX_BINDING, colorTex.getID());
+	glBindImageTexture(0, outputTex.getID(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
+	glBindTextureUnit(1, colorTex.getID());
+	glBindTextureUnit(2, accumulationTex.getID());
+	glBindTextureUnit(3, revealageTex.getID());
 
 	// Dispatch compute shader
 	const int localSize = 16;

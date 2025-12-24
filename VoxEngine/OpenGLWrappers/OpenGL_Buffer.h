@@ -6,7 +6,7 @@ class OpenGL_Buffer
 protected:
 	GLenum target;
 	GLenum usage;
-	GLuint id = 0;
+	GLuint id;
 	size_t capacity = 0;
 public:
 	OpenGL_Buffer(GLenum target, GLenum usage);
@@ -25,12 +25,12 @@ public:
 
 	void bindBase(GLuint index) const;
 
-	void allocateMemory(size_t newSize);
+	void allocateMemory(size_t newSize, const void* optionalReadFrom = nullptr);
 
 	void write(const void* data, size_t dataSize, size_t offset = 0) const;
 	void copyRangeFrom(const OpenGL_Buffer& src, size_t srcOffset, size_t dstOffset, size_t size) const;
 
-	GLuint getID() const;
-	size_t getCapacity() const;
+	GLuint getID() const { return id; };
+	size_t getCapacity() const { return capacity; };
 };
 

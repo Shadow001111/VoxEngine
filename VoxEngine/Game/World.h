@@ -77,7 +77,8 @@ private:
 	OpenGL_Buffer chunkPositionSSBO;
 
 	Shader skyShader;
-	OpenGL_Buffer skyUBO;
+	OpenGL_Buffer skyViewRaysUBO;
+	OpenGL_Buffer skyAuroraSettingsUBO;
 
 	OpenGL_Texture tilingPerlinNoise3DTexture;
 
@@ -115,8 +116,10 @@ public:
 private:
 	void collectChunksToRenderAndSortThem(std::vector<ChunkRenderInfo>& chunksToRender, const Camera& camera) const;
 public:
-	void renderBackround(const Camera& camera, const OpenGL_FBO* opaqueFBO) const;
-	void renderChunks(const Camera& camera, const OpenGL_FBO* opaqueFBO, const OpenGL_FBO* translucentFBO);
+	void renderBackround(const Camera& camera, const OpenGL_FBO& opaqueFBO) const;
+	void renderAurora(const Camera& camera, const OpenGL_FBO& opaqueFBO) const;
+
+	void renderChunks(const Camera& camera, const OpenGL_FBO& opaqueFBO, const OpenGL_FBO& translucentFBO);
 private:
 	void renderOpaqueChunks(const std::vector<ChunkRenderInfo>& chunksToRender,
 		std::vector<DrawArraysIndirectCommand>& chunkDrawCommands,
@@ -124,7 +127,7 @@ private:
 	void renderTranslucentChunks(const std::vector<ChunkRenderInfo>& chunksToRender,
 		std::vector<DrawArraysIndirectCommand>& chunkDrawCommands,
 		std::vector<glm::ivec3>& chunkPositions);
-	void compositePass(const OpenGL_Texture& accumTex, const OpenGL_Texture& revTex, const OpenGL_Texture& colorTex) const;
+	void compositePass(const OpenGL_FBO& opaqueFBO, const OpenGL_FBO& translucentFBO) const;
 public:
 	void renderVoxelMarker(const Camera& camera, const RaycastResult& raycast) const;
 

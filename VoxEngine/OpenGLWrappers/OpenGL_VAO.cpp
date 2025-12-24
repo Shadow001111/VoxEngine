@@ -9,10 +9,7 @@ OpenGL_VAO::OpenGL_VAO()
 
 OpenGL_VAO::~OpenGL_VAO()
 {
-    if (id)
-    {
-        glDeleteVertexArrays(1, &id);
-    }
+    if (id) glDeleteVertexArrays(1, &id);
 }
 
 OpenGL_VAO::OpenGL_VAO(OpenGL_VAO&& other) noexcept
@@ -25,10 +22,7 @@ OpenGL_VAO& OpenGL_VAO::operator=(OpenGL_VAO&& other) noexcept
 {
     if (this != &other)
     {
-        if (id)
-        {
-            glDeleteVertexArrays(1, &id);
-        }
+        if (id) glDeleteVertexArrays(1, &id);
 
         id = other.id;
 
@@ -77,9 +71,4 @@ void OpenGL_VAO::setAttributeDivisor(GLuint index, GLuint divisor)
 {
     OPENGL_CHECK_BIND_TARGET(id, GL_VERTEX_ARRAY);
     glVertexAttribDivisor(index, divisor);
-}
-
-GLuint OpenGL_VAO::getID() const
-{
-    return id;
 }

@@ -30,5 +30,5 @@ public:
 
     void setAttributeDivisor(GLuint index, GLuint divisor);
 
-    GLuint getID() const;
+    GLuint getID() const { return id; };
 };

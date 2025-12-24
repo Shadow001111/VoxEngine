@@ -545,9 +545,12 @@ int main()
         world.sendChunkMeshesToGPU();
 
         // Rendering world
-        world.renderBackround(player->getCamera(), wnd.getOpaqueFBO());
-        world.renderChunks(player->getCamera(), wnd.getOpaqueFBO(), wnd.getTranslucentFBO());
+        player->getCamera().setAspectRatio(wnd.getAspectRatio());
+
+        world.renderBackround(player->getCamera(), *wnd.getOpaqueFBO());
+        world.renderChunks(player->getCamera(), *wnd.getOpaqueFBO(), *wnd.getTranslucentFBO());
         world.renderVoxelMarker(player->getCamera(), player->raycastResult);
+        //world.renderAurora(player->getCamera(), wnd.getOpaqueFBO());
         renderUI(containerUI, player);
         wnd.getOpaqueFBO()->unbind();
 

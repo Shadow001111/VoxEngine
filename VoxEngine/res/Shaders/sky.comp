@@ -13,6 +13,7 @@ layout(std140, binding = 0) uniform CameraRays
 layout(rgba8, binding = 0) writeonly uniform image2D outputImage;
 layout(binding = 1) uniform sampler2D backgroundTex;
 layout(binding = 2) uniform sampler3D noiseTex;
+layout(binding = 3) uniform sampler2D depthTex;
 
 uniform ivec2 texSize;
 uniform float time;
@@ -160,6 +161,10 @@ void main()
 
     vec2 uv = (vec2(texelCoord) + 0.5) / vec2(texSize);
     
+    //float depth = texelFetch(depthTex, texelCoord, 0).r;
+    //imageStore(outputImage, texelCoord, vec4(0.0, 0.0, depth, 1.0));
+    //return;
+
     vec3 rayBottom = mix(bottomLeft.xyz, bottomRight.xyz, uv.x);
     vec3 rayTop    = mix(topLeft.xyz, topRight.xyz, uv.x);
     vec3 viewDir   = normalize(mix(rayBottom, rayTop, uv.y));

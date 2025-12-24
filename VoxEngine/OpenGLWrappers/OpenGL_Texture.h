@@ -3,7 +3,7 @@
 
 class OpenGL_Texture
 {
-	GLuint ID = 0;
+	GLuint id = 0;
 	GLenum type = GL_TEXTURE_2D;
 	GLenum internalFormat = 0;
 	GLenum format = 0;
@@ -29,10 +29,16 @@ public:
 	void create2DArray(int width, int height, int layers, GLenum internalFormat, GLenum format, GLenum dataType, int mipLevels = 1);
 	void createCubeMap(int size, GLenum internalFormat, GLenum format, GLenum dataType, int mipLevels = 1);
 
+	// Texture resizing functions
+	void resize1D(int width);
+	void resize2D(int width, int height);
+	void resize3D(int width, int height, int depth);
+
 	// Data upload functions
 	void uploadData(const void* data, int level = 0);
 	void uploadSubData(const void* data, int xOffset, int yOffset, int zOffset, int width, int height, int depth, int level = 0);
 
+	//
 	void generateMipmaps();
 
 	void setParameters(GLenum minFilter, GLenum magFilter,
@@ -43,7 +49,7 @@ public:
 	void unbind() const;
 
 	// Getters
-	GLuint getID() const { return ID; }
+	GLuint getID() const { return id; }
 	GLenum getType() const { return type; }
 	GLenum getInternalFormat() const { return internalFormat; }
 	GLenum getFormat() const { return format; }
