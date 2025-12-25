@@ -467,7 +467,7 @@ void World::renderBackround(const Camera& camera, const OpenGL_FBO& FBO) const
 	// Clear buffers
 	glm::vec3 fogColor = glm::mix(visualSettings.nightBackgroundColor, visualSettings.dayBackgroundColor, dayNightCycleValue);
 
-	const float bgColor[4] = { fogColor.r, fogColor.g, fogColor.b, 1.0f };
+	const float bgColor[4] = { fogColor.r, fogColor.g, fogColor.b, 0.0f };
 	const float depth = 1.0f;
 	float clearAccumulation[] = { 0.0f, 0.0f, 0.0f, 0.0f };
 	float clearRevealage = 0.0f;
@@ -478,9 +478,16 @@ void World::renderBackround(const Camera& camera, const OpenGL_FBO& FBO) const
 	FBO.clearDrawBuffer("revealage", &clearRevealage);
 }
 
+// TODO: Run aurora shader in lower resolution
 void World::renderAurora(const Camera& camera, const OpenGL_FBO& FBO) const
 {
-	return;
+	// Calculate aurora alpha and check if it's reasonably big to call shader
+	float auroraAlpha = pow(1.0 - dayNightCycleValue, 10.0);
+	if (auroraAlpha < 0.01)
+	{
+		return;
+	}
+
 	// Get textures
 	auto getTextureResult = FBO.getTexture("color");
 	if (!getTextureResult.has_value())
@@ -490,14 +497,6 @@ void World::renderAurora(const Camera& camera, const OpenGL_FBO& FBO) const
 	}
 	const OpenGL_Texture& outputTex = *getTextureResult.value();
 
-	getTextureResult = FBO.getTexture("depth");
-	if (!getTextureResult.has_value())
-	{
-		std::cerr << "[World][renderAurora]: FBO does not have 'depth' texture\n";
-		return;
-	}
-	const OpenGL_Texture& depthTex = *getTextureResult.value();
-
 	// Compute rays and pass them to UBO
 	auto viewRays = computeViewRays(camera);
 	skyViewRaysUBO.bind();
@@ -505,10 +504,16 @@ void World::renderAurora(const Camera& camera, const OpenGL_FBO& FBO) const
 	skyViewRaysUBO.bindBase(0);
 
 	// Pass aurora settings to UBO
-	AuroraSettings settings;
+	// Note: There's no aurora settings UBO for now
+	/*AuroraSettings settings;
 	skyAuroraSettingsUBO.bind();
 	skyAuroraSettingsUBO.write(&settings, sizeof(settings));
-	skyAuroraSettingsUBO.bindBase(1);
+	skyAuroraSettingsUBO.bindBase(1);*/
+
+	// Set uniforms
+	skyShader.use();
+	skyShader.setFloat("time", appTime);
+	skyShader.setFloat("auroraAlpha", auroraAlpha);
 
 	// Get texture dimensions
 	int width = outputTex.getWidth();
@@ -519,15 +524,9 @@ void World::renderAurora(const Camera& camera, const OpenGL_FBO& FBO) const
 	int groupsX = (width + localSize - 1) / localSize;
 	int groupsY = (height + localSize - 1) / localSize;
 
-	skyShader.use();
-	skyShader.setIvec2("texSize", width, height);
-	skyShader.setFloat("time", appTime);
-	skyShader.setFloat("dayNightCycleValue", dayNightCycleValue);
-
 	glBindImageTexture(0, outputTex.getID(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
 	glBindTextureUnit(1, outputTex.getID());
 	glBindTextureUnit(2, tilingPerlinNoise3DTexture.getID());
-	glBindTextureUnit(3, depthTex.getID());
 
 	glDispatchCompute(groupsX, groupsY, 1);
 	glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
@@ -555,8 +554,11 @@ void World::renderChunks(const Camera& camera, const OpenGL_FBO& FBO)
 			&nonAlignedTranslucentFaceShader
 		};
 
-		for (const Shader* shader : shaders)
+		for (int i = 0; i < 4; i++)
 		{
+			const Shader* shader = shaders[i];
+			const bool isTranslucent = i & 1;
+
 			shader->use();
 
 			shader->setIvec3("cameraChunkPosition", cameraChunkPos.x, cameraChunkPos.y, cameraChunkPos.z);
@@ -568,7 +570,10 @@ void World::renderChunks(const Camera& camera, const OpenGL_FBO& FBO)
 			shader->setFloat("fogDensity", visualSettings.fogDensity);
 			shader->setFloat("fogGradient", visualSettings.fogGradient);
 
-			shader->setFloat("farPlane", chunkLoadingDistance * CHUNK_SIZE);
+			if (isTranslucent)
+			{
+				shader->setFloat("farPlane", chunkLoadingDistance * CHUNK_SIZE);
+			}
 
 			shader->setFloat("skyLightSub", skyLightSub);
 		}

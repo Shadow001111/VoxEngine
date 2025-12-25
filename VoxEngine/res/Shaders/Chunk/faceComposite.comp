@@ -13,17 +13,19 @@ void main()
     if (texelCoord.x >= imageSize_.x || texelCoord.y >= imageSize_.y)
         return;
     
-    vec2 texCoords = (vec2(texelCoord) + 0.5) / vec2(imageSize_);
+    vec2 uv = (vec2(texelCoord) + 0.5) / vec2(imageSize_);
     
-    vec4 accumulation = texture(accumulationTex, texCoords);
-    float revealage = min(texture(revealageTex, texCoords).r, 1.0);
-    vec3 opaque = imageLoad(opaqueImage, texelCoord).rgb;
+    vec4 accumulation = texture(accumulationTex, uv);
+    float revealage = min(texture(revealageTex, uv).r, 1.0);
+    vec4 opaque = imageLoad(opaqueImage, texelCoord);
     
     // Composite transparent over opaque
     vec3 averageColor = accumulation.rgb / max(accumulation.a, 1e-5);
     
-    // Blend transparent over opaque
-    vec3 finalColor = mix(opaque, averageColor, revealage);
-    
-    imageStore(opaqueImage, texelCoord, vec4(finalColor, 1.0));
+    // Blend transparent over opaque (opaque.a is either 0 or zero)
+    vec4 finalColor;
+    finalColor.rgb = mix(opaque.rgb, averageColor, max(revealage, 1.0 - opaque.a));
+    finalColor.a = mix(revealage, 1.0, opaque.a);
+
+    imageStore(opaqueImage, texelCoord, finalColor);
 }

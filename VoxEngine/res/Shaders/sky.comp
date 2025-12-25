@@ -11,13 +11,11 @@ layout(std140, binding = 0) uniform CameraRays
 };
 
 layout(rgba8, binding = 0) writeonly uniform image2D outputImage;
-layout(binding = 1) uniform sampler2D backgroundTex;
+layout(binding = 1) uniform sampler2D foregroundTex;
 layout(binding = 2) uniform sampler3D noiseTex;
-layout(binding = 3) uniform sampler2D depthTex;
 
-uniform ivec2 texSize;
 uniform float time;
-uniform float dayNightCycleValue;
+uniform float auroraAlpha;
 
 float noise(vec3 pos)
 {
@@ -154,36 +152,19 @@ vec4 aurora(
     return vec4(accumulated_color * up_factor * settings.alpha, final_alpha);
 }
 
-void main()
+vec4 blendAlpha(vec4 foreground, vec4 background)
 {
-    ivec2 texelCoord = ivec2(gl_GlobalInvocationID.xy);
-    if (texelCoord.x >= texSize.x || texelCoord.y >= texSize.y) return;
+    return mix(background, foreground, foreground.a);
+}
 
-    vec2 uv = (vec2(texelCoord) + 0.5) / vec2(texSize);
-    
-    //float depth = texelFetch(depthTex, texelCoord, 0).r;
-    //imageStore(outputImage, texelCoord, vec4(0.0, 0.0, depth, 1.0));
-    //return;
-
-    vec3 rayBottom = mix(bottomLeft.xyz, bottomRight.xyz, uv.x);
-    vec3 rayTop    = mix(topLeft.xyz, topRight.xyz, uv.x);
-    vec3 viewDir   = normalize(mix(rayBottom, rayTop, uv.y));
-
-    if (viewDir.y < 0.0) return;
-
-    AuroraSettings settings;
-
+void auroraDefaultSettings(inout AuroraSettings settings)
+{
     // Main colors
     settings.bottom_color = vec4(0.1, 0.8, 0.3, 1.0);  // Bright green at bottom
     settings.color_top = vec4(0.3, 0.1, 0.8, 1.0);     // Purple-blue at top
 
-    // Transparency and intensity
-    settings.alpha = pow(1.0 - dayNightCycleValue, 10.0);           // Overall opacity (0.0-1.0)
-    if (settings.alpha < 0.1)
-    {
-        return;
-    }
-    settings.opacity_per_sample = 0.1;  // How much each sample contributes
+    // How much each sample contributes
+    settings.opacity_per_sample = 0.1;
 
     // Band structure
     settings.density = 0.5;        // Controls band spacing (higher = more bands)
@@ -212,12 +193,44 @@ void main()
     settings.undersparkle_speed = 0.05;   // Sparkle movement speed
     settings.undersparkle_threshold = 0.7; // Controls sparkle density (higher = fewer)
     settings.undersparkle_max_height = 0.9; // How high sparkles appear (0-1 relative height)
+}
+
+void main()
+{
+    ivec2 imageSize_ = imageSize(outputImage);
+
+    ivec2 texelCoord = ivec2(gl_GlobalInvocationID.xy);
+    if (texelCoord.x >= imageSize_.x || texelCoord.y >= imageSize_.y) return;
+
+    vec2 uv = (vec2(texelCoord) + 0.5) / vec2(imageSize_);
+
+    // Check foreground alpha
+    vec4 foreground_color = texture(foregroundTex, uv);
+    if (foreground_color.a > 0.99)
+    {
+        return;
+    }
+
+    // Calculate viewdir
+    vec3 rayBottom = mix(bottomLeft.xyz, bottomRight.xyz, uv.x);
+    vec3 rayTop    = mix(topLeft.xyz, topRight.xyz, uv.x);
+    vec3 viewDir   = normalize(mix(rayBottom, rayTop, uv.y));
+
+    // Check if ray points above horizon
+    if (viewDir.y <= 0.0) return;
+
+    // Get aurora settings
+    AuroraSettings settings;
+    auroraDefaultSettings(settings);
+
+    // Transparency and intensity
+    // Shader is being turned off on CPU if aurora alpha is too small
+    settings.alpha = auroraAlpha;
 
     vec4 aurora_color = aurora(viewDir, settings, time);
-    vec4 background_color = texture(backgroundTex, uv);
 
     // Standard alpha blending
-    vec4 final_color = mix(background_color, aurora_color, aurora_color.a);
+    vec4 final_color = blendAlpha(foreground_color, aurora_color);
 
     imageStore(outputImage, texelCoord, final_color);
 }
