@@ -75,7 +75,12 @@ public:
     void setDrawBuffers(const std::vector<std::string>& attachmentNames) const;
     void resize(int newWidth, int newHeight);
     void clear() const;
+
+    // Not for color attachments
     void clearAttachment(const std::string& name, const float* clearValue) const;
+
+    // For color attachments which are currently draw buffers
+    void clearDrawBuffer(const std::string& name, const float* clearValue) const;
 
     // Texture access
     std::optional<OpenGL_Texture*> getTexture(const std::string& name);

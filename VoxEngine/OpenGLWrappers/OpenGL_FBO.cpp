@@ -198,34 +198,16 @@ void OpenGL_FBO::clearAttachment(const std::string& name, const float* clearValu
     auto it = attachments.find(name);
     if (it == attachments.end())
     {
-        std::cerr << "[OpenGL_FBO][setDrawBuffers]: Attachment '" << name << "' not found in attachments for clearing\n";
+        std::cerr << "[OpenGL_FBO][clearAttachment]: Attachment '" << name << "' not found in attachments for clearing\n";
         return;
     }
 
     OPENGL_CHECK_BIND_TARGET(id, GL_FRAMEBUFFER);
 
-    bool found = false;
-    int index = 0;
-
     switch (it->second.type)
     {
     case AttachmentType::COLOR:
-        for (index = 0; index < drawBuffers.size(); index++)
-        {
-            if (name == drawBuffers[index])
-            {
-                found = true;
-                break;
-            }
-        }
-        if (found)
-        {
-            glClearBufferfv(GL_COLOR, index, clearValue);
-        }
-        else
-        {
-            std::cerr << "[OpenGL_FBO][setDrawBuffers]: Attachment '" << name << "' not found in draw buffers for clearing\n";
-        }
+        std::cerr << "[OpenGL_FBO][clearAttachment]: Attachment '" << name << "' is color attachment. Use 'clearDrawBuffer' method for clearing it.\n";
         break;
     case AttachmentType::DEPTH:
         glClearBufferfv(GL_DEPTH, 0, clearValue);
@@ -239,6 +221,31 @@ void OpenGL_FBO::clearAttachment(const std::string& name, const float* clearValu
     case AttachmentType::DEPTH_STENCIL:
         glClearBufferfi(GL_DEPTH_STENCIL, 0, clearValue[0], static_cast<GLint>(clearValue[1]));
         break;
+    }
+}
+
+void OpenGL_FBO::clearDrawBuffer(const std::string& name, const float* clearValue) const
+{
+    OPENGL_CHECK_BIND_TARGET(id, GL_FRAMEBUFFER);
+
+    bool found = false;
+    int index = 0;
+
+    for (index = 0; index < drawBuffers.size(); index++)
+    {
+        if (name == drawBuffers[index])
+        {
+            found = true;
+            break;
+        }
+    }
+    if (found)
+    {
+        glClearBufferfv(GL_COLOR, index, clearValue);
+    }
+    else
+    {
+        std::cerr << "[OpenGL_FBO][setDrawBuffers]: Attachment '" << name << "' not found in draw buffers for clearing\n";
     }
 }
 

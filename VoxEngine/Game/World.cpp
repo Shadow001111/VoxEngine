@@ -472,10 +472,10 @@ void World::renderBackround(const Camera& camera, const OpenGL_FBO& FBO) const
 	float clearAccumulation[] = { 0.0f, 0.0f, 0.0f, 0.0f };
 	float clearRevealage = 0.0f;
 
-	FBO.clearAttachment("color", bgColor);
+	FBO.clearDrawBuffer("color", bgColor);
 	FBO.clearAttachment("depth", &depth);
-	FBO.clearAttachment("accumulation", clearAccumulation);
-	FBO.clearAttachment("revealage", &clearRevealage);
+	FBO.clearDrawBuffer("accumulation", clearAccumulation);
+	FBO.clearDrawBuffer("revealage", &clearRevealage);
 }
 
 void World::renderAurora(const Camera& camera, const OpenGL_FBO& FBO) const
