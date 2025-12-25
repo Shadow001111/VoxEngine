@@ -13,7 +13,8 @@ flat in vec4 light;
 flat in uint textureID;
 in vec3 viewVertexPosition;
 
-layout(location = 0) out vec4 FragColor;
+layout(location = 0) out vec4 fragColor;
+layout(location = 1) out float geometryAlpha;
 
 float interpolateAO_Triang()
 {
@@ -53,5 +54,6 @@ void main()
     fogFactor = clamp(fogFactor, 0.0, 1.0);
     vec3 colorWithFog = mix(fogColor, shadedColor, fogFactor);
 
-    FragColor = vec4(colorWithFog, textureColor.a);
+    fragColor = vec4(colorWithFog, 1.0);
+    geometryAlpha = 1.0;
 }

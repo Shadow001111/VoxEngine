@@ -14,8 +14,8 @@ flat in vec4 light;
 flat in uint textureID;
 in vec3 viewVertexPosition;
 
-layout(location = 1) out vec4 accumulation;
-layout(location = 2) out float revealage;
+layout(location = 2) out vec4 accumulation;
+layout(location = 3) out float revealage;
 
 float interpolateAO_Triang()
 {

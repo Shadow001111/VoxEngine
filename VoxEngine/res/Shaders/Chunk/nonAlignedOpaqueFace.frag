@@ -12,7 +12,8 @@ in vec3 viewVertexPosition;
 flat in float[8] blockVertexLightData;
 in vec3 vertexLocalPos;
 
-layout(location = 0) out vec4 FragColor;
+layout(location = 0) out vec4 fragColor;
+layout(location = 1) out float geometryAlpha;
 
 float interpolateLight()
 {
@@ -56,5 +57,6 @@ void main()
     fogFactor = clamp(fogFactor, 0.0, 1.0);
     vec3 colorWithFog = mix(fogColor, shadedColor, fogFactor);
 
-    FragColor = vec4(colorWithFog, textureColor.a);
+    fragColor = vec4(colorWithFog, 1.0);
+    geometryAlpha = 1.0;
 }

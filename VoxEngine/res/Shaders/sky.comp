@@ -10,8 +10,8 @@ layout(std140, binding = 0) uniform CameraRays
     vec4 topRight;
 };
 
-layout(rgba8, binding = 0) writeonly uniform image2D outputImage;
-layout(binding = 1) uniform sampler2D foregroundTex;
+layout(rgba8, binding = 0) uniform image2D outputImage;
+layout(binding = 1) uniform sampler2D geometryAlphaTex;
 layout(binding = 2) uniform sampler3D noiseTex;
 
 uniform float time;
@@ -195,6 +195,8 @@ void auroraDefaultSettings(inout AuroraSettings settings)
     settings.undersparkle_max_height = 0.9; // How high sparkles appear (0-1 relative height)
 }
 
+uniform vec3 backgroundColor;
+
 void main()
 {
     ivec2 imageSize_ = imageSize(outputImage);
@@ -205,8 +207,8 @@ void main()
     vec2 uv = (vec2(texelCoord) + 0.5) / vec2(imageSize_);
 
     // Check foreground alpha
-    vec4 foreground_color = texture(foregroundTex, uv);
-    if (foreground_color.a > 0.99)
+    float geometryAlpha = texture(geometryAlphaTex, uv).r;
+    if (geometryAlpha > 0.99)
     {
         return;
     }
@@ -229,8 +231,12 @@ void main()
 
     vec4 aurora_color = aurora(viewDir, settings, time);
 
-    // Standard alpha blending
-    vec4 final_color = blendAlpha(foreground_color, aurora_color);
+    // Blend aurora over background
+    vec3 final_color = mix(backgroundColor, aurora_color.rgb * aurora_color.a, aurora_color.a);
 
-    imageStore(outputImage, texelCoord, final_color);
+    // Standard alpha blending
+    vec3 foreground_color = imageLoad(outputImage, texelCoord).rgb;
+    final_color = mix(final_color, foreground_color, geometryAlpha);
+
+    imageStore(outputImage, texelCoord, vec4(final_color, 1.0));
 }

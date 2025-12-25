@@ -57,11 +57,12 @@ WindowManager::WindowManager(const WindowParams& params)
     framebuffer->bind();
 
     framebuffer->createColorAttachment("color", GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE);
+    framebuffer->createColorAttachment("geometryAlpha", GL_R8, GL_RED, GL_UNSIGNED_BYTE);
     framebuffer->createColorAttachment("accumulation", GL_RGBA16F, GL_RGBA, GL_FLOAT);
     framebuffer->createColorAttachment("revealage", GL_R8, GL_RED, GL_FLOAT);
     framebuffer->createDepthAttachment("depth", GL_DEPTH_COMPONENT32F, GL_DEPTH_COMPONENT, GL_FLOAT);
 
-    framebuffer->setDrawBuffers({ "color", "accumulation", "revealage" });
+    framebuffer->setDrawBuffers({ "color", "geometryAlpha", "accumulation", "revealage" });
 
     if (!framebuffer->isComplete())
     {

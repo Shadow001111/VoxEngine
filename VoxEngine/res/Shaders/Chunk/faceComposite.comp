@@ -2,8 +2,11 @@
 
 layout(local_size_x = 16, local_size_y = 16) in;
 layout(rgba8, binding = 0) uniform image2D opaqueImage;
-layout(binding = 1) uniform sampler2D accumulationTex;
-layout(binding = 2) uniform sampler2D revealageTex;
+layout(r8, binding = 1) uniform image2D geometryAlphaImage;
+layout(binding = 2) uniform sampler2D accumulationTex;
+layout(binding = 3) uniform sampler2D revealageTex;
+
+uniform vec3 backgroundColor;
 
 void main()
 {
@@ -15,17 +18,21 @@ void main()
     
     vec2 uv = (vec2(texelCoord) + 0.5) / vec2(imageSize_);
     
+    vec3 opaque = imageLoad(opaqueImage, texelCoord).rgb;
+    float geometryAlpha = imageLoad(geometryAlphaImage, texelCoord).r;
+
     vec4 accumulation = texture(accumulationTex, uv);
     float revealage = min(texture(revealageTex, uv).r, 1.0);
-    vec4 opaque = imageLoad(opaqueImage, texelCoord);
-    
-    // Composite transparent over opaque
-    vec3 averageColor = accumulation.rgb / max(accumulation.a, 1e-5);
-    
-    // Blend transparent over opaque (opaque.a is either 0 or zero)
-    vec4 finalColor;
-    finalColor.rgb = mix(opaque.rgb, averageColor, max(revealage, 1.0 - opaque.a));
-    finalColor.a = mix(revealage, 1.0, opaque.a);
 
-    imageStore(opaqueImage, texelCoord, finalColor);
+    vec3 averageColorOfTranslucentGeometry = accumulation.rgb / max(accumulation.a, 1e-5);
+
+    // Blend opaque over background (geometryAlpha is either 0 or 1)
+    vec3 finalColor = mix(backgroundColor, opaque, geometryAlpha);
+    
+    // Blend transparent over opaque
+    finalColor = mix(finalColor, averageColorOfTranslucentGeometry, revealage);
+    float finalGeometryAlpha = geometryAlpha + revealage;
+
+    imageStore(opaqueImage, texelCoord, vec4(finalColor, 1.0));
+    imageStore(geometryAlphaImage, texelCoord, vec4(finalGeometryAlpha));
 }

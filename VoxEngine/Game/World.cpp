@@ -26,8 +26,9 @@ constexpr unsigned HOTBAR_TEXTURE_BINDING = 0;
 namespace ChunksCompositePass
 {	// Values are hardcoded in shaders
 	constexpr unsigned OUTPUT_IMAGE_BINDING = 0;
-	constexpr unsigned ACCUMULATION_TEX_BINDING = 1;
-	constexpr unsigned REVEALAGE_TEX_BINDING = 2;
+	constexpr unsigned GEOMETRY_ALPHA_TEXTURE_BINDING = 1;
+	constexpr unsigned ACCUMULATION_TEX_BINDING = 2;
+	constexpr unsigned REVEALAGE_TEX_BINDING = 3;
 }
 
 struct ViewRays
@@ -465,17 +466,18 @@ void World::collectChunksToRenderAndSortThem(std::vector<ChunkRenderInfo>& chunk
 void World::renderBackround(const Camera& camera, const OpenGL_FBO& FBO) const
 {
 	// Clear buffers
-	glm::vec3 fogColor = glm::mix(visualSettings.nightBackgroundColor, visualSettings.dayBackgroundColor, dayNightCycleValue);
-
-	const float bgColor[4] = { fogColor.r, fogColor.g, fogColor.b, 0.0f };
-	const float depth = 1.0f;
-	float clearAccumulation[] = { 0.0f, 0.0f, 0.0f, 0.0f };
-	float clearRevealage = 0.0f;
+	const float bgColor[4] = { 0.0, 0.0, 0.0, 1.0f };
+	const float geometryAlpha[] = { 0.0 };
+	float accumulation[] = { 0.0f, 0.0f, 0.0f, 0.0f };
+	float revealage[] = { 0.0f };
 
 	FBO.clearDrawBuffer("color", bgColor);
+	FBO.clearDrawBuffer("geometryAlpha", geometryAlpha);
+	FBO.clearDrawBuffer("accumulation", accumulation);
+	FBO.clearDrawBuffer("revealage", revealage);
+
+	const float depth = 1.0f;
 	FBO.clearAttachment("depth", &depth);
-	FBO.clearDrawBuffer("accumulation", clearAccumulation);
-	FBO.clearDrawBuffer("revealage", &clearRevealage);
 }
 
 // TODO: Run aurora shader in lower resolution
@@ -497,6 +499,14 @@ void World::renderAurora(const Camera& camera, const OpenGL_FBO& FBO) const
 	}
 	const OpenGL_Texture& outputTex = *getTextureResult.value();
 
+	getTextureResult = FBO.getTexture("geometryAlpha");
+	if (!getTextureResult.has_value())
+	{
+		std::cerr << "[World][compositePass]: FBO does not have 'geometryAlpha' texture\n";
+		return;
+	}
+	const OpenGL_Texture& geometryAlphaTex = *getTextureResult.value();
+
 	// Compute rays and pass them to UBO
 	auto viewRays = computeViewRays(camera);
 	skyViewRaysUBO.bind();
@@ -514,6 +524,8 @@ void World::renderAurora(const Camera& camera, const OpenGL_FBO& FBO) const
 	skyShader.use();
 	skyShader.setFloat("time", appTime);
 	skyShader.setFloat("auroraAlpha", auroraAlpha);
+	glm::vec3 fogColor = glm::mix(visualSettings.nightBackgroundColor, visualSettings.dayBackgroundColor, dayNightCycleValue);
+	skyShader.setVec3("backgroundColor", fogColor.r, fogColor.g, fogColor.z);
 
 	// Get texture dimensions
 	int width = outputTex.getWidth();
@@ -524,9 +536,9 @@ void World::renderAurora(const Camera& camera, const OpenGL_FBO& FBO) const
 	int groupsX = (width + localSize - 1) / localSize;
 	int groupsY = (height + localSize - 1) / localSize;
 
-	glBindImageTexture(0, outputTex.getID(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
-	glBindTextureUnit(1, outputTex.getID());
-	glBindTextureUnit(2, tilingPerlinNoise3DTexture.getID());
+	glBindImageTexture(0, outputTex.getID(), 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
+	geometryAlphaTex.bind(1);
+	tilingPerlinNoise3DTexture.bind(2);
 
 	glDispatchCompute(groupsX, groupsY, 1);
 	glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
@@ -772,6 +784,14 @@ void World::compositePass(const OpenGL_FBO& FBO) const
 	}
 	const OpenGL_Texture& colorTex = *getTextureResult.value();
 
+	getTextureResult = FBO.getTexture("geometryAlpha");
+	if (!getTextureResult.has_value())
+	{
+		std::cerr << "[World][compositePass]: FBO does not have 'geometryAlpha' texture\n";
+		return;
+	}
+	const OpenGL_Texture& geometryAlphaTex = *getTextureResult.value();
+
 	getTextureResult = FBO.getTexture("accumulation");
 	if (!getTextureResult.has_value())
 	{
@@ -794,15 +814,20 @@ void World::compositePass(const OpenGL_FBO& FBO) const
 
 	// Bind textures
 	glBindImageTexture(ChunksCompositePass::OUTPUT_IMAGE_BINDING, colorTex.getID(), 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
+	glBindImageTexture(ChunksCompositePass::GEOMETRY_ALPHA_TEXTURE_BINDING, geometryAlphaTex.getID(), 0, GL_FALSE, 0, GL_READ_WRITE, GL_R8);
 	accumulationTex.bind(ChunksCompositePass::ACCUMULATION_TEX_BINDING);
 	revealageTex.bind(ChunksCompositePass::REVEALAGE_TEX_BINDING);
+
+	// Set uniforms
+	compositeFaceShader.use();
+	glm::vec3 fogColor = glm::mix(visualSettings.nightBackgroundColor, visualSettings.dayBackgroundColor, dayNightCycleValue);
+	compositeFaceShader.setVec3("backgroundColor", fogColor.r, fogColor.g, fogColor.z);
 
 	// Dispatch compute shader
 	const int localSize = 16;
 	int groupsX = (width + localSize - 1) / localSize;
 	int groupsY = (height + localSize - 1) / localSize;
 
-	compositeFaceShader.use();
 	glDispatchCompute(groupsX, groupsY, 1);
 
 	// Ensure computation is complete before subsequent operations
