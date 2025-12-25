@@ -72,13 +72,13 @@ void OpenGL_Buffer::bindBase(GLuint index) const
 	glBindBufferBase(target, index, id);
 }
 
-void OpenGL_Buffer::allocateMemory(size_t newSize, const void* optionalReadFrom)
+void OpenGL_Buffer::allocateMemory(size_t newSize)
 {
 	if (newSize > capacity)
 	{
 		capacity = newSize;
 		glBindBuffer(target, id);
-		glBufferData(target, capacity, optionalReadFrom, usage);
+		glBufferData(target, capacity, nullptr, usage);
 	}
 }
 

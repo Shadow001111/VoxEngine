@@ -21,7 +21,7 @@
             __ASSERT_stream << "Assertion failed!\n"                             \
                             << "Expression: " << #expr << "\n"                   \
                             << "File: " << __FILE__ << "\n"                      \
-                            << "Line: " << __LINE__ << std::endl;                \
+                            << "Line: " << __LINE__ << "\n";                \
             std::cerr << __ASSERT_stream.str();                                  \
             DEBUG_BREAK();                                                       \
         }                                                                        \

@@ -49,7 +49,6 @@ void OpenGL_FBO::createColorAttachment(const std::string& name, GLenum internalF
 {
     Attachment attachment;
     attachment.type = AttachmentType::COLOR;
-    attachment.isExternal = false;
     attachment.attachmentPoint = getAttachmentPoint(AttachmentType::COLOR);
 
     createTexture(attachment, internalFormat, format, dataType, minFilter, magFilter, wrapS, wrapT);
@@ -63,7 +62,6 @@ void OpenGL_FBO::createDepthAttachment(const std::string& name, GLenum internalF
 {
     Attachment attachment;
     attachment.type = AttachmentType::DEPTH;
-    attachment.isExternal = false;
     attachment.attachmentPoint = GL_DEPTH_ATTACHMENT;
 
     createTexture(attachment, internalFormat, format, dataType, minFilter, magFilter, wrapS, wrapT);
@@ -76,7 +74,6 @@ void OpenGL_FBO::createStencilAttachment(const std::string& name, GLenum interna
 {
     Attachment attachment;
     attachment.type = AttachmentType::STENCIL;
-    attachment.isExternal = false;
     attachment.attachmentPoint = GL_STENCIL_ATTACHMENT;
 
     createTexture(attachment, internalFormat, GL_STENCIL_INDEX, GL_UNSIGNED_BYTE,
@@ -90,67 +87,10 @@ void OpenGL_FBO::createDepthStencilAttachment(const std::string& name, GLenum in
 {
     Attachment attachment;
     attachment.type = AttachmentType::DEPTH_STENCIL;
-    attachment.isExternal = false;
     attachment.attachmentPoint = GL_DEPTH_STENCIL_ATTACHMENT;
 
     createTexture(attachment, internalFormat, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8,
         minFilter, magFilter, wrapS, wrapT);
-    attachments[name] = std::move(attachment);
-}
-
-void OpenGL_FBO::linkColorTexture(const std::string& name, OpenGL_Texture& texture)
-{
-    Attachment attachment;
-    attachment.texture = std::move(texture);
-    attachment.type = AttachmentType::COLOR;
-    attachment.isExternal = true;
-    attachment.attachmentPoint = getAttachmentPoint(AttachmentType::COLOR);
-
-    OPENGL_CHECK_BIND_TARGET(id, GL_FRAMEBUFFER);
-
-    glFramebufferTexture2D(GL_FRAMEBUFFER, attachment.attachmentPoint, GL_TEXTURE_2D, attachment.texture.getID(), 0);
-    attachments[name] = std::move(attachment);
-}
-
-void OpenGL_FBO::linkDepthTexture(const std::string& name, OpenGL_Texture& texture)
-{
-    Attachment attachment;
-    attachment.texture = std::move(texture);
-    attachment.type = AttachmentType::DEPTH;
-    attachment.isExternal = true;
-    attachment.attachmentPoint = GL_DEPTH_ATTACHMENT;
-
-    OPENGL_CHECK_BIND_TARGET(id, GL_FRAMEBUFFER);
-
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, attachment.texture.getID(), 0);
-    attachments[name] = std::move(attachment);
-}
-
-void OpenGL_FBO::linkStencilTexture(const std::string& name, OpenGL_Texture& texture)
-{
-    Attachment attachment;
-    attachment.texture = std::move(texture);
-    attachment.type = AttachmentType::STENCIL;
-    attachment.isExternal = true;
-    attachment.attachmentPoint = GL_STENCIL_ATTACHMENT;
-
-    OPENGL_CHECK_BIND_TARGET(id, GL_FRAMEBUFFER);
-
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, attachment.texture.getID(), 0);
-    attachments[name] = std::move(attachment);
-}
-
-void OpenGL_FBO::linkDepthStencilTexture(const std::string& name, OpenGL_Texture& texture)
-{
-    Attachment attachment;
-    attachment.texture = std::move(texture);
-    attachment.type = AttachmentType::DEPTH_STENCIL;
-    attachment.isExternal = true;
-    attachment.attachmentPoint = GL_DEPTH_STENCIL_ATTACHMENT;
-
-    OPENGL_CHECK_BIND_TARGET(id, GL_FRAMEBUFFER);
-
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, attachment.texture.getID(), 0);
     attachments[name] = std::move(attachment);
 }
 
@@ -177,6 +117,61 @@ void OpenGL_FBO::unbind()
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
+void OpenGL_FBO::setDrawBuffers(const std::vector<std::string>& attachmentNames) const
+{
+    OPENGL_CHECK_BIND_TARGET(id, GL_FRAMEBUFFER);
+
+    if (attachmentNames.empty())
+    {
+        // If no attachments specified, disable drawing
+        glDrawBuffer(GL_NONE);
+        glReadBuffer(GL_NONE);
+        return;
+    }
+
+    std::vector<GLenum> drawBuffers;
+    drawBuffers.reserve(attachmentNames.size());
+
+    this->drawBuffers.clear();
+    this->drawBuffers.reserve(attachmentNames.size());
+
+    for (const auto& name : attachmentNames)
+    {
+        auto it = attachments.find(name);
+        if (it != attachments.end())
+        {
+            // Only COLOR attachments can be draw buffers
+            if (it->second.type == AttachmentType::COLOR)
+            {
+                drawBuffers.push_back(it->second.attachmentPoint);
+                this->drawBuffers.push_back(name);
+            }
+            else
+            {
+                std::cerr << "[OpenGL_FBO][setDrawBuffers]: Attachment '" << name
+                    << "' is not a COLOR attachment (type: " << static_cast<int>(it->second.type)
+                    << "). Skipping.\n";
+            }
+        }
+        else
+        {
+            std::cerr << "[OpenGL_FBO][setDrawBuffers]: Attachment '" << name
+                << "' not found. Skipping.\n";
+        }
+    }
+
+    if (drawBuffers.empty())
+    {
+        // No valid color attachments found
+        glDrawBuffer(GL_NONE);
+        glReadBuffer(GL_NONE);
+    }
+    else
+    {
+        glDrawBuffers(static_cast<GLsizei>(drawBuffers.size()), drawBuffers.data());
+    }
+}
+
 void OpenGL_FBO::resize(int newWidth, int newHeight)
 {
     if (newWidth == width && newHeight == height) return;
@@ -188,10 +183,8 @@ void OpenGL_FBO::resize(int newWidth, int newHeight)
 
     for (auto& [name, attachment] : attachments)
     {
-        if (!attachment.isExternal)
-        {
-            attachment.texture.resize2D(width, height);
-        }
+        attachment.texture.resize2D(width, height);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, attachment.attachmentPoint, GL_TEXTURE_2D, attachment.texture.getID(), 0);
     }
 }
 
@@ -203,14 +196,36 @@ void OpenGL_FBO::clear() const
 void OpenGL_FBO::clearAttachment(const std::string& name, const float* clearValue) const
 {
     auto it = attachments.find(name);
-    if (it == attachments.end()) return;
+    if (it == attachments.end())
+    {
+        std::cerr << "[OpenGL_FBO][setDrawBuffers]: Attachment '" << name << "' not found in attachments for clearing\n";
+        return;
+    }
 
     OPENGL_CHECK_BIND_TARGET(id, GL_FRAMEBUFFER);
+
+    bool found = false;
+    int index = 0;
 
     switch (it->second.type)
     {
     case AttachmentType::COLOR:
-        glClearBufferfv(GL_COLOR, it->second.attachmentPoint - GL_COLOR_ATTACHMENT0, clearValue);
+        for (index = 0; index < drawBuffers.size(); index++)
+        {
+            if (name == drawBuffers[index])
+            {
+                found = true;
+                break;
+            }
+        }
+        if (found)
+        {
+            glClearBufferfv(GL_COLOR, index, clearValue);
+        }
+        else
+        {
+            std::cerr << "[OpenGL_FBO][setDrawBuffers]: Attachment '" << name << "' not found in draw buffers for clearing\n";
+        }
         break;
     case AttachmentType::DEPTH:
         glClearBufferfv(GL_DEPTH, 0, clearValue);
@@ -300,32 +315,6 @@ bool OpenGL_FBO::isComplete() const
     return false;
 }
 
-void OpenGL_FBO::setupDrawBuffers() const
-{
-    OPENGL_CHECK_BIND_TARGET(id, GL_FRAMEBUFFER);
-
-    std::vector<GLenum> drawBuffers;
-
-    for (const auto& [name, attachment] : attachments)
-    {
-        if (attachment.type == AttachmentType::COLOR)
-        {
-            drawBuffers.push_back(attachment.attachmentPoint);
-        }
-    }
-
-    if (drawBuffers.empty())
-    {
-        // If no color attachments, tell OpenGL we're not drawing to any color buffer
-        glDrawBuffer(GL_NONE);
-        glReadBuffer(GL_NONE);
-    }
-    else
-    {
-        glDrawBuffers(drawBuffers.size(), drawBuffers.data());
-    }
-}
-
 GLenum OpenGL_FBO::getAttachmentPoint(AttachmentType type)
 {
     if (type != AttachmentType::COLOR)
@@ -339,16 +328,31 @@ GLenum OpenGL_FBO::getAttachmentPoint(AttachmentType type)
         }
     }
 
-    int maxPoint = -1;
+    constexpr int ATTACHMENT_POINT_COUNT = 32;
+    bool usedAttachments[ATTACHMENT_POINT_COUNT];
+    std::fill_n(usedAttachments, sizeof(usedAttachments), false);
+
     for (const auto& [name, attachment] : attachments)
     {
-        if (attachment.type == AttachmentType::COLOR && (attachment.attachmentPoint - GL_COLOR_ATTACHMENT0) > maxPoint)
+        if (attachment.type == AttachmentType::COLOR)
         {
-            maxPoint = attachment.attachmentPoint - GL_COLOR_ATTACHMENT0;
+            int index = attachment.attachmentPoint - GL_COLOR_ATTACHMENT0;
+            if (index >= 0 && index < ATTACHMENT_POINT_COUNT)
+                usedAttachments[index] = true;
         }
     }
 
-    return GL_COLOR_ATTACHMENT0 + (maxPoint + 1);
+    // Find first unused attachment point
+    for (int i = 0; i < ATTACHMENT_POINT_COUNT; i++)
+    {
+        if (!usedAttachments[i])
+        {
+            return GL_COLOR_ATTACHMENT0 + i;
+        }
+    }
+
+    std::cerr << "[OpenGL_FBO][getAttachmentPoint]: No available color attachment points\n";
+    return GL_COLOR_ATTACHMENT0;
 }
 
 void OpenGL_FBO::createTexture(Attachment& attachment, GLenum internalFormat, GLenum format, GLenum dataType,
@@ -357,16 +361,19 @@ void OpenGL_FBO::createTexture(Attachment& attachment, GLenum internalFormat, GL
     attachment.texture.create2D(width, height, internalFormat, format, dataType);
     attachment.texture.setParameters(minFilter, magFilter, wrapS, wrapT);
 
+    OPENGL_CHECK_BIND_TARGET(id, GL_FRAMEBUFFER);
+
     glFramebufferTexture2D(GL_FRAMEBUFFER, attachment.attachmentPoint, GL_TEXTURE_2D,
         attachment.texture.getID(), 0);
 }
 
 OpenGL_FBO::Attachment::Attachment(Attachment&& other) noexcept :
-    texture(std::move(other.texture))
-    , type(other.type)
-    , attachmentPoint(other.attachmentPoint)
-    , isExternal(other.isExternal)
+    texture(std::move(other.texture)),
+    type(other.type),
+    attachmentPoint(other.attachmentPoint)
 {
+    other.type = AttachmentType::COLOR;
+    other.attachmentPoint = -1;
 }
 
 OpenGL_FBO::Attachment& OpenGL_FBO::Attachment::operator=(Attachment&& other) noexcept
@@ -374,9 +381,12 @@ OpenGL_FBO::Attachment& OpenGL_FBO::Attachment::operator=(Attachment&& other) no
     if (this != &other)
     {
         texture = std::move(other.texture);
+
         type = other.type;
         attachmentPoint = other.attachmentPoint;
-        isExternal = other.isExternal;
+
+        other.type = AttachmentType::COLOR;
+        other.attachmentPoint = -1;
     }
     return *this;
 }

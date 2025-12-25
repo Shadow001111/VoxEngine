@@ -21,7 +21,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #ifdef NDEBUG
-constexpr int CHUNK_LOAD_DISTANCE = 12;
+constexpr int CHUNK_LOAD_DISTANCE = 3;
 #else
 constexpr int CHUNK_LOAD_DISTANCE = 3;
 #endif
@@ -187,6 +187,9 @@ static void setupContainerUI(ContainerUI& c)
 
 static void renderHotbar(const ContainerUI& c, const Player* player)
 {
+    glDisable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);
+
     const Item* hotbar = player->getHotbar();
 
     //
@@ -291,6 +294,8 @@ static void renderHotbar(const ContainerUI& c, const Player* player)
         c.hotbarShader.setMat4("model", model);
         glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
     }
+
+    glDepthMask(GL_TRUE);
 }
 
 static void renderUI(const ContainerUI& c, const Player* player)
@@ -364,7 +369,10 @@ static void renderDebugData(const World::DebugData& debug, const WindowManager& 
     ss << "\nView direction: " << facingDir;
 
     std::string text = ss.str();
+
     TextRenderer::renderText(text, 10.0f, wnd.getHeight() - 10.0f - rowHeight, rowHeight, glm::vec3(1.0f, 0.0f, 0.0f));
+
+    glDepthMask(GL_TRUE);
 }
 
 
@@ -417,7 +425,7 @@ void APIENTRY glDebugOutput(GLenum source,
     case GL_DEBUG_SEVERITY_LOW:          std::cout << "Severity: low"; break;
     case GL_DEBUG_SEVERITY_NOTIFICATION: std::cout << "Severity: notification"; break;
     } std::cout << "\n";
-    std::cout << std::endl;
+    std::cout<< "\n";
 }
 
 // TODO: Modern OpenGl
@@ -445,7 +453,7 @@ int main()
     );
 
     // Framebuffer
-    auto* FBO = wnd.getOpaqueFBO();
+    const auto& FBO = wnd.getFBO();
     OpenGL_VAO rectVAO;
     OpenGL_Buffer rectVBO(GL_ARRAY_BUFFER, GL_STATIC_DRAW);
     std::unique_ptr<Shader> fboShader;
@@ -531,7 +539,7 @@ int main()
             if (wnd.isKeyPressed(GLFW_KEY_P))
             {
                 world.rebuildAllChunkMeshes();
-                std::cout << "World: All chunks meshes are rebuild." << std::endl;
+                std::cout << "World: All chunks meshes are rebuild.\n";
             }
 
             if (wnd.isKeyPressed(GLFW_KEY_O))
@@ -547,22 +555,28 @@ int main()
         // Rendering world
         player->getCamera().setAspectRatio(wnd.getAspectRatio());
 
-        world.renderBackround(player->getCamera(), *wnd.getOpaqueFBO());
-        world.renderChunks(player->getCamera(), *wnd.getOpaqueFBO(), *wnd.getTranslucentFBO());
-        world.renderVoxelMarker(player->getCamera(), player->raycastResult);
-        //world.renderAurora(player->getCamera(), wnd.getOpaqueFBO());
+        FBO.bind();
+        if (FBO.isComplete())
+        {
+            world.renderBackround(player->getCamera(), FBO);
+            world.renderChunks(player->getCamera(), FBO);
+            world.renderVoxelMarker(player->getCamera(), player->raycastResult);
+            world.renderAurora(player->getCamera(), FBO);
+        }
+        else
+        {
+            "FBO is not complete!\n";
+        }
         renderUI(containerUI, player);
-        wnd.getOpaqueFBO()->unbind();
+        FBO.unbind();
 
         // Rendering to screen
-        // TODO: Maybe we are rendering same FBO twice. Avoid that.
         rectVAO.bind();
         glDisable(GL_DEPTH_TEST);
         glDisable(GL_BLEND);
 
-        //FBO->bind();
-        FBO->bindTexture("color", 0);
-        FBO->bindTexture("depth", 1);
+        FBO.bindTexture("color", 0);
+        //FBO.bindTexture("depth", 1);
 
         fboShader->use();
 

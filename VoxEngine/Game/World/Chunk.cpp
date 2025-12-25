@@ -492,14 +492,14 @@ void Chunk::loadBlocks()
 	auto loadResult = file.loadFile(filepath, MAX_FILE_SIZE);
 	if (loadResult != MemoryFileReader::Result::Success)
 	{
-		std::cerr << "[Chunk][loadBlocks]: Failed to open file." << std::endl;
+		std::cerr << "[Chunk][loadBlocks]: Failed to open file.\n";
 		return;
 	}
 
 	// Check file size
 	if (file.getSize() < MIN_FILE_SIZE)
 	{
-		std::cerr << "[Chunk][loadBlocks]: File too small." << std::endl;
+		std::cerr << "[Chunk][loadBlocks]: File too small.\n";
 		return;
 	}
 
@@ -511,12 +511,12 @@ void Chunk::loadBlocks()
 	auto readResult = file.read(&packCount);
 	if (readResult != MemoryFileReader::Result::Success)
 	{
-		std::cerr << "[Chunk][loadBlocks]: Read error." << std::endl;
+		std::cerr << "[Chunk][loadBlocks]: Read error.\n";
 		return;
 	}
 	else if (packCount == 0 || packCount > MAX_PACKS)
 	{
-		std::cerr << "[Chunk][loadBlocks]: Pack count is invalid." << std::endl;
+		std::cerr << "[Chunk][loadBlocks]: Pack count is invalid.\n";
 		return;
 	}
 
@@ -531,13 +531,13 @@ void Chunk::loadBlocks()
 		readResult = file.read(&packBlockCount);
 		if (readResult != MemoryFileReader::Result::Success)
 		{
-			std::cerr << "[Chunk][loadBlocks]: Read error." << std::endl;
+			std::cerr << "[Chunk][loadBlocks]: Read error.\n";
 			changedBlocks.clear();
 			return;
 		}
 		else if (packBlockCount == 0 || packBlockCount > CHUNK_VOLUME)
 		{
-			std::cerr << "[Chunk][loadBlocks]: Block count in pack is invalid." << std::endl;
+			std::cerr << "[Chunk][loadBlocks]: Block count in pack is invalid.\n";
 			changedBlocks.clear();
 			return;
 		}
@@ -547,13 +547,13 @@ void Chunk::loadBlocks()
 		readResult = file.read(&packNameLen);
 		if (readResult != MemoryFileReader::Result::Success)
 		{
-			std::cerr << "[Chunk][loadBlocks]: Read error." << std::endl;
+			std::cerr << "[Chunk][loadBlocks]: Read error.\n";
 			changedBlocks.clear();
 			return;
 		}
 		else if (packNameLen < 1 || packNameLen > 64)
 		{
-			std::cerr << "[Chunk][loadBlocks]: Pack name length is invalid." << std::endl;
+			std::cerr << "[Chunk][loadBlocks]: Pack name length is invalid.\n";
 			changedBlocks.clear();
 			return;
 		}
@@ -562,7 +562,7 @@ void Chunk::loadBlocks()
 		readResult = file.read(&packName[0], packNameLen);
 		if (readResult != MemoryFileReader::Result::Success)
 		{
-			std::cerr << "[Chunk][loadBlocks]: Read error." << std::endl;
+			std::cerr << "[Chunk][loadBlocks]: Read error.\n";
 			changedBlocks.clear();
 			return;
 		}
@@ -575,13 +575,13 @@ void Chunk::loadBlocks()
 			readResult = file.read(&blockNameLen);
 			if (readResult != MemoryFileReader::Result::Success)
 			{
-				std::cerr << "[Chunk][loadBlocks]: Read error." << std::endl;
+				std::cerr << "[Chunk][loadBlocks]: Read error.\n";
 				changedBlocks.clear();
 				return;
 			}
 			else if (blockNameLen < 1 || blockNameLen > 64)
 			{
-				std::cerr << "[Chunk][loadBlocks]: Block name length is invalid." << std::endl;
+				std::cerr << "[Chunk][loadBlocks]: Block name length is invalid.\n";
 				changedBlocks.clear();
 				return;
 			}
@@ -591,7 +591,7 @@ void Chunk::loadBlocks()
 			readResult = file.read(&blockName[0], blockNameLen);
 			if (readResult != MemoryFileReader::Result::Success)
 			{
-				std::cerr << "[Chunk][loadBlocks]: Read error." << std::endl;
+				std::cerr << "[Chunk][loadBlocks]: Read error.\n";
 				changedBlocks.clear();
 				return;
 			}
@@ -605,7 +605,7 @@ void Chunk::loadBlocks()
 			{
 				// Block no longer exists - fallback to air
 				globalID = AIR_BLOCK_ID;
-				std::cerr << "[Chunk][loadBlocks]: Block '" << fullName << "' is not found. Replaced with air." << std::endl;
+				std::cerr << "[Chunk][loadBlocks]: Block '" << fullName << "' is not found. Replaced with air.\n";
 			}
 
 			// Read indices count for this block
@@ -613,13 +613,13 @@ void Chunk::loadBlocks()
 			readResult = file.read(&indicesCount);
 			if (readResult != MemoryFileReader::Result::Success)
 			{
-				std::cerr << "[Chunk][loadBlocks]: Read error." << std::endl;
+				std::cerr << "[Chunk][loadBlocks]: Read error.\n";
 				changedBlocks.clear();
 				return;
 			}
 			else if (indicesCount == 0 || indicesCount > CHUNK_VOLUME)
 			{
-				std::cerr << "[Chunk][loadBlocks]: Indices count is invalid." << std::endl;
+				std::cerr << "[Chunk][loadBlocks]: Indices count is invalid.\n";
 				changedBlocks.clear();
 				return;
 			}
@@ -630,7 +630,7 @@ void Chunk::loadBlocks()
 			readResult = file.read(indices.data(), indicesCount);
 			if (readResult != MemoryFileReader::Result::Success)
 			{
-				std::cerr << "[Chunk][loadBlocks]: Read error." << std::endl;
+				std::cerr << "[Chunk][loadBlocks]: Read error.\n";
 				changedBlocks.clear();
 				return;
 			}
@@ -642,14 +642,14 @@ void Chunk::loadBlocks()
 
 	if (changedBlocks.empty())
 	{
-		std::cerr << "[Chunk][loadBlocks]: No blocks loaded." << std::endl;
+		std::cerr << "[Chunk][loadBlocks]: No blocks loaded.\n";
 		return;
 	}
 
 	// Verify we read the entire file
 	if (!file.isEndOfFile())
 	{
-		std::cerr << "[Chunk][loadBlocks]: File size mismatch. Possible corruption." << std::endl;
+		std::cerr << "[Chunk][loadBlocks]: File size mismatch. Possible corruption.\n";
 		changedBlocks.clear();
 		return;
 	}
@@ -694,7 +694,7 @@ void Chunk::saveBlocks()
 	}
 	else if (changedBlocks.size() > CHUNK_VOLUME)
 	{
-		std::cerr << "[Chunk][saveBlocks]: ChangedBlocks map size is invalid." << std::endl;
+		std::cerr << "[Chunk][saveBlocks]: ChangedBlocks map size is invalid.\n";
 		return;
 	}
 
@@ -712,7 +712,7 @@ void Chunk::saveBlocks()
 	auto initResult = file.initialize(MAX_FILE_SIZE);
 	if (initResult != MemoryFileWriter::Result::Success)
 	{
-		std::cerr << "[Chunk][saveBlocks]: MemoryFileWriter failed to initialize." << std::endl;
+		std::cerr << "[Chunk][saveBlocks]: MemoryFileWriter failed to initialize.\n";
 		return;
 	}
 
@@ -815,7 +815,7 @@ void Chunk::saveBlocks()
 	auto saveResult = file.saveToFile(filepath);
 	if (saveResult != MemoryFileWriter::Result::Success)
 	{
-		std::cerr << "[Chunk][saveBlocks]: Failed to save file: " << static_cast<int>(saveResult) << std::endl;
+		std::cerr << "[Chunk][saveBlocks]: Failed to save file: " << static_cast<int>(saveResult)<< "\n";
 		return;
 	}
 }

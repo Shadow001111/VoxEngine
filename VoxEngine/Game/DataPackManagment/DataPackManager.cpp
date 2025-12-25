@@ -19,7 +19,7 @@ void DataPackManager::loadAllDataPacks()
 
     if (!fs::exists(packsDir) || !fs::is_directory(packsDir))
     {
-        std::cerr << "[DataPackManager]: Data pack directory is not found" << std::endl;
+        std::cerr << "[DataPackManager]: Data pack directory is not found\n";
         return;
     }
 

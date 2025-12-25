@@ -134,13 +134,13 @@ namespace TextureLoader
     {
         if (params.desiredChannels < 1 || params.desiredChannels > 4)
         {
-            std::cerr << "[TextureLoader][createAndLoadTexture2D]: Only 1-4 channels are supported. Got: " << params.desiredChannels << std::endl;
+            std::cerr << "[TextureLoader][createAndLoadTexture2D]: Only 1-4 channels are supported. Got: " << params.desiredChannels<< "\n";
             return;
         }
 
         if (!fs::exists(texturePath) || !fs::is_regular_file(texturePath))
         {
-            std::cerr << "[TextureLoader][createAndLoadTexture2D]: Texture file is not found " << texturePath << std::endl;
+            std::cerr << "[TextureLoader][createAndLoadTexture2D]: Texture file is not found " << texturePath<< "\n";
             return;
         }
 
@@ -257,13 +257,13 @@ namespace TextureLoader
     {
         if (params.desiredChannels < 1 || params.desiredChannels > 4)
         {
-            std::cerr << "[TextureLoader][createAndLoadTextureArray]: Only 1-4 channels are supported. Got: " << params.desiredChannels << std::endl;
+            std::cerr << "[TextureLoader][createAndLoadTextureArray]: Only 1-4 channels are supported. Got: " << params.desiredChannels<< "\n";
             return;
         }
 
         if (!fs::exists(texturesFolderPath))
         {
-            std::cerr << "[TextureLoader][createAndLoadTextureArray]: Textures folder is not found for path " << texturesFolderPath << std::endl;
+            std::cerr << "[TextureLoader][createAndLoadTextureArray]: Textures folder is not found for path " << texturesFolderPath<< "\n";
             return;
         }
 
@@ -391,7 +391,7 @@ namespace TextureLoader
     {
         if (params.desiredChannels < 1 || params.desiredChannels > 4)
         {
-            std::cerr << "[TextureLoader][createAndLoadTexture3DFromFloatData]: Only 1-4 channels are supported. Got: " << params.desiredChannels << std::endl;
+            std::cerr << "[TextureLoader][createAndLoadTexture3DFromFloatData]: Only 1-4 channels are supported. Got: " << params.desiredChannels<< "\n";
             return;
         }
 

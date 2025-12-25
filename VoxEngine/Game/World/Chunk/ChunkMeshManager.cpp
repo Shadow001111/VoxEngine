@@ -210,7 +210,7 @@ void ChunkMeshManager::MeshAllocator::processMeshRequests(std::vector<ChunkMeshD
 		auto result = blockAllocator.allocate(faceCount);
 		if (!result.has_value())
 		{
-			std::cerr << "[ChunkMeshManager]: " << config.debugName << ": mesh wasn't created." << std::endl;
+			std::cerr << "[ChunkMeshManager]: " << config.debugName << ": mesh wasn't created.\n";
 			break;
 		}
 

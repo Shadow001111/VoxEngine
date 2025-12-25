@@ -9,10 +9,7 @@ OpenGL_Texture::OpenGL_Texture()
 
 OpenGL_Texture::~OpenGL_Texture()
 {
-	if (id)
-	{
-		glDeleteTextures(1, &id);
-	}
+	if (id) glDeleteTextures(1, &id);
 }
 
 OpenGL_Texture::OpenGL_Texture(OpenGL_Texture&& other) noexcept
@@ -21,7 +18,7 @@ OpenGL_Texture::OpenGL_Texture(OpenGL_Texture&& other) noexcept
 	height(other.height), depth(other.depth), mipLevels(other.mipLevels)
 {
 	other.id = 0;
-	other.type = GL_TEXTURE_2D;
+	other.type = 0;
 	other.internalFormat = 0;
 	other.format = 0;
 	other.dataType = 0;
@@ -35,10 +32,7 @@ OpenGL_Texture& OpenGL_Texture::operator=(OpenGL_Texture&& other) noexcept
 {
 	if (this != &other)
 	{
-		if (id)
-		{
-			glDeleteTextures(1, &id);
-		}
+		if (id) glDeleteTextures(1, &id);
 
 		id = other.id;
 		type = other.type;
@@ -51,7 +45,7 @@ OpenGL_Texture& OpenGL_Texture::operator=(OpenGL_Texture&& other) noexcept
 		mipLevels = other.mipLevels;
 
 		other.id = 0;
-		other.type = GL_TEXTURE_2D;
+		other.type = 0;
 		other.internalFormat = 0;
 		other.format = 0;
 		other.dataType = 0;
@@ -146,10 +140,17 @@ void OpenGL_Texture::resize1D(int width)
 	glTexStorage1D(type, mipLevels, internalFormat, width);
 }
 
+// TODO: pass texture parametrs to next
 void OpenGL_Texture::resize2D(int width, int height)
 {
 	this->width = width;
 	this->height = height;
+
+	if (id)
+	{
+		glDeleteTextures(1, &id);
+		glGenTextures(1, &id);
+	}
 
 	glBindTexture(type, id);
 	glTexStorage2D(type, mipLevels, internalFormat, width, height);
@@ -182,10 +183,10 @@ void OpenGL_Texture::uploadData(const void* data, int level)
 		glTexSubImage3D(type, level, 0, 0, 0, width, height, depth, format, dataType, data);
 		break;
 	case GL_TEXTURE_CUBE_MAP:
-		std::cerr << "[OpenGL_Texture]: Use uploadSubData for cube map faces" << std::endl;
+		std::cerr << "[OpenGL_Texture]: Use uploadSubData for cube map faces\n";
 		break;
 	default:
-		std::cerr << "[OpenGL_Texture]: Unsupported texture type for data upload: " << type << std::endl;
+		std::cerr << "[OpenGL_Texture]: Unsupported texture type for data upload: " << type<< "\n";
 		break;
 	}
 }
@@ -215,7 +216,7 @@ void OpenGL_Texture::uploadSubData(const void* data, int xOffset, int yOffset, i
 		}
 		break;
 	default:
-		std::cerr << "[OpenGL_Texture]: Unsupported texture type for sub data upload: " << type << std::endl;
+		std::cerr << "[OpenGL_Texture]: Unsupported texture type for sub data upload: " << type<< "\n";
 		break;
 	}
 }
@@ -247,8 +248,7 @@ void OpenGL_Texture::setParameters(GLenum minFilter, GLenum magFilter,
 
 void OpenGL_Texture::bind(GLuint unit) const
 {
-	glActiveTexture(GL_TEXTURE0 + unit);
-	glBindTexture(type, id);
+	glBindTextureUnit(unit, id);
 }
 
 void OpenGL_Texture::bind() const

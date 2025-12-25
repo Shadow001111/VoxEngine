@@ -19,7 +19,6 @@ class OpenGL_FBO
         OpenGL_Texture texture;
         AttachmentType type = AttachmentType::COLOR;
         int attachmentPoint = -1;
-        bool isExternal = false;
 
         Attachment(const Attachment&) = delete;
         Attachment& operator=(const Attachment&) = delete;
@@ -34,6 +33,7 @@ class OpenGL_FBO
     int width, height;
 
     robin_hood::unordered_flat_map<std::string, Attachment> attachments;
+    mutable std::vector<std::string> drawBuffers;
 public:
     OpenGL_FBO(int width, int height);
     ~OpenGL_FBO();
@@ -65,12 +65,6 @@ public:
         GLenum minFilter = GL_NEAREST, GLenum magFilter = GL_NEAREST,
         GLenum wrapS = GL_CLAMP_TO_EDGE, GLenum wrapT = GL_CLAMP_TO_EDGE);
 
-    // Link existing textures
-    void linkColorTexture(const std::string& name, OpenGL_Texture& texture);
-    void linkDepthTexture(const std::string& name, OpenGL_Texture& texture);
-    void linkStencilTexture(const std::string& name, OpenGL_Texture& texture);
-    void linkDepthStencilTexture(const std::string& name, OpenGL_Texture& texture);
-
     // Remove attachments
     void removeAttachment(const std::string& name);
 
@@ -78,7 +72,7 @@ public:
     void bind() const;
     static void unbind();
 
-    void setupDrawBuffers() const;
+    void setDrawBuffers(const std::vector<std::string>& attachmentNames) const;
     void resize(int newWidth, int newHeight);
     void clear() const;
     void clearAttachment(const std::string& name, const float* clearValue) const;

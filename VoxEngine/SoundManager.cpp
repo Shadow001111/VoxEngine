@@ -94,14 +94,14 @@ SoundManager::SoundManager()
 	device = alcOpenDevice(nullptr);
 	if (!device)
 	{
-		std::cerr << "[Sound] Failed to open device." << std::endl;
+		std::cerr << "[Sound] Failed to open device.\n";
 		return;
 	}
 
 	context = alcCreateContext(device, nullptr);
 	if (!context || !alcMakeContextCurrent(context))
 	{
-		std::cerr << "[Sound] Failed to create context." << std::endl;
+		std::cerr << "[Sound] Failed to create context.\n";
 		alcCloseDevice(device);
 		device = nullptr;
 	}

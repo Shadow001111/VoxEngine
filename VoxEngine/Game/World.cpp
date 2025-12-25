@@ -21,12 +21,14 @@
 // BINDINGS
 constexpr unsigned BLOCK_TEXTURE_ARRAY_BINDING = 0;
 constexpr unsigned ITEM_UI_TEXTURE_ARRAY_BINDING = 0;
-constexpr unsigned HOTBAR_TEXTURE_BINDING = ITEM_UI_TEXTURE_ARRAY_BINDING;
+constexpr unsigned HOTBAR_TEXTURE_BINDING = 0;
 
-constexpr unsigned OUTPUT_IMAGE_BINDING = 0;
-constexpr unsigned OPAQUE_TEX_BINDING = 1;
-constexpr unsigned ACCUMULATION_TEX_BINDING = 2;
-constexpr unsigned REVEALAGE_TEX_BINDING = 3;
+namespace ChunksCompositePass
+{	// Values are hardcoded in shaders
+	constexpr unsigned OUTPUT_IMAGE_BINDING = 0;
+	constexpr unsigned ACCUMULATION_TEX_BINDING = 1;
+	constexpr unsigned REVEALAGE_TEX_BINDING = 2;
+}
 
 struct ViewRays
 {
@@ -144,11 +146,6 @@ World::World() :
 			{GL_COMPUTE_SHADER, "res/Shaders/Chunk/faceComposite.comp"}
 		};
 		compositeFaceShader = Shader(sources);
-		compositeFaceShader.use();
-		compositeFaceShader.setInt("outputImage", OUTPUT_IMAGE_BINDING);
-		compositeFaceShader.setInt("accumulationTex", ACCUMULATION_TEX_BINDING);
-		compositeFaceShader.setInt("revealageTex", REVEALAGE_TEX_BINDING);
-		compositeFaceShader.setInt("opaqueTex", OPAQUE_TEX_BINDING);
 	}
 	{
 		std::vector<Shader::ShaderSource> sources =
@@ -194,19 +191,6 @@ World::World() :
 
 		PROFILE_SCOPE("Block texture array creation", ProfileCategory::General);
 		TextureLoader::createAndLoadTextureArray(blockTextureArray, "res/BlockTextures", blockTextureNames, 16, params);
-
-		// Set
-		alignedOpaqueFaceShader.use();
-		alignedOpaqueFaceShader.setInt("blockTextures", BLOCK_TEXTURE_ARRAY_BINDING);
-
-		alignedTranslucentFaceShader.use();
-		alignedTranslucentFaceShader.setInt("blockTextures", BLOCK_TEXTURE_ARRAY_BINDING);
-
-		nonAlignedOpaqueFaceShader.use();
-		nonAlignedOpaqueFaceShader.setInt("blockTextures", BLOCK_TEXTURE_ARRAY_BINDING);
-
-		nonAlignedTranslucentFaceShader.use();
-		nonAlignedTranslucentFaceShader.setInt("blockTextures", BLOCK_TEXTURE_ARRAY_BINDING);
 	}
 
 	// Sky noise texture
@@ -478,50 +462,38 @@ void World::collectChunksToRenderAndSortThem(std::vector<ChunkRenderInfo>& chunk
 		});
 }
 
-void World::renderBackround(const Camera& camera, const OpenGL_FBO& opaqueFBO) const
+void World::renderBackround(const Camera& camera, const OpenGL_FBO& FBO) const
 {
-	// Clear
-	opaqueFBO.bind();
-	if (!opaqueFBO.isComplete())
-	{
-		std::cerr << "[World][renderBackround]: Opaque FBO is not complete!" << std::endl;
-		opaqueFBO.unbind();
-		return;
-	}
-
+	// Clear buffers
 	glm::vec3 fogColor = glm::mix(visualSettings.nightBackgroundColor, visualSettings.dayBackgroundColor, dayNightCycleValue);
 
 	const float bgColor[4] = { fogColor.r, fogColor.g, fogColor.b, 1.0f };
-	const float depth = 0.0f;
+	const float depth = 1.0f;
+	float clearAccumulation[] = { 0.0f, 0.0f, 0.0f, 0.0f };
+	float clearRevealage = 0.0f;
 
-	opaqueFBO.clear();
-	opaqueFBO.clearAttachment("color", bgColor);
+	FBO.clearAttachment("color", bgColor);
+	FBO.clearAttachment("depth", &depth);
+	FBO.clearAttachment("accumulation", clearAccumulation);
+	FBO.clearAttachment("revealage", &clearRevealage);
 }
 
-void World::renderAurora(const Camera& camera, const OpenGL_FBO& opaqueFBO) const
+void World::renderAurora(const Camera& camera, const OpenGL_FBO& FBO) const
 {
-	// Bind FBO
-	opaqueFBO.bind();
-	if (!opaqueFBO.isComplete())
-	{
-		std::cerr << "[World][renderAurora]: Opaque FBO is not complete\n";
-		opaqueFBO.unbind();
-		return;
-	}
-
+	return;
 	// Get textures
-	auto getTextureResult = opaqueFBO.getTexture("color");
+	auto getTextureResult = FBO.getTexture("color");
 	if (!getTextureResult.has_value())
 	{
-		std::cerr << "[World][renderAurora]: Opaque FBO does not have 'color' texture\n";
+		std::cerr << "[World][renderAurora]: FBO does not have 'color' texture\n";
 		return;
 	}
 	const OpenGL_Texture& outputTex = *getTextureResult.value();
 
-	getTextureResult = opaqueFBO.getTexture("depth");
+	getTextureResult = FBO.getTexture("depth");
 	if (!getTextureResult.has_value())
 	{
-		std::cerr << "[World][renderAurora]: Opaque FBO does not have 'depth' texture\n";
+		std::cerr << "[World][renderAurora]: FBO does not have 'depth' texture\n";
 		return;
 	}
 	const OpenGL_Texture& depthTex = *getTextureResult.value();
@@ -561,8 +533,12 @@ void World::renderAurora(const Camera& camera, const OpenGL_FBO& opaqueFBO) cons
 	glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
 }
 
-void World::renderChunks(const Camera& camera, const OpenGL_FBO& opaqueFBO, const OpenGL_FBO& translucentFBO)
+void World::renderChunks(const Camera& camera, const OpenGL_FBO& FBO)
 {
+	debugData.renderedChunks = 0;
+	debugData.renderedFaceCount = 0;
+
+	// Set uniforms
 	{
 		glm::vec3 fogColor = glm::mix(visualSettings.nightBackgroundColor, visualSettings.dayBackgroundColor, dayNightCycleValue);
 
@@ -601,6 +577,7 @@ void World::renderChunks(const Camera& camera, const OpenGL_FBO& opaqueFBO, cons
 	// Collect chunks to render
 	std::vector<ChunkRenderInfo> chunksToRender;
 	collectChunksToRenderAndSortThem(chunksToRender, camera);
+	debugData.renderedChunks = chunksToRender.size();
 
 	// Bind resources
 	blockTextureArray.bind(BLOCK_TEXTURE_ARRAY_BINDING);
@@ -612,46 +589,16 @@ void World::renderChunks(const Camera& camera, const OpenGL_FBO& opaqueFBO, cons
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
 
-	// Debug data
-	debugData.renderedChunks = chunksToRender.size();
-	debugData.renderedFaceCount = 0;
-
 	// TODO: Maybe make them global
 	std::vector<DrawArraysIndirectCommand> chunkDrawCommands;
 	std::vector<glm::ivec3> chunkPositions;
 
-	// Opaque
-	opaqueFBO.bind();
-	if (!opaqueFBO.isComplete())
-	{
-		std::cerr << "[Render]: Opaque FBO is not complete!" << std::endl;
-		opaqueFBO.unbind();
-		return;
-	}
-
+	// Render chunks
 	renderOpaqueChunks(chunksToRender, chunkDrawCommands, chunkPositions);
-	opaqueFBO.unbind();
-
-	// Translucent
-	translucentFBO.bind();
-	if(!translucentFBO.isComplete())
-	{
-		std::cerr << "[Render]: Translucent FBO is not complete!" << std::endl;
-		translucentFBO.unbind();
-		return;
-	}
-
-	float clearAccumulation[] = { 0.0f, 0.0f, 0.0f, 0.0f };
-	float clearRevealage[] = { 1.0f, 0.0f, 0.0f, 0.0f };
-	translucentFBO.clearAttachment("accumulation", clearAccumulation);
-	translucentFBO.clearAttachment("revealage", clearRevealage);
-
 	renderTranslucentChunks(chunksToRender, chunkDrawCommands, chunkPositions);
-	translucentFBO.unbind();
 
 	// Composite
-	opaqueFBO.bind();
-	compositePass(opaqueFBO, translucentFBO);
+	compositePass(FBO);
 }
 
 void World::renderOpaqueChunks(
@@ -660,7 +607,6 @@ void World::renderOpaqueChunks(
 	std::vector<glm::ivec3>& chunkPositions
 	)
 {
-	//glDepthFunc(GL_LESS);
 	glEnable(GL_CULL_FACE);
 	glDisable(GL_BLEND);
 
@@ -737,9 +683,10 @@ void World::renderTranslucentChunks(const std::vector<ChunkRenderInfo>& chunksTo
 	glDepthMask(GL_FALSE);
 	glDisable(GL_CULL_FACE);
 	glEnable(GL_BLEND);
-	glBlendFunci(0, GL_ONE, GL_ONE);					// accumulation buffer
-	glBlendFunci(1, GL_ZERO, GL_ONE_MINUS_SRC_COLOR);	// revealage buffer
 	glBlendEquation(GL_FUNC_ADD);
+	glBlendFunc(GL_ONE, GL_ONE);
+	//glBlendFunci(0, GL_ONE, GL_ONE);	// accumulation buffer
+	//glBlendFunci(1, GL_ONE, GL_ONE);	// revealage buffer
 
 	// Aligned
 	ChunkMeshManager::getInstance().bindAlignedVAO();
@@ -810,43 +757,40 @@ void World::renderTranslucentChunks(const std::vector<ChunkRenderInfo>& chunksTo
 	glDepthMask(GL_TRUE);
 }
 
-void World::compositePass(const OpenGL_FBO& opaqueFBO, const OpenGL_FBO& translucentFBO) const
+void World::compositePass(const OpenGL_FBO& FBO) const
 {
-	auto getTextureResult = opaqueFBO.getTexture("color");
+	auto getTextureResult = FBO.getTexture("color");
 	if (!getTextureResult.has_value())
 	{
-		std::cerr << "[World][compositePass]: Opaque FBO does not have 'color' texture\n";
+		std::cerr << "[World][compositePass]: FBO does not have 'color' texture\n";
 		return;
 	}
 	const OpenGL_Texture& colorTex = *getTextureResult.value();
 
-	getTextureResult = translucentFBO.getTexture("accumulation");
+	getTextureResult = FBO.getTexture("accumulation");
 	if (!getTextureResult.has_value())
 	{
-		std::cerr << "[World][compositePass]: Translucent FBO does not have 'accumulation' texture\n";
+		std::cerr << "[World][compositePass]: FBO does not have 'accumulation' texture\n";
 		return;
 	}
 	const OpenGL_Texture& accumulationTex = *getTextureResult.value();
 
-	getTextureResult = translucentFBO.getTexture("revealage");
+	getTextureResult = FBO.getTexture("revealage");
 	if (!getTextureResult.has_value())
 	{
-		std::cerr << "[World][compositePass]: Translucent FBO does not have 'revealage' texture\n";
+		std::cerr << "[World][compositePass]: FBO does not have 'revealage' texture\n";
 		return;
 	}
 	const OpenGL_Texture& revealageTex = *getTextureResult.value();
 
-	const OpenGL_Texture& outputTex = colorTex;
-
 	// Get texture dimensions
-	int width = outputTex.getWidth();
-	int height = outputTex.getHeight();
+	int width = colorTex.getWidth();
+	int height = colorTex.getHeight();
 
 	// Bind textures
-	glBindImageTexture(0, outputTex.getID(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
-	glBindTextureUnit(1, colorTex.getID());
-	glBindTextureUnit(2, accumulationTex.getID());
-	glBindTextureUnit(3, revealageTex.getID());
+	glBindImageTexture(ChunksCompositePass::OUTPUT_IMAGE_BINDING, colorTex.getID(), 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
+	accumulationTex.bind(ChunksCompositePass::ACCUMULATION_TEX_BINDING);
+	revealageTex.bind(ChunksCompositePass::REVEALAGE_TEX_BINDING);
 
 	// Dispatch compute shader
 	const int localSize = 16;

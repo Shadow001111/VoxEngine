@@ -2,10 +2,10 @@
 
 in vec2 texCoords;
 
-out vec4 FragColor;
+layout(location = 0) out vec4 FragColor;
 
-uniform sampler2D colorTexture;
-uniform sampler2D depthTexture;
+layout(location = 0) uniform sampler2D colorTexture;
+//uniform sampler2D depthTexture;
 
 uniform float gamma = 2.2;
 

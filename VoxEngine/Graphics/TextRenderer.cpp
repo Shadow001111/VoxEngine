@@ -223,7 +223,7 @@ void TextRenderer::getFontInfo(FT_Face& face, glm::ivec2& maxGlyphSize, size_t& 
     {
         if (FT_Load_Char(face, charcode, FT_LOAD_RENDER))
         {
-            std::cerr << "[TextRenderer]: Failed to load glyph: '" << charcode << "'." << std::endl;
+            std::cerr << "[TextRenderer]: Failed to load glyph: '" << charcode << "'.\n";
             continue;
         }
 
@@ -249,7 +249,7 @@ void TextRenderer::loadGlyphs(FT_Face& face, Font& font)
     {
         if (FT_Load_Char(face, charcode, FT_LOAD_RENDER))
         {
-            std::cerr << "[TextRenderer]: Failed to load glyph: '" << charcode << "'." << std::endl;
+            std::cerr << "[TextRenderer]: Failed to load glyph: '" << charcode << "'.\n";
             continue;
         }
 
@@ -299,7 +299,7 @@ bool TextRenderer::loadFont(const std::string& fontName, GLuint fontSize)
 	// Test if font exists
 	if (fonts.find(fontName) != fonts.end())
 	{
-		std::cerr << "[TextRenderer]: Font '" << fontName << "' already exists." << std::endl;
+		std::cerr << "[TextRenderer]: Font '" << fontName << "' already exists.\n";
 		return false;
 	}
 
@@ -307,7 +307,7 @@ bool TextRenderer::loadFont(const std::string& fontName, GLuint fontSize)
     FT_Library ft;
     if (FT_Init_FreeType(&ft))
     {
-        std::cerr << "[TextRenderer]: Couldn't init FreeType Library." << std::endl;
+        std::cerr << "[TextRenderer]: Couldn't init FreeType Library.\n";
         return false;
     }
 
@@ -316,7 +316,7 @@ bool TextRenderer::loadFont(const std::string& fontName, GLuint fontSize)
     FT_Face face;
     if (FT_New_Face(ft, fontPath.c_str(), 0, &face))
     {
-        std::cerr << "[TextRenderer]: Failed to load font: " << fontPath << "." << std::endl;
+        std::cerr << "[TextRenderer]: Failed to load font: " << fontPath << ".\n";
         FT_Done_FreeType(ft);
         return false;
     }
@@ -354,7 +354,7 @@ bool TextRenderer::loadFont(const std::string& fontName, GLuint fontSize)
     ASSERT(glyphCount == font.glyphs.size());
 
     // Done
-    std::cout << "[TextRenderer]: Loaded font: '" << fontName << "' (" << fontPath << "). Character count: " << font.glyphs.size() << ". Max glyph size: (" << font.maxGlyphSize.x << ", " << font.maxGlyphSize.y << ")." << std::endl;
+    std::cout << "[TextRenderer]: Loaded font: '" << fontName << "' (" << fontPath << "). Character count: " << font.glyphs.size() << ". Max glyph size: (" << font.maxGlyphSize.x << ", " << font.maxGlyphSize.y << ").\n";
 
     FT_Done_Face(face);
     FT_Done_FreeType(ft);
@@ -372,7 +372,7 @@ void TextRenderer::setCurrentFont(const std::string& fontName)
     auto it = fonts.find(fontName);
     if (it == fonts.end())
     {
-        std::cerr << "[TextRenderer]: Font '" << fontName << "' isn't loaded." << std::endl;
+        std::cerr << "[TextRenderer]: Font '" << fontName << "' isn't loaded.\n";
         return;
     }
 
@@ -389,7 +389,7 @@ void TextRenderer::renderText(const std::string& text, float x, float y, float r
     const Font* font = inst.currentFont;
     if (!font)
     {
-        std::cerr << "[TextRenderer]: Current font isn't set." << std::endl;
+        std::cerr << "[TextRenderer]: Current font isn't set.\n";
         return;
     }
 
@@ -406,6 +406,7 @@ void TextRenderer::renderText(const std::string& text, float x, float y, float r
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glDisable(GL_CULL_FACE);
+    glDepthMask(GL_FALSE);
 
     glBindVertexArray(inst.textVAO);
     glActiveTexture(GL_TEXTURE0);

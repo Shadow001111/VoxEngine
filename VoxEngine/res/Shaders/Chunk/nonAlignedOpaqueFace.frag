@@ -1,6 +1,6 @@
 #version 460 core
 
-uniform sampler2DArray blockTextures;
+layout(binding = 0) uniform sampler2DArray blockTextures;
 
 uniform vec3 fogColor;
 uniform float fogDensity;
@@ -12,7 +12,7 @@ in vec3 viewVertexPosition;
 flat in float[8] blockVertexLightData;
 in vec3 vertexLocalPos;
 
-out vec4 FragColor;
+layout(location = 0) out vec4 FragColor;
 
 float interpolateLight()
 {

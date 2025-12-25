@@ -249,7 +249,7 @@ void Profiler::printTableHeader(std::ostringstream& ss)
               << std::setw(ProfilerReport::COL_MIN) << "Min (ms)"
               << std::setw(ProfilerReport::COL_MAX) << "Max (ms)"
               << std::setw(ProfilerReport::COL_TOTAL) << "Total (ms)"
-              << std::setw(ProfilerReport::COL_CALLS) << "Calls" << "\n"
+              << std::setw(ProfilerReport::COL_CALLS) << "Calls\n"
               << std::string(ProfilerReport::TOTAL_WIDTH, '-') << "\n";
 }
 
@@ -283,7 +283,7 @@ void Profiler::printCategoryStatistics(std::ostringstream& ss, const robin_hood:
     ss << std::left;
     ss << std::setw(ProfilerReport::COL_NAME) << "Category"
         << std::setw(ProfilerReport::COL_TOTAL) << "Total (ms)"
-        << "% of Frame" << "\n";
+        << "% of Frame\n";
     ss << std::string(ProfilerReport::TOTAL_WIDTH, '-') << "\n";
 
     // Sort categories by total time (descending)
@@ -354,7 +354,7 @@ void Profiler::printProfileReport()
         printCategoryStatistics(ss, categoryTotals, totalTime);
     }
 
-    ss << std::string(ProfilerReport::TOTAL_WIDTH, '=') << std::endl;
+    ss << std::string(ProfilerReport::TOTAL_WIDTH, '=')<< "\n";
 
     std::cout << ss.str();
 

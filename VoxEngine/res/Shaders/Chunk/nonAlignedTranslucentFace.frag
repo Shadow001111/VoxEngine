@@ -1,6 +1,6 @@
 #version 460 core
 
-uniform sampler2DArray blockTextures;
+layout(binding = 0) uniform sampler2DArray blockTextures;
 
 uniform float farPlane;
 uniform vec3 fogColor;
@@ -13,8 +13,8 @@ in vec3 viewVertexPosition;
 flat in float[8] blockVertexLightData;
 in vec3 vertexLocalPos;
 
-layout (location = 0) out vec4 accumulation;
-layout (location = 1) out float revealage;
+layout(location = 1) out vec4 accumulation;
+layout(location = 2) out float revealage;
 
 float weight(float z)
 {

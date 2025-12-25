@@ -116,10 +116,10 @@ public:
 private:
 	void collectChunksToRenderAndSortThem(std::vector<ChunkRenderInfo>& chunksToRender, const Camera& camera) const;
 public:
-	void renderBackround(const Camera& camera, const OpenGL_FBO& opaqueFBO) const;
-	void renderAurora(const Camera& camera, const OpenGL_FBO& opaqueFBO) const;
+	void renderBackround(const Camera& camera, const OpenGL_FBO& FBO) const;
+	void renderAurora(const Camera& camera, const OpenGL_FBO& FBO) const;
 
-	void renderChunks(const Camera& camera, const OpenGL_FBO& opaqueFBO, const OpenGL_FBO& translucentFBO);
+	void renderChunks(const Camera& camera, const OpenGL_FBO& FBO);
 private:
 	void renderOpaqueChunks(const std::vector<ChunkRenderInfo>& chunksToRender,
 		std::vector<DrawArraysIndirectCommand>& chunkDrawCommands,
@@ -127,7 +127,7 @@ private:
 	void renderTranslucentChunks(const std::vector<ChunkRenderInfo>& chunksToRender,
 		std::vector<DrawArraysIndirectCommand>& chunkDrawCommands,
 		std::vector<glm::ivec3>& chunkPositions);
-	void compositePass(const OpenGL_FBO& opaqueFBO, const OpenGL_FBO& translucentFBO) const;
+	void compositePass(const OpenGL_FBO& FBO) const;
 public:
 	void renderVoxelMarker(const Camera& camera, const RaycastResult& raycast) const;
 

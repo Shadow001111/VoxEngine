@@ -1,6 +1,6 @@
 #version 460 core
 
-uniform sampler2DArray blockTextures;
+layout(binding = 0) uniform sampler2DArray blockTextures;
 
 uniform vec3 fogColor;
 uniform float fogDensity;
@@ -13,7 +13,7 @@ flat in vec4 light;
 flat in uint textureID;
 in vec3 viewVertexPosition;
 
-out vec4 FragColor;
+layout(location = 0) out vec4 FragColor;
 
 float interpolateAO_Triang()
 {

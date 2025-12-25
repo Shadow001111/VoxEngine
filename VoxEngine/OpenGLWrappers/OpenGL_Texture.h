@@ -4,7 +4,7 @@
 class OpenGL_Texture
 {
 	GLuint id = 0;
-	GLenum type = GL_TEXTURE_2D;
+	GLenum type = 0;
 	GLenum internalFormat = 0;
 	GLenum format = 0;
 	GLenum dataType = 0;
@@ -29,7 +29,7 @@ public:
 	void create2DArray(int width, int height, int layers, GLenum internalFormat, GLenum format, GLenum dataType, int mipLevels = 1);
 	void createCubeMap(int size, GLenum internalFormat, GLenum format, GLenum dataType, int mipLevels = 1);
 
-	// Texture resizing functions
+	// Texture resizing functions (it deletes old texture and creates new, since texture is immutable)
 	void resize1D(int width);
 	void resize2D(int width, int height);
 	void resize3D(int width, int height, int depth);
