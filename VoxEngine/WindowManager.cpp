@@ -60,6 +60,11 @@ WindowManager::WindowManager(const WindowParams& params)
     framebuffer->createColorAttachment("geometryAlpha", GL_R8, GL_RED, GL_UNSIGNED_BYTE);
     framebuffer->createColorAttachment("accumulation", GL_RGBA16F, GL_RGBA, GL_FLOAT);
     framebuffer->createColorAttachment("revealage", GL_R8, GL_RED, GL_FLOAT);
+    
+    // TODO: Render aurora in lower resolution
+    // Problem: Geometry alpha mask is in higher resolution, meaning we need to sample multiple pixels to check if geometry covers aurora or not.
+    framebuffer->createStandaloneTextureAttachment("aurora", GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE);
+
     framebuffer->createDepthAttachment("depth", GL_DEPTH_COMPONENT32F, GL_DEPTH_COMPONENT, GL_FLOAT);
 
     framebuffer->setDrawBuffers({ "color", "geometryAlpha", "accumulation", "revealage" });
@@ -172,6 +177,7 @@ void WindowManager::onResize(int width, int height)
 
     framebuffer->bind();
     framebuffer->resize(width, height);
+    framebuffer->unbind();
 }
 
 void WindowManager::onKey(int key, int scancode, int action, int mods)

@@ -66,7 +66,7 @@ private:
 	Shader alignedTranslucentFaceShader;
 	Shader nonAlignedOpaqueFaceShader;
 	Shader nonAlignedTranslucentFaceShader;
-	Shader compositeFaceShader;
+	Shader compositeShader;
 
 	Shader voxelMarkerShader;
 	VoxelMarkerMesh voxelMarkerMesh;
@@ -76,7 +76,7 @@ private:
 	OpenGL_Buffer chunkDrawCommandBuffer;
 	OpenGL_Buffer chunkPositionSSBO;
 
-	Shader skyShader;
+	Shader auroraShader;
 	OpenGL_Buffer skyViewRaysUBO;
 	OpenGL_Buffer skyAuroraSettingsUBO;
 
@@ -100,6 +100,10 @@ private:
 	float dayNightCycleValue = 0.0f; // 1 day; 0 night
 	float skyLightSub = 0.0f;
 	static constexpr int TICKS_PER_24_HOURS = 240;// 24000;
+
+	// Aurora varaibles
+	static constexpr float AURORA_THRESHOLD = 0.1f;
+	float auroraAlpha = 0.0f;
 public:
 	World();
 	~World();
@@ -116,11 +120,11 @@ public:
 private:
 	void collectChunksToRenderAndSortThem(std::vector<ChunkRenderInfo>& chunksToRender, const Camera& camera) const;
 public:
-	void renderBackround(const Camera& camera, const OpenGL_FBO& FBO) const;
+	void render(const Camera& camera, const OpenGL_FBO& FBO, const RaycastResult& raycast);
+private:
 	void renderAurora(const Camera& camera, const OpenGL_FBO& FBO) const;
 
 	void renderChunks(const Camera& camera, const OpenGL_FBO& FBO);
-private:
 	void renderOpaqueChunks(const std::vector<ChunkRenderInfo>& chunksToRender,
 		std::vector<DrawArraysIndirectCommand>& chunkDrawCommands,
 		std::vector<glm::ivec3>& chunkPositions);

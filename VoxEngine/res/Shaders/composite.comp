@@ -1,0 +1,63 @@
+#version 460 core
+
+layout(local_size_x = 16, local_size_y = 16) in;
+layout(rgba8, binding = 0) uniform image2D opaqueImage;
+layout(binding = 1) uniform sampler2D geometryAlphaTex;
+layout(binding = 2) uniform sampler2D accumulationTex;
+layout(binding = 3) uniform sampler2D revealageTex;
+layout(binding = 4) uniform sampler2D auroraTex;
+
+uniform vec3 backgroundColor;
+uniform bool enableAurora;
+
+vec4 blendAlpha(vec4 foreground, vec4 background)
+{
+    return mix(background, foreground, foreground.a);
+}
+
+vec3 blendAlphaVec3(vec3 foregroundColor, float foregroundAlpha, vec3 backgroundColor)
+{
+    return mix(backgroundColor, foregroundColor, foregroundAlpha);
+}
+
+void main()
+{
+    ivec2 texelCoord = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 imageSize_ = imageSize(opaqueImage);
+    
+    // Check bounds for threads
+    if (texelCoord.x >= imageSize_.x || texelCoord.y >= imageSize_.y)
+        return;
+    
+    // Calculate UV
+    vec2 uv = (vec2(texelCoord) + 0.5) / vec2(imageSize_);
+    
+    // Reade texture/image values
+    vec3 opaque = imageLoad(opaqueImage, texelCoord).rgb;
+    float geometryAlpha = texture(geometryAlphaTex, uv).r;
+    vec4 accumulation = texture(accumulationTex, uv);
+    float revealage = min(texture(revealageTex, uv).r, 1.0);
+    vec4 aurora = texture(auroraTex, uv);
+
+    // Calculate average color from accumulated color
+    vec3 averageColorOfTranslucentGeometry = accumulation.rgb / max(accumulation.a, 1e-5);
+
+    // Blend in the specified order:
+    // 1) Start with background color
+    vec3 color = backgroundColor;
+    
+    // 2) Apply opaque geometry with its alpha
+    color = blendAlphaVec3(opaque, geometryAlpha, color);
+    
+    // 3) Apply aurora
+    if (enableAurora)
+    {
+        color = blendAlphaVec3(aurora.rgb, aurora.a * (1.0 - geometryAlpha), color);
+    }
+    
+    // 4) Apply translucent geometry
+    color = mix(color, averageColorOfTranslucentGeometry, revealage);
+    
+    // Write final color to image
+    imageStore(opaqueImage, texelCoord, vec4(color, 1.0));
+}

@@ -11,14 +11,16 @@ class OpenGL_FBO
         COLOR,
         DEPTH,
         STENCIL,
-        DEPTH_STENCIL
+        DEPTH_STENCIL,
+        STANDALONE_TEXTURE
     };
 
     struct Attachment
     {
         OpenGL_Texture texture;
         AttachmentType type = AttachmentType::COLOR;
-        int attachmentPoint = -1;
+        GLenum attachmentPoint = -1;
+        float resolutionFactor = 1.0f;
 
         Attachment(const Attachment&) = delete;
         Attachment& operator=(const Attachment&) = delete;
@@ -65,6 +67,12 @@ public:
         GLenum minFilter = GL_NEAREST, GLenum magFilter = GL_NEAREST,
         GLenum wrapS = GL_CLAMP_TO_EDGE, GLenum wrapT = GL_CLAMP_TO_EDGE);
 
+    void createStandaloneTextureAttachment(const std::string& name, GLenum internalFormat = GL_RGBA8,
+        GLenum format = GL_RGBA, GLenum dataType = GL_UNSIGNED_BYTE,
+        float resolutionFactor = 1.0f,
+        GLenum minFilter = GL_NEAREST, GLenum magFilter = GL_NEAREST,
+        GLenum wrapS = GL_CLAMP_TO_EDGE, GLenum wrapT = GL_CLAMP_TO_EDGE);
+
     // Remove attachments
     void removeAttachment(const std::string& name);
 
@@ -95,6 +103,8 @@ public:
     int getHeight() const { return height; }
 private:
     GLenum getAttachmentPoint(AttachmentType type);
-    void createTexture(Attachment& attachment, GLenum internalFormat, GLenum format, GLenum dataType,
+    void createAndAttachTexture(Attachment& attachment, GLenum internalFormat, GLenum format, GLenum dataType,
+        GLenum minFilter, GLenum magFilter, GLenum wrapS, GLenum wrapT);
+    void createStandaloneTexture(Attachment& attachment, GLenum internalFormat, GLenum format, GLenum dataType,
         GLenum minFilter, GLenum magFilter, GLenum wrapS, GLenum wrapT);
 };

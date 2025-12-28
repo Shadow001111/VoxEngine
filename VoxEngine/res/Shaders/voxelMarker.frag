@@ -4,7 +4,7 @@ uniform vec3 color;
 
 in vec2 uv;
 
-out vec4 FragColor;
+layout(location = 0) out vec4 fragColor;
 
 void main()
 {
@@ -14,5 +14,5 @@ void main()
     {
         discard;
     }
-    FragColor = vec4(color, 1.0);
+    fragColor = vec4(color, 1.0);
 }

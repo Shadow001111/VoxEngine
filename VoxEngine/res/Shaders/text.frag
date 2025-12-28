@@ -3,7 +3,7 @@
 in vec2 texCoords;
 flat in uint textureID;
 
-out vec4 FragColor;
+layout(location = 0) out vec4 fragColor;
 
 uniform sampler2DArray glyphTextureArray;
 uniform vec3 textColor;
@@ -11,5 +11,5 @@ uniform vec3 textColor;
 void main()
 {
     float alpha = texture(glyphTextureArray, vec3(texCoords, textureID)).r;
-    FragColor = vec4(textColor, alpha);
+    fragColor = vec4(textColor, alpha);
 }

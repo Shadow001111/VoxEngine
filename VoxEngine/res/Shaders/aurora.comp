@@ -10,9 +10,10 @@ layout(std140, binding = 0) uniform CameraRays
     vec4 topRight;
 };
 
-layout(rgba8, binding = 0) uniform image2D outputImage;
+layout(rgba8, binding = 0) writeonly uniform image2D outputImage;
 layout(binding = 1) uniform sampler2D geometryAlphaTex;
-layout(binding = 2) uniform sampler3D noiseTex;
+layout(binding = 2) uniform sampler2D revealageTex;
+layout(binding = 3) uniform sampler3D noiseTex;
 
 uniform float time;
 uniform float auroraAlpha;
@@ -152,16 +153,11 @@ vec4 aurora(
     return vec4(accumulated_color * up_factor * settings.alpha, final_alpha);
 }
 
-vec4 blendAlpha(vec4 foreground, vec4 background)
-{
-    return mix(background, foreground, foreground.a);
-}
-
 void auroraDefaultSettings(inout AuroraSettings settings)
 {
     // Main colors
     settings.bottom_color = vec4(0.1, 0.8, 0.3, 1.0);  // Bright green at bottom
-    settings.color_top = vec4(0.3, 0.1, 0.8, 1.0);     // Purple-blue at top
+    settings.color_top = vec4(0.8, 0.1, 0.8, 1.0);     // Purple-blue at top
 
     // How much each sample contributes
     settings.opacity_per_sample = 0.1;
@@ -173,17 +169,17 @@ void auroraDefaultSettings(inout AuroraSettings settings)
 
     // Height range
     settings.start_height = 1.0;  // Where aurora starts (in world units)
-    settings.end_height = settings.start_height + 0.025 * settings.num_samples;    // Where aurora ends
+    settings.end_height = settings.start_height + 0.02 * settings.num_samples;    // Where aurora ends
 
     // Flow/movement
     settings.flow_scale = 0.05;     // Scale of large-scale flow patterns
-    settings.flow_strength = 2.0;  // How much flow affects the aurora
+    settings.flow_strength = 1.0;  // How much flow affects the aurora
     settings.flow_speed = 0.01;      // Speed of flow movement
     settings.flow_x_speed = 0.1;   // Horizontal drift speed
 
     // Wiggling/small details
     settings.wiggle_scale = 0.05;   // Scale of small wiggles
-    settings.wiggle_strength = 0.0;//1.0;// How prominent wiggles are
+    settings.wiggle_strength = 1.0;// How prominent wiggles are
     settings.wiggle_speed = 0.01;   // Speed of wiggles
 
     // Sparkles (under-layer detail)
@@ -194,8 +190,6 @@ void auroraDefaultSettings(inout AuroraSettings settings)
     settings.undersparkle_threshold = 0.7; // Controls sparkle density (higher = fewer)
     settings.undersparkle_max_height = 0.9; // How high sparkles appear (0-1 relative height)
 }
-
-uniform vec3 backgroundColor;
 
 void main()
 {
@@ -208,7 +202,8 @@ void main()
 
     // Check foreground alpha
     float geometryAlpha = texture(geometryAlphaTex, uv).r;
-    if (geometryAlpha > 0.99)
+    float revealage = texture(revealageTex, uv).r;
+    if (geometryAlpha + revealage > 0.99)
     {
         return;
     }
@@ -229,14 +224,9 @@ void main()
     // Shader is being turned off on CPU if aurora alpha is too small
     settings.alpha = auroraAlpha;
 
+    // Do work
     vec4 aurora_color = aurora(viewDir, settings, time);
 
-    // Blend aurora over background
-    vec3 final_color = mix(backgroundColor, aurora_color.rgb * aurora_color.a, aurora_color.a);
-
-    // Standard alpha blending
-    vec3 foreground_color = imageLoad(outputImage, texelCoord).rgb;
-    final_color = mix(final_color, foreground_color, geometryAlpha);
-
-    imageStore(outputImage, texelCoord, vec4(final_color, 1.0));
+    // Store result
+    imageStore(outputImage, texelCoord, aurora_color);
 }

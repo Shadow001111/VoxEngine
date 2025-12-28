@@ -558,10 +558,7 @@ int main()
         FBO.bind();
         if (FBO.isComplete())
         {
-            world.renderBackround(player->getCamera(), FBO);
-            world.renderChunks(player->getCamera(), FBO);
-            world.renderVoxelMarker(player->getCamera(), player->raycastResult);
-            world.renderAurora(player->getCamera(), FBO);
+            world.render(player->getCamera(), FBO, player->raycastResult);
         }
         else
         {

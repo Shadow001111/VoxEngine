@@ -5,7 +5,7 @@ in vec2 texCoords;
 uniform sampler2DArray uTexture;
 uniform uint uTextureId;
             
-out vec4 FragColor;
+layout(location = 0) out vec4 FragColor;
             
 void main()
 {
