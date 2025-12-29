@@ -1,11 +1,11 @@
 #include "UpdateTimer.h"
 
-UpdateTimer::UpdateTimer(float updatesPerSecond) :
-	accumulatedTime(0.0f), updateInterval(updatesPerSecond > 0.0f ? 1.0f / updatesPerSecond : 0.0f)
+UpdateTimer::UpdateTimer(double updatesPerSecond) :
+	accumulatedTime(0.0), updateInterval(updatesPerSecond > 0.0 ? 1.0 / updatesPerSecond : 0.0)
 {
 }
 
-void UpdateTimer::addTime(float deltaTime)
+void UpdateTimer::addTime(double deltaTime)
 {
 	accumulatedTime += deltaTime;
 }
@@ -34,24 +34,4 @@ int UpdateTimer::howManyTimesShouldUpdate()
 		count++;
 	}
 	return count;
-}
-
-bool UpdateTimer::peek() const
-{
-	return accumulatedTime >= updateInterval;
-}
-
-float UpdateTimer::getAccumulatedTime() const
-{
-	return accumulatedTime;
-}
-
-float UpdateTimer::getAccumulatedTimeInPercent() const
-{
-	return updateInterval > 0.0f ? (accumulatedTime / updateInterval) : 0.0f;
-}
-
-float UpdateTimer::getUpdateInterval() const
-{
-	return updateInterval;
 }

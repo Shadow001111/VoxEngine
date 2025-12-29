@@ -1,7 +1,6 @@
 #pragma once
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
 #include "OpenGLWrappers/OpenGL_FBO.h"
+#include <GLFW/glfw3.h>
 #include <memory>
 
 // Struct to hold window initialization parameters

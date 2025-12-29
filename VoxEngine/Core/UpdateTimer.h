@@ -1,20 +1,20 @@
 #pragma once
 class UpdateTimer
 {
-	float accumulatedTime = 0.0f;
-	float updateInterval = 0.0f;
+	double accumulatedTime = 0.0f;
+	double updateInterval = 0.0f;
 public:
-	UpdateTimer(float updatesPerSecond);
+	UpdateTimer(double updatesPerSecond);
 
-	void addTime(float deltaTime);
+	void addTime(double deltaTime);
 	void setUpdateToTrue();
 
 	bool shouldUpdate();
 	int howManyTimesShouldUpdate();
-	bool peek() const;
+	bool peek() const { return accumulatedTime >= updateInterval; };
 
-	float getAccumulatedTime() const;
-	float getAccumulatedTimeInPercent() const;
-	float getUpdateInterval() const;
+	double getAccumulatedTime() const { return accumulatedTime; };
+	double getAccumulatedTimeInPercent() const { return updateInterval > 0.0f ? (accumulatedTime / updateInterval) : 0.0f; };
+	double getUpdateInterval() const { return updateInterval; };
 };
 

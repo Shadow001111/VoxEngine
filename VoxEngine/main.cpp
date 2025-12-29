@@ -486,13 +486,13 @@ int main()
 
     // Timers
     double lastTime = glfwGetTime();
-	UpdateTimer worldUpdateTimer(20.0f); worldUpdateTimer.setUpdateToTrue();
-	UpdateTimer profilerUpdateTimer(1.0f / 3.0f);
-    UpdateTimer frequentUIDataUpdateTimer(1.0f);
+	UpdateTimer worldUpdateTimer(20.0); worldUpdateTimer.setUpdateToTrue();
+	UpdateTimer profilerUpdateTimer(1.0 / 3.0);
+    UpdateTimer frequentUIDataUpdateTimer(1.0);
 
     // Frequent UI data
-    float UI_FPS = 0.0f;
-    float accumulatedTime = 0.0f;
+    double UI_FPS = 0.0f;
+    double accumulatedTime = 0.0f;
     int accumulatedFrames = 0;
 
     // Container UI
@@ -514,7 +514,7 @@ int main()
         double deltaTime = time - lastTime;
 		lastTime = time;
 
-        accumulatedTime += (float)deltaTime;
+        accumulatedTime += deltaTime;
         accumulatedFrames++;
 
 		worldUpdateTimer.addTime(deltaTime);
@@ -570,7 +570,7 @@ int main()
             }
             else
             {
-                "FBO is not complete!\n";
+                std::cout << "[main]: FBO is not complete!\n";
             }
 
             // Render UI
@@ -604,23 +604,22 @@ int main()
         if (frequentUIDataUpdateTimer.shouldUpdate())
         {
             UI_FPS = accumulatedFrames / accumulatedTime;
-            accumulatedTime = 0.0f;
+            accumulatedTime = 0.0;
             accumulatedFrames = 0;
-            std::cout << UI_FPS << "\n";
         }
 
         if (profilerUpdateTimer.shouldUpdate())
         {
             Profiler::printProfileReport();
         }
+
+        while (GLenum err = glGetError() != GL_NO_ERROR)
+        {
+            std::cerr << "[OpenGl Error]: " << err << "\n";
+        }
     }
 
     Profiler::printProfileReport();
-
-    while (GLenum err = glGetError() != GL_NO_ERROR)
-    {
-        std::cerr << "[OpenGl Error]: " << err << "\n";
-    }
 
     glfwTerminate();
 	return 0;

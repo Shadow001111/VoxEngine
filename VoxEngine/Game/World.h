@@ -100,8 +100,8 @@ private:
 	float skyLightSub = 0.0f;
 	static constexpr int TICKS_PER_24_HOURS = 240;// 24000;
 
-	// Aurora varaibles
-	static constexpr float AURORA_THRESHOLD = 0.1f;
+	// Aurora varaibless
+	static constexpr float AURORA_THRESHOLD = 0.02f;
 	float auroraAlpha = 0.0f;
 public:
 	World();
