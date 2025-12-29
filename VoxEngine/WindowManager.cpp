@@ -107,36 +107,6 @@ void WindowManager::setTitle(const std::string& title) const
     glfwSetWindowTitle(window, title.c_str());
 }
 
-GLFWwindow* WindowManager::getWindow() const
-{
-	return window;
-}
-
-int WindowManager::getWidth() const
-{
-    return width;
-}
-
-int WindowManager::getHeight() const
-{
-    return height;
-}
-
-float WindowManager::getAspectRatio() const
-{
-    return aspectRatio;
-}
-
-bool WindowManager::getVSYNC() const
-{
-    return vsync;
-}
-
-const OpenGL_FBO& WindowManager::getFBO() const
-{
-    return *framebuffer.get();
-}
-
 bool WindowManager::isKeyPressed(int key) const
 {
 	return glfwGetKey(window, key) == GLFW_PRESS;
@@ -173,11 +143,14 @@ void WindowManager::onResize(int width, int height)
     this->height = height;
     this->aspectRatio = static_cast<float>(width) / static_cast<float>(height);
 
-    glViewport(0, 0, width, height);
+    if (width > 0 && height > 0)
+    {
+        glViewport(0, 0, width, height);
 
-    framebuffer->bind();
-    framebuffer->resize(width, height);
-    framebuffer->unbind();
+        framebuffer->bind();
+        framebuffer->resize(width, height);
+        framebuffer->unbind();
+    }
 }
 
 void WindowManager::onKey(int key, int scancode, int action, int mods)

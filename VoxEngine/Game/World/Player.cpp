@@ -283,33 +283,3 @@ void Player::rotate(float deltaYaw, float deltaPitch)
 	transform.pitch += deltaPitch;
 	transform.pitch = glm::clamp(transform.pitch, -1.5707f, 1.5707f);
 }
-
-glm::dvec3 Player::getPosition() const
-{
-	return transform.position;
-}
-
-float Player::getYaw() const
-{
-	return transform.yaw;
-}
-
-float Player::getPitch() const
-{
-	return transform.pitch;
-}
-
-Transform Player::getTransform() const
-{
-	return transform;
-}
-
-Transform Player::getPreviousTransform() const
-{
-	return previousTransform;
-}
-
-Camera& Player::getCamera()
-{
-	return camera;
-}

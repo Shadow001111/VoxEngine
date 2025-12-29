@@ -68,12 +68,13 @@ public:
 	void move(const glm::vec3& delta);
 	void rotate(float deltaYaw, float deltaPitch);
 
-	glm::dvec3 getPosition() const;
-	float getYaw() const;
-	float getPitch() const;
-	Transform getTransform() const;
-	Transform getPreviousTransform() const;
-	Camera& getCamera();
+	glm::dvec3 getPosition() const { return transform.position; };
+	float getYaw() const { return transform.yaw; };
+	float getPitch() const { return transform.pitch; };
+	Transform getTransform() const { return transform; };
+	Transform getPreviousTransform() const { return previousTransform; };
+	Camera& getCamera() { return camera; };
+	const Camera& getCamera() const { return camera; };
 
 	const Item* getHotbar() const { return hotbar; }
 	int getSelectedItemIndex() const { return selectedItemIndex; }

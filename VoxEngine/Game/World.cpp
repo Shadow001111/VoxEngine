@@ -295,7 +295,7 @@ void World::preparation()
 	chunkPositionSSBO->allocateMemory(chunkCount * sizeof(glm::vec3));*/
 }
 
-void World::loadChunks(const glm::vec3& playerPos)
+void World::loadChunks(const glm::dvec3& playerPos)
 {
 	// Check if player chunk position changed
 	glm::ivec3 chunkLoaderPos = glm::ivec3(glm::floor(playerPos)) >> CHUNK_SIZE_LOG2;
@@ -345,8 +345,7 @@ void World::loadChunks(const glm::vec3& playerPos)
 void World::update(float deltaTime)
 {
 	// Time
-	//worldTime = (worldTime + 1) % TICKS_PER_24_HOURS;
-	worldTime = TICKS_PER_24_HOURS / 2;
+	worldTime = (worldTime + 1) % TICKS_PER_24_HOURS;
 	{
 		const float t = (float)worldTime / (float)TICKS_PER_24_HOURS;
 		const float cosValue = cosf(t * 2.0f * 3.14159f);

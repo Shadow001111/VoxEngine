@@ -10,7 +10,6 @@
 
 #include "OpenGLWrappers/Shader.h"
 #include "OpenGLWrappers/OpenGL_Buffer.h"
-#include "OpenGLWrappers/OpenGL_VAO.h"
 #include "OpenGLWrappers/OpenGL_FBO.h"
 
 #include "Core/Hashes/ivec3Hasher.h"
@@ -114,7 +113,7 @@ public:
 	World& operator=(World&&) = delete;
 public:
 	void preparation();
-	void loadChunks(const glm::vec3& playerPos);
+	void loadChunks(const glm::dvec3& playerPos);
 	void update(float deltaTime);
 	void sendChunkMeshesToGPU();
 private:

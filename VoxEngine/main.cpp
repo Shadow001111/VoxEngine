@@ -185,12 +185,12 @@ static void setupContainerUI(ContainerUI& c)
     }
 }
 
-static void renderHotbar(const ContainerUI& c, const Player* player)
+static void renderHotbar(const ContainerUI& c, const Player& player)
 {
     glDisable(GL_DEPTH_TEST);
     glDepthMask(GL_FALSE);
 
-    const Item* hotbar = player->getHotbar();
+    const Item* hotbar = player.getHotbar();
 
     //
     constexpr int   slotCount = PLAYER_HOTBAR_SIZE;
@@ -282,7 +282,7 @@ static void renderHotbar(const ContainerUI& c, const Player* player)
     c.hotbarSlotImage.bind(0);
     c.hotbarShader.setUint("uTextureId", 1); // array layer 1 (selected)
 
-    int selectedSlot = player->getSelectedItemIndex();
+    int selectedSlot = player.getSelectedItemIndex();
     {
         float x = startX + selectedSlot * slotSize;
         float y = -1.0f + bottomOffset + slotSize * 0.5f;
@@ -298,7 +298,7 @@ static void renderHotbar(const ContainerUI& c, const Player* player)
     glDepthMask(GL_TRUE);
 }
 
-static void renderUI(const ContainerUI& c, const Player* player)
+static void renderUI(const ContainerUI& c, const Player& player)
 {
     glDisable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
@@ -307,7 +307,7 @@ static void renderUI(const ContainerUI& c, const Player* player)
     renderHotbar(c, player);
 }
 
-static void renderDebugData(const World::DebugData& debug, const WindowManager& wnd, Player* player, float FPS)
+static void renderDebugData(const World::DebugData& debug, const WindowManager& wnd, const Player& player, float FPS)
 {
     float rowHeight = 24.0f;
     std::ostringstream ss;
@@ -339,8 +339,8 @@ static void renderDebugData(const World::DebugData& debug, const WindowManager& 
     // TODO: Add textures and font size in bytes
 
     // Player orientation
-    const Camera& camera = player->getCamera();
-    const auto& playerPos = player->getPosition();
+    const Camera& camera = player.getCamera();
+    const auto& playerPos = player.getPosition();
     const auto& cameraViewDirection = camera.getForward();
 
     glm::ivec3 localPlayerPos = glm::ivec3(glm::mod(glm::mod(playerPos, (double)CHUNK_SIZE) + (double)CHUNK_SIZE, (double)CHUNK_SIZE));
@@ -473,9 +473,9 @@ int main()
     world.preparation();
 
     // Player
-    Player* player = world.createEntity<Player>(glm::vec3(0, 20.0, 0.0), glm::radians(180.0f), 0.0f);
-    player->getCamera().setAspectRatio(wnd.getAspectRatio());
-    player->getCamera().setFarPlane(CAMERA_FAR_PLANE);
+    Player& player = *world.createEntity<Player>(glm::vec3(0, 20.0, 0.0), glm::radians(180.0f), 0.0f);
+    player.getCamera().setAspectRatio(wnd.getAspectRatio());
+    player.getCamera().setFarPlane(CAMERA_FAR_PLANE);
 
     PlayerInput playerInput;
 
@@ -504,6 +504,9 @@ int main()
     {
 		// Poll events
         wnd.pollEvents();
+        
+        //
+        const bool iconified = wnd.isZeroSize();
 
 		// Time logic
         // TODO: Maybe reset timer. Maybe if timer will get too big, everything will break.
@@ -522,13 +525,16 @@ int main()
 		SoundManager::getInstance().update();
 
         // Player
-        collectPlayerInput(player->input, wnd, previousMousePos);
+        if (!iconified)
+        {
+            collectPlayerInput(player.input, wnd, previousMousePos);
+        }
 
         // World
         world.setAppTime(time);
         if (worldUpdateTimer.peek())
         {
-            glm::vec3 playerPos = player->getPosition();
+            glm::dvec3 playerPos = player.getPosition();
             world.loadChunks(playerPos);
 
             while (worldUpdateTimer.shouldUpdate())
@@ -548,43 +554,51 @@ int main()
             }
         }
 
-        player->interpolateCameraTransform(worldUpdateTimer.getAccumulatedTimeInPercent());
-
         world.sendChunkMeshesToGPU();
 
-        // Rendering world
-        player->getCamera().setAspectRatio(wnd.getAspectRatio());
-
-        FBO.bind();
-        if (FBO.isComplete())
+        if (!iconified)
         {
-            world.render(player->getCamera(), FBO, player->raycastResult);
+            // Camera
+            player.interpolateCameraTransform(worldUpdateTimer.getAccumulatedTimeInPercent());
+            player.getCamera().setAspectRatio(wnd.getAspectRatio());
+
+            // Rendering world
+            FBO.bind();
+            if (FBO.isComplete())
+            {
+                world.render(player.getCamera(), FBO, player.raycastResult);
+            }
+            else
+            {
+                "FBO is not complete!\n";
+            }
+
+            // Render UI
+            renderUI(containerUI, player);
+
+            // Rendering FBO texture to screen
+            FBO.unbind();
+            rectVAO.bind();
+            glDisable(GL_DEPTH_TEST);
+            glDisable(GL_BLEND);
+
+            FBO.bindTexture("color", 0);
+
+            fboShader->use();
+
+            glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+
+            // Text rendering
+            TextRenderer::updateProjectionMatrix(wnd.getWidth(), wnd.getHeight());
+            renderDebugData(world.getDebugData(), wnd, player, UI_FPS);
+
+            // Swap buffers
+            wnd.swapBuffers();
         }
         else
         {
-            "FBO is not complete!\n";
+            std::this_thread::sleep_for(std::chrono::milliseconds(1000 / 20));
         }
-        renderUI(containerUI, player);
-        FBO.unbind();
-
-        // Rendering to screen
-        rectVAO.bind();
-        glDisable(GL_DEPTH_TEST);
-        glDisable(GL_BLEND);
-
-        FBO.bindTexture("color", 0);
-        //FBO.bindTexture("depth", 1);
-
-        fboShader->use();
-
-        glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-
-        // Text rendering
-        TextRenderer::updateProjectionMatrix(wnd.getWidth(), wnd.getHeight());
-        renderDebugData(world.getDebugData(), wnd, player, UI_FPS);
-
-        // Swap buffers
-        wnd.swapBuffers();
 
         //
         if (frequentUIDataUpdateTimer.shouldUpdate())
@@ -592,6 +606,7 @@ int main()
             UI_FPS = accumulatedFrames / accumulatedTime;
             accumulatedTime = 0.0f;
             accumulatedFrames = 0;
+            std::cout << UI_FPS << "\n";
         }
 
         if (profilerUpdateTimer.shouldUpdate())

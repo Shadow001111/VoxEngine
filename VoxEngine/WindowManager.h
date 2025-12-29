@@ -37,12 +37,15 @@ public:
     void setTitle(const std::string& title) const;
 
 	// Getters
-    GLFWwindow* getWindow() const;
-    int getWidth() const;
-    int getHeight() const;
-    float getAspectRatio() const;
-    bool getVSYNC() const;
-    const OpenGL_FBO& getFBO() const;
+    GLFWwindow* getWindow() const { return window; };
+    int getWidth() const { return width; };
+    int getHeight() const { return height; };
+    float getAspectRatio() const { return aspectRatio; };
+    bool getVSYNC() const { return vsync; };
+    const OpenGL_FBO& getFBO() const { return *framebuffer.get(); };
+
+    bool isIconified() const { return glfwGetWindowAttrib(window, GLFW_ICONIFIED); }
+    bool isZeroSize() const { return !(width > 0 && height > 0); };
 
     //
 	bool isKeyPressed(int key) const;
