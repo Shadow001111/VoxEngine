@@ -428,6 +428,36 @@ void APIENTRY glDebugOutput(GLenum source,
     std::cout<< "\n";
 }
 
+struct CompressionFormat
+{
+    std::string name;
+    std::string extension;  // Required extension
+    bool supported = false;
+
+    CompressionFormat(const std::string& name_, const std::string& extension_) :
+        name(name_), extension(extension_)
+    {}
+};
+
+void check()
+{
+    // Data
+    std::cout << std::string(100, '=') << "\n";
+    std::cout << "Data:\n";
+    std::cout << "    OpenGL Version: " << glGetString(GL_VERSION)  << "\n";
+    std::cout << "    GPU Vendor: " << glGetString(GL_VENDOR)       << "\n";
+    std::cout << "    Renderer: " << glGetString(GL_RENDERER)       << "\n";
+
+    // Check texture compression available
+    std::cout << std::string(100, '=') << "\n";
+    {
+        //checkAllCompressionFormats();
+    }
+
+    //
+    std::cout << std::string(100, '=') << "\n";
+}
+
 // TODO: Modern OpenGl
 int main()
 {
@@ -438,6 +468,12 @@ int main()
 
     // Window
     WindowManager wnd({ 1280, 720, "VoxEngine", true, true, true });
+    
+    // TODO: Create fbo after setting compression formats
+    TextureCompression::setCompressionFormats();
+
+    // Check
+    check();
 
     // OpenGL debug
     glEnable(GL_DEBUG_OUTPUT);

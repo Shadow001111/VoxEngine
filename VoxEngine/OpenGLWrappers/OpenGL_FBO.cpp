@@ -204,11 +204,11 @@ void OpenGL_FBO::resize(int newWidth, int newHeight)
         {
             int tWidth = static_cast<int>(width * attachment.resolutionFactor);
             int tHeight = static_cast<int>(height * attachment.resolutionFactor);
-            attachment.texture.resize2D(tWidth, tHeight);
+            attachment.texture.recreate2D(tWidth, tHeight);
         }
         else
         {
-            attachment.texture.resize2D(width, height);
+            attachment.texture.recreate2D(width, height);
             glFramebufferTexture2D(GL_FRAMEBUFFER, attachment.attachmentPoint, GL_TEXTURE_2D, attachment.texture.getID(), 0);
         }
     }

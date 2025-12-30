@@ -18,12 +18,12 @@
 #endif
 
 #if OPENGL_BIND_CHECKS
-#define OPENGL_CHECK_BIND_TARGET(buffer_id, target_type) \
+#define OPENGL_CHECK_BIND_TARGET(target_id, target_type) \
     do { \
         GLint current_bound; \
         glGetIntegerv(GetBindingQuery(target_type), &current_bound); \
-        if (static_cast<GLuint>(current_bound) != (buffer_id)) { \
-            std::cerr << "OpenGL_Buffer ERROR: Buffer " << (buffer_id) << " not bound to " << #target_type << "! Currently bound: " << current_bound << " File: " << __FILE__ << " Line: " << __LINE__<< "\n"; \
+        if (static_cast<GLuint>(current_bound) != (target_id)) { \
+            std::cerr << "[OpenGL error]: Obkect " << (target_id) << " not bound to " << #target_type << "! Currently bound: " << current_bound << " File: " << __FILE__ << " Line: " << __LINE__<< "\n"; \
             DEBUG_BREAK(); \
         } \
     } while(0)
@@ -57,7 +57,7 @@ static inline GLenum GetBindingQuery(GLenum target)
     case GL_TEXTURE_CUBE_MAP: return GL_TEXTURE_BINDING_CUBE_MAP;
 
     default:
-        std::cerr << "Unknown buffer target: " << target<< "\n";
+        std::cerr << "[GetBindingQuery]: Unknown opengl object target: " << target<< "\n";
         return 0;
     }
 }

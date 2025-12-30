@@ -2,6 +2,31 @@
 #include "OpenGLWrappers/openGLDebug.h"
 #include <iostream>
 
+
+namespace TextureCompression
+{
+	CompressionSupport g_CompressionSupport;
+
+	void setCompressionFormats()
+	{
+		g_CompressionSupport.s3tc = GLAD_GL_EXT_texture_compression_s3tc;
+		g_CompressionSupport.rgtc = GLAD_GL_ARB_texture_compression_rgtc;
+		g_CompressionSupport.bptc = GLAD_GL_ARB_texture_compression_bptc;
+		g_CompressionSupport.astc = GLAD_GL_KHR_texture_compression_astc_ldr;
+	}
+
+	GLenum getBestFormat(int channels, GLenum valueType)
+	{
+		return GLenum();
+	}
+
+	GLenum getBestCompressedFormat(int channels, GLenum valueType)
+	{
+		return GLenum();
+	}
+}
+
+
 OpenGL_Texture::OpenGL_Texture()
 {
 	glGenTextures(1, &id);
@@ -12,16 +37,15 @@ OpenGL_Texture::~OpenGL_Texture()
 	if (id) glDeleteTextures(1, &id);
 }
 
-OpenGL_Texture::OpenGL_Texture(OpenGL_Texture&& other) noexcept
-	: id(other.id), type(other.type), internalFormat(other.internalFormat),
-	format(other.format), dataType(other.dataType), width(other.width),
-	height(other.height), depth(other.depth), mipLevels(other.mipLevels)
+OpenGL_Texture::OpenGL_Texture(OpenGL_Texture&& other) noexcept :
+	id(other.id), type(other.type),
+	internalFormat(other.internalFormat), format(other.format),dataType(other.dataType),
+	width(other.width), height(other.height), depth(other.depth), mipLevels(other.mipLevels),
+	minFilter(other.minFilter), magFilter(other.magFilter),
+	wrapS(other.wrapS), wrapT(other.wrapT), wrapR(other.wrapR)
+
 {
 	other.id = 0;
-	other.type = 0;
-	other.internalFormat = 0;
-	other.format = 0;
-	other.dataType = 0;
 	other.width = 0;
 	other.height = 0;
 	other.depth = 0;
@@ -43,12 +67,11 @@ OpenGL_Texture& OpenGL_Texture::operator=(OpenGL_Texture&& other) noexcept
 		height = other.height;
 		depth = other.depth;
 		mipLevels = other.mipLevels;
+		wrapS = other.wrapS;
+		wrapT = other.wrapT;
+		wrapR = other.wrapR;
 
 		other.id = 0;
-		other.type = 0;
-		other.internalFormat = 0;
-		other.format = 0;
-		other.dataType = 0;
 		other.width = 0;
 		other.height = 0;
 		other.depth = 0;
@@ -132,16 +155,26 @@ void OpenGL_Texture::createCubeMap(int size, GLenum internalFormat, GLenum forma
 	glTexStorage2D(type, mipLevels, internalFormat, size, size);
 }
 
-void OpenGL_Texture::resize1D(int width)
+// TODO: Add checks for size
+void OpenGL_Texture::recreate1D(int width)
 {
 	this->width = width;
 
+	if (id)
+	{
+		glDeleteTextures(1, &id);
+	}
+	glGenTextures(1, &id);
+
 	glBindTexture(type, id);
 	glTexStorage1D(type, mipLevels, internalFormat, width);
+	
+	glTexParameteri(type, GL_TEXTURE_MIN_FILTER, minFilter);
+	glTexParameteri(type, GL_TEXTURE_MAG_FILTER, magFilter);
+	glTexParameteri(type, GL_TEXTURE_WRAP_S, wrapS);
 }
 
-// TODO: pass texture parametrs to next
-void OpenGL_Texture::resize2D(int width, int height)
+void OpenGL_Texture::recreate2D(int width, int height)
 {
 	this->width = width;
 	this->height = height;
@@ -149,21 +182,38 @@ void OpenGL_Texture::resize2D(int width, int height)
 	if (id)
 	{
 		glDeleteTextures(1, &id);
-		glGenTextures(1, &id);
 	}
+	glGenTextures(1, &id);
 
 	glBindTexture(type, id);
 	glTexStorage2D(type, mipLevels, internalFormat, width, height);
+
+	glTexParameteri(type, GL_TEXTURE_MIN_FILTER, minFilter);
+	glTexParameteri(type, GL_TEXTURE_MAG_FILTER, magFilter);
+	glTexParameteri(type, GL_TEXTURE_WRAP_S, wrapS);
+	glTexParameteri(type, GL_TEXTURE_WRAP_T, wrapT);
 }
 
-void OpenGL_Texture::resize3D(int width, int height, int depth)
+void OpenGL_Texture::recreate3D(int width, int height, int depth)
 {
 	this->width = width;
 	this->height = height;
 	this->depth = depth;
 
+	if (id)
+	{
+		glDeleteTextures(1, &id);
+	}
+	glGenTextures(1, &id);
+
 	glBindTexture(type, id);
 	glTexStorage3D(type, mipLevels, internalFormat, width, height, depth);
+
+	glTexParameteri(type, GL_TEXTURE_MIN_FILTER, minFilter);
+	glTexParameteri(type, GL_TEXTURE_MAG_FILTER, magFilter);
+	glTexParameteri(type, GL_TEXTURE_WRAP_S, wrapS);
+	glTexParameteri(type, GL_TEXTURE_WRAP_T, wrapT);
+	glTexParameteri(type, GL_TEXTURE_WRAP_R, wrapR);
 }
 
 void OpenGL_Texture::uploadData(const void* data, int level)
@@ -230,20 +280,49 @@ void OpenGL_Texture::generateMipmaps()
 	}
 }
 
-void OpenGL_Texture::setParameters(GLenum minFilter, GLenum magFilter,
-	GLenum wrapS, GLenum wrapT, GLenum wrapR)
+void OpenGL_Texture::setParameters(GLenum minFilter_, GLenum magFilter_, GLenum wrapS_)
 {
+	minFilter = minFilter_;
+	magFilter = magFilter_;
+	wrapS = wrapS_;
+
+	OPENGL_CHECK_BIND_TARGET(id, type);
+
+	glTexParameteri(type, GL_TEXTURE_MIN_FILTER, minFilter);
+	glTexParameteri(type, GL_TEXTURE_MAG_FILTER, magFilter);
+	glTexParameteri(type, GL_TEXTURE_WRAP_S, wrapS);
+}
+
+void OpenGL_Texture::setParameters(GLenum minFilter_, GLenum magFilter_, GLenum wrapS_, GLenum wrapT_)
+{
+	minFilter = minFilter_;
+	magFilter = magFilter_;
+	wrapS = wrapS_;
+	wrapT = wrapT_;
+
 	OPENGL_CHECK_BIND_TARGET(id, type);
 
 	glTexParameteri(type, GL_TEXTURE_MIN_FILTER, minFilter);
 	glTexParameteri(type, GL_TEXTURE_MAG_FILTER, magFilter);
 	glTexParameteri(type, GL_TEXTURE_WRAP_S, wrapS);
 	glTexParameteri(type, GL_TEXTURE_WRAP_T, wrapT);
+}
 
-	if (type == GL_TEXTURE_3D || type == GL_TEXTURE_2D_ARRAY || type == GL_TEXTURE_CUBE_MAP)
-	{
-		glTexParameteri(type, GL_TEXTURE_WRAP_R, wrapR);
-	}
+void OpenGL_Texture::setParameters(GLenum minFilter_, GLenum magFilter_, GLenum wrapS_, GLenum wrapT_, GLenum wrapR_)
+{
+	minFilter = minFilter_;
+	magFilter = magFilter_;
+	wrapS = wrapS_;
+	wrapT = wrapT_;
+	wrapR = wrapR_;
+
+	OPENGL_CHECK_BIND_TARGET(id, type);
+
+	glTexParameteri(type, GL_TEXTURE_MIN_FILTER, minFilter);
+	glTexParameteri(type, GL_TEXTURE_MAG_FILTER, magFilter);
+	glTexParameteri(type, GL_TEXTURE_WRAP_S, wrapS);
+	glTexParameteri(type, GL_TEXTURE_WRAP_T, wrapT);
+	glTexParameteri(type, GL_TEXTURE_WRAP_R, wrapR);
 }
 
 void OpenGL_Texture::bind(GLuint unit) const

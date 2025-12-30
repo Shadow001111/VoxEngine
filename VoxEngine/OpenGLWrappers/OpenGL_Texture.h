@@ -1,6 +1,28 @@
 #pragma once
 #include <glad/glad.h>
 
+namespace TextureCompression
+{
+	// Simple format picker for voxel games:
+	// - BC7 (BPTC): Best for RGBA textures
+	// - BC5 (RGTC): Best for normal maps (2 channels)
+	// - BC4 (RGTC): Best for single-channel
+	// - DXT5: Fallback for RGBA when BC7 not available
+	// - DXT1: For RGB textures (no alpha)
+
+	struct CompressionSupport
+	{
+		bool s3tc = false;    // DXT1/3/5
+		bool rgtc = false;    // BC4/5
+		bool bptc = false;    // BC6/7
+		bool astc = false;    // ASTC
+	};
+
+	void setCompressionFormats();
+	GLenum getBestFormat(int channels, GLenum valueType);
+	GLenum getBestCompressedFormat(int channels, GLenum valueType);
+}
+
 class OpenGL_Texture
 {
 	GLuint id = 0;
@@ -8,6 +30,13 @@ class OpenGL_Texture
 	GLenum internalFormat = 0;
 	GLenum format = 0;
 	GLenum dataType = 0;
+
+	GLenum minFilter = GL_NEAREST;
+	GLenum magFilter = GL_NEAREST;
+	GLenum wrapS = GL_CLAMP_TO_EDGE;
+	GLenum wrapT = GL_CLAMP_TO_EDGE;
+	GLenum wrapR = GL_CLAMP_TO_EDGE;
+
 	int width = 0;
 	int height = 0;
 	int depth = 0;
@@ -30,9 +59,9 @@ public:
 	void createCubeMap(int size, GLenum internalFormat, GLenum format, GLenum dataType, int mipLevels = 1);
 
 	// Texture resizing functions (it deletes old texture and creates new, since texture is immutable)
-	void resize1D(int width);
-	void resize2D(int width, int height);
-	void resize3D(int width, int height, int depth);
+	void recreate1D(int width);
+	void recreate2D(int width, int height);
+	void recreate3D(int width, int height, int depth);
 
 	// Data upload functions
 	void uploadData(const void* data, int level = 0);
@@ -41,8 +70,9 @@ public:
 	//
 	void generateMipmaps();
 
-	void setParameters(GLenum minFilter, GLenum magFilter,
-		GLenum wrapS, GLenum wrapT, GLenum wrapR = GL_CLAMP_TO_EDGE);
+	void setParameters(GLenum minFilter_, GLenum magFilter_, GLenum wrapS_);
+	void setParameters(GLenum minFilter_, GLenum magFilter_, GLenum wrapS_, GLenum wrapT_);
+	void setParameters(GLenum minFilter_, GLenum magFilter_, GLenum wrapS_, GLenum wrapT_, GLenum wrapR_);
 
 	void bind(GLuint unit) const;
 	void bind() const;
