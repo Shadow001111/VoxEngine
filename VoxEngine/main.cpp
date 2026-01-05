@@ -65,29 +65,6 @@ static std::string formatSizeBinary(size_t value)
     return oss.str();
 }
 
-static void setupFramebuffer(OpenGL_VAO& rectVAO, OpenGL_Buffer& rectVBO, std::unique_ptr<Shader>& shader)
-{
-    // Mesh
-    rectVAO.bind();
-    rectVBO.bind();
-    rectVBO.allocateMemory(sizeof(quadVertices));
-    rectVBO.write(quadVertices, sizeof(quadVertices));
-
-    rectVAO.enableAttribute(0);
-    rectVAO.setFloatAttribute(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
-
-    // Shader
-    std::vector<Shader::ShaderSource> fboShaderSources =
-    {
-        {GL_VERTEX_SHADER, "res/Shaders/quad.vert"},
-        {GL_FRAGMENT_SHADER, "res/Shaders/fbo.frag"}
-    };
-    shader = std::make_unique<Shader>(fboShaderSources);
-    shader->use();
-    shader->setInt("colorTexture", 0);
-    shader->setInt("depthTexture", 1);
-}
-
 static void setupOpenGLStates()
 {
     glEnable(GL_CULL_FACE);
@@ -490,10 +467,6 @@ int main()
 
     // Framebuffer
     const auto& FBO = wnd.getFBO();
-    OpenGL_VAO rectVAO;
-    OpenGL_Buffer rectVBO(GL_ARRAY_BUFFER, GL_STATIC_DRAW);
-    std::unique_ptr<Shader> fboShader;
-    setupFramebuffer(rectVAO, rectVBO, fboShader);
 
     // OpenGL states
     setupOpenGLStates();
@@ -612,21 +585,17 @@ int main()
             // Render UI
             renderUI(containerUI, player);
 
-            // Rendering FBO texture to screen
-            FBO.unbind();
-            rectVAO.bind();
-            glDisable(GL_DEPTH_TEST);
-            glDisable(GL_BLEND);
-
-            FBO.bindTexture("color", 0);
-
-            fboShader->use();
-
-            glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-
-            // Text rendering
+            // Other text rendering
             TextRenderer::updateProjectionMatrix(wnd.getWidth(), wnd.getHeight());
             renderDebugData(world.getDebugData(), wnd, player, UI_FPS);
+
+            // Rendering FBO texture to default FBO
+			glBindFramebuffer(GL_READ_FRAMEBUFFER, FBO.getID());
+			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+            glBlitFramebuffer(
+                0, 0, FBO.getWidth(), FBO.getHeight(),
+                0, 0, wnd.getWidth(), wnd.getHeight(),
+                GL_COLOR_BUFFER_BIT, GL_NEAREST);
 
             // Swap buffers
             wnd.swapBuffers();
