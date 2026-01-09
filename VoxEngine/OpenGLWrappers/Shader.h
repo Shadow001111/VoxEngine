@@ -7,8 +7,7 @@
 
 class Shader
 {
-    GLuint ID = 0;
-    bool initialized = false;
+    GLuint id = 0;
     mutable robin_hood::unordered_flat_map<std::string, GLint> uniformLocationCache;
 public:
     struct ShaderSource
@@ -18,7 +17,6 @@ public:
     };
 
     Shader() = default;
-    Shader(const std::vector<ShaderSource>& sources);
     ~Shader();
 
     Shader(const Shader& other) = delete;
@@ -27,7 +25,7 @@ public:
     Shader(Shader&& other) noexcept;
     Shader& operator=(Shader&& other) noexcept;
 
-    void init(const std::vector<ShaderSource>& sources);
+    void create(const std::vector<ShaderSource>& sources);
 
     void use() const;
 
@@ -51,8 +49,7 @@ public:
 
     void setMat4(const std::string& name, const glm::mat4& mat) const;
 
-    GLuint getID() const { return ID; }
-    bool isInitialized() const { return initialized; }
+    GLuint getID() const { return id; }
 private:
     GLint getUniformLocation(const std::string& name) const;
 

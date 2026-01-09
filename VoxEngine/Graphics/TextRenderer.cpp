@@ -125,7 +125,7 @@ TextRenderer::TextRenderer()
 		{GL_VERTEX_SHADER, "res/Shaders/text.vert"},
 		{GL_FRAGMENT_SHADER, "res/Shaders/text.frag"}
 	};
-	textShader = Shader(textShaderSources);
+	textShader.create(textShaderSources);
     textShader.use();
     textShader.setInt("glyphTextureArray", 0);
     //textShader.setMat4("projection", projectionMatrix);

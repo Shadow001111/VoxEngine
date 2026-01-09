@@ -4,28 +4,20 @@
 #include <iostream>
 #include <glm/gtc/type_ptr.hpp>
 
-
-Shader::Shader(const std::vector<ShaderSource>& sources)
-{
-    init(sources);
-}
-
 Shader::~Shader()
 {
-    if (ID)
+    if (id)
     {
-        glDeleteProgram(ID);
-        ID = 0;
+        glDeleteProgram(id);
+        id = 0;
     }
 }
 
 Shader::Shader(Shader&& other) noexcept
-    : ID(other.ID),
-    initialized(other.initialized),
+    : id(other.id),
     uniformLocationCache(std::move(other.uniformLocationCache))
 {
-    other.ID = 0;
-    other.initialized = false;
+    other.id = 0;
     other.uniformLocationCache.clear();
 }
 
@@ -33,29 +25,26 @@ Shader& Shader::operator=(Shader&& other) noexcept
 {
     if (this != &other)
     {
-        if (ID)
+        if (id)
         {
-            glDeleteProgram(ID);
+            glDeleteProgram(id);
         }
 
-        ID = other.ID;
-        initialized = other.initialized;
+        id = other.id;
         uniformLocationCache = std::move(other.uniformLocationCache);
 
-        other.ID = 0;
-        other.initialized = false;
+        other.id = 0;
         other.uniformLocationCache.clear();
     }
     return *this;
 }
 
-void Shader::init(const std::vector<ShaderSource>& sources)
+void Shader::create(const std::vector<ShaderSource>& sources)
 {
-    if (initialized)
+    if (id)
     {
-        glDeleteProgram(ID);
+        glDeleteProgram(id);
         uniformLocationCache.clear();
-        initialized = false;
     }
 
     std::vector<GLuint> shaderIDs;
@@ -66,21 +55,19 @@ void Shader::init(const std::vector<ShaderSource>& sources)
         shaderIDs.push_back(shader);
     }
 
-    ID = glCreateProgram();
+    id = glCreateProgram();
     for (GLuint shader : shaderIDs)
-        glAttachShader(ID, shader);
-    glLinkProgram(ID);
-    checkCompileErrors(ID, "PROGRAM");
+        glAttachShader(id, shader);
+    glLinkProgram(id);
+    checkCompileErrors(id, "PROGRAM");
 
     for (GLuint shader : shaderIDs)
         glDeleteShader(shader);
-
-    initialized = true;
 }
 
 void Shader::use() const
 {
-    glUseProgram(ID);
+    glUseProgram(id);
 }
 
 GLint Shader::getUniformLocation(const std::string& name) const
@@ -89,7 +76,7 @@ GLint Shader::getUniformLocation(const std::string& name) const
     if (it != uniformLocationCache.end())
         return it->second;
 
-    GLint location = glGetUniformLocation(ID, name.c_str());
+    GLint location = glGetUniformLocation(id, name.c_str());
     if (location == -1)
     {
         std::cerr << "[Shader][getUniformLocation]: Uniform '" << name << "' does not exist\n";

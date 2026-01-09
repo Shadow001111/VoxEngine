@@ -130,7 +130,7 @@ static void setupContainerUI(ContainerUI& c)
             {GL_VERTEX_SHADER, "res/Shaders/hotbar.vert"},
             {GL_FRAGMENT_SHADER, "res/Shaders/hotbar.frag"}
         };
-        c.hotbarShader = Shader(sources);
+        c.hotbarShader.create(sources);
         c.hotbarShader.use();
         c.hotbarShader.setInt("uTexture", 0);
     }

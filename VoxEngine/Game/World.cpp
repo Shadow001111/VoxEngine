@@ -112,7 +112,7 @@ World::World()
 			{GL_VERTEX_SHADER, "res/Shaders/Chunk/alignedFace.vert"},
 			{GL_FRAGMENT_SHADER, "res/Shaders/Chunk/alignedOpaqueFace.frag"}
 		};
-		alignedOpaqueFaceShader = Shader(sources);
+		alignedOpaqueFaceShader.create(sources);
 	}
 	{
 		std::vector<Shader::ShaderSource> sources =
@@ -120,7 +120,7 @@ World::World()
 			{GL_VERTEX_SHADER, "res/Shaders/Chunk/alignedFace.vert"},
 			{GL_FRAGMENT_SHADER, "res/Shaders/Chunk/alignedTranslucentFace.frag"}
 		};
-		alignedTranslucentFaceShader = Shader(sources);
+		alignedTranslucentFaceShader.create(sources);
 	}
 	{
 		std::vector<Shader::ShaderSource> sources =
@@ -128,7 +128,7 @@ World::World()
 			{GL_VERTEX_SHADER, "res/Shaders/Chunk/nonAlignedFace.vert"},
 			{GL_FRAGMENT_SHADER, "res/Shaders/Chunk/nonAlignedOpaqueFace.frag"}
 		};
-		nonAlignedOpaqueFaceShader = Shader(sources);
+		nonAlignedOpaqueFaceShader.create(sources);
 	}
 	{
 		std::vector<Shader::ShaderSource> sources =
@@ -136,14 +136,14 @@ World::World()
 			{GL_VERTEX_SHADER, "res/Shaders/Chunk/nonAlignedFace.vert"},
 			{GL_FRAGMENT_SHADER, "res/Shaders/Chunk/nonAlignedTranslucentFace.frag"}
 		};
-		nonAlignedTranslucentFaceShader = Shader(sources);
+		nonAlignedTranslucentFaceShader.create(sources);
 	}
 	{
 		std::vector<Shader::ShaderSource> sources =
 		{
 			{GL_COMPUTE_SHADER, "res/Shaders/composite.comp"}
 		};
-		compositeShader = Shader(sources);
+		compositeShader.create(sources);
 	}
 	{
 		std::vector<Shader::ShaderSource> sources =
@@ -151,14 +151,14 @@ World::World()
 			{GL_VERTEX_SHADER, "res/Shaders/voxelMarker.vert"},
 			{GL_FRAGMENT_SHADER, "res/Shaders/voxelMarker.frag"}
 		};
-		voxelMarkerShader = Shader(sources);
+		voxelMarkerShader.create(sources);
 	}
 	{
 		std::vector<Shader::ShaderSource> sources =
 		{
 			{GL_COMPUTE_SHADER, "res/Shaders/aurora.comp"}
 		};
-		auroraShader = Shader(sources);
+		auroraShader.create(sources);
 	}
 
 	// Buffers
