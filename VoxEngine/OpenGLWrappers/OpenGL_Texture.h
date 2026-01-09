@@ -42,7 +42,7 @@ class OpenGL_Texture
 	int depth = 0;
 	int mipLevels = 1;
 public:
-	OpenGL_Texture();
+	OpenGL_Texture() = default;
 	~OpenGL_Texture();
 
 	OpenGL_Texture(const OpenGL_Texture&) = delete;
@@ -74,8 +74,8 @@ public:
 	void setParameters(GLenum minFilter_, GLenum magFilter_, GLenum wrapS_, GLenum wrapT_);
 	void setParameters(GLenum minFilter_, GLenum magFilter_, GLenum wrapS_, GLenum wrapT_, GLenum wrapR_);
 
-	void bind(GLuint unit) const;
 	void bind() const;
+	void bindUnit(GLuint unit) const;
 	void unbind() const;
 
 	// Getters

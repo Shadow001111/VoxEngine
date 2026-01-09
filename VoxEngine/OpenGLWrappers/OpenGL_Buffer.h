@@ -4,12 +4,12 @@
 class OpenGL_Buffer
 {
 protected:
-	GLenum target;
-	GLenum usage;
-	GLuint id;
+	GLenum target = 0;
+	GLenum usage = 0;
+	GLuint id = 0;
 	size_t capacity = 0;
 public:
-	OpenGL_Buffer(GLenum target, GLenum usage);
+	OpenGL_Buffer() = default;
 	~OpenGL_Buffer();
 
 	OpenGL_Buffer(const OpenGL_Buffer& other) = delete;
@@ -18,12 +18,13 @@ public:
 	OpenGL_Buffer(OpenGL_Buffer&& other) noexcept;
 	OpenGL_Buffer& operator=(OpenGL_Buffer&& other) noexcept;
 
+	void create(GLenum target, GLenum usage);
+
 	void swap(OpenGL_Buffer& other) noexcept;
 
 	void bind() const;
-	void unbind() const;
-
 	void bindBase(GLuint index) const;
+	void unbind() const;
 
 	void allocateMemory(size_t newSize);
 

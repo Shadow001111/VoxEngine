@@ -5,11 +5,6 @@
 #include <iostream>
 #include <stdexcept>
 
-OpenGL_FBO::OpenGL_FBO(int width, int height) : width(width), height(height)
-{
-    glGenFramebuffers(1, &id);
-}
-
 OpenGL_FBO::~OpenGL_FBO()
 {
     if (id) glDeleteFramebuffers(1, &id);
@@ -40,6 +35,36 @@ OpenGL_FBO& OpenGL_FBO::operator=(OpenGL_FBO&& other) noexcept
         other.height = 0;
     }
     return *this;
+}
+
+void OpenGL_FBO::create(int width, int height)
+{
+    // Clean up
+    if (id)
+    {
+        bind();
+
+        for (auto& attachment : attachments)
+        {
+            // Detach from framebuffer
+            if (attachment.second.attachmentPoint != -1)
+            {
+                glFramebufferTexture2D(GL_FRAMEBUFFER, attachment.second.attachmentPoint, GL_TEXTURE_2D, 0, 0);
+            }
+        }
+        attachments.clear();
+
+        glDeleteFramebuffers(1, &id);
+
+        drawBuffers.clear();
+    }
+
+    // Create new frame buffer
+    glGenFramebuffers(1, &id);
+
+    // Set new resolution
+    this->width = width;
+    this->height = height;
 }
 
 void OpenGL_FBO::createColorAttachment(const std::string& name, GLenum internalFormat,
@@ -134,7 +159,7 @@ void OpenGL_FBO::unbind()
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void OpenGL_FBO::setDrawBuffers(const std::vector<std::string>& attachmentNames) const
+void OpenGL_FBO::setDrawBuffers(const std::vector<std::string>& attachmentNames)
 {
     OPENGL_CHECK_BIND_TARGET(id, GL_FRAMEBUFFER);
 
@@ -303,7 +328,7 @@ void OpenGL_FBO::bindTexture(const std::string& name, GLuint textureUnit) const
     auto it = attachments.find(name);
     if (it != attachments.end())
     {
-        it->second.texture.bind(textureUnit);
+        it->second.texture.bindUnit(textureUnit);
     }
 }
 

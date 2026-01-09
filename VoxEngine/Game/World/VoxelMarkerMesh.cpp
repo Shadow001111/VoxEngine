@@ -71,9 +71,6 @@ VoxelMarkerMesh::VoxelMarkerMesh()
 	glGenBuffers(1, &vbo);
     glGenBuffers(1, &ebo);
 
-    OPENGL_LOG_BUFFER_CREATED(1, &vbo);
-    OPENGL_LOG_BUFFER_CREATED(1, &ebo);
-
 	// Bind VAO
 	glBindVertexArray(vao);
 

@@ -53,23 +53,23 @@ WindowManager::WindowManager(const WindowParams& params)
 	aspectRatio = static_cast<float>(width) / static_cast<float>(height);
     vsync = params.vsync;
 
-    framebuffer = std::make_unique<OpenGL_FBO>(width, height);
-    framebuffer->bind();
+    framebuffer.create(width, height);
+    framebuffer.bind();
 
-    framebuffer->createColorAttachment("color", GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE);
-    framebuffer->createColorAttachment("geometryAlpha", GL_R8, GL_RED, GL_UNSIGNED_BYTE);
-    framebuffer->createColorAttachment("accumulation", GL_RGBA16F, GL_RGBA, GL_FLOAT);
-    framebuffer->createColorAttachment("revealage", GL_R8, GL_RED, GL_FLOAT);
+    framebuffer.createColorAttachment("color", GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE);
+    framebuffer.createColorAttachment("geometryAlpha", GL_R8, GL_RED, GL_UNSIGNED_BYTE);
+    framebuffer.createColorAttachment("accumulation", GL_RGBA16F, GL_RGBA, GL_FLOAT);
+    framebuffer.createColorAttachment("revealage", GL_R8, GL_RED, GL_FLOAT);
     
     // TODO: Render aurora in lower resolution
     // Problem: Geometry alpha mask is in higher resolution, meaning we need to sample multiple pixels to check if geometry covers aurora or not.
-    framebuffer->createStandaloneTextureAttachment("aurora", GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE);
+    framebuffer.createStandaloneTextureAttachment("aurora", GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE);
 
-    framebuffer->createDepthAttachment("depth", GL_DEPTH_COMPONENT32F, GL_DEPTH_COMPONENT, GL_FLOAT);
+    framebuffer.createDepthAttachment("depth", GL_DEPTH_COMPONENT32F, GL_DEPTH_COMPONENT, GL_FLOAT);
 
-    framebuffer->setDrawBuffers({ "color", "geometryAlpha", "accumulation", "revealage" });
+    framebuffer.setDrawBuffers({ "color", "geometryAlpha", "accumulation", "revealage" });
 
-    if (!framebuffer->isComplete())
+    if (!framebuffer.isComplete())
     {
         std::cerr << "[WindowManager]: Failed to create framebuffer\n";
         glfwDestroyWindow(window);
@@ -147,9 +147,9 @@ void WindowManager::onResize(int width, int height)
     {
         glViewport(0, 0, width, height);
 
-        framebuffer->bind();
-        framebuffer->resize(width, height);
-        framebuffer->unbind();
+        framebuffer.bind();
+        framebuffer.resize(width, height);
+        framebuffer.unbind();
     }
 }
 

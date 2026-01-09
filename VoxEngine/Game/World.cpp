@@ -98,11 +98,7 @@ ViewRays computeViewRays(const Camera& cam)
 	return rays;
 }
 
-World::World() :
-	chunkDrawCommandBuffer(GL_DRAW_INDIRECT_BUFFER, GL_DYNAMIC_DRAW),
-	chunkPositionSSBO(GL_SHADER_STORAGE_BUFFER, GL_DYNAMIC_DRAW),
-	skyViewRaysUBO(GL_UNIFORM_BUFFER, GL_DYNAMIC_DRAW),
-	skyAuroraSettingsUBO(GL_UNIFORM_BUFFER, GL_STATIC_DRAW)
+World::World()
 {
 	// Visual settings
 	visualSettings.dayBackgroundColor = { 0.52f, 0.8f, 0.92f };
@@ -167,13 +163,14 @@ World::World() :
 
 	// Buffers
 	{
+		chunkDrawCommandBuffer.create(GL_DRAW_INDIRECT_BUFFER, GL_DYNAMIC_DRAW);
+
+		chunkPositionSSBO.create(GL_SHADER_STORAGE_BUFFER, GL_DYNAMIC_DRAW);
 		chunkPositionSSBO.bindBase(0);
 
+		skyViewRaysUBO.create(GL_UNIFORM_BUFFER, GL_DYNAMIC_DRAW);
 		skyViewRaysUBO.bind();
 		skyViewRaysUBO.allocateMemory(sizeof(ViewRays));
-
-		skyAuroraSettingsUBO.bind();
-		skyAuroraSettingsUBO.allocateMemory(sizeof(AuroraSettings));
 	}
 
 	// Datapack loading and registering assets
@@ -549,9 +546,9 @@ void World::renderAurora(const Camera& camera, const OpenGL_FBO& FBO) const
 	int groupsY = (height + localSize - 1) / localSize;
 
 	glBindImageTexture(0, auroraTex.getID(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
-	geometryAlphaTex.bind(1);
-	revealageTex.bind(2);
-	tilingPerlinNoise3DTexture.bind(3);
+	geometryAlphaTex.bindUnit(1);
+	revealageTex.bindUnit(2);
+	tilingPerlinNoise3DTexture.bindUnit(3);
 
 	glDispatchCompute(groupsX, groupsY, 1);
 	glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
@@ -610,7 +607,7 @@ void World::renderChunks(const Camera& camera, const OpenGL_FBO& FBO)
 	debugData.renderedChunks = chunksToRender.size();
 
 	// Bind resources
-	blockTextureArray.bind(BLOCK_TEXTURE_ARRAY_BINDING);
+	blockTextureArray.bindUnit(BLOCK_TEXTURE_ARRAY_BINDING);
 
 	chunkDrawCommandBuffer.bind();
 	chunkPositionSSBO.bind();
@@ -832,10 +829,10 @@ void World::compositePass(const OpenGL_FBO& FBO) const
 
 	// Bind textures
 	glBindImageTexture(CompositePassBindings::OUTPUT_IMAGE_BINDING, colorTex.getID(), 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
-	geometryAlphaTex.bind(CompositePassBindings::GEOMETRY_ALPHA_TEXTURE_BINDING);
-	accumulationTex.bind(CompositePassBindings::ACCUMULATION_TEX_BINDING);
-	revealageTex.bind(CompositePassBindings::REVEALAGE_TEX_BINDING);
-	auroraTex.bind(CompositePassBindings::AURORA_TEX_BINDING);
+	geometryAlphaTex.bindUnit(CompositePassBindings::GEOMETRY_ALPHA_TEXTURE_BINDING);
+	accumulationTex.bindUnit(CompositePassBindings::ACCUMULATION_TEX_BINDING);
+	revealageTex.bindUnit(CompositePassBindings::REVEALAGE_TEX_BINDING);
+	auroraTex.bindUnit(CompositePassBindings::AURORA_TEX_BINDING);
 
 	// Set uniforms
 	compositeShader.use();

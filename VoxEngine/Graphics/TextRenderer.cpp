@@ -144,9 +144,6 @@ TextRenderer::TextRenderer()
     glGenBuffers(1, &textVBO);
     glGenBuffers(1, &textInstanceVBO);
 
-    OPENGL_LOG_BUFFER_CREATED(1, &textVBO);
-    OPENGL_LOG_BUFFER_CREATED(1, &textInstanceVBO);
-
     // Bind VAO
     glBindVertexArray(textVAO);
 

@@ -7,7 +7,7 @@ protected:
     GLuint id = 0;
 
 public:
-    OpenGL_VAO();
+    OpenGL_VAO() = default;
     ~OpenGL_VAO();
 
     OpenGL_VAO(const OpenGL_VAO& other) = delete;
@@ -15,6 +15,8 @@ public:
 
     OpenGL_VAO(OpenGL_VAO&& other) noexcept;
     OpenGL_VAO& operator=(OpenGL_VAO&& other) noexcept;
+
+    void create();
 
     void bind() const;
     void unbind() const;

@@ -117,7 +117,7 @@ struct ContainerUI
     Shader hotbarShader;
     OpenGL_Texture hotbarSlotImage;
     OpenGL_VAO hotbarVAO;
-    OpenGL_Buffer hotbarVBO{ GL_ARRAY_BUFFER, GL_STATIC_DRAW };
+    OpenGL_Buffer hotbarVBO;
 
     OpenGL_Texture itemUITextureArray;
 };
@@ -136,9 +136,12 @@ static void setupContainerUI(ContainerUI& c)
     }
 
     {
-        c.hotbarVAO.bind();
+        c.hotbarVAO.create();
+        c.hotbarVBO.create(GL_ARRAY_BUFFER, GL_STATIC_DRAW);
 
+        c.hotbarVAO.bind();
         c.hotbarVBO.bind();
+
         c.hotbarVBO.allocateMemory(sizeof(quadVertices));
         c.hotbarVBO.write(quadVertices, sizeof(quadVertices));
 
@@ -205,7 +208,7 @@ static void renderHotbar(const ContainerUI& c, const Player& player)
     /* =========================
        1. EMPTY HOTBAR SLOTS
        ========================= */
-    c.hotbarSlotImage.bind(0);
+    c.hotbarSlotImage.bindUnit(0);
     c.hotbarShader.setUint("uTextureId", 0); // array layer 0
 
     for (int i = 0; i < slotCount; i++)
@@ -224,7 +227,7 @@ static void renderHotbar(const ContainerUI& c, const Player& player)
     /* =========================
        2. ITEMS (24x24)
        ========================= */
-    c.itemUITextureArray.bind(0);
+    c.itemUITextureArray.bindUnit(0);
 
     for (int i = 0; i < slotCount; i++)
     {
@@ -256,7 +259,7 @@ static void renderHotbar(const ContainerUI& c, const Player& player)
     /* =========================
        3. SELECTED OVERLAY
        ========================= */
-    c.hotbarSlotImage.bind(0);
+    c.hotbarSlotImage.bindUnit(0);
     c.hotbarShader.setUint("uTextureId", 1); // array layer 1 (selected)
 
     int selectedSlot = player.getSelectedItemIndex();
@@ -426,10 +429,10 @@ void check()
     std::cout << "    Renderer: " << glGetString(GL_RENDERER)       << "\n";
 
     // Check texture compression available
-    std::cout << std::string(100, '=') << "\n";
-    {
-        //checkAllCompressionFormats();
-    }
+    //std::cout << std::string(100, '=') << "\n";
+    //{
+    //    checkAllCompressionFormats();
+    //}
 
     //
     std::cout << std::string(100, '=') << "\n";
@@ -616,11 +619,6 @@ int main()
         if (profilerUpdateTimer.shouldUpdate())
         {
             Profiler::printProfileReport();
-        }
-
-        while (GLenum err = glGetError() != GL_NO_ERROR)
-        {
-            std::cerr << "[OpenGl Error]: " << err << "\n";
         }
     }
 

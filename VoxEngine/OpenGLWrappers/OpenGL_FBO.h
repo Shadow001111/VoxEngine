@@ -31,13 +31,13 @@ class OpenGL_FBO
         Attachment& operator=(Attachment&& other) noexcept;
     };
 
-    GLuint id;
-    int width, height;
+    GLuint id = 0;
+    int width = 0, height = 0;
 
     robin_hood::unordered_flat_map<std::string, Attachment> attachments;
-    mutable std::vector<std::string> drawBuffers;
+    std::vector<std::string> drawBuffers;
 public:
-    OpenGL_FBO(int width, int height);
+    OpenGL_FBO() = default;
     ~OpenGL_FBO();
 
     // Delete copy constructor/assignment
@@ -47,6 +47,9 @@ public:
     // Move constructor/assignment
     OpenGL_FBO(OpenGL_FBO&& other) noexcept;
     OpenGL_FBO& operator=(OpenGL_FBO&& other) noexcept;
+
+    // Creation
+    void create(int width, int height);
 
     // Attachment management
     void createColorAttachment(const std::string& name, GLenum internalFormat = GL_RGBA8,
@@ -80,7 +83,7 @@ public:
     void bind() const;
     static void unbind();
 
-    void setDrawBuffers(const std::vector<std::string>& attachmentNames) const;
+    void setDrawBuffers(const std::vector<std::string>& attachmentNames);
     void resize(int newWidth, int newHeight);
     void clear() const;
 

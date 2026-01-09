@@ -2,11 +2,6 @@
 
 #include "OpenGLWrappers/openGLDebug.h"
 
-OpenGL_VAO::OpenGL_VAO()
-{
-    glGenVertexArrays(1, &id);
-}
-
 OpenGL_VAO::~OpenGL_VAO()
 {
     if (id) glDeleteVertexArrays(1, &id);
@@ -29,6 +24,12 @@ OpenGL_VAO& OpenGL_VAO::operator=(OpenGL_VAO&& other) noexcept
         other.id = 0;
     }
     return *this;
+}
+
+void OpenGL_VAO::create()
+{
+    if (id) glDeleteVertexArrays(1, &id);
+    glGenVertexArrays(1, &id);
 }
 
 void OpenGL_VAO::bind() const

@@ -19,7 +19,7 @@ class WindowManager
     GLFWwindow* window = nullptr;
     //GLFWmonitor* monitor = nullptr;
 
-    std::unique_ptr<OpenGL_FBO> framebuffer;
+    OpenGL_FBO framebuffer;
 
     int width, height;
 	float aspectRatio;
@@ -41,7 +41,7 @@ public:
     int getHeight() const { return height; };
     float getAspectRatio() const { return aspectRatio; };
     bool getVSYNC() const { return vsync; };
-    const OpenGL_FBO& getFBO() const { return *framebuffer.get(); };
+    const OpenGL_FBO& getFBO() const { return framebuffer; };
 
     bool isIconified() const { return glfwGetWindowAttrib(window, GLFW_ICONIFIED); }
     bool isZeroSize() const { return !(width > 0 && height > 0); };

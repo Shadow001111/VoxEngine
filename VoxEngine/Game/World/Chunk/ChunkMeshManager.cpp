@@ -4,8 +4,7 @@
 
 #include "Core/Assert.h"
 
-ChunkMeshManager::ChunkMeshManager() :
-	vbo(GL_ARRAY_BUFFER, GL_STATIC_DRAW)
+ChunkMeshManager::ChunkMeshManager()
 {
 	// VBO
 	const float vertices[8] = // CCW order
@@ -16,6 +15,7 @@ ChunkMeshManager::ChunkMeshManager() :
 		0.0f, 1.0f
 	};
 
+	vbo.create(GL_ARRAY_BUFFER, GL_STATIC_DRAW);
 	vbo.bind();
 	vbo.allocateMemory(sizeof(vertices));
 	vbo.write(vertices, sizeof(vertices));
@@ -115,8 +115,10 @@ void ChunkMeshManager::processMeshRequests(std::vector<ChunkMeshData*>& alignedM
 }
 
 ChunkMeshManager::MeshAllocator::MeshAllocator() :
-	instanceVBO(GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW), blockAllocator(0)
+	blockAllocator(0)
 {
+	vao.create();
+	instanceVBO.create(GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW);
 }
 
 ChunkMeshManager::MeshAllocator::~MeshAllocator()
@@ -181,7 +183,8 @@ void ChunkMeshManager::MeshAllocator::processMeshRequests(std::vector<ChunkMeshD
 	else
 	{
 		// Create new buffer
-		OpenGL_Buffer newBuffer(GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW);
+		OpenGL_Buffer newBuffer;
+		newBuffer.create(GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW);
 		newBuffer.bind();
 		newBuffer.allocateMemory(newCapacity * config.faceSize);
 

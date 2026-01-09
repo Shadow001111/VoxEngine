@@ -50,7 +50,7 @@ struct GlyphInstance
 
 constexpr size_t GLYPH_INSTANCE_BATCH_SIZE = 1024;
 
-// TODO: Use opengl wrappers
+// TODO: Replace with opengl wrappers
 class TextRenderer
 {
     robin_hood::unordered_flat_map<std::string, Font> fonts;

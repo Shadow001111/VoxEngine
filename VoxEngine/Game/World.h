@@ -77,7 +77,6 @@ private:
 
 	Shader auroraShader;
 	OpenGL_Buffer skyViewRaysUBO;
-	OpenGL_Buffer skyAuroraSettingsUBO;
 
 	OpenGL_Texture tilingPerlinNoise3DTexture;
 

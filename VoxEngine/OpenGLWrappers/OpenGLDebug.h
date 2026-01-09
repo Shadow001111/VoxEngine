@@ -2,20 +2,7 @@
 #include <glad/glad.h>
 #include "Core/Assert.h"
 
-#define OPENGL_LOG_ENABLED 0
 #define OPENGL_BIND_CHECKS 1
-
-#if OPENGL_LOG_ENABLED
-#define OPENGL_LOG_BUFFER_CREATED(n, buffers)                                 \
-    do {                                                               \
-        for (GLsizei _i = 0; _i < (n); ++_i) {                         \
-            printf("[GL] Buffer %u created at %s:%d\n",                \
-                   (unsigned)(buffers)[_i], __FILE__, __LINE__);       \
-        }                                                              \
-    } while (0)
-#else
-#define OPENGL_LOG_BUFFER_CREATED(n, buffers) (void)0
-#endif
 
 #if OPENGL_BIND_CHECKS
 #define OPENGL_CHECK_BIND_TARGET(target_id, target_type) \
@@ -64,6 +51,6 @@ static inline GLenum GetBindingQuery(GLenum target)
 
 #else
 
-#define OPENGL_CHECK_BIND_TARGET(buffer_id, target_type) ((void)0)
+#define OPENGL_CHECK_BIND_TARGET(buffer_id, target_type)
 
 #endif

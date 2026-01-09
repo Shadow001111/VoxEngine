@@ -26,12 +26,6 @@ namespace TextureCompression
 	}
 }
 
-
-OpenGL_Texture::OpenGL_Texture()
-{
-	glGenTextures(1, &id);
-}
-
 OpenGL_Texture::~OpenGL_Texture()
 {
 	if (id) glDeleteTextures(1, &id);
@@ -80,6 +74,7 @@ OpenGL_Texture& OpenGL_Texture::operator=(OpenGL_Texture&& other) noexcept
 	return *this;
 }
 
+// TODO: Add checks for size
 void OpenGL_Texture::create1D(int width, GLenum internalFormat, GLenum format, GLenum dataType, int mipLevels)
 {
 	this->type = GL_TEXTURE_1D;
@@ -91,6 +86,10 @@ void OpenGL_Texture::create1D(int width, GLenum internalFormat, GLenum format, G
 	this->depth = 1;
 	this->mipLevels = mipLevels;
 
+	if (id == 0)
+	{
+		glGenTextures(1, &id);
+	}
 	glBindTexture(type, id);
 	glTexStorage1D(type, mipLevels, internalFormat, width);
 }
@@ -106,6 +105,10 @@ void OpenGL_Texture::create2D(int width, int height, GLenum internalFormat, GLen
 	this->depth = 1;
 	this->mipLevels = mipLevels;
 
+	if (id == 0)
+	{
+		glGenTextures(1, &id);
+	}
 	glBindTexture(type, id);
 	glTexStorage2D(type, mipLevels, internalFormat, width, height);
 }
@@ -121,6 +124,10 @@ void OpenGL_Texture::create3D(int width, int height, int depth, GLenum internalF
 	this->depth = depth;
 	this->mipLevels = mipLevels;
 
+	if (id == 0)
+	{
+		glGenTextures(1, &id);
+	}
 	glBindTexture(type, id);
 	glTexStorage3D(type, mipLevels, internalFormat, width, height, depth);
 }
@@ -136,6 +143,10 @@ void OpenGL_Texture::create2DArray(int width, int height, int layers, GLenum int
 	this->depth = layers;
 	this->mipLevels = mipLevels;
 
+	if (id == 0)
+	{
+		glGenTextures(1, &id);
+	}
 	glBindTexture(type, id);
 	glTexStorage3D(type, mipLevels, internalFormat, width, height, layers);
 }
@@ -151,11 +162,14 @@ void OpenGL_Texture::createCubeMap(int size, GLenum internalFormat, GLenum forma
 	this->depth = 6;
 	this->mipLevels = mipLevels;
 
+	if (id == 0)
+	{
+		glGenTextures(1, &id);
+	}
 	glBindTexture(type, id);
 	glTexStorage2D(type, mipLevels, internalFormat, size, size);
 }
 
-// TODO: Add checks for size
 void OpenGL_Texture::recreate1D(int width)
 {
 	this->width = width;
@@ -325,14 +339,14 @@ void OpenGL_Texture::setParameters(GLenum minFilter_, GLenum magFilter_, GLenum 
 	glTexParameteri(type, GL_TEXTURE_WRAP_R, wrapR);
 }
 
-void OpenGL_Texture::bind(GLuint unit) const
-{
-	glBindTextureUnit(unit, id);
-}
-
 void OpenGL_Texture::bind() const
 {
 	glBindTexture(type, id);
+}
+
+void OpenGL_Texture::bindUnit(GLuint unit) const
+{
+	glBindTextureUnit(unit, id);
 }
 
 void OpenGL_Texture::unbind() const
