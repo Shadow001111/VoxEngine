@@ -155,13 +155,13 @@ static void setupContainerUI(ContainerUI& c)
         TextureLoader::TextureParams params;
 
         PROFILE_SCOPE("Item ui texture array creation", ProfileCategory::General);
-        TextureLoader::createAndLoadTextureArray(c.itemUITextureArray, "res/ItemUITextures", itemTextureNames, 128, params);
+        TextureLoader::createAndLoadTextureArray(c.itemUITextureArray, "res/ItemUITextures", itemTextureNames, params);
     }
 
     {
         TextureLoader::TextureParams params;
 
-        TextureLoader::createAndLoadTextureArray(c.hotbarSlotImage, "res/UITextures", { "empty_hotbar_slot", "selected_hotbar_slot" }, 24, params);
+        TextureLoader::createAndLoadTextureArray(c.hotbarSlotImage, "res/UITextures", { "empty_hotbar_slot", "selected_hotbar_slot" }, params);
     }
 }
 

@@ -6,7 +6,7 @@
 
 namespace TextureLoader
 {
-    std::vector<unsigned char> createUndefinedTexture(int textureSize, int channels);
+    std::vector<unsigned char> createUndefinedTexture(int width, int height, int channels);
 
     struct TextureParams
     {
@@ -20,7 +20,6 @@ namespace TextureLoader
     void createAndLoadTexture2D(
         OpenGL_Texture& texture,
         const std::filesystem::path& texturePath,
-        int textureSize,
         const TextureParams& params = TextureParams()
     );
 
@@ -28,14 +27,13 @@ namespace TextureLoader
         OpenGL_Texture& texture,
         const std::filesystem::path& texturesFolderPath,
         const std::vector<std::string>& textureNames,
-        int textureSize,
         const TextureParams& params = TextureParams()
     );
 
     void createAndLoadTexture3DFromFloatData(
         OpenGL_Texture& texture,
         const std::vector<float>& data,
-        int textureSize,
+        int width, int height, int depth,
         const TextureParams& params = TextureParams()
     );
 }
