@@ -52,30 +52,6 @@ WindowManager::WindowManager(const WindowParams& params)
 	height = params.height;
 	aspectRatio = static_cast<float>(width) / static_cast<float>(height);
     vsync = params.vsync;
-
-    framebuffer.create(width, height);
-    framebuffer.bind();
-
-    framebuffer.createColorAttachment("color", GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE);
-    framebuffer.createColorAttachment("geometryAlpha", GL_R8, GL_RED, GL_UNSIGNED_BYTE);
-    framebuffer.createColorAttachment("accumulation", GL_RGBA16F, GL_RGBA, GL_FLOAT);
-    framebuffer.createColorAttachment("revealage", GL_R8, GL_RED, GL_FLOAT);
-    
-    // TODO: Render aurora in lower resolution
-    // Problem: Geometry alpha mask is in higher resolution, meaning we need to sample multiple pixels to check if geometry covers aurora or not.
-    framebuffer.createStandaloneTextureAttachment("aurora", GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE);
-
-    framebuffer.createDepthAttachment("depth", GL_DEPTH_COMPONENT32F, GL_DEPTH_COMPONENT, GL_FLOAT);
-
-    framebuffer.setDrawBuffers({ "color", "geometryAlpha", "accumulation", "revealage" });
-
-    if (!framebuffer.isComplete())
-    {
-        std::cerr << "[WindowManager]: Failed to create framebuffer\n";
-        glfwDestroyWindow(window);
-        glfwTerminate();
-        return;
-    }
 }
 
 WindowManager::~WindowManager()
@@ -100,6 +76,28 @@ void WindowManager::swapBuffers() const
 bool WindowManager::shouldClose() const
 {
     return glfwWindowShouldClose(window);
+}
+
+void WindowManager::linkFramebuffer(OpenGL_FBO* fbo)
+{
+    if (fbo == nullptr)
+    {
+        std::cout << "[WindowManager][linkFramebuffer]: Cannot link nullptr\n";
+        return;
+    }
+    linkedFramebuffers.insert(fbo);
+
+    fbo->resize(width, height);
+}
+
+void WindowManager::unlinkFramebuffer(OpenGL_FBO* fbo)
+{
+    linkedFramebuffers.erase(fbo);
+}
+
+bool WindowManager::isFramebufferLinked(OpenGL_FBO* fbo) const
+{
+    return linkedFramebuffers.contains(fbo);
 }
 
 void WindowManager::setTitle(const std::string& title) const
@@ -147,9 +145,17 @@ void WindowManager::onResize(int width, int height)
     {
         glViewport(0, 0, width, height);
 
-        framebuffer.bind();
-        framebuffer.resize(width, height);
-        framebuffer.unbind();
+        OpenGL_FBO* lastFramebuffer = nullptr;
+        for (auto* framebuffer : linkedFramebuffers)
+        {
+            framebuffer->bind();
+            framebuffer->resize(width, height);
+            lastFramebuffer = framebuffer;
+        }
+        if (lastFramebuffer)
+        {
+            lastFramebuffer->unbind();
+        }
     }
 }
 

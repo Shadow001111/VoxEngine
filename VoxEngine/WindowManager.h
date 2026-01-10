@@ -3,23 +3,21 @@
 #include <GLFW/glfw3.h>
 #include <memory>
 
-// Struct to hold window initialization parameters
 struct WindowParams
 {
     int width = 800;
     int height = 600;
     std::string title = "OpenGL Window";
-    bool resizable = true;
+    bool resizable = false;
     bool vsync = false;
     bool openglDebug = false;
 };
-
+// TODO: Move opengl debug here
 class WindowManager
 {
     GLFWwindow* window = nullptr;
-    //GLFWmonitor* monitor = nullptr;
 
-    OpenGL_FBO framebuffer;
+    robin_hood::unordered_flat_set<OpenGL_FBO*> linkedFramebuffers;
 
     int width, height;
 	float aspectRatio;
@@ -32,6 +30,11 @@ public:
     void swapBuffers() const;
 	bool shouldClose() const;
 
+    // Framebuffer linkage (for resizing)
+    void linkFramebuffer(OpenGL_FBO* fbo);
+    void unlinkFramebuffer(OpenGL_FBO* fbo);
+    bool isFramebufferLinked(OpenGL_FBO* fbo) const;
+
     // Setters
     void setTitle(const std::string& title) const;
 
@@ -41,12 +44,11 @@ public:
     int getHeight() const { return height; };
     float getAspectRatio() const { return aspectRatio; };
     bool getVSYNC() const { return vsync; };
-    const OpenGL_FBO& getFBO() const { return framebuffer; };
 
     bool isIconified() const { return glfwGetWindowAttrib(window, GLFW_ICONIFIED); }
     bool isZeroSize() const { return !(width > 0 && height > 0); };
 
-    //
+    // Keys and mouse
 	bool isKeyPressed(int key) const;
     bool isMouseButtonPressed(int button) const;
 	void getMousePos(float& xpos, float& ypos) const;

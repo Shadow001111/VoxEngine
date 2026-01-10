@@ -408,17 +408,6 @@ void APIENTRY glDebugOutput(GLenum source,
     std::cout<< "\n";
 }
 
-struct CompressionFormat
-{
-    std::string name;
-    std::string extension;  // Required extension
-    bool supported = false;
-
-    CompressionFormat(const std::string& name_, const std::string& extension_) :
-        name(name_), extension(extension_)
-    {}
-};
-
 void check()
 {
     // Data
@@ -448,9 +437,6 @@ int main()
 
     // Window
     WindowManager wnd({ 1280, 720, "VoxEngine", true, true, true });
-    
-    // TODO: Create fbo after setting compression formats
-    TextureCompression::setCompressionFormats();
 
     // Check
     check();
@@ -459,7 +445,6 @@ int main()
     glEnable(GL_DEBUG_OUTPUT);
     glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
     glDebugMessageCallback(glDebugOutput, nullptr);
-    glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_TRUE);
     glDebugMessageControl(
         GL_DONT_CARE,          // any source
         GL_DEBUG_TYPE_OTHER,   // filter this type
@@ -468,8 +453,33 @@ int main()
         GL_FALSE               // disable
     );
 
-    // Framebuffer
-    const auto& FBO = wnd.getFBO();
+    // Create framebuffer
+    OpenGL_FBO framebuffer;
+    {
+        framebuffer.create(wnd.getWidth(), wnd.getHeight());
+        framebuffer.bind();
+
+        framebuffer.createColorAttachment("color", GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE);
+        framebuffer.createColorAttachment("geometryAlpha", GL_R8, GL_RED, GL_UNSIGNED_BYTE);
+        framebuffer.createColorAttachment("accumulation", GL_RGBA16F, GL_RGBA, GL_FLOAT);
+        framebuffer.createColorAttachment("revealage", GL_R8, GL_RED, GL_FLOAT);
+
+        // TODO: Render aurora in lower resolution
+        // Problem: Geometry alpha mask is in higher resolution, meaning we need to sample multiple pixels to check if geometry covers aurora or not.
+        framebuffer.createStandaloneTextureAttachment("aurora", GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE);
+
+        framebuffer.createDepthAttachment("depth", GL_DEPTH_COMPONENT32F, GL_DEPTH_COMPONENT, GL_FLOAT);
+
+        framebuffer.setDrawBuffers({ "color", "geometryAlpha", "accumulation", "revealage" });
+
+        if (!framebuffer.isComplete())
+        {
+            std::cerr << "[main]: Failed to create framebuffer\n";
+            return -1;
+        }
+
+        wnd.linkFramebuffer(&framebuffer);
+    }
 
     // OpenGL states
     setupOpenGLStates();
@@ -568,17 +578,22 @@ int main()
 
         world.sendChunkMeshesToGPU();
 
-        if (!iconified)
+        if (iconified)
+        {
+            // Force app to 20 fps. Stop rendering and swapping buffers.
+            std::this_thread::sleep_for(std::chrono::milliseconds(1000 / 20));
+        }
+        else
         {
             // Camera
             player.interpolateCameraTransform(worldUpdateTimer.getAccumulatedTimeInPercent());
             player.getCamera().setAspectRatio(wnd.getAspectRatio());
 
             // Rendering world
-            FBO.bind();
-            if (FBO.isComplete())
+            framebuffer.bind();
+            if (framebuffer.isComplete())
             {
-                world.render(player.getCamera(), FBO, player.raycastResult);
+                world.render(player.getCamera(), framebuffer, player.raycastResult);
             }
             else
             {
@@ -593,19 +608,15 @@ int main()
             renderDebugData(world.getDebugData(), wnd, player, UI_FPS);
 
             // Rendering FBO texture to default FBO
-			glBindFramebuffer(GL_READ_FRAMEBUFFER, FBO.getID());
+			glBindFramebuffer(GL_READ_FRAMEBUFFER, framebuffer.getID());
 			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
             glBlitFramebuffer(
-                0, 0, FBO.getWidth(), FBO.getHeight(),
+                0, 0, framebuffer.getWidth(), framebuffer.getHeight(),
                 0, 0, wnd.getWidth(), wnd.getHeight(),
                 GL_COLOR_BUFFER_BIT, GL_NEAREST);
 
             // Swap buffers
             wnd.swapBuffers();
-        }
-        else
-        {
-            std::this_thread::sleep_for(std::chrono::milliseconds(1000 / 20));
         }
 
         //
@@ -618,7 +629,7 @@ int main()
 
         if (profilerUpdateTimer.shouldUpdate())
         {
-            Profiler::printProfileReport();
+            //Profiler::printProfileReport();
         }
     }
 
