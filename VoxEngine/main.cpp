@@ -21,7 +21,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #ifdef NDEBUG
-constexpr int CHUNK_LOAD_DISTANCE = 3;
+constexpr int CHUNK_LOAD_DISTANCE = 8;
 #else
 constexpr int CHUNK_LOAD_DISTANCE = 3;
 #endif
@@ -137,16 +137,15 @@ static void setupContainerUI(ContainerUI& c)
 
     {
         c.hotbarVAO.create();
+
         c.hotbarVBO.create(GL_ARRAY_BUFFER, GL_STATIC_DRAW);
-
-        c.hotbarVAO.bind();
-        c.hotbarVBO.bind();
-
         c.hotbarVBO.allocateMemory(sizeof(quadVertices));
         c.hotbarVBO.write(quadVertices, sizeof(quadVertices));
 
+        c.hotbarVAO.bindVertexBuffer(0, c.hotbarVBO, 0, 4 * sizeof(float));
+
         c.hotbarVAO.enableAttribute(0);
-        c.hotbarVAO.setFloatAttribute(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+        c.hotbarVAO.setFloatAttribute(0, 4, 0);
     }
 
     {
@@ -624,7 +623,7 @@ int main()
 
         if (profilerUpdateTimer.shouldUpdate())
         {
-            //Profiler::printProfileReport();
+            Profiler::printProfileReport();
         }
     }
 

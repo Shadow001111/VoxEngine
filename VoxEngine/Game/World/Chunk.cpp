@@ -1948,7 +1948,6 @@ void Chunk::sendMeshesToGPU()
 	// But for now, both opaque and transparent parts are dirty, so this bug won't happen
 
 	// Write aligned instances data
-	alignedInstancesVBO.bind();
 	for (ChunkMeshData* chunkMesh : pendingMeshUploads)
 	{
 		if (!chunkMesh->alignedCreated)
@@ -1979,7 +1978,6 @@ void Chunk::sendMeshesToGPU()
 	}
 
 	// Write aligned instances data
-	nonAlignedInstancesVBO.bind();
 	for (ChunkMeshData* chunkMesh : pendingMeshUploads)
 	{
 		if (!chunkMesh->nonAlignedCreated)

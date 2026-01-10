@@ -1,7 +1,5 @@
 #include "OpenGL_VAO.h"
 
-#include "OpenGLWrappers/openGLDebug.h"
-
 OpenGL_VAO::~OpenGL_VAO()
 {
     if (id) glDeleteVertexArrays(1, &id);
@@ -29,7 +27,7 @@ OpenGL_VAO& OpenGL_VAO::operator=(OpenGL_VAO&& other) noexcept
 void OpenGL_VAO::create()
 {
     if (id) glDeleteVertexArrays(1, &id);
-    glGenVertexArrays(1, &id);
+    glCreateVertexArrays(1, &id);
 }
 
 void OpenGL_VAO::bind() const
@@ -37,39 +35,48 @@ void OpenGL_VAO::bind() const
     glBindVertexArray(id);
 }
 
-void OpenGL_VAO::unbind() const
+void OpenGL_VAO::unbind()
 {
     glBindVertexArray(0);
 }
 
-void OpenGL_VAO::setFloatAttribute(GLuint index, GLint componentCount, GLenum type,
-    GLboolean normalized, GLsizei stride, const void* pointer)
+void OpenGL_VAO::setFloatAttribute(
+    GLuint attributeIndex, GLint componentCount, GLsizei stride, GLuint bindingIndex,
+    GLenum type, GLboolean normalized)
 {
-    OPENGL_CHECK_BIND_TARGET(id, GL_VERTEX_ARRAY);
-    glVertexAttribPointer(index, componentCount, type, normalized, stride, pointer);
+    glVertexArrayAttribFormat(id, attributeIndex, componentCount, type, normalized, stride);
+    glVertexArrayAttribBinding(id, attributeIndex, bindingIndex);
 }
 
-void OpenGL_VAO::setIntAttribute(GLuint index, GLint componentCount, GLenum type,
-    GLsizei stride, const void* pointer)
+void OpenGL_VAO::setIntAttribute(
+    GLuint attributeIndex, GLint componentCount, GLsizei stride, GLuint bindingIndex,
+    GLenum type)
 {
-    OPENGL_CHECK_BIND_TARGET(id, GL_VERTEX_ARRAY);
-    glVertexAttribIPointer(index, componentCount, type, stride, pointer);
+    glVertexArrayAttribIFormat(id, attributeIndex, componentCount, type, stride);
+    glVertexArrayAttribBinding(id, attributeIndex, bindingIndex);
 }
 
 void OpenGL_VAO::enableAttribute(GLuint index)
 {
-    OPENGL_CHECK_BIND_TARGET(id, GL_VERTEX_ARRAY);
-    glEnableVertexAttribArray(index);
+    glEnableVertexArrayAttrib(id, index);
 }
 
 void OpenGL_VAO::disableAttribute(GLuint index)
 {
-    OPENGL_CHECK_BIND_TARGET(id, GL_VERTEX_ARRAY);
-    glDisableVertexAttribArray(index);
+    glDisableVertexArrayAttrib(id, index);
 }
 
 void OpenGL_VAO::setAttributeDivisor(GLuint index, GLuint divisor)
 {
-    OPENGL_CHECK_BIND_TARGET(id, GL_VERTEX_ARRAY);
-    glVertexAttribDivisor(index, divisor);
+    glVertexArrayBindingDivisor(id, index, divisor);
+}
+
+void OpenGL_VAO::bindVertexBuffer(GLuint bindingIndex, const OpenGL_Buffer& buffer, GLintptr offset, GLsizei stride)
+{
+    glVertexArrayVertexBuffer(id, bindingIndex, buffer.getID(), offset, stride);
+}
+
+void OpenGL_VAO::bindElementBuffer(const OpenGL_Buffer& buffer)
+{
+    glVertexArrayElementBuffer(id, buffer.getID());
 }

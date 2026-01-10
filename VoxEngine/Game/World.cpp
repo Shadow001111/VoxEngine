@@ -40,45 +40,6 @@ struct ViewRays
 	glm::vec4 topRight;
 };
 
-struct AuroraSettings
-{
-	// Main colors
-	glm::vec4 bottom_color = glm::vec4(0.1f, 0.8f, 0.3f, 1.0f);
-	glm::vec4 color_top = glm::vec4(0.3f, 0.1f, 0.8f, 1.0f);
-
-	// Transparency and intensity
-	float alpha = 1.0f;
-	float opacity_per_sample = 0.1f;
-
-	// Band structure
-	float density = 0.5f;
-	float sharpness = 0.1f;
-	int num_samples = 20;
-
-	// Height range
-	float start_height = 1.0f;
-	float end_height = 1.0f + 0.025f * 20.0f;
-
-	// Flow/movement
-	float flow_scale = 0.05f;
-	float flow_strength = 2.0f;
-	float flow_speed = 0.01f;
-	float flow_x_speed = 0.1f;
-
-	// Wiggling/small details
-	float wiggle_scale = 0.05f;
-	float wiggle_strength = 1.0f;
-	float wiggle_speed = 0.01f;
-
-	// Sparkles (under-layer detail)
-	glm::vec4 undersparkle_color_primary = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
-	glm::vec4 undersparkle_color_secondary = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);
-	float undersparkle_scale = 0.1f;
-	float undersparkle_speed = 0.05f;
-	float undersparkle_threshold = 0.7f;
-	float undersparkle_max_height = 0.5f;
-};
-
 ViewRays computeViewRays(const Camera& cam)
 {
 	// Half extents of the view plane at unit distance
@@ -169,8 +130,8 @@ World::World()
 		chunkPositionSSBO.bindBase(0);
 
 		skyViewRaysUBO.create(GL_UNIFORM_BUFFER, GL_DYNAMIC_DRAW);
-		skyViewRaysUBO.bind();
 		skyViewRaysUBO.allocateMemory(sizeof(ViewRays));
+		skyViewRaysUBO.bindBase(0);
 	}
 
 	// Datapack loading and registering assets
@@ -491,6 +452,7 @@ void World::render(const Camera& camera, const OpenGL_FBO& FBO, const RaycastRes
 	renderVoxelMarker(camera, raycast);
 }
 
+// TODO: Bind textures once
 void World::renderAurora(const Camera& camera, const OpenGL_FBO& FBO) const
 {
 	// Get textures
@@ -520,16 +482,7 @@ void World::renderAurora(const Camera& camera, const OpenGL_FBO& FBO) const
 
 	// Compute rays and pass them to UBO
 	auto viewRays = computeViewRays(camera);
-	skyViewRaysUBO.bind();
 	skyViewRaysUBO.write(&viewRays, sizeof(viewRays));
-	skyViewRaysUBO.bindBase(0);
-
-	// Pass aurora settings to UBO
-	// Note: There's no aurora settings UBO for now
-	/*AuroraSettings settings;
-	skyAuroraSettingsUBO.bind();
-	skyAuroraSettingsUBO.write(&settings, sizeof(settings));
-	skyAuroraSettingsUBO.bindBase(1);*/
 
 	// Set uniforms
 	auroraShader.use();
@@ -609,8 +562,7 @@ void World::renderChunks(const Camera& camera, const OpenGL_FBO& FBO)
 	// Bind resources
 	blockTextureArray.bindUnit(BLOCK_TEXTURE_ARRAY_BINDING);
 
-	chunkDrawCommandBuffer.bind();
-	chunkPositionSSBO.bind();
+	chunkDrawCommandBuffer.bind(); // Binding indirect buffer to allow indirect rendering
 
 	// Set shared opengl states
 	glEnable(GL_DEPTH_TEST);
@@ -781,6 +733,7 @@ void World::renderTranslucentChunks(const std::vector<ChunkRenderInfo>& chunksTo
 	glDepthMask(GL_TRUE);
 }
 
+// TODO: Bind textures once
 void World::compositePass(const OpenGL_FBO& FBO) const
 {
 	auto getTextureResult = FBO.getTexture("color");

@@ -228,7 +228,6 @@ xcopy "$(ProjectDir)DataPacks" "$(TargetDir)DataPacks" /E /I /Y</Command>
     <ClInclude Include="Game\World\RaycastResult.h" />
     <ClInclude Include="Game\World\VoxelMarkerMesh.h" />
     <ClInclude Include="Game\World\WorldVisualSettings.h" />
-    <ClInclude Include="OpenGLWrappers\OpenGLDebug.h" />
     <ClInclude Include="OpenGLWrappers\OpenGL_Buffer.h" />
     <ClInclude Include="Graphics\TextureLoader.h" />
     <ClInclude Include="Core\StringIndexer.h" />

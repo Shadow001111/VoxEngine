@@ -42,7 +42,7 @@ class ChunkMeshManager
 	MeshAllocator nonAlignedMeshAllocator;
 
 	ChunkMeshManager();
-	~ChunkMeshManager();
+	~ChunkMeshManager() = default;
 
 	void configureAlignedInstanceVBO();
 	void configureNonAlignedInstanceVBO();

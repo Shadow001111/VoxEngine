@@ -1,11 +1,10 @@
 #pragma once
-#include <glad/glad.h>
+#include "OpenGL_Buffer.h"
 
 class OpenGL_VAO
 {
 protected:
     GLuint id = 0;
-
 public:
     OpenGL_VAO() = default;
     ~OpenGL_VAO();
@@ -19,18 +18,22 @@ public:
     void create();
 
     void bind() const;
-    void unbind() const;
+    static void unbind();
 
-    void setFloatAttribute(GLuint index, GLint componentCount, GLenum type,
-        GLboolean normalized, GLsizei stride, const void* pointer);
+    void setFloatAttribute(
+        GLuint attributeIndex, GLint componentCount, GLsizei stride, GLuint bindingIndex = 0,
+        GLenum type = GL_FLOAT, GLboolean normalized = GL_FALSE);
 
-    void setIntAttribute(GLuint index, GLint componentCount, GLenum type,
-        GLsizei stride, const void* pointer);
+    void setIntAttribute(
+        GLuint attributeIndex, GLint componentCount, GLsizei stride, GLuint bindingIndex = 0,
+        GLenum type = GL_INT);
 
     void enableAttribute(GLuint index);
     void disableAttribute(GLuint index);
-
     void setAttributeDivisor(GLuint index, GLuint divisor);
+
+    void bindVertexBuffer(GLuint bindingIndex, const OpenGL_Buffer& buffer, GLintptr offset, GLsizei stride);
+    void bindElementBuffer(const OpenGL_Buffer& buffer);
 
     GLuint getID() const { return id; };
 };

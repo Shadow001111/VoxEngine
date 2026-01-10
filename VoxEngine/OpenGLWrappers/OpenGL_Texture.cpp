@@ -1,5 +1,4 @@
 #include "OpenGL_Texture.h"
-#include "OpenGLWrappers/openGLDebug.h"
 #include <iostream>
 
 
@@ -232,8 +231,6 @@ void OpenGL_Texture::recreate3D(int width, int height, int depth)
 
 void OpenGL_Texture::uploadData(const void* data, int level)
 {
-	OPENGL_CHECK_BIND_TARGET(id, type);
-
 	switch (type)
 	{
 	case GL_TEXTURE_1D:
@@ -258,8 +255,6 @@ void OpenGL_Texture::uploadData(const void* data, int level)
 void OpenGL_Texture::uploadSubData(const void* data, int xOffset, int yOffset, int zOffset,
 	int width, int height, int depth, int level)
 {
-	OPENGL_CHECK_BIND_TARGET(id, type);
-
 	switch (type)
 	{
 	case GL_TEXTURE_1D:
@@ -289,7 +284,6 @@ void OpenGL_Texture::generateMipmaps()
 {
 	if (mipLevels > 1)
 	{
-		OPENGL_CHECK_BIND_TARGET(id, type);
 		glGenerateMipmap(type);
 	}
 }
@@ -299,8 +293,6 @@ void OpenGL_Texture::setParameters(GLenum minFilter_, GLenum magFilter_, GLenum 
 	minFilter = minFilter_;
 	magFilter = magFilter_;
 	wrapS = wrapS_;
-
-	OPENGL_CHECK_BIND_TARGET(id, type);
 
 	glTexParameteri(type, GL_TEXTURE_MIN_FILTER, minFilter);
 	glTexParameteri(type, GL_TEXTURE_MAG_FILTER, magFilter);
@@ -313,8 +305,6 @@ void OpenGL_Texture::setParameters(GLenum minFilter_, GLenum magFilter_, GLenum 
 	magFilter = magFilter_;
 	wrapS = wrapS_;
 	wrapT = wrapT_;
-
-	OPENGL_CHECK_BIND_TARGET(id, type);
 
 	glTexParameteri(type, GL_TEXTURE_MIN_FILTER, minFilter);
 	glTexParameteri(type, GL_TEXTURE_MAG_FILTER, magFilter);
@@ -329,8 +319,6 @@ void OpenGL_Texture::setParameters(GLenum minFilter_, GLenum magFilter_, GLenum 
 	wrapS = wrapS_;
 	wrapT = wrapT_;
 	wrapR = wrapR_;
-
-	OPENGL_CHECK_BIND_TARGET(id, type);
 
 	glTexParameteri(type, GL_TEXTURE_MIN_FILTER, minFilter);
 	glTexParameteri(type, GL_TEXTURE_MAG_FILTER, magFilter);

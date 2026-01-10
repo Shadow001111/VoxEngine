@@ -233,9 +233,6 @@
     <ClInclude Include="OpenGLWrappers\OpenGL_Texture.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="OpenGLWrappers\OpenGLDebug.h">
-      <Filter>Файлы заголовков</Filter>
-    </ClInclude>
     <ClInclude Include="OpenGLWrappers\OpenGL_VAO.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>

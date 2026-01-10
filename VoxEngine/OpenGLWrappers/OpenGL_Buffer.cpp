@@ -1,8 +1,5 @@
 #include "OpenGL_Buffer.h"
-
 #include <iostream>
-
-#include "OpenGLWrappers/openGLDebug.h"
 
 OpenGL_Buffer::~OpenGL_Buffer()
 {
@@ -47,30 +44,44 @@ void OpenGL_Buffer::create(GLenum target, GLenum usage)
 	this->target = target;
 	this->usage = usage;
 	if (id) glDeleteBuffers(1, &id);
-	glGenBuffers(1, &id);
-}
-
-void OpenGL_Buffer::swap(OpenGL_Buffer& other) noexcept
-{
-	std::swap(target, other.target);
-	std::swap(usage, other.usage);
-	std::swap(id, other.id);
-	std::swap(capacity, other.capacity);
+	glCreateBuffers(1, &id);
 }
 
 void OpenGL_Buffer::bind() const
 {
-	glBindBuffer(target, id);
+	glBindBuffer(this->target, id);
 }
 
-void OpenGL_Buffer::bindBase(GLuint index) const
+void OpenGL_Buffer::bind(GLenum target) const
 {
-	glBindBufferBase(target, index, id);
+	glBindBuffer(target, id);
 }
 
 void OpenGL_Buffer::unbind() const
 {
+	glBindBuffer(this->target, 0);
+}
+
+void OpenGL_Buffer::unbind(GLenum target)
+{
 	glBindBuffer(target, 0);
+}
+
+void OpenGL_Buffer::bindBase(GLuint index) const
+{
+	glBindBufferBase(this->target, index, id);
+}
+
+void OpenGL_Buffer::bindBase(GLenum target, GLuint index) const
+{
+	glBindBufferBase(target, index, id);
+}
+
+void OpenGL_Buffer::swap(OpenGL_Buffer& other) noexcept
+{
+	std::swap(usage, other.usage);
+	std::swap(id, other.id);
+	std::swap(capacity, other.capacity);
 }
 
 void OpenGL_Buffer::allocateMemory(size_t newSize)
@@ -78,8 +89,7 @@ void OpenGL_Buffer::allocateMemory(size_t newSize)
 	if (newSize > capacity)
 	{
 		capacity = newSize;
-		glBindBuffer(target, id);
-		glBufferData(target, capacity, nullptr, usage);
+		glNamedBufferData(id, capacity, nullptr, usage);
 	}
 }
 
@@ -96,8 +106,7 @@ void OpenGL_Buffer::write(const void* data, size_t dataSize, size_t offset) cons
 		return;
 	}
 
-	OPENGL_CHECK_BIND_TARGET(id, target);
-	glBufferSubData(target, offset, dataSize, data);
+	glNamedBufferSubData(id, offset, dataSize, data);
 }
 
 void OpenGL_Buffer::copyRangeFrom(const OpenGL_Buffer& src, size_t srcOffset, size_t dstOffset, size_t size) const
@@ -108,11 +117,13 @@ void OpenGL_Buffer::copyRangeFrom(const OpenGL_Buffer& src, size_t srcOffset, si
 		return;
 	}
 
-	glBindBuffer(GL_COPY_READ_BUFFER, src.getID());
-	glBindBuffer(GL_COPY_WRITE_BUFFER, id);
-
-	glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER,
+	glCopyNamedBufferSubData(src.getID(), id,
 		static_cast<GLintptr>(srcOffset),
 		static_cast<GLintptr>(dstOffset),
 		static_cast<GLsizeiptr>(size));
+}
+
+void OpenGL_Buffer::clearData(GLenum internalFormat, GLenum format, GLenum type, const void* data) const
+{
+	glClearNamedBufferData(id, internalFormat, format, type, data);
 }
