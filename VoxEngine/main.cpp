@@ -600,20 +600,15 @@ int main()
                 std::cout << "[main]: FBO is not complete!\n";
             }
 
+            // Pre-text-rendering measure
+            TextRenderer::updateProjectionMatrix(wnd.getWidth(), wnd.getHeight());
+
             // Render UI
             renderUI(containerUI, player);
-
-            // Other text rendering
-            TextRenderer::updateProjectionMatrix(wnd.getWidth(), wnd.getHeight());
             renderDebugData(world.getDebugData(), wnd, player, UI_FPS);
 
-            // Rendering FBO texture to default FBO
-			glBindFramebuffer(GL_READ_FRAMEBUFFER, framebuffer.getID());
-			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-            glBlitFramebuffer(
-                0, 0, framebuffer.getWidth(), framebuffer.getHeight(),
-                0, 0, wnd.getWidth(), wnd.getHeight(),
-                GL_COLOR_BUFFER_BIT, GL_NEAREST);
+            // Blitting FBO to default FBO
+            framebuffer.blitToDefaultFramebuffer(wnd.getWidth(), wnd.getHeight());
 
             // Swap buffers
             wnd.swapBuffers();

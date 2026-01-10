@@ -244,6 +244,26 @@ void OpenGL_FBO::clear() const
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 }
 
+void OpenGL_FBO::blitTo(const OpenGL_FBO& dstFBO, GLbitfield mask, GLenum filter) const
+{
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, id);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, dstFBO.id);
+    glBlitFramebuffer(
+        0, 0, width, height,
+        0, 0, dstFBO.width, dstFBO.height,
+        mask, filter);
+}
+
+void OpenGL_FBO::blitToDefaultFramebuffer(int dstWidth, int dstHeight, GLbitfield mask, GLenum filter) const
+{
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, id);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+    glBlitFramebuffer(
+        0, 0, width, height,
+        0, 0, dstWidth, dstHeight,
+        mask, filter);
+}
+
 void OpenGL_FBO::clearAttachment(const std::string& name, const float* clearValue) const
 {
     auto it = attachments.find(name);

@@ -52,25 +52,30 @@ public:
     void create(int width, int height);
 
     // Attachment management
-    void createColorAttachment(const std::string& name, GLenum internalFormat = GL_RGBA8,
+    void createColorAttachment(
+        const std::string& name, GLenum internalFormat = GL_RGBA8,
         GLenum format = GL_RGBA, GLenum dataType = GL_UNSIGNED_BYTE,
         GLenum minFilter = GL_NEAREST, GLenum magFilter = GL_NEAREST,
         GLenum wrapS = GL_CLAMP_TO_EDGE, GLenum wrapT = GL_CLAMP_TO_EDGE);
 
-    void createDepthAttachment(const std::string& name, GLenum internalFormat = GL_DEPTH_COMPONENT32F,
+    void createDepthAttachment(
+        const std::string& name, GLenum internalFormat = GL_DEPTH_COMPONENT32F,
         GLenum format = GL_DEPTH_COMPONENT, GLenum dataType = GL_FLOAT,
         GLenum minFilter = GL_NEAREST, GLenum magFilter = GL_NEAREST,
         GLenum wrapS = GL_CLAMP_TO_EDGE, GLenum wrapT = GL_CLAMP_TO_EDGE);
 
-    void createStencilAttachment(const std::string& name, GLenum internalFormat = GL_STENCIL_INDEX8,
+    void createStencilAttachment(
+        const std::string& name, GLenum internalFormat = GL_STENCIL_INDEX8,
         GLenum minFilter = GL_NEAREST, GLenum magFilter = GL_NEAREST,
         GLenum wrapS = GL_CLAMP_TO_EDGE, GLenum wrapT = GL_CLAMP_TO_EDGE);
 
-    void createDepthStencilAttachment(const std::string& name, GLenum internalFormat = GL_DEPTH24_STENCIL8,
+    void createDepthStencilAttachment(
+        const std::string& name, GLenum internalFormat = GL_DEPTH24_STENCIL8,
         GLenum minFilter = GL_NEAREST, GLenum magFilter = GL_NEAREST,
         GLenum wrapS = GL_CLAMP_TO_EDGE, GLenum wrapT = GL_CLAMP_TO_EDGE);
 
-    void createStandaloneTextureAttachment(const std::string& name, GLenum internalFormat = GL_RGBA8,
+    void createStandaloneTextureAttachment(
+        const std::string& name, GLenum internalFormat = GL_RGBA8,
         GLenum format = GL_RGBA, GLenum dataType = GL_UNSIGNED_BYTE,
         float resolutionFactor = 1.0f,
         GLenum minFilter = GL_NEAREST, GLenum magFilter = GL_NEAREST,
@@ -87,10 +92,10 @@ public:
     void resize(int newWidth, int newHeight);
     void clear() const;
 
-    // Not for color attachments
-    void clearAttachment(const std::string& name, const float* clearValue) const;
+    void blitTo(const OpenGL_FBO& dstFBO, GLbitfield mask = GL_COLOR_BUFFER_BIT, GLenum filter = GL_NEAREST) const;
+    void blitToDefaultFramebuffer(int dstWidth, int dstHeight, GLbitfield mask = GL_COLOR_BUFFER_BIT, GLenum filter = GL_NEAREST) const;
 
-    // For color attachments which are currently draw buffers
+    void clearAttachment(const std::string& name, const float* clearValue) const;
     void clearDrawBuffer(const std::string& name, const float* clearValue) const;
 
     // Texture access
@@ -106,8 +111,10 @@ public:
     int getHeight() const { return height; }
 private:
     GLenum getAttachmentPoint(AttachmentType type);
-    void createAndAttachTexture(Attachment& attachment, GLenum internalFormat, GLenum format, GLenum dataType,
+    void createAndAttachTexture(
+        Attachment& attachment, GLenum internalFormat, GLenum format, GLenum dataType,
         GLenum minFilter, GLenum magFilter, GLenum wrapS, GLenum wrapT);
-    void createStandaloneTexture(Attachment& attachment, GLenum internalFormat, GLenum format, GLenum dataType,
+    void createStandaloneTexture(
+        Attachment& attachment, GLenum internalFormat, GLenum format, GLenum dataType,
         GLenum minFilter, GLenum magFilter, GLenum wrapS, GLenum wrapT);
 };
