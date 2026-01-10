@@ -133,7 +133,7 @@ namespace TextureLoader
         }
     }
 
-    void createAndLoadTexture2D(
+    void createTexture2DFromImage(
         OpenGL_Texture& texture,
         const std::filesystem::path& texturePath,
         const TextureParams& params)
@@ -191,8 +191,6 @@ namespace TextureLoader
         GLenum format = getFormat(params.desiredChannels);
 
         texture.create2D(width, height, internalFormat, format, GL_UNSIGNED_BYTE, mipmapLevels);
-        texture.bind();
-
         texture.setParameters(
             params.minFilter,
             params.magFilter,
@@ -259,7 +257,7 @@ namespace TextureLoader
         stbi_image_free(data);
     }
 
-    void createAndLoadTextureArray(
+    void createTextureArrayFromImages(
         OpenGL_Texture& texture,
         const fs::path& texturesFolderPath,
         const std::vector<std::string>& textureNames,
@@ -308,11 +306,7 @@ namespace TextureLoader
         GLenum internalFormat = getInternalFormat(params.desiredChannels);
         GLenum format = getFormat(params.desiredChannels);
 
-        // Create the texture array using OpenGL_Texture
         texture.create2DArray(sharedWidth, sharedHeight, static_cast<int>(layerCount), internalFormat, format, GL_UNSIGNED_BYTE, mipmapLevels);
-        texture.bind();
-
-        // Set texture parameters
         texture.setParameters(
             params.minFilter,
             params.magFilter,
@@ -374,7 +368,7 @@ namespace TextureLoader
         }
     }
 
-    void createAndLoadTexture3DFromFloatData(OpenGL_Texture& texture, const std::vector<float>& data, int width, int height, int depth, const TextureParams& params)
+    void createTexture3DFromFloatData(OpenGL_Texture& texture, const std::vector<float>& data, int width, int height, int depth, const TextureParams& params)
     {
         if (params.desiredChannels < 1 || params.desiredChannels > 4)
         {
@@ -401,8 +395,6 @@ namespace TextureLoader
         GLenum format = getFormat(params.desiredChannels);
 
         texture.create3D(width, height, depth, internalFormat, format, GL_FLOAT, mipmapLevels);
-        texture.bind();
-
         texture.setParameters(
             params.minFilter,
             params.magFilter,

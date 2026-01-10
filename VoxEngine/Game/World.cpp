@@ -150,7 +150,7 @@ World::World()
 		params.minFilter = GL_NEAREST_MIPMAP_LINEAR;
 
 		PROFILE_SCOPE("Block texture array creation", ProfileCategory::General);
-		TextureLoader::createAndLoadTextureArray(blockTextureArray, "res/BlockTextures", blockTextureNames, params);
+		TextureLoader::createTextureArrayFromImages(blockTextureArray, "res/BlockTextures", blockTextureNames, params);
 	}
 
 	// Sky noise texture
@@ -167,7 +167,7 @@ World::World()
 		SeamlessPerlinNoise::generatePerlinNoise3D(data, textureSize, textureSize, textureSize, 1.0f / 20.0f, 1.0f, 2.0f, true, 0);
 
 		PROFILE_SCOPE("Noise texture creation", ProfileCategory::General);
-		TextureLoader::createAndLoadTexture3DFromFloatData(tilingPerlinNoise3DTexture, data, textureSize, textureSize, textureSize, params);
+		TextureLoader::createTexture3DFromFloatData(tilingPerlinNoise3DTexture, data, textureSize, textureSize, textureSize, params);
 	}
 
 	// Terrain generator

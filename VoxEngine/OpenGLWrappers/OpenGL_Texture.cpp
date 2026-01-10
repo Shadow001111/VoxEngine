@@ -2,28 +2,28 @@
 #include <iostream>
 
 
-namespace TextureCompression
-{
-	CompressionSupport g_CompressionSupport;
-
-	void setCompressionFormats()
-	{
-		g_CompressionSupport.s3tc = GLAD_GL_EXT_texture_compression_s3tc;
-		g_CompressionSupport.rgtc = GLAD_GL_ARB_texture_compression_rgtc;
-		g_CompressionSupport.bptc = GLAD_GL_ARB_texture_compression_bptc;
-		g_CompressionSupport.astc = GLAD_GL_KHR_texture_compression_astc_ldr;
-	}
-
-	GLenum getBestFormat(int channels, GLenum valueType)
-	{
-		return GLenum();
-	}
-
-	GLenum getBestCompressedFormat(int channels, GLenum valueType)
-	{
-		return GLenum();
-	}
-}
+//namespace TextureCompression
+//{
+//	CompressionSupport g_CompressionSupport;
+//
+//	void setCompressionFormats()
+//	{
+//		g_CompressionSupport.s3tc = GLAD_GL_EXT_texture_compression_s3tc;
+//		g_CompressionSupport.rgtc = GLAD_GL_ARB_texture_compression_rgtc;
+//		g_CompressionSupport.bptc = GLAD_GL_ARB_texture_compression_bptc;
+//		g_CompressionSupport.astc = GLAD_GL_KHR_texture_compression_astc_ldr;
+//	}
+//
+//	GLenum getBestFormat(int channels, GLenum valueType)
+//	{
+//		return GLenum();
+//	}
+//
+//	GLenum getBestCompressedFormat(int channels, GLenum valueType)
+//	{
+//		return GLenum();
+//	}
+//}
 
 OpenGL_Texture::~OpenGL_Texture()
 {
@@ -73,9 +73,19 @@ OpenGL_Texture& OpenGL_Texture::operator=(OpenGL_Texture&& other) noexcept
 	return *this;
 }
 
-// TODO: Add checks for size
 void OpenGL_Texture::create1D(int width, GLenum internalFormat, GLenum format, GLenum dataType, int mipLevels)
 {
+	if (width <= 0)
+	{
+		std::cerr << "[OpenGL_Texture][create1D]: Invalid texture dimensions: width=" << width << "\n";
+		return;
+	}
+	if (mipLevels < 1)
+	{
+		std::cerr << "[OpenGL_Texture][create1D]: Invalid mipLevels: " << mipLevels << "\n";
+		return;
+	}
+
 	this->type = GL_TEXTURE_1D;
 	this->internalFormat = internalFormat;
 	this->format = format;
@@ -87,14 +97,24 @@ void OpenGL_Texture::create1D(int width, GLenum internalFormat, GLenum format, G
 
 	if (id == 0)
 	{
-		glGenTextures(1, &id);
+		glCreateTextures(this->type, 1, &id);
 	}
-	glBindTexture(type, id);
-	glTexStorage1D(type, mipLevels, internalFormat, width);
+	glTextureStorage1D(id, mipLevels, internalFormat, width);
 }
 
 void OpenGL_Texture::create2D(int width, int height, GLenum internalFormat, GLenum format, GLenum dataType, int mipLevels)
 {
+	if (width <= 0 || height <= 0)
+	{
+		std::cerr << "[OpenGL_Texture][create2D]: Invalid texture dimensions: width=" << width << ", height=" << height << "\n";
+		return;
+	}
+	if (mipLevels < 1)
+	{
+		std::cerr << "[OpenGL_Texture][create2D]: Invalid mipLevels: " << mipLevels << "\n";
+		return;
+	}
+
 	this->type = GL_TEXTURE_2D;
 	this->internalFormat = internalFormat;
 	this->format = format;
@@ -106,14 +126,24 @@ void OpenGL_Texture::create2D(int width, int height, GLenum internalFormat, GLen
 
 	if (id == 0)
 	{
-		glGenTextures(1, &id);
+		glCreateTextures(this->type, 1, &id);
 	}
-	glBindTexture(type, id);
-	glTexStorage2D(type, mipLevels, internalFormat, width, height);
+	glTextureStorage2D(id, mipLevels, internalFormat, width, height);
 }
 
 void OpenGL_Texture::create3D(int width, int height, int depth, GLenum internalFormat, GLenum format, GLenum dataType, int mipLevels)
 {
+	if (width <= 0 || height <= 0 || depth <= 0)
+	{
+		std::cerr << "[OpenGL_Texture][create3D]: Invalid texture dimensions: width=" << width << ", height=" << height << ", depth=" << depth << "\n";
+		return;
+	}
+	if (mipLevels < 1)
+	{
+		std::cerr << "[OpenGL_Texture][create3D]: Invalid mipLevels: " << mipLevels << "\n";
+		return;
+	}
+
 	this->type = GL_TEXTURE_3D;
 	this->internalFormat = internalFormat;
 	this->format = format;
@@ -125,14 +155,24 @@ void OpenGL_Texture::create3D(int width, int height, int depth, GLenum internalF
 
 	if (id == 0)
 	{
-		glGenTextures(1, &id);
+		glCreateTextures(this->type, 1, &id);
 	}
-	glBindTexture(type, id);
-	glTexStorage3D(type, mipLevels, internalFormat, width, height, depth);
+	glTextureStorage3D(id, mipLevels, internalFormat, width, height, depth);
 }
 
 void OpenGL_Texture::create2DArray(int width, int height, int layers, GLenum internalFormat, GLenum format, GLenum dataType, int mipLevels)
 {
+	if (width <= 0 || height <= 0 || layers <= 0)
+	{
+		std::cerr << "[OpenGL_Texture][create2DArray]: Invalid texture array dimensions: width=" << width << ", height=" << height << ", layers=" << layers << "\n";
+		return;
+	}
+	if (mipLevels < 1)
+	{
+		std::cerr << "[OpenGL_Texture][create2DArray]: Invalid mipLevels: " << mipLevels << "\n";
+		return;
+	}
+
 	this->type = GL_TEXTURE_2D_ARRAY;
 	this->internalFormat = internalFormat;
 	this->format = format;
@@ -144,51 +184,52 @@ void OpenGL_Texture::create2DArray(int width, int height, int layers, GLenum int
 
 	if (id == 0)
 	{
-		glGenTextures(1, &id);
+		glCreateTextures(this->type, 1, &id);
 	}
-	glBindTexture(type, id);
-	glTexStorage3D(type, mipLevels, internalFormat, width, height, layers);
-}
-
-void OpenGL_Texture::createCubeMap(int size, GLenum internalFormat, GLenum format, GLenum dataType, int mipLevels)
-{
-	this->type = GL_TEXTURE_CUBE_MAP;
-	this->internalFormat = internalFormat;
-	this->format = format;
-	this->dataType = dataType;
-	this->width = size;
-	this->height = size;
-	this->depth = 6;
-	this->mipLevels = mipLevels;
-
-	if (id == 0)
-	{
-		glGenTextures(1, &id);
-	}
-	glBindTexture(type, id);
-	glTexStorage2D(type, mipLevels, internalFormat, size, size);
+	glTextureStorage3D(id, mipLevels, internalFormat, width, height, layers);
 }
 
 void OpenGL_Texture::recreate1D(int width)
 {
+	if (width <= 0)
+	{
+		std::cerr << "[OpenGL_Texture][recreate1D]: Invalid texture dimensions: width=" << width << "\n";
+		return;
+	}
+	if (mipLevels < 1)
+	{
+		std::cerr << "[OpenGL_Texture][recreate1D]: Invalid mipLevels: " << mipLevels << "\n";
+		return;
+	}
+
 	this->width = width;
 
 	if (id)
 	{
 		glDeleteTextures(1, &id);
 	}
-	glGenTextures(1, &id);
+	glCreateTextures(this->type, 1, &id);
 
-	glBindTexture(type, id);
-	glTexStorage1D(type, mipLevels, internalFormat, width);
+	glTextureStorage1D(id, mipLevels, internalFormat, width);
 	
-	glTexParameteri(type, GL_TEXTURE_MIN_FILTER, minFilter);
-	glTexParameteri(type, GL_TEXTURE_MAG_FILTER, magFilter);
-	glTexParameteri(type, GL_TEXTURE_WRAP_S, wrapS);
+	glTextureParameteri(id, GL_TEXTURE_MIN_FILTER, minFilter);
+	glTextureParameteri(id, GL_TEXTURE_MAG_FILTER, magFilter);
+	glTextureParameteri(id, GL_TEXTURE_WRAP_S, wrapS);
 }
 
 void OpenGL_Texture::recreate2D(int width, int height)
 {
+	if (width <= 0 || height <= 0)
+	{
+		std::cerr << "[OpenGL_Texture][recreate2D]: Invalid texture dimensions: width=" << width << ", height=" << height << "\n";
+		return;
+	}
+	if (mipLevels < 1)
+	{
+		std::cerr << "[OpenGL_Texture][recreate2D]: Invalid mipLevels: " << mipLevels << "\n";
+		return;
+	}
+
 	this->width = width;
 	this->height = height;
 
@@ -196,19 +237,29 @@ void OpenGL_Texture::recreate2D(int width, int height)
 	{
 		glDeleteTextures(1, &id);
 	}
-	glGenTextures(1, &id);
+	glCreateTextures(this->type, 1, &id);
 
-	glBindTexture(type, id);
-	glTexStorage2D(type, mipLevels, internalFormat, width, height);
+	glTextureStorage2D(id, mipLevels, internalFormat, width, height);
 
-	glTexParameteri(type, GL_TEXTURE_MIN_FILTER, minFilter);
-	glTexParameteri(type, GL_TEXTURE_MAG_FILTER, magFilter);
-	glTexParameteri(type, GL_TEXTURE_WRAP_S, wrapS);
-	glTexParameteri(type, GL_TEXTURE_WRAP_T, wrapT);
+	glTextureParameteri(id, GL_TEXTURE_MIN_FILTER, minFilter);
+	glTextureParameteri(id, GL_TEXTURE_MAG_FILTER, magFilter);
+	glTextureParameteri(id, GL_TEXTURE_WRAP_S, wrapS);
+	glTextureParameteri(id, GL_TEXTURE_WRAP_T, wrapT);
 }
 
 void OpenGL_Texture::recreate3D(int width, int height, int depth)
 {
+	if (width <= 0 || height <= 0 || depth <= 0)
+	{
+		std::cerr << "[OpenGL_Texture][recreate3D]: Invalid texture dimensions: width=" << width << ", height=" << height << ", depth=" << depth << "\n";
+		return;
+	}
+	if (mipLevels < 1)
+	{
+		std::cerr << "[OpenGL_Texture][recreate3D]: Invalid mipLevels: " << mipLevels << "\n";
+		return;
+	}
+
 	this->width = width;
 	this->height = height;
 	this->depth = depth;
@@ -217,16 +268,15 @@ void OpenGL_Texture::recreate3D(int width, int height, int depth)
 	{
 		glDeleteTextures(1, &id);
 	}
-	glGenTextures(1, &id);
+	glCreateTextures(this->type, 1, &id);
 
-	glBindTexture(type, id);
-	glTexStorage3D(type, mipLevels, internalFormat, width, height, depth);
+	glTextureStorage3D(id, mipLevels, internalFormat, width, height, depth);
 
-	glTexParameteri(type, GL_TEXTURE_MIN_FILTER, minFilter);
-	glTexParameteri(type, GL_TEXTURE_MAG_FILTER, magFilter);
-	glTexParameteri(type, GL_TEXTURE_WRAP_S, wrapS);
-	glTexParameteri(type, GL_TEXTURE_WRAP_T, wrapT);
-	glTexParameteri(type, GL_TEXTURE_WRAP_R, wrapR);
+	glTextureParameteri(id, GL_TEXTURE_MIN_FILTER, minFilter);
+	glTextureParameteri(id, GL_TEXTURE_MAG_FILTER, magFilter);
+	glTextureParameteri(id, GL_TEXTURE_WRAP_S, wrapS);
+	glTextureParameteri(id, GL_TEXTURE_WRAP_T, wrapT);
+	glTextureParameteri(id, GL_TEXTURE_WRAP_R, wrapR);
 }
 
 void OpenGL_Texture::uploadData(const void* data, int level)
@@ -234,48 +284,39 @@ void OpenGL_Texture::uploadData(const void* data, int level)
 	switch (type)
 	{
 	case GL_TEXTURE_1D:
-		glTexSubImage1D(type, level, 0, width, format, dataType, data);
+		glTextureSubImage1D(id, level, 0, width, format, dataType, data);
 		break;
 	case GL_TEXTURE_2D:
-		glTexSubImage2D(type, level, 0, 0, width, height, format, dataType, data);
+		glTextureSubImage2D(id, level, 0, 0, width, height, format, dataType, data);
 		break;
 	case GL_TEXTURE_3D:
 	case GL_TEXTURE_2D_ARRAY:
-		glTexSubImage3D(type, level, 0, 0, 0, width, height, depth, format, dataType, data);
-		break;
-	case GL_TEXTURE_CUBE_MAP:
-		std::cerr << "[OpenGL_Texture]: Use uploadSubData for cube map faces\n";
+		glTextureSubImage3D(id, level, 0, 0, 0, width, height, depth, format, dataType, data);
 		break;
 	default:
-		std::cerr << "[OpenGL_Texture]: Unsupported texture type for data upload: " << type<< "\n";
+		std::cerr << "[OpenGL_Texture][uploadData]: Unsupported texture type for data upload: " << type<< "\n";
 		break;
 	}
 }
 
-void OpenGL_Texture::uploadSubData(const void* data, int xOffset, int yOffset, int zOffset,
+void OpenGL_Texture::uploadSubData(
+	const void* data, int xOffset, int yOffset, int zOffset,
 	int width, int height, int depth, int level)
 {
 	switch (type)
 	{
 	case GL_TEXTURE_1D:
-		glTexSubImage1D(type, level, xOffset, width, format, dataType, data);
+		glTextureSubImage1D(id, level, xOffset, width, format, dataType, data);
 		break;
 	case GL_TEXTURE_2D:
-		glTexSubImage2D(type, level, xOffset, yOffset, width, height, format, dataType, data);
+		glTextureSubImage2D(id, level, xOffset, yOffset, width, height, format, dataType, data);
 		break;
 	case GL_TEXTURE_3D:
 	case GL_TEXTURE_2D_ARRAY:
-		glTexSubImage3D(type, level, xOffset, yOffset, zOffset, width, height, depth, format, dataType, data);
-		break;
-	case GL_TEXTURE_CUBE_MAP:
-		if (zOffset < 6)
-		{
-			glTexSubImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + zOffset, level,
-				xOffset, yOffset, width, height, format, dataType, data);
-		}
+		glTextureSubImage3D(id, level, xOffset, yOffset, zOffset, width, height, depth, format, dataType, data);
 		break;
 	default:
-		std::cerr << "[OpenGL_Texture]: Unsupported texture type for sub data upload: " << type<< "\n";
+		std::cerr << "[OpenGL_Texture][uploadSubData]: Unsupported texture type for sub data upload: " << type<< "\n";
 		break;
 	}
 }
@@ -284,7 +325,7 @@ void OpenGL_Texture::generateMipmaps()
 {
 	if (mipLevels > 1)
 	{
-		glGenerateMipmap(type);
+		glGenerateTextureMipmap(id);
 	}
 }
 
@@ -294,9 +335,9 @@ void OpenGL_Texture::setParameters(GLenum minFilter_, GLenum magFilter_, GLenum 
 	magFilter = magFilter_;
 	wrapS = wrapS_;
 
-	glTexParameteri(type, GL_TEXTURE_MIN_FILTER, minFilter);
-	glTexParameteri(type, GL_TEXTURE_MAG_FILTER, magFilter);
-	glTexParameteri(type, GL_TEXTURE_WRAP_S, wrapS);
+	glTextureParameteri(id, GL_TEXTURE_MIN_FILTER, minFilter);
+	glTextureParameteri(id, GL_TEXTURE_MAG_FILTER, magFilter);
+	glTextureParameteri(id, GL_TEXTURE_WRAP_S, wrapS);
 }
 
 void OpenGL_Texture::setParameters(GLenum minFilter_, GLenum magFilter_, GLenum wrapS_, GLenum wrapT_)
@@ -306,10 +347,10 @@ void OpenGL_Texture::setParameters(GLenum minFilter_, GLenum magFilter_, GLenum 
 	wrapS = wrapS_;
 	wrapT = wrapT_;
 
-	glTexParameteri(type, GL_TEXTURE_MIN_FILTER, minFilter);
-	glTexParameteri(type, GL_TEXTURE_MAG_FILTER, magFilter);
-	glTexParameteri(type, GL_TEXTURE_WRAP_S, wrapS);
-	glTexParameteri(type, GL_TEXTURE_WRAP_T, wrapT);
+	glTextureParameteri(id, GL_TEXTURE_MIN_FILTER, minFilter);
+	glTextureParameteri(id, GL_TEXTURE_MAG_FILTER, magFilter);
+	glTextureParameteri(id, GL_TEXTURE_WRAP_S, wrapS);
+	glTextureParameteri(id, GL_TEXTURE_WRAP_T, wrapT);
 }
 
 void OpenGL_Texture::setParameters(GLenum minFilter_, GLenum magFilter_, GLenum wrapS_, GLenum wrapT_, GLenum wrapR_)
@@ -320,11 +361,11 @@ void OpenGL_Texture::setParameters(GLenum minFilter_, GLenum magFilter_, GLenum 
 	wrapT = wrapT_;
 	wrapR = wrapR_;
 
-	glTexParameteri(type, GL_TEXTURE_MIN_FILTER, minFilter);
-	glTexParameteri(type, GL_TEXTURE_MAG_FILTER, magFilter);
-	glTexParameteri(type, GL_TEXTURE_WRAP_S, wrapS);
-	glTexParameteri(type, GL_TEXTURE_WRAP_T, wrapT);
-	glTexParameteri(type, GL_TEXTURE_WRAP_R, wrapR);
+	glTextureParameteri(id, GL_TEXTURE_MIN_FILTER, minFilter);
+	glTextureParameteri(id, GL_TEXTURE_MAG_FILTER, magFilter);
+	glTextureParameteri(id, GL_TEXTURE_WRAP_S, wrapS);
+	glTextureParameteri(id, GL_TEXTURE_WRAP_T, wrapT);
+	glTextureParameteri(id, GL_TEXTURE_WRAP_R, wrapR);
 }
 
 void OpenGL_Texture::bind() const
@@ -332,12 +373,22 @@ void OpenGL_Texture::bind() const
 	glBindTexture(type, id);
 }
 
-void OpenGL_Texture::bindUnit(GLuint unit) const
+void OpenGL_Texture::bind(GLenum target) const
 {
-	glBindTextureUnit(unit, id);
+	glBindTexture(target, id);
 }
 
 void OpenGL_Texture::unbind() const
 {
 	glBindTexture(type, 0);
+}
+
+void OpenGL_Texture::unbind(GLenum target)
+{
+	glBindTexture(target, 0);
+}
+
+void OpenGL_Texture::bindUnit(GLuint unit) const
+{
+	glBindTextureUnit(unit, id);
 }

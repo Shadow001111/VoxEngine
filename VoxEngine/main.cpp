@@ -21,7 +21,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #ifdef NDEBUG
-constexpr int CHUNK_LOAD_DISTANCE = 8;
+constexpr int CHUNK_LOAD_DISTANCE = 3;
 #else
 constexpr int CHUNK_LOAD_DISTANCE = 3;
 #endif
@@ -154,13 +154,13 @@ static void setupContainerUI(ContainerUI& c)
         TextureLoader::TextureParams params;
 
         PROFILE_SCOPE("Item ui texture array creation", ProfileCategory::General);
-        TextureLoader::createAndLoadTextureArray(c.itemUITextureArray, "res/ItemUITextures", itemTextureNames, params);
+        TextureLoader::createTextureArrayFromImages(c.itemUITextureArray, "res/ItemUITextures", itemTextureNames, params);
     }
 
     {
         TextureLoader::TextureParams params;
 
-        TextureLoader::createAndLoadTextureArray(c.hotbarSlotImage, "res/UITextures", { "empty_hotbar_slot", "selected_hotbar_slot" }, params);
+        TextureLoader::createTextureArrayFromImages(c.hotbarSlotImage, "res/UITextures", { "empty_hotbar_slot", "selected_hotbar_slot" }, params);
     }
 }
 
@@ -410,11 +410,17 @@ void APIENTRY glDebugOutput(GLenum source,
 void check()
 {
     // Data
+    GLint maxSize;
+    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxSize);
+
     std::cout << std::string(100, '=') << "\n";
     std::cout << "Data:\n";
     std::cout << "    OpenGL Version: " << glGetString(GL_VERSION)  << "\n";
     std::cout << "    GPU Vendor: " << glGetString(GL_VENDOR)       << "\n";
     std::cout << "    Renderer: " << glGetString(GL_RENDERER)       << "\n";
+
+    //std::cout << "Secondary:\n";
+    //std::cout << "    Max texture size: " << maxSize << "\n";
 
     // Check texture compression available
     //std::cout << std::string(100, '=') << "\n";

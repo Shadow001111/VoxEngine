@@ -1,9 +1,6 @@
 #include "OpenGL_FBO.h"
 
-#include "OpenGLDebug.h"
-
 #include <iostream>
-#include <stdexcept>
 
 OpenGL_FBO::~OpenGL_FBO()
 {
@@ -138,7 +135,7 @@ void OpenGL_FBO::removeAttachment(const std::string& name)
     auto it = attachments.find(name);
     if (it != attachments.end())
     {
-        OPENGL_CHECK_BIND_TARGET(id, GL_FRAMEBUFFER);
+        
 
         // Detach from framebuffer
         if (it->second.attachmentPoint != -1)
@@ -161,7 +158,7 @@ void OpenGL_FBO::unbind()
 
 void OpenGL_FBO::setDrawBuffers(const std::vector<std::string>& attachmentNames)
 {
-    OPENGL_CHECK_BIND_TARGET(id, GL_FRAMEBUFFER);
+    
 
     if (attachmentNames.empty())
     {
@@ -221,7 +218,7 @@ void OpenGL_FBO::resize(int newWidth, int newHeight)
     width = newWidth;
     height = newHeight;
 
-    OPENGL_CHECK_BIND_TARGET(id, GL_FRAMEBUFFER);
+    
 
     for (auto& [name, attachment] : attachments)
     {
@@ -273,7 +270,7 @@ void OpenGL_FBO::clearAttachment(const std::string& name, const float* clearValu
         return;
     }
 
-    OPENGL_CHECK_BIND_TARGET(id, GL_FRAMEBUFFER);
+    
 
     const auto& attachment = it->second;
     const auto& texture = attachment.texture;
@@ -301,7 +298,7 @@ void OpenGL_FBO::clearAttachment(const std::string& name, const float* clearValu
 
 void OpenGL_FBO::clearDrawBuffer(const std::string& name, const float* clearValue) const
 {
-    OPENGL_CHECK_BIND_TARGET(id, GL_FRAMEBUFFER);
+    
 
     bool found = false;
     int index = 0;
@@ -354,7 +351,7 @@ void OpenGL_FBO::bindTexture(const std::string& name, GLuint textureUnit) const
 
 bool OpenGL_FBO::isComplete() const
 {
-    OPENGL_CHECK_BIND_TARGET(id, GL_FRAMEBUFFER);
+    
 
     GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
     if (status == GL_FRAMEBUFFER_COMPLETE)
@@ -445,7 +442,7 @@ void OpenGL_FBO::createAndAttachTexture(Attachment& attachment, GLenum internalF
 
     if (attachment.attachmentPoint != -1)
     {
-        OPENGL_CHECK_BIND_TARGET(id, GL_FRAMEBUFFER);
+        
         glFramebufferTexture2D(GL_FRAMEBUFFER, attachment.attachmentPoint, GL_TEXTURE_2D, attachment.texture.getID(), 0);
     }
 }

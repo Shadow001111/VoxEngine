@@ -1,28 +1,29 @@
 #pragma once
 #include <glad/glad.h>
 
-namespace TextureCompression
-{
-	// Simple format picker for voxel games:
-	// - BC7 (BPTC): Best for RGBA textures
-	// - BC5 (RGTC): Best for normal maps (2 channels)
-	// - BC4 (RGTC): Best for single-channel
-	// - DXT5: Fallback for RGBA when BC7 not available
-	// - DXT1: For RGB textures (no alpha)
+//namespace TextureCompression
+//{
+//	// Simple format picker for voxel games:
+//	// - BC7 (BPTC): Best for RGBA textures
+//	// - BC5 (RGTC): Best for normal maps (2 channels)
+//	// - BC4 (RGTC): Best for single-channel
+//	// - DXT5: Fallback for RGBA when BC7 not available
+//	// - DXT1: For RGB textures (no alpha)
+//
+//	struct CompressionSupport
+//	{
+//		bool s3tc = false;    // DXT1/3/5
+//		bool rgtc = false;    // BC4/5
+//		bool bptc = false;    // BC6/7
+//		bool astc = false;    // ASTC
+//	};
+//
+//	void setCompressionFormats();
+//	GLenum getBestFormat(int channels, GLenum valueType);
+//	GLenum getBestCompressedFormat(int channels, GLenum valueType);
+//}
 
-	struct CompressionSupport
-	{
-		bool s3tc = false;    // DXT1/3/5
-		bool rgtc = false;    // BC4/5
-		bool bptc = false;    // BC6/7
-		bool astc = false;    // ASTC
-	};
-
-	void setCompressionFormats();
-	GLenum getBestFormat(int channels, GLenum valueType);
-	GLenum getBestCompressedFormat(int channels, GLenum valueType);
-}
-
+// TODO: Store only internal format. Format and dataType are used only in uploadSubData
 class OpenGL_Texture
 {
 	GLuint id = 0;
@@ -56,7 +57,6 @@ public:
 	void create2D(int width, int height, GLenum internalFormat, GLenum format, GLenum dataType, int mipLevels = 1);
 	void create3D(int width, int height, int depth, GLenum internalFormat, GLenum format, GLenum dataType, int mipLevels = 1);
 	void create2DArray(int width, int height, int layers, GLenum internalFormat, GLenum format, GLenum dataType, int mipLevels = 1);
-	void createCubeMap(int size, GLenum internalFormat, GLenum format, GLenum dataType, int mipLevels = 1);
 
 	// Texture resizing functions (it deletes old texture and creates new, since texture is immutable)
 	void recreate1D(int width);
@@ -75,8 +75,12 @@ public:
 	void setParameters(GLenum minFilter_, GLenum magFilter_, GLenum wrapS_, GLenum wrapT_, GLenum wrapR_);
 
 	void bind() const;
-	void bindUnit(GLuint unit) const;
+	void bind(GLenum target) const;
+
 	void unbind() const;
+	static void unbind(GLenum target);
+
+	void bindUnit(GLuint unit) const;
 
 	// Getters
 	GLuint getID() const { return id; }
