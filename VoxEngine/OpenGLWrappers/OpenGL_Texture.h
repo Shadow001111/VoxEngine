@@ -62,7 +62,19 @@ public:
 
 	// Data upload functions
 	void uploadData(const void* data, GLenum dataType, int level = 0);
-	void uploadSubData(const void* data, int xOffset, int yOffset, int zOffset, int width, int height, int depth, GLenum dataType, int level = 0);
+
+	void uploadSubData1D(
+		const void* data, int xOffset, int width,
+		GLenum dataType, int level = 0);
+	void uploadSubData2D(
+		const void* data, int xOffset, int yOffset,
+		int width, int height, GLenum dataType, int level = 0);
+	void uploadSubData3D(
+		const void* data, int xOffset, int yOffset, int zOffset,
+		int width, int height, int depth, GLenum dataType, int level = 0);
+	void uploadSubData2DArray(
+		const void* data, int xOffset, int yOffset, int layer,
+		int width, int height, GLenum dataType, int level = 0);
 
 	//
 	void generateMipmaps();

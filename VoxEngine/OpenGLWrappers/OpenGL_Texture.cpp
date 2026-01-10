@@ -297,34 +297,123 @@ void OpenGL_Texture::uploadData(const void* data, GLenum dataType, int level)
 	}
 }
 
-void OpenGL_Texture::uploadSubData(
-	const void* data, int xOffset, int yOffset, int zOffset,
-	int width, int height, int depth, GLenum dataType, int level)
+void OpenGL_Texture::uploadSubData1D(const void* data, int xOffset, int width, GLenum dataType, int level)
 {
+	if (type != GL_TEXTURE_1D)
+	{
+		std::cerr << "[OpenGL_Texture][uploadSubData1D]: Texture is not 1D type. Actual type: " << type << "\n";
+		return;
+	}
+
 	if (level < 0 || level >= mipLevels)
 	{
-		std::cerr << "[OpenGL_Texture][uploadData]: Invalid mipmap level: " << level << ". Texture has " << mipLevels << " mipLevels.\n";
+		std::cerr << "[OpenGL_Texture][uploadSubData1D]: Invalid mipmap level: " << level
+			<< ". Texture has " << mipLevels << " mipLevels.\n";
+		return;
+	}
+
+	if (xOffset < 0 || width <= 0 || (xOffset + width) > this->width)
+	{
+		std::cerr << "[OpenGL_Texture][uploadSubData1D]: Invalid subregion: xOffset="
+			<< xOffset << ", width=" << width << ", texture width=" << this->width << "\n";
 		return;
 	}
 
 	auto format = getFormatFromInternalFormat();
+	glTextureSubImage1D(id, level, xOffset, width, format, dataType, data);
+}
 
-	switch (type)
+void OpenGL_Texture::uploadSubData2D(const void* data, int xOffset, int yOffset, int width, int height, GLenum dataType, int level)
+{
+	if (type != GL_TEXTURE_2D)
 	{
-	case GL_TEXTURE_1D:
-		glTextureSubImage1D(id, level, xOffset, width, format, dataType, data);
-		break;
-	case GL_TEXTURE_2D:
-		glTextureSubImage2D(id, level, xOffset, yOffset, width, height, format, dataType, data);
-		break;
-	case GL_TEXTURE_3D:
-	case GL_TEXTURE_2D_ARRAY:
-		glTextureSubImage3D(id, level, xOffset, yOffset, zOffset, width, height, depth, format, dataType, data);
-		break;
-	default:
-		std::cerr << "[OpenGL_Texture][uploadSubData]: Unsupported texture type for sub data upload: " << type<< "\n";
-		break;
+		std::cerr << "[OpenGL_Texture][uploadSubData2D]: Texture is not 2D type. Actual type: " << type << "\n";
+		return;
 	}
+
+	if (level < 0 || level >= mipLevels)
+	{
+		std::cerr << "[OpenGL_Texture][uploadSubData2D]: Invalid mipmap level: " << level
+			<< ". Texture has " << mipLevels << " mipLevels.\n";
+		return;
+	}
+
+	if (xOffset < 0 || yOffset < 0 || width <= 0 || height <= 0 ||
+		(xOffset + width) > this->width || (yOffset + height) > this->height)
+	{
+		std::cerr << "[OpenGL_Texture][uploadSubData2D]: Invalid subregion: xOffset="
+			<< xOffset << ", yOffset=" << yOffset << ", width=" << width
+			<< ", height=" << height << ", texture size=" << this->width
+			<< "x" << this->height << "\n";
+		return;
+	}
+
+	auto format = getFormatFromInternalFormat();
+	glTextureSubImage2D(id, level, xOffset, yOffset, width, height, format, dataType, data);
+}
+
+void OpenGL_Texture::uploadSubData3D(const void* data, int xOffset, int yOffset, int zOffset, int width, int height, int depth, GLenum dataType, int level)
+{
+	if (type != GL_TEXTURE_3D)
+	{
+		std::cerr << "[OpenGL_Texture][uploadSubData3D]: Texture is not 3D type. Actual type: " << type << "\n";
+		return;
+	}
+
+	if (level < 0 || level >= mipLevels)
+	{
+		std::cerr << "[OpenGL_Texture][uploadSubData3D]: Invalid mipmap level: " << level
+			<< ". Texture has " << mipLevels << " mipLevels.\n";
+		return;
+	}
+
+	if (xOffset < 0 || yOffset < 0 || zOffset < 0 ||
+		width <= 0 || height <= 0 || depth <= 0 ||
+		(xOffset + width) > this->width || (yOffset + height) > this->height ||
+		(zOffset + depth) > this->depth)
+	{
+		std::cerr << "[OpenGL_Texture][uploadSubData3D]: Invalid subregion: offset=["
+			<< xOffset << "," << yOffset << "," << zOffset << "], size=["
+			<< width << "x" << height << "x" << depth << "], texture size=["
+			<< this->width << "x" << this->height << "x" << this->depth << "]\n";
+		return;
+	}
+
+	auto format = getFormatFromInternalFormat();
+	glTextureSubImage3D(id, level, xOffset, yOffset, zOffset, width, height, depth, format, dataType, data);
+}
+
+void OpenGL_Texture::uploadSubData2DArray(const void* data, int xOffset, int yOffset, int layer, int width, int height, GLenum dataType, int level)
+{
+	if (type != GL_TEXTURE_2D_ARRAY)
+	{
+		std::cerr << "[OpenGL_Texture][uploadSubData2DArray]: Texture is not 2D Array type. Actual type: " << type << "\n";
+		return;
+	}
+
+	if (level < 0 || level >= mipLevels)
+	{
+		std::cerr << "[OpenGL_Texture][uploadSubData2DArray]: Invalid mipmap level: " << level
+			<< ". Texture has " << mipLevels << " mipLevels.\n";
+		return;
+	}
+
+	if (xOffset < 0 || yOffset < 0 || layer < 0 ||
+		width <= 0 || height <= 0 ||
+		(xOffset + width) > this->width || (yOffset + height) > this->height ||
+		layer >= this->depth)
+	{
+		std::cerr << "[OpenGL_Texture][uploadSubData2DArray]: Invalid subregion: xOffset="
+			<< xOffset << ", yOffset=" << yOffset << ", layer=" << layer
+			<< ", width=" << width << ", height=" << height
+			<< ", texture size=" << this->width << "x" << this->height
+			<< "x" << this->depth << "\n";
+		return;
+	}
+
+	auto format = getFormatFromInternalFormat();
+	// Upload a single layer (depth = 1)
+	glTextureSubImage3D(id, level, xOffset, yOffset, layer, width, height, 1, format, dataType, data);
 }
 
 void OpenGL_Texture::generateMipmaps()

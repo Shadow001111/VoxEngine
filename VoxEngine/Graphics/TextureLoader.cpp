@@ -177,10 +177,10 @@ namespace TextureLoader
                 params.wrapMode,
                 params.wrapMode);
 
-            texture.uploadSubData(
+            texture.uploadSubData2D(
                 undefinedTexture.data(),
-                0, 0, 0,
-                defaultSize, defaultSize, 1, 
+                0, 0,
+                defaultSize, defaultSize,
                 GL_UNSIGNED_BYTE,
                 0);
             return;
@@ -245,19 +245,19 @@ namespace TextureLoader
         // Upload the texture data
         if (channels == params.desiredChannels)
         {
-            texture.uploadSubData(
+            texture.uploadSubData2D(
                 data,
-                0, 0, 0,
-                width, height, 1, 
+                0, 0,
+                width, height,
                 GL_UNSIGNED_BYTE,
                 0);
         }
         else
         {
-            texture.uploadSubData(
+            texture.uploadSubData2D(
                 convertedData.data(),
-                0, 0, 0, 
-                width, height, 1,
+                0, 0,
+                width, height,
                 GL_UNSIGNED_BYTE,
                 0);
         }
@@ -335,10 +335,10 @@ namespace TextureLoader
             {
                 std::cerr << "[TextureLoader][createAndLoadTextureArray]: Failed to load texture: " << fullPath << "\n";
                 // Upload fallback texture
-                texture.uploadSubData(
+                texture.uploadSubData2DArray(
                     undefinedTexture.data(),
                     0, 0, static_cast<int>(i),
-                    sharedWidth, sharedHeight, 1,
+                    sharedWidth, sharedHeight,
                     GL_UNSIGNED_BYTE,
                     0);
                 continue;
@@ -369,10 +369,10 @@ namespace TextureLoader
 
             // Upload the texture data
             const auto* readData = (channels == params.desiredChannels) ? data : convertedData.data();
-            texture.uploadSubData(
+            texture.uploadSubData2DArray(
                 readData,
                 0, 0, static_cast<int>(i),
-                sharedWidth, sharedHeight, 1,
+                sharedWidth, sharedHeight,
                 GL_UNSIGNED_BYTE,
                 0);
 
@@ -421,7 +421,7 @@ namespace TextureLoader
             params.wrapMode);
 
         // Upload the texture data
-        texture.uploadSubData(
+        texture.uploadSubData3D(
             data.data(),
             0, 0, 0,
             width, height, depth,
