@@ -164,6 +164,7 @@ static void setupContainerUI(ContainerUI& c)
     }
 }
 
+// TODO: Stop hotbar from drawing itself on other draw buffers
 static void renderHotbar(const ContainerUI& c, const Player& player)
 {
     glDisable(GL_DEPTH_TEST);
@@ -432,7 +433,6 @@ void check()
     std::cout << std::string(100, '=') << "\n";
 }
 
-// TODO: Modern OpenGl
 int main()
 {
     constexpr float CAMERA_FAR_PLANE = (CHUNK_LOAD_DISTANCE + 0.5f) * (CHUNK_SIZE * 1.41f);
@@ -462,7 +462,6 @@ int main()
     OpenGL_FBO framebuffer;
     {
         framebuffer.create(wnd.getWidth(), wnd.getHeight());
-        framebuffer.bind();
 
         framebuffer.createColorAttachment("color", GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE);
         framebuffer.createColorAttachment("geometryAlpha", GL_R8, GL_RED, GL_UNSIGNED_BYTE);
@@ -484,6 +483,8 @@ int main()
         }
 
         wnd.linkFramebuffer(&framebuffer);
+
+        framebuffer.bind();
     }
 
     // OpenGL states
@@ -595,7 +596,6 @@ int main()
             player.getCamera().setAspectRatio(wnd.getAspectRatio());
 
             // Rendering world
-            framebuffer.bind();
             if (framebuffer.isComplete())
             {
                 world.render(player.getCamera(), framebuffer, player.raycastResult);

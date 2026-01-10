@@ -39,14 +39,13 @@ void OpenGL_FBO::create(int width, int height)
     // Clean up
     if (id)
     {
-        bind();
-
-        for (auto& attachment : attachments)
+        for (auto& pair : attachments)
         {
+            auto& attachment = pair.second;
             // Detach from framebuffer
-            if (attachment.second.attachmentPoint != -1)
+            if (attachment.attachmentPoint != -1)
             {
-                glFramebufferTexture2D(GL_FRAMEBUFFER, attachment.second.attachmentPoint, GL_TEXTURE_2D, 0, 0);
+                glNamedFramebufferTexture(id, attachment.attachmentPoint, 0, 0);
             }
         }
         attachments.clear();
@@ -57,7 +56,7 @@ void OpenGL_FBO::create(int width, int height)
     }
 
     // Create new frame buffer
-    glGenFramebuffers(1, &id);
+    glCreateFramebuffers(1, &id);
 
     // Set new resolution
     this->width = width;
@@ -135,12 +134,10 @@ void OpenGL_FBO::removeAttachment(const std::string& name)
     auto it = attachments.find(name);
     if (it != attachments.end())
     {
-        
-
         // Detach from framebuffer
         if (it->second.attachmentPoint != -1)
         {
-            glFramebufferTexture2D(GL_FRAMEBUFFER, it->second.attachmentPoint, GL_TEXTURE_2D, 0, 0);
+            glNamedFramebufferTexture(id, it->second.attachmentPoint, 0, 0);
         }
         attachments.erase(it);
     }
@@ -151,20 +148,28 @@ void OpenGL_FBO::bind() const
     glBindFramebuffer(GL_FRAMEBUFFER, id);
 }
 
+void OpenGL_FBO::bind(GLenum target) const
+{
+    glBindFramebuffer(target, id);
+}
+
 void OpenGL_FBO::unbind()
 {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
+void OpenGL_FBO::unbind(GLenum target)
+{
+    glBindFramebuffer(target, 0);
+}
+
 void OpenGL_FBO::setDrawBuffers(const std::vector<std::string>& attachmentNames)
 {
-    
-
     if (attachmentNames.empty())
     {
         // If no attachments specified, disable drawing
-        glDrawBuffer(GL_NONE);
-        glReadBuffer(GL_NONE);
+        glNamedFramebufferDrawBuffer(id, GL_NONE);
+        glNamedFramebufferReadBuffer(id, GL_NONE);
         return;
     }
 
@@ -202,23 +207,29 @@ void OpenGL_FBO::setDrawBuffers(const std::vector<std::string>& attachmentNames)
     if (drawBuffers.empty())
     {
         // No valid color attachments found
-        glDrawBuffer(GL_NONE);
-        glReadBuffer(GL_NONE);
+        glNamedFramebufferDrawBuffer(id, GL_NONE);
+        glNamedFramebufferReadBuffer(id, GL_NONE);
     }
     else
     {
-        glDrawBuffers(static_cast<GLsizei>(drawBuffers.size()), drawBuffers.data());
+        glNamedFramebufferDrawBuffers(id, static_cast<GLsizei>(drawBuffers.size()), drawBuffers.data());
     }
 }
 
 void OpenGL_FBO::resize(int newWidth, int newHeight)
 {
-    if (newWidth == width && newHeight == height) return;
+    if (newWidth == width && newHeight == height)
+    {
+        return;
+    }
+    if (newWidth <= 0 || newHeight <= 0)
+    {
+        std::cerr << "[OpenGL_FBO][resize]: Invalid franebuffer dimensions: width=" << newWidth << ", height=" << newHeight << "\n";
+        return;
+    }
 
     width = newWidth;
     height = newHeight;
-
-    
 
     for (auto& [name, attachment] : attachments)
     {
@@ -231,21 +242,15 @@ void OpenGL_FBO::resize(int newWidth, int newHeight)
         else
         {
             attachment.texture.recreate2D(width, height);
-            glFramebufferTexture2D(GL_FRAMEBUFFER, attachment.attachmentPoint, GL_TEXTURE_2D, attachment.texture.getID(), 0);
+            glNamedFramebufferTexture(id, attachment.attachmentPoint, attachment.texture.getID(), 0);
         }
     }
 }
 
-void OpenGL_FBO::clear() const
-{
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-}
-
 void OpenGL_FBO::blitTo(const OpenGL_FBO& dstFBO, GLbitfield mask, GLenum filter) const
 {
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, id);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, dstFBO.id);
-    glBlitFramebuffer(
+    glBlitNamedFramebuffer(
+        id, dstFBO.id,
         0, 0, width, height,
         0, 0, dstFBO.width, dstFBO.height,
         mask, filter);
@@ -253,9 +258,8 @@ void OpenGL_FBO::blitTo(const OpenGL_FBO& dstFBO, GLbitfield mask, GLenum filter
 
 void OpenGL_FBO::blitToDefaultFramebuffer(int dstWidth, int dstHeight, GLbitfield mask, GLenum filter) const
 {
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, id);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-    glBlitFramebuffer(
+    glBlitNamedFramebuffer(
+        id, 0,
         0, 0, width, height,
         0, 0, dstWidth, dstHeight,
         mask, filter);
@@ -270,8 +274,6 @@ void OpenGL_FBO::clearAttachment(const std::string& name, const float* clearValu
         return;
     }
 
-    
-
     const auto& attachment = it->second;
     const auto& texture = attachment.texture;
 
@@ -282,24 +284,22 @@ void OpenGL_FBO::clearAttachment(const std::string& name, const float* clearValu
         glClearTexImage(texture.getID(), 0, texture.getFormat(), GL_FLOAT, clearValue);
         break;
     case AttachmentType::DEPTH:
-        glClearBufferfv(GL_DEPTH, 0, clearValue);
+        glClearNamedFramebufferfv(id, GL_DEPTH, 0, clearValue);
         break;
     case AttachmentType::STENCIL:
     {
         GLint stencilValue = static_cast<GLint>(clearValue[0]);
-        glClearBufferiv(GL_STENCIL, 0, &stencilValue);
+        glClearNamedFramebufferiv(id, GL_STENCIL, 0, &stencilValue);
         break;
     }
     case AttachmentType::DEPTH_STENCIL:
-        glClearBufferfi(GL_DEPTH_STENCIL, 0, clearValue[0], static_cast<GLint>(clearValue[1]));
+        glClearNamedFramebufferfi(id, GL_DEPTH_STENCIL, 0, clearValue[0], static_cast<GLint>(clearValue[1]));
         break;
     }
 }
 
 void OpenGL_FBO::clearDrawBuffer(const std::string& name, const float* clearValue) const
 {
-    
-
     bool found = false;
     int index = 0;
 
@@ -313,7 +313,7 @@ void OpenGL_FBO::clearDrawBuffer(const std::string& name, const float* clearValu
     }
     if (found)
     {
-        glClearBufferfv(GL_COLOR, index, clearValue);
+        glClearNamedFramebufferfv(id, GL_COLOR, index, clearValue);
     }
     else
     {
@@ -340,20 +340,22 @@ bool OpenGL_FBO::hasTexture(const std::string& name) const
     return attachments.find(name) != attachments.end();
 }
 
-void OpenGL_FBO::bindTexture(const std::string& name, GLuint textureUnit) const
+void OpenGL_FBO::bindTextureToUnit(const std::string& name, GLuint textureUnit) const
 {
     auto it = attachments.find(name);
     if (it != attachments.end())
     {
         it->second.texture.bindUnit(textureUnit);
     }
+    else
+    {
+        std::cerr << "[OpengGL_FBO][bindTextureToUnit]: Texture/attachment '" << name << "' is not found\n";
+    }
 }
 
 bool OpenGL_FBO::isComplete() const
 {
-    
-
-    GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    GLenum status = glCheckNamedFramebufferStatus(id, GL_FRAMEBUFFER);
     if (status == GL_FRAMEBUFFER_COMPLETE)
     {
         return true;
@@ -390,7 +392,7 @@ bool OpenGL_FBO::isComplete() const
         errorMsg = "Unknown error: " + std::to_string(status);
         break;
     }
-    std::cerr << "[OpenGL][Framebuffer]: Framebuffer is not complete: " << errorMsg << "\n";
+    std::cerr << "[OpenGL_FBO][isComplete]: Framebuffer is not complete: " << errorMsg << "\n";
     return false;
 }
 
@@ -434,7 +436,8 @@ GLenum OpenGL_FBO::getAttachmentPoint(AttachmentType type)
     return GL_COLOR_ATTACHMENT0;
 }
 
-void OpenGL_FBO::createAndAttachTexture(Attachment& attachment, GLenum internalFormat, GLenum format, GLenum dataType,
+void OpenGL_FBO::createAndAttachTexture(
+    Attachment& attachment, GLenum internalFormat, GLenum format, GLenum dataType,
     GLenum minFilter, GLenum magFilter, GLenum wrapS, GLenum wrapT)
 {
     attachment.texture.create2D(width, height, internalFormat, format, dataType);
@@ -442,12 +445,12 @@ void OpenGL_FBO::createAndAttachTexture(Attachment& attachment, GLenum internalF
 
     if (attachment.attachmentPoint != -1)
     {
-        
-        glFramebufferTexture2D(GL_FRAMEBUFFER, attachment.attachmentPoint, GL_TEXTURE_2D, attachment.texture.getID(), 0);
+        glNamedFramebufferTexture(id, attachment.attachmentPoint, attachment.texture.getID(), 0);
     }
 }
 
-void OpenGL_FBO::createStandaloneTexture(Attachment& attachment, GLenum internalFormat, GLenum format, GLenum dataType,
+void OpenGL_FBO::createStandaloneTexture(
+    Attachment& attachment, GLenum internalFormat, GLenum format, GLenum dataType,
     GLenum minFilter, GLenum magFilter, GLenum wrapS, GLenum wrapT)
 {
     int tWidth = static_cast<int>(width * attachment.resolutionFactor);

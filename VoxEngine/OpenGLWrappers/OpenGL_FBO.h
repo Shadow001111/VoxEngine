@@ -86,11 +86,13 @@ public:
 
     // FBO operations
     void bind() const;
+    void bind(GLenum target) const;
+
     static void unbind();
+    static void unbind(GLenum target);
 
     void setDrawBuffers(const std::vector<std::string>& attachmentNames);
     void resize(int newWidth, int newHeight);
-    void clear() const;
 
     void blitTo(const OpenGL_FBO& dstFBO, GLbitfield mask = GL_COLOR_BUFFER_BIT, GLenum filter = GL_NEAREST) const;
     void blitToDefaultFramebuffer(int dstWidth, int dstHeight, GLbitfield mask = GL_COLOR_BUFFER_BIT, GLenum filter = GL_NEAREST) const;
@@ -102,7 +104,7 @@ public:
     std::optional<OpenGL_Texture*> getTexture(const std::string& name);
     std::optional<const OpenGL_Texture*> getTexture(const std::string& name) const;
     bool hasTexture(const std::string& name) const;
-    void bindTexture(const std::string& name, GLuint textureUnit) const;
+    void bindTextureToUnit(const std::string& name, GLuint textureUnit) const;
 
     // Getters
     bool isComplete() const;
