@@ -463,16 +463,16 @@ int main()
     {
         framebuffer.create(wnd.getWidth(), wnd.getHeight());
 
-        framebuffer.createColorAttachment("color", GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE);
-        framebuffer.createColorAttachment("geometryAlpha", GL_R8, GL_RED, GL_UNSIGNED_BYTE);
-        framebuffer.createColorAttachment("accumulation", GL_RGBA16F, GL_RGBA, GL_FLOAT);
-        framebuffer.createColorAttachment("revealage", GL_R8, GL_RED, GL_FLOAT);
+        framebuffer.createColorAttachment("color", GL_RGBA8);
+        framebuffer.createColorAttachment("geometryAlpha", GL_R8);
+        framebuffer.createColorAttachment("accumulation", GL_RGBA16F);
+        framebuffer.createColorAttachment("revealage", GL_R8);
 
         // TODO: Render aurora in lower resolution
         // Problem: Geometry alpha mask is in higher resolution, meaning we need to sample multiple pixels to check if geometry covers aurora or not.
-        framebuffer.createStandaloneTextureAttachment("aurora", GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE);
+        framebuffer.createStandaloneTextureAttachment("aurora", GL_RGBA8);
 
-        framebuffer.createDepthAttachment("depth", GL_DEPTH_COMPONENT32F, GL_DEPTH_COMPONENT, GL_FLOAT);
+        framebuffer.createDepthAttachment("depth", GL_DEPTH_COMPONENT32F);
 
         framebuffer.setDrawBuffers({ "color", "geometryAlpha", "accumulation", "revealage" });
 
@@ -599,24 +599,24 @@ int main()
             if (framebuffer.isComplete())
             {
                 world.render(player.getCamera(), framebuffer, player.raycastResult);
+
+                // Pre-text-rendering measure
+                TextRenderer::updateProjectionMatrix(wnd.getWidth(), wnd.getHeight());
+
+                // Render UI
+                renderUI(containerUI, player);
+                renderDebugData(world.getDebugData(), wnd, player, UI_FPS);
+
+                // Blitting FBO to default FBO
+                framebuffer.blitToDefaultFramebuffer(wnd.getWidth(), wnd.getHeight());
+
+                // Swap buffers
+                wnd.swapBuffers();
             }
             else
             {
                 std::cout << "[main]: FBO is not complete!\n";
             }
-
-            // Pre-text-rendering measure
-            TextRenderer::updateProjectionMatrix(wnd.getWidth(), wnd.getHeight());
-
-            // Render UI
-            renderUI(containerUI, player);
-            renderDebugData(world.getDebugData(), wnd, player, UI_FPS);
-
-            // Blitting FBO to default FBO
-            framebuffer.blitToDefaultFramebuffer(wnd.getWidth(), wnd.getHeight());
-
-            // Swap buffers
-            wnd.swapBuffers();
         }
 
         //

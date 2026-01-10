@@ -64,7 +64,6 @@ void OpenGL_FBO::create(int width, int height)
 }
 
 void OpenGL_FBO::createColorAttachment(const std::string& name, GLenum internalFormat,
-    GLenum format, GLenum dataType,
     GLenum minFilter, GLenum magFilter,
     GLenum wrapS, GLenum wrapT)
 {
@@ -72,12 +71,11 @@ void OpenGL_FBO::createColorAttachment(const std::string& name, GLenum internalF
     attachment.type = AttachmentType::COLOR;
     attachment.attachmentPoint = getAttachmentPoint(AttachmentType::COLOR);
 
-    createAndAttachTexture(attachment, internalFormat, format, dataType, minFilter, magFilter, wrapS, wrapT);
+    createAndAttachTexture(attachment, internalFormat, minFilter, magFilter, wrapS, wrapT);
     attachments[name] = std::move(attachment);
 }
 
 void OpenGL_FBO::createDepthAttachment(const std::string& name, GLenum internalFormat,
-    GLenum format, GLenum dataType,
     GLenum minFilter, GLenum magFilter,
     GLenum wrapS, GLenum wrapT)
 {
@@ -85,7 +83,7 @@ void OpenGL_FBO::createDepthAttachment(const std::string& name, GLenum internalF
     attachment.type = AttachmentType::DEPTH;
     attachment.attachmentPoint = GL_DEPTH_ATTACHMENT;
 
-    createAndAttachTexture(attachment, internalFormat, format, dataType, minFilter, magFilter, wrapS, wrapT);
+    createAndAttachTexture(attachment, internalFormat, minFilter, magFilter, wrapS, wrapT);
     attachments[name] = std::move(attachment);
 }
 
@@ -97,8 +95,7 @@ void OpenGL_FBO::createStencilAttachment(const std::string& name, GLenum interna
     attachment.type = AttachmentType::STENCIL;
     attachment.attachmentPoint = GL_STENCIL_ATTACHMENT;
 
-    createAndAttachTexture(attachment, internalFormat, GL_STENCIL_INDEX, GL_UNSIGNED_BYTE,
-        minFilter, magFilter, wrapS, wrapT);
+    createAndAttachTexture(attachment, internalFormat, minFilter, magFilter, wrapS, wrapT);
     attachments[name] = std::move(attachment);
 }
 
@@ -110,13 +107,12 @@ void OpenGL_FBO::createDepthStencilAttachment(const std::string& name, GLenum in
     attachment.type = AttachmentType::DEPTH_STENCIL;
     attachment.attachmentPoint = GL_DEPTH_STENCIL_ATTACHMENT;
 
-    createAndAttachTexture(attachment, internalFormat, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8,
-        minFilter, magFilter, wrapS, wrapT);
+    createAndAttachTexture(attachment, internalFormat, minFilter, magFilter, wrapS, wrapT);
     attachments[name] = std::move(attachment);
 }
 
 void OpenGL_FBO::createStandaloneTextureAttachment(const std::string& name,
-    GLenum internalFormat, GLenum format, GLenum dataType,
+    GLenum internalFormat,
     float resolutionFactor,
     GLenum minFilter, GLenum magFilter, GLenum wrapS, GLenum wrapT)
 {
@@ -125,7 +121,7 @@ void OpenGL_FBO::createStandaloneTextureAttachment(const std::string& name,
     attachment.attachmentPoint = -1;
     attachment.resolutionFactor = resolutionFactor;
 
-    createStandaloneTexture(attachment, internalFormat, format, dataType, minFilter, magFilter, wrapS, wrapT);
+    createStandaloneTexture(attachment, internalFormat, minFilter, magFilter, wrapS, wrapT);
     attachments[name] = std::move(attachment);
 }
 
@@ -281,7 +277,7 @@ void OpenGL_FBO::clearAttachment(const std::string& name, const float* clearValu
     {
     case AttachmentType::COLOR:
     case AttachmentType::STANDALONE_TEXTURE:
-        glClearTexImage(texture.getID(), 0, texture.getFormat(), GL_FLOAT, clearValue);
+        glClearTexImage(texture.getID(), 0, texture.getFormatFromInternalFormat(), GL_FLOAT, clearValue);
         break;
     case AttachmentType::DEPTH:
         glClearNamedFramebufferfv(id, GL_DEPTH, 0, clearValue);
@@ -437,10 +433,10 @@ GLenum OpenGL_FBO::getAttachmentPoint(AttachmentType type)
 }
 
 void OpenGL_FBO::createAndAttachTexture(
-    Attachment& attachment, GLenum internalFormat, GLenum format, GLenum dataType,
+    Attachment& attachment, GLenum internalFormat,
     GLenum minFilter, GLenum magFilter, GLenum wrapS, GLenum wrapT)
 {
-    attachment.texture.create2D(width, height, internalFormat, format, dataType);
+    attachment.texture.create2D(width, height, internalFormat);
     attachment.texture.setParameters(minFilter, magFilter, wrapS, wrapT);
 
     if (attachment.attachmentPoint != -1)
@@ -450,12 +446,12 @@ void OpenGL_FBO::createAndAttachTexture(
 }
 
 void OpenGL_FBO::createStandaloneTexture(
-    Attachment& attachment, GLenum internalFormat, GLenum format, GLenum dataType,
+    Attachment& attachment, GLenum internalFormat,
     GLenum minFilter, GLenum magFilter, GLenum wrapS, GLenum wrapT)
 {
     int tWidth = static_cast<int>(width * attachment.resolutionFactor);
     int tHeight = static_cast<int>(height * attachment.resolutionFactor);
-    attachment.texture.create2D(tWidth, tHeight, internalFormat, format, dataType);
+    attachment.texture.create2D(tWidth, tHeight, internalFormat);
     attachment.texture.setParameters(minFilter, magFilter, wrapS, wrapT);
 }
 

@@ -155,19 +155,19 @@ namespace TextureLoader
         int width, height, channels;
         unsigned char* data = stbi_load(texturePath.string().c_str(), &width, &height, &channels, 0);
 
+        GLenum internalFormat = getInternalFormat(params.desiredChannels);
+
         if (!data)
         {
             std::cerr << "[TextureLoader][createAndLoadTexture2D]: Failed to load texture: " << texturePath << "\n";
 
             // Create a default-sized undefined texture
-            const int defaultSize = 16;
+            constexpr int defaultSize = 16;
             std::vector<unsigned char> undefinedTexture = createUndefinedTexture(defaultSize, defaultSize, params.desiredChannels);
 
             const int mipmapLevels = 1 + (params.createMipmaps ? static_cast<int>(std::ceil(std::log2(defaultSize))) : 0);
-            GLenum internalFormat = getInternalFormat(params.desiredChannels);
-            GLenum format = getFormat(params.desiredChannels);
 
-            texture.create2D(defaultSize, defaultSize, internalFormat, format, GL_UNSIGNED_BYTE, mipmapLevels);
+            texture.create2D(defaultSize, defaultSize, internalFormat, mipmapLevels);
             texture.bind();
 
             texture.setParameters(
@@ -177,20 +177,18 @@ namespace TextureLoader
                 params.wrapMode,
                 params.wrapMode);
 
-            texture.uploadSubData(undefinedTexture.data(), 0, 0, 0,
-                defaultSize, defaultSize, 1, 0);
+            texture.uploadSubData(
+                undefinedTexture.data(),
+                0, 0, 0,
+                defaultSize, defaultSize, 1, 
+                GL_UNSIGNED_BYTE,
+                0);
             return;
         }
 
         const int mipmapLevels = 1 + (params.createMipmaps ? static_cast<int>(std::ceil(std::log2(std::max(width, height)))) : 0);
 
-        // Create undefined texture with the actual dimensions
-        std::vector<unsigned char> undefinedTexture = createUndefinedTexture(width, height, params.desiredChannels);
-
-        GLenum internalFormat = getInternalFormat(params.desiredChannels);
-        GLenum format = getFormat(params.desiredChannels);
-
-        texture.create2D(width, height, internalFormat, format, GL_UNSIGNED_BYTE, mipmapLevels);
+        texture.create2D(width, height, internalFormat, mipmapLevels);
         texture.setParameters(
             params.minFilter,
             params.magFilter,
@@ -247,11 +245,21 @@ namespace TextureLoader
         // Upload the texture data
         if (channels == params.desiredChannels)
         {
-            texture.uploadSubData(data, 0, 0, 0, width, height, 1, 0);
+            texture.uploadSubData(
+                data,
+                0, 0, 0,
+                width, height, 1, 
+                GL_UNSIGNED_BYTE,
+                0);
         }
         else
         {
-            texture.uploadSubData(convertedData.data(), 0, 0, 0, width, height, 1, 0);
+            texture.uploadSubData(
+                convertedData.data(),
+                0, 0, 0, 
+                width, height, 1,
+                GL_UNSIGNED_BYTE,
+                0);
         }
 
         stbi_image_free(data);
@@ -283,6 +291,7 @@ namespace TextureLoader
 
         int sharedWidth = 0;
         int sharedHeight = 0;
+        // TODO: Add shared chanells
 
         for (size_t i = 0; i < layerCount; i++)
         {
@@ -304,9 +313,8 @@ namespace TextureLoader
         std::vector<unsigned char> undefinedTexture = createUndefinedTexture(sharedWidth, sharedHeight, params.desiredChannels);
 
         GLenum internalFormat = getInternalFormat(params.desiredChannels);
-        GLenum format = getFormat(params.desiredChannels);
 
-        texture.create2DArray(sharedWidth, sharedHeight, static_cast<int>(layerCount), internalFormat, format, GL_UNSIGNED_BYTE, mipmapLevels);
+        texture.create2DArray(sharedWidth, sharedHeight, static_cast<int>(layerCount), internalFormat, mipmapLevels);
         texture.setParameters(
             params.minFilter,
             params.magFilter,
@@ -327,7 +335,12 @@ namespace TextureLoader
             {
                 std::cerr << "[TextureLoader][createAndLoadTextureArray]: Failed to load texture: " << fullPath << "\n";
                 // Upload fallback texture
-                texture.uploadSubData(undefinedTexture.data(), 0, 0, static_cast<int>(i), sharedWidth, sharedHeight, 1, 0);
+                texture.uploadSubData(
+                    undefinedTexture.data(),
+                    0, 0, static_cast<int>(i),
+                    sharedWidth, sharedHeight, 1,
+                    GL_UNSIGNED_BYTE,
+                    0);
                 continue;
             }
 
@@ -356,7 +369,12 @@ namespace TextureLoader
 
             // Upload the texture data
             const auto* readData = (channels == params.desiredChannels) ? data : convertedData.data();
-            texture.uploadSubData(readData, 0, 0, static_cast<int>(i), sharedWidth, sharedHeight, 1, 0);
+            texture.uploadSubData(
+                readData,
+                0, 0, static_cast<int>(i),
+                sharedWidth, sharedHeight, 1,
+                GL_UNSIGNED_BYTE,
+                0);
 
             stbi_image_free(data);
         }
@@ -394,7 +412,7 @@ namespace TextureLoader
         GLenum internalFormat = getInternalFormat(params.desiredChannels);
         GLenum format = getFormat(params.desiredChannels);
 
-        texture.create3D(width, height, depth, internalFormat, format, GL_FLOAT, mipmapLevels);
+        texture.create3D(width, height, depth, internalFormat, mipmapLevels);
         texture.setParameters(
             params.minFilter,
             params.magFilter,
@@ -403,6 +421,11 @@ namespace TextureLoader
             params.wrapMode);
 
         // Upload the texture data
-        texture.uploadSubData(data.data(), 0, 0, 0, width, height, depth, 0);
+        texture.uploadSubData(
+            data.data(),
+            0, 0, 0,
+            width, height, depth,
+            GL_FLOAT,
+            0);
     }
 }

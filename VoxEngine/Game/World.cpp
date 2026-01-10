@@ -455,6 +455,7 @@ void World::render(const Camera& camera, const OpenGL_FBO& FBO, const RaycastRes
 // TODO: Bind textures once
 void World::renderAurora(const Camera& camera, const OpenGL_FBO& FBO) const
 {
+	return;
 	// Get textures
 	auto getTextureResult = FBO.getTexture("aurora");
 	if (!getTextureResult.has_value())

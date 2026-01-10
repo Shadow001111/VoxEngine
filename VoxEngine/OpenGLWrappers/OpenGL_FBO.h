@@ -54,13 +54,11 @@ public:
     // Attachment management
     void createColorAttachment(
         const std::string& name, GLenum internalFormat = GL_RGBA8,
-        GLenum format = GL_RGBA, GLenum dataType = GL_UNSIGNED_BYTE,
         GLenum minFilter = GL_NEAREST, GLenum magFilter = GL_NEAREST,
         GLenum wrapS = GL_CLAMP_TO_EDGE, GLenum wrapT = GL_CLAMP_TO_EDGE);
 
     void createDepthAttachment(
         const std::string& name, GLenum internalFormat = GL_DEPTH_COMPONENT32F,
-        GLenum format = GL_DEPTH_COMPONENT, GLenum dataType = GL_FLOAT,
         GLenum minFilter = GL_NEAREST, GLenum magFilter = GL_NEAREST,
         GLenum wrapS = GL_CLAMP_TO_EDGE, GLenum wrapT = GL_CLAMP_TO_EDGE);
 
@@ -76,7 +74,6 @@ public:
 
     void createStandaloneTextureAttachment(
         const std::string& name, GLenum internalFormat = GL_RGBA8,
-        GLenum format = GL_RGBA, GLenum dataType = GL_UNSIGNED_BYTE,
         float resolutionFactor = 1.0f,
         GLenum minFilter = GL_NEAREST, GLenum magFilter = GL_NEAREST,
         GLenum wrapS = GL_CLAMP_TO_EDGE, GLenum wrapT = GL_CLAMP_TO_EDGE);
@@ -114,9 +111,9 @@ public:
 private:
     GLenum getAttachmentPoint(AttachmentType type);
     void createAndAttachTexture(
-        Attachment& attachment, GLenum internalFormat, GLenum format, GLenum dataType,
+        Attachment& attachment, GLenum internalFormat,
         GLenum minFilter, GLenum magFilter, GLenum wrapS, GLenum wrapT);
     void createStandaloneTexture(
-        Attachment& attachment, GLenum internalFormat, GLenum format, GLenum dataType,
+        Attachment& attachment, GLenum internalFormat,
         GLenum minFilter, GLenum magFilter, GLenum wrapS, GLenum wrapT);
 };

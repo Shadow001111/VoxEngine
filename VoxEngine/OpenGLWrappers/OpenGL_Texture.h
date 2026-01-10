@@ -23,14 +23,11 @@
 //	GLenum getBestCompressedFormat(int channels, GLenum valueType);
 //}
 
-// TODO: Store only internal format. Format and dataType are used only in uploadSubData
 class OpenGL_Texture
 {
 	GLuint id = 0;
 	GLenum type = 0;
 	GLenum internalFormat = 0;
-	GLenum format = 0;
-	GLenum dataType = 0;
 
 	GLenum minFilter = GL_NEAREST;
 	GLenum magFilter = GL_NEAREST;
@@ -53,10 +50,10 @@ public:
 	OpenGL_Texture& operator=(OpenGL_Texture&& other) noexcept;
 
 	// Texture creation functions for different types
-	void create1D(int width, GLenum internalFormat, GLenum format, GLenum dataType, int mipLevels = 1);
-	void create2D(int width, int height, GLenum internalFormat, GLenum format, GLenum dataType, int mipLevels = 1);
-	void create3D(int width, int height, int depth, GLenum internalFormat, GLenum format, GLenum dataType, int mipLevels = 1);
-	void create2DArray(int width, int height, int layers, GLenum internalFormat, GLenum format, GLenum dataType, int mipLevels = 1);
+	void create1D(int width,							  GLenum internalFormat, int mipLevels = 1);
+	void create2D(int width, int height,				  GLenum internalFormat, int mipLevels = 1);
+	void create3D(int width, int height, int depth,		  GLenum internalFormat, int mipLevels = 1);
+	void create2DArray(int width, int height, int layers, GLenum internalFormat, int mipLevels = 1);
 
 	// Texture resizing functions (it deletes old texture and creates new, since texture is immutable)
 	void recreate1D(int width);
@@ -64,8 +61,8 @@ public:
 	void recreate3D(int width, int height, int depth);
 
 	// Data upload functions
-	void uploadData(const void* data, int level = 0);
-	void uploadSubData(const void* data, int xOffset, int yOffset, int zOffset, int width, int height, int depth, int level = 0);
+	void uploadData(const void* data, GLenum dataType, int level = 0);
+	void uploadSubData(const void* data, int xOffset, int yOffset, int zOffset, int width, int height, int depth, GLenum dataType, int level = 0);
 
 	//
 	void generateMipmaps();
@@ -86,10 +83,9 @@ public:
 	GLuint getID() const { return id; }
 	GLenum getType() const { return type; }
 	GLenum getInternalFormat() const { return internalFormat; }
-	GLenum getFormat() const { return format; }
-	GLenum getDataType() const { return dataType; }
 	int getWidth() const { return width; }
 	int getHeight() const { return height; }
 	int getDepth() const { return depth; }
 	int getMipLevels() const { return mipLevels; }
+	GLenum getFormatFromInternalFormat() const;
 };

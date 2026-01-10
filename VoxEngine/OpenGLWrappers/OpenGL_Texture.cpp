@@ -32,7 +32,7 @@ OpenGL_Texture::~OpenGL_Texture()
 
 OpenGL_Texture::OpenGL_Texture(OpenGL_Texture&& other) noexcept :
 	id(other.id), type(other.type),
-	internalFormat(other.internalFormat), format(other.format),dataType(other.dataType),
+	internalFormat(other.internalFormat),
 	width(other.width), height(other.height), depth(other.depth), mipLevels(other.mipLevels),
 	minFilter(other.minFilter), magFilter(other.magFilter),
 	wrapS(other.wrapS), wrapT(other.wrapT), wrapR(other.wrapR)
@@ -54,8 +54,6 @@ OpenGL_Texture& OpenGL_Texture::operator=(OpenGL_Texture&& other) noexcept
 		id = other.id;
 		type = other.type;
 		internalFormat = other.internalFormat;
-		format = other.format;
-		dataType = other.dataType;
 		width = other.width;
 		height = other.height;
 		depth = other.depth;
@@ -73,7 +71,7 @@ OpenGL_Texture& OpenGL_Texture::operator=(OpenGL_Texture&& other) noexcept
 	return *this;
 }
 
-void OpenGL_Texture::create1D(int width, GLenum internalFormat, GLenum format, GLenum dataType, int mipLevels)
+void OpenGL_Texture::create1D(int width, GLenum internalFormat, int mipLevels)
 {
 	if (width <= 0)
 	{
@@ -88,8 +86,6 @@ void OpenGL_Texture::create1D(int width, GLenum internalFormat, GLenum format, G
 
 	this->type = GL_TEXTURE_1D;
 	this->internalFormat = internalFormat;
-	this->format = format;
-	this->dataType = dataType;
 	this->width = width;
 	this->height = 1;
 	this->depth = 1;
@@ -102,7 +98,7 @@ void OpenGL_Texture::create1D(int width, GLenum internalFormat, GLenum format, G
 	glTextureStorage1D(id, mipLevels, internalFormat, width);
 }
 
-void OpenGL_Texture::create2D(int width, int height, GLenum internalFormat, GLenum format, GLenum dataType, int mipLevels)
+void OpenGL_Texture::create2D(int width, int height, GLenum internalFormat, int mipLevels)
 {
 	if (width <= 0 || height <= 0)
 	{
@@ -117,8 +113,6 @@ void OpenGL_Texture::create2D(int width, int height, GLenum internalFormat, GLen
 
 	this->type = GL_TEXTURE_2D;
 	this->internalFormat = internalFormat;
-	this->format = format;
-	this->dataType = dataType;
 	this->width = width;
 	this->height = height;
 	this->depth = 1;
@@ -131,7 +125,7 @@ void OpenGL_Texture::create2D(int width, int height, GLenum internalFormat, GLen
 	glTextureStorage2D(id, mipLevels, internalFormat, width, height);
 }
 
-void OpenGL_Texture::create3D(int width, int height, int depth, GLenum internalFormat, GLenum format, GLenum dataType, int mipLevels)
+void OpenGL_Texture::create3D(int width, int height, int depth, GLenum internalFormat, int mipLevels)
 {
 	if (width <= 0 || height <= 0 || depth <= 0)
 	{
@@ -146,8 +140,6 @@ void OpenGL_Texture::create3D(int width, int height, int depth, GLenum internalF
 
 	this->type = GL_TEXTURE_3D;
 	this->internalFormat = internalFormat;
-	this->format = format;
-	this->dataType = dataType;
 	this->width = width;
 	this->height = height;
 	this->depth = depth;
@@ -160,7 +152,7 @@ void OpenGL_Texture::create3D(int width, int height, int depth, GLenum internalF
 	glTextureStorage3D(id, mipLevels, internalFormat, width, height, depth);
 }
 
-void OpenGL_Texture::create2DArray(int width, int height, int layers, GLenum internalFormat, GLenum format, GLenum dataType, int mipLevels)
+void OpenGL_Texture::create2DArray(int width, int height, int layers, GLenum internalFormat, int mipLevels)
 {
 	if (width <= 0 || height <= 0 || layers <= 0)
 	{
@@ -175,8 +167,6 @@ void OpenGL_Texture::create2DArray(int width, int height, int layers, GLenum int
 
 	this->type = GL_TEXTURE_2D_ARRAY;
 	this->internalFormat = internalFormat;
-	this->format = format;
-	this->dataType = dataType;
 	this->width = width;
 	this->height = height;
 	this->depth = layers;
@@ -279,8 +269,16 @@ void OpenGL_Texture::recreate3D(int width, int height, int depth)
 	glTextureParameteri(id, GL_TEXTURE_WRAP_R, wrapR);
 }
 
-void OpenGL_Texture::uploadData(const void* data, int level)
+void OpenGL_Texture::uploadData(const void* data, GLenum dataType, int level)
 {
+	if (level < 0 || level >= mipLevels)
+	{
+		std::cerr << "[OpenGL_Texture][uploadData]: Invalid mipmap level: " << level << ". Texture has " << mipLevels << " mipLevels.\n";
+		return;
+	}
+
+	auto format = getFormatFromInternalFormat();
+
 	switch (type)
 	{
 	case GL_TEXTURE_1D:
@@ -301,8 +299,16 @@ void OpenGL_Texture::uploadData(const void* data, int level)
 
 void OpenGL_Texture::uploadSubData(
 	const void* data, int xOffset, int yOffset, int zOffset,
-	int width, int height, int depth, int level)
+	int width, int height, int depth, GLenum dataType, int level)
 {
+	if (level < 0 || level >= mipLevels)
+	{
+		std::cerr << "[OpenGL_Texture][uploadData]: Invalid mipmap level: " << level << ". Texture has " << mipLevels << " mipLevels.\n";
+		return;
+	}
+
+	auto format = getFormatFromInternalFormat();
+
 	switch (type)
 	{
 	case GL_TEXTURE_1D:
@@ -391,4 +397,115 @@ void OpenGL_Texture::unbind(GLenum target)
 void OpenGL_Texture::bindUnit(GLuint unit) const
 {
 	glBindTextureUnit(unit, id);
+}
+
+GLenum OpenGL_Texture::getFormatFromInternalFormat() const
+{
+	switch (internalFormat)
+	{
+	// Red formats
+	case GL_R8:
+	case GL_R16:
+	case GL_R16F:
+	case GL_R32F:
+	case GL_R8I:
+	case GL_R8UI:
+	case GL_R16I:
+	case GL_R16UI:
+	case GL_R32I:
+	case GL_R32UI:
+	case GL_COMPRESSED_RED:
+	case GL_COMPRESSED_RED_RGTC1:
+		return GL_RED;
+
+	// RG formats
+	case GL_RG8:
+	case GL_RG16:
+	case GL_RG16F:
+	case GL_RG32F:
+	case GL_RG8I:
+	case GL_RG8UI:
+	case GL_RG16I:
+	case GL_RG16UI:
+	case GL_RG32I:
+	case GL_RG32UI:
+	case GL_COMPRESSED_RG:
+	case GL_COMPRESSED_RG_RGTC2:
+		return GL_RG;
+
+	// RGB formats
+	case GL_R3_G3_B2:
+	case GL_RGB4:
+	case GL_RGB5:
+	case GL_RGB8:
+	case GL_RGB10:
+	case GL_RGB12:
+	case GL_RGB16:
+	case GL_RGB16F:
+	case GL_RGB32F:
+	case GL_R11F_G11F_B10F:
+	case GL_RGB9_E5:
+	case GL_RGB8I:
+	case GL_RGB8UI:
+	case GL_RGB16I:
+	case GL_RGB16UI:
+	case GL_RGB32I:
+	case GL_RGB32UI:
+	case GL_COMPRESSED_RGB:
+	case GL_COMPRESSED_RGB_S3TC_DXT1_EXT:
+		return GL_RGB;
+
+	// BGR formats
+	case GL_BGR:
+		return GL_BGR;
+
+	// RGBA formats
+	case GL_RGBA2:
+	case GL_RGBA4:
+	case GL_RGB5_A1:
+	case GL_RGBA8:
+	case GL_RGB10_A2:
+	case GL_RGBA12:
+	case GL_RGBA16:
+	case GL_RGBA16F:
+	case GL_RGBA32F:
+	case GL_RGBA8I:
+	case GL_RGBA8UI:
+	case GL_RGB10_A2UI:
+	case GL_RGBA16I:
+	case GL_RGBA16UI:
+	case GL_RGBA32I:
+	case GL_RGBA32UI:
+	case GL_COMPRESSED_RGBA:
+	case GL_COMPRESSED_RGBA_S3TC_DXT1_EXT:
+	case GL_COMPRESSED_RGBA_S3TC_DXT3_EXT:
+	case GL_COMPRESSED_RGBA_S3TC_DXT5_EXT:
+		return GL_RGBA;
+
+	// BGRA format
+	case GL_BGRA:
+		return GL_BGRA;
+
+	// Depth formats
+	case GL_DEPTH_COMPONENT16:
+	case GL_DEPTH_COMPONENT24:
+	case GL_DEPTH_COMPONENT32:
+	case GL_DEPTH_COMPONENT32F:
+		return GL_DEPTH_COMPONENT;
+
+	// Depth-stencil formats
+	case GL_DEPTH24_STENCIL8:
+	case GL_DEPTH32F_STENCIL8:
+		return GL_DEPTH_STENCIL;
+
+	// Stencil format
+	case GL_STENCIL_INDEX8:
+		return GL_STENCIL_INDEX;
+
+	// Default to RGBA for unknown formats
+	default:
+		std::cerr << "[OpenGL_Texture][getFormatFromInternalFormat]: Unknown internal format: " << internalFormat
+			<< ", defaulting to GL_RGBA\n";
+		return GL_RGBA;
+	}
 }
