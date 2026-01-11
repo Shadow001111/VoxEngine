@@ -31,7 +31,7 @@ public:
 
 	void swap(OpenGL_Buffer& other) noexcept;
 
-	void allocateMemory(size_t newSize);
+	void allocateMemory(size_t newSize, const void* data = nullptr);
 
 	void write(const void* data, size_t dataSize, size_t offset = 0) const;
 	void copyRangeFrom(const OpenGL_Buffer& src, size_t srcOffset, size_t dstOffset, size_t size) const;

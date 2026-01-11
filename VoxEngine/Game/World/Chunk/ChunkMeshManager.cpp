@@ -15,9 +15,8 @@ ChunkMeshManager::ChunkMeshManager()
 		0.0f, 1.0f
 	};
 
-	vbo.create(GL_ARRAY_BUFFER, GL_STATIC_DRAW);
-	vbo.allocateMemory(sizeof(vertices));
-	vbo.write(vertices, sizeof(vertices));
+	vbo.create(GL_ARRAY_BUFFER);
+	vbo.allocateStorage(sizeof(vertices), 0, vertices);
 
 	{
 		ProcessorConfig config = {
@@ -47,7 +46,7 @@ ChunkMeshManager::ChunkMeshManager()
 	}
 
 	{
-		alignedMeshAllocator.vao.bindVertexBuffer(0, vbo, 0, 2 * sizeof(float));
+		alignedMeshAllocator.vao.bindVertexBuffer(0, vbo.getID(), 0, 2 * sizeof(float));
 
 		alignedMeshAllocator.vao.enableAttribute(0);
 		alignedMeshAllocator.vao.setFloatAttribute(0, 2, 0, 0);
@@ -56,7 +55,7 @@ ChunkMeshManager::ChunkMeshManager()
 	}
 
 	{
-		nonAlignedMeshAllocator.vao.bindVertexBuffer(0, vbo, 0, 2 * sizeof(float));
+		nonAlignedMeshAllocator.vao.bindVertexBuffer(0, vbo.getID(), 0, 2 * sizeof(float));
 
 		nonAlignedMeshAllocator.vao.enableAttribute(0);
 		nonAlignedMeshAllocator.vao.setFloatAttribute(0, 2, 0, 0);
@@ -67,7 +66,7 @@ ChunkMeshManager::ChunkMeshManager()
 
 void ChunkMeshManager::configureAlignedInstanceVBO()
 {
-	alignedMeshAllocator.vao.bindVertexBuffer(1, alignedMeshAllocator.instanceVBO, 0, sizeof(AlignedBlockFace));
+	alignedMeshAllocator.vao.bindVertexBuffer(1, alignedMeshAllocator.instanceVBO.getID(), 0, sizeof(AlignedBlockFace));
 
 	alignedMeshAllocator.vao.enableAttribute(1);
 	alignedMeshAllocator.vao.setIntAttribute(1, 2, 0, 1, GL_UNSIGNED_INT);
@@ -76,7 +75,7 @@ void ChunkMeshManager::configureAlignedInstanceVBO()
 
 void ChunkMeshManager::configureNonAlignedInstanceVBO()
 {
-	nonAlignedMeshAllocator.vao.bindVertexBuffer(1, nonAlignedMeshAllocator.instanceVBO, 0, sizeof(NonAlignedBlockFace));
+	nonAlignedMeshAllocator.vao.bindVertexBuffer(1, nonAlignedMeshAllocator.instanceVBO.getID(), 0, sizeof(NonAlignedBlockFace));
 
 	// Block position + Us
 	nonAlignedMeshAllocator.vao.enableAttribute(1);
@@ -120,7 +119,7 @@ ChunkMeshManager::MeshAllocator::MeshAllocator() :
 	blockAllocator(0)
 {
 	vao.create();
-	instanceVBO.create(GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW);
+	instanceVBO.create(GL_ARRAY_BUFFER);
 }
 
 ChunkMeshManager::MeshAllocator::~MeshAllocator()
@@ -180,14 +179,16 @@ void ChunkMeshManager::MeshAllocator::processMeshRequests(std::vector<ChunkMeshD
 	blockAllocator.setCapacity(newCapacity);
 	if (oldCapacity == 0)
 	{
-		instanceVBO.allocateMemory(newCapacity * config.faceSize);
+		instanceVBO.allocateStorage(newCapacity * config.faceSize, GL_DYNAMIC_STORAGE_BIT);
 	}
 	else
 	{
 		// Create new buffer
-		OpenGL_Buffer newBuffer;
-		newBuffer.create(GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW);
-		newBuffer.allocateMemory(newCapacity * config.faceSize);
+		OpenGL_ImmutableBuffer newBuffer;
+		newBuffer.create(GL_ARRAY_BUFFER);
+		newBuffer.allocateStorage(newCapacity * config.faceSize, GL_DYNAMIC_STORAGE_BIT);
+
+		std::cout << instanceVBO.getID() << " -> " << newBuffer.getID() << "\n";
 
 		// Copy data to a new buffer
 		const std::vector<BlockAllocator::Block>& currentBlocks = blockAllocator.getAllAllocations();

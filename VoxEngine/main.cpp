@@ -12,6 +12,7 @@
 #include "Graphics/TextureLoader.h"
 
 #include "OpenGLWrappers/OpenGL_VAO.h"
+#include "OpenGLWrappers/OpenGL_ImmutableBuffer.h"
 
 #include "SoundManager.h"
 
@@ -21,7 +22,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #ifdef NDEBUG
-constexpr int CHUNK_LOAD_DISTANCE = 3;
+constexpr int CHUNK_LOAD_DISTANCE = 8;
 #else
 constexpr int CHUNK_LOAD_DISTANCE = 3;
 #endif
@@ -117,7 +118,7 @@ struct ContainerUI
     Shader hotbarShader;
     OpenGL_Texture hotbarSlotImage;
     OpenGL_VAO hotbarVAO;
-    OpenGL_Buffer hotbarVBO;
+    OpenGL_ImmutableBuffer hotbarVBO;
 
     OpenGL_Texture itemUITextureArray;
 };
@@ -138,11 +139,11 @@ static void setupContainerUI(ContainerUI& c)
     {
         c.hotbarVAO.create();
 
-        c.hotbarVBO.create(GL_ARRAY_BUFFER, GL_STATIC_DRAW);
-        c.hotbarVBO.allocateMemory(sizeof(quadVertices));
+        c.hotbarVBO.create(GL_ARRAY_BUFFER);
+        c.hotbarVBO.allocateStorage(sizeof(quadVertices), 0);
         c.hotbarVBO.write(quadVertices, sizeof(quadVertices));
 
-        c.hotbarVAO.bindVertexBuffer(0, c.hotbarVBO, 0, 4 * sizeof(float));
+        c.hotbarVAO.bindVertexBuffer(0, c.hotbarVBO.getID(), 0, 4 * sizeof(float));
 
         c.hotbarVAO.enableAttribute(0);
         c.hotbarVAO.setFloatAttribute(0, 4, 0);

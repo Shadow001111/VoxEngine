@@ -1,5 +1,5 @@
 #pragma once
-#include "OpenGL_Buffer.h"
+#include <glad/glad.h>
 
 class OpenGL_VAO
 {
@@ -32,8 +32,8 @@ public:
     void disableAttribute(GLuint index);
     void setAttributeDivisor(GLuint index, GLuint divisor);
 
-    void bindVertexBuffer(GLuint bindingIndex, const OpenGL_Buffer& buffer, GLintptr offset, GLsizei stride);
-    void bindElementBuffer(const OpenGL_Buffer& buffer);
+    void bindVertexBuffer(GLuint bindingIndex, GLuint bufferId, GLintptr offset, GLsizei stride);
+    void bindElementBuffer(GLuint bufferId);
 
     GLuint getID() const { return id; };
 };

@@ -189,6 +189,7 @@ xcopy "$(ProjectDir)DataPacks" "$(TargetDir)DataPacks" /E /I /Y</Command>
     <ClCompile Include="OpenGLWrappers\OpenGL_FBO.cpp" />
     <ClCompile Include="OpenGLWrappers\OpenGL_Texture.cpp" />
     <ClCompile Include="Game\DataPackManagment\DataPackManager.cpp" />
+    <ClCompile Include="OpenGLWrappers\OpenGL_ImmutableBuffer.cpp" />
     <ClCompile Include="SoundManager.cpp" />
     <ClCompile Include="SeamlessPerlinNoise\Perlin.cpp" />
     <ClCompile Include="WindowManager.cpp" />
@@ -251,6 +252,7 @@ xcopy "$(ProjectDir)DataPacks" "$(TargetDir)DataPacks" /E /I /Y</Command>
     <ClInclude Include="Core\Hashes\ivec2Hasher.h" />
     <ClInclude Include="OpenGLWrappers\OpenGL_Texture.h" />
     <ClInclude Include="Game\DataPackManagment\DataPackManager.h" />
+    <ClInclude Include="OpenGLWrappers\OpenGL_ImmutableBuffer.h" />
     <ClInclude Include="SoundManager.h" />
     <ClInclude Include="SeamlessPerlinNoise\Perlin.h" />
     <ClInclude Include="WindowManager.h" />

@@ -84,12 +84,18 @@ void OpenGL_Buffer::swap(OpenGL_Buffer& other) noexcept
 	std::swap(capacity, other.capacity);
 }
 
-void OpenGL_Buffer::allocateMemory(size_t newSize)
+void OpenGL_Buffer::allocateMemory(size_t newSize, const void* data)
 {
+	if (id == 0)
+	{
+		std::cerr << "[OpenGL_Buffer][allocateMemory]: Buffer not created! Call create() first.\n";
+		return;
+	}
+
 	if (newSize > capacity)
 	{
 		capacity = newSize;
-		glNamedBufferData(id, capacity, nullptr, usage);
+		glNamedBufferData(id, capacity, data, usage);
 	}
 }
 

@@ -71,12 +71,12 @@ void OpenGL_VAO::setAttributeDivisor(GLuint index, GLuint divisor)
     glVertexArrayBindingDivisor(id, index, divisor);
 }
 
-void OpenGL_VAO::bindVertexBuffer(GLuint bindingIndex, const OpenGL_Buffer& buffer, GLintptr offset, GLsizei stride)
+void OpenGL_VAO::bindVertexBuffer(GLuint bindingIndex, GLuint bufferId, GLintptr offset, GLsizei stride)
 {
-    glVertexArrayVertexBuffer(id, bindingIndex, buffer.getID(), offset, stride);
+    glVertexArrayVertexBuffer(id, bindingIndex, bufferId, offset, stride);
 }
 
-void OpenGL_VAO::bindElementBuffer(const OpenGL_Buffer& buffer)
+void OpenGL_VAO::bindElementBuffer(GLuint bufferId)
 {
-    glVertexArrayElementBuffer(id, buffer.getID());
+    glVertexArrayElementBuffer(id, bufferId);
 }
