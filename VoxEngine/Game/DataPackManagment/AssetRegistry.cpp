@@ -221,7 +221,7 @@ void AssetRegistry::registerBlock(const BlockAsset& asset)
 	BlockData& data = blockDataStorage.emplace_back();
 
 	// Properties
-	data.stringId = asset.stringId; // TODO: May move
+	data.stringId = asset.stringId;
 	data.absorbsLight = asset.absorbsLight;
 	data.lightEmission = asset.lightEmission;
 	data.raycastable = asset.raycastable;

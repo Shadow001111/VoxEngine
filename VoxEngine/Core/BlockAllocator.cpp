@@ -1,7 +1,6 @@
 #include "BlockAllocator.h"
 
 #include <algorithm>
-#include <iostream>
 
 std::optional<size_t> BlockAllocator::findFreeBlock(size_t requestedSize) const
 {
@@ -20,8 +19,10 @@ std::optional<size_t> BlockAllocator::findFreeBlock(size_t requestedSize) const
     for (size_t i = 0; i < blocks.size() - 1; i++)
     {
         const auto& block1 = blocks[i];
+        const auto& block2 = blocks[i + 1];
+
         size_t gapStart = block1.offset + block1.size;
-        size_t gapEnd = blocks[i + 1].offset;
+        size_t gapEnd = block2.offset;
         size_t gapSize = gapEnd - gapStart;
 
         if (gapSize >= requestedSize)
@@ -73,7 +74,6 @@ std::optional<BlockAllocator::Block> BlockAllocator::allocate(size_t size)
 
 bool BlockAllocator::free(size_t id)
 {
-    // TODO: Maybe use binary search?
     auto it = std::find_if(blocks.begin(), blocks.end(),
         [id](const Block& block) {
             return block.id == id;

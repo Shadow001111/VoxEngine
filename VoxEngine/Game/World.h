@@ -92,6 +92,10 @@ private:
 	// Entities
 	robin_hood::unordered_flat_map<Entity::Id, std::unique_ptr<Entity>> entities;
 
+	// Render
+	std::vector<DrawArraysIndirectCommand> chunkDrawCommands;
+	std::vector<glm::ivec3> chunkPositions;
+
 	// Time
 	float appTime = 0.0;
 	size_t worldTime = 0;
@@ -115,20 +119,19 @@ public:
 	void loadChunks(const glm::dvec3& playerPos);
 	void update(float deltaTime);
 	void sendChunkMeshesToGPU();
-private:
-	void collectChunksToRenderAndSortThem(std::vector<ChunkRenderInfo>& chunksToRender, const Camera& camera) const;
 public:
 	void render(const Camera& camera, const OpenGL_FBO& FBO, const RaycastResult& raycast);
 private:
 	void renderAurora(const Camera& camera, const OpenGL_FBO& FBO) const;
 
 	void renderChunks(const Camera& camera, const OpenGL_FBO& FBO);
-	void renderOpaqueChunks(const std::vector<ChunkRenderInfo>& chunksToRender,
-		std::vector<DrawArraysIndirectCommand>& chunkDrawCommands,
-		std::vector<glm::ivec3>& chunkPositions);
-	void renderTranslucentChunks(const std::vector<ChunkRenderInfo>& chunksToRender,
-		std::vector<DrawArraysIndirectCommand>& chunkDrawCommands,
-		std::vector<glm::ivec3>& chunkPositions);
+
+	void collectChunksToRenderAndSortThem(std::vector<ChunkRenderInfo>& chunksToRender, const Camera& camera) const;
+
+	void renderOpaqueChunks(const std::vector<ChunkRenderInfo>& chunksToRender);
+
+	void renderTranslucentChunks(const std::vector<ChunkRenderInfo>& chunksToRender);
+
 	void compositePass(const OpenGL_FBO& FBO) const;
 public:
 	void renderVoxelMarker(const Camera& camera, const RaycastResult& raycast) const;

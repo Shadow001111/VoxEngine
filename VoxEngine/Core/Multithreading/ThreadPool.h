@@ -11,7 +11,7 @@
 class ThreadPool
 {
 	std::vector<std::thread> workers;
-	std::queue<std::function<void()>> tasks; // TODO: Maybe use something better
+	std::queue<std::function<void()>> tasks; // TODO: Maybe use something better, like vector as cicular queue
 	std::mutex queueMutex;
 	std::condition_variable condition;
 	std::atomic<bool> stop;

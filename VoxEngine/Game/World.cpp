@@ -377,51 +377,6 @@ void World::sendChunkMeshesToGPU()
 	Chunk::sendMeshesToGPU();
 }
 
-void World::collectChunksToRenderAndSortThem(std::vector<ChunkRenderInfo>& chunksToRender, const Camera& camera) const
-{
-	PROFILE_SCOPE("Render: collect and sort chunks", ProfileCategory::Render);
-
-	chunksToRender.reserve(chunks.size());
-
-	const Frustum& frustum = camera.getFrustum();
-	Box chunkShape(glm::dvec3(0.0), glm::dvec3(CHUNK_SIZE >> 1));
-
-	const glm::dvec3 cameraPosition = camera.getPosition();
-	const glm::ivec3 cameraChunkPosition = glm::ivec3(glm::floor(cameraPosition / (double)CHUNK_SIZE));
-
-	for (const auto& pair : chunks)
-	{
-		const Chunk* chunk = pair.second.get();
-
-		if (!chunk->canBeRendered())
-		{
-			continue;
-		}
-
-		// Check is chunk is on frustum
-		glm::ivec3 chunkPosition = chunk->getPosition();
-		glm::dvec3 chunkWorldPosition = chunkPosition << CHUNK_SIZE_LOG2;
-
-		chunkShape.center = chunkWorldPosition + chunkShape.halfExtents;
-		if (!frustum.checkBox(chunkShape))
-		{
-			continue;
-		}
-
-		glm::ivec3 delta = glm::abs(chunkPosition - cameraChunkPosition);
-
-		unsigned int manhattanDistance = delta.x + delta.y + delta.z;
-		chunksToRender.emplace_back(chunk, manhattanDistance);
-	}
-
-	// Maybe use radix sort? I doesn't take long now anyway.
-	std::sort(chunksToRender.begin(), chunksToRender.end(),
-		[](const ChunkRenderInfo& a, const ChunkRenderInfo& b)
-		{
-			return a.manhattanDistance < b.manhattanDistance;
-		});
-}
-
 void World::render(const Camera& camera, const OpenGL_FBO& FBO, const RaycastResult& raycast)
 {
 	// Clear buffers
@@ -455,7 +410,6 @@ void World::render(const Camera& camera, const OpenGL_FBO& FBO, const RaycastRes
 // TODO: Bind textures once
 void World::renderAurora(const Camera& camera, const OpenGL_FBO& FBO) const
 {
-	return;
 	// Get textures
 	auto getTextureResult = FBO.getTexture("aurora");
 	if (!getTextureResult.has_value())
@@ -569,20 +523,57 @@ void World::renderChunks(const Camera& camera, const OpenGL_FBO& FBO)
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
 
-	// TODO: Maybe make them global
-	std::vector<DrawArraysIndirectCommand> chunkDrawCommands;
-	std::vector<glm::ivec3> chunkPositions;
-
 	// Render chunks
-	renderOpaqueChunks(chunksToRender, chunkDrawCommands, chunkPositions);
-	renderTranslucentChunks(chunksToRender, chunkDrawCommands, chunkPositions);
+	renderOpaqueChunks(chunksToRender);
+	renderTranslucentChunks(chunksToRender);
 }
 
-void World::renderOpaqueChunks(
-	const std::vector<ChunkRenderInfo>& chunksToRender,
-	std::vector<DrawArraysIndirectCommand>& chunkDrawCommands,
-	std::vector<glm::ivec3>& chunkPositions
-	)
+void World::collectChunksToRenderAndSortThem(std::vector<ChunkRenderInfo>& chunksToRender, const Camera& camera) const
+{
+	PROFILE_SCOPE("Render: collect and sort chunks", ProfileCategory::Render);
+
+	chunksToRender.reserve(chunks.size());
+
+	const Frustum& frustum = camera.getFrustum();
+	Box chunkShape(glm::dvec3(0.0), glm::dvec3(CHUNK_SIZE >> 1));
+
+	const glm::dvec3 cameraPosition = camera.getPosition();
+	const glm::ivec3 cameraChunkPosition = glm::ivec3(glm::floor(cameraPosition / (double)CHUNK_SIZE));
+
+	for (const auto& pair : chunks)
+	{
+		const Chunk* chunk = pair.second.get();
+
+		if (!chunk->canBeRendered())
+		{
+			continue;
+		}
+
+		// Check is chunk is on frustum
+		glm::ivec3 chunkPosition = chunk->getPosition();
+		glm::dvec3 chunkWorldPosition = chunkPosition << CHUNK_SIZE_LOG2;
+
+		chunkShape.center = chunkWorldPosition + chunkShape.halfExtents;
+		if (!frustum.checkBox(chunkShape))
+		{
+			continue;
+		}
+
+		glm::ivec3 delta = glm::abs(chunkPosition - cameraChunkPosition);
+
+		unsigned int manhattanDistance = delta.x + delta.y + delta.z;
+		chunksToRender.emplace_back(chunk, manhattanDistance);
+	}
+
+	// Maybe use radix sort? I doesn't take long now anyway.
+	std::sort(chunksToRender.begin(), chunksToRender.end(),
+		[](const ChunkRenderInfo& a, const ChunkRenderInfo& b)
+		{
+			return a.manhattanDistance < b.manhattanDistance;
+		});
+}
+
+void World::renderOpaqueChunks(const std::vector<ChunkRenderInfo>& chunksToRender)
 {
 	glEnable(GL_CULL_FACE);
 	glDisable(GL_BLEND);
@@ -654,7 +645,7 @@ void World::renderOpaqueChunks(
 	}
 }
 
-void World::renderTranslucentChunks(const std::vector<ChunkRenderInfo>& chunksToRender, std::vector<DrawArraysIndirectCommand>& chunkDrawCommands, std::vector<glm::ivec3>& chunkPositions)
+void World::renderTranslucentChunks(const std::vector<ChunkRenderInfo>& chunksToRender)
 {
 	//glDepthFunc(GL_LEQUAL);
 	glDepthMask(GL_FALSE);
