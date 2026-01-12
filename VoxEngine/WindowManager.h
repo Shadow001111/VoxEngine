@@ -12,7 +12,7 @@ struct WindowParams
     bool vsync = false;
     bool openglDebug = false;
 };
-// TODO: Move opengl debug here
+
 class WindowManager
 {
     GLFWwindow* window = nullptr;
@@ -52,6 +52,17 @@ public:
 	bool isKeyPressed(int key) const;
     bool isMouseButtonPressed(int button) const;
 	void getMousePos(float& xpos, float& ypos) const;
+
+    // OpenGL debug
+    static void APIENTRY glDebugOutput(GLenum source, GLenum type, GLuint id,
+        GLenum severity, GLsizei length,
+        const GLchar* message, const void* userParam);
+    static void setOpenGLDebugMessageFilter(GLenum source = GL_DONT_CARE,
+        GLenum type = GL_DEBUG_TYPE_OTHER,
+        GLenum severity = GL_DONT_CARE,
+        GLsizei count = 0,
+        const GLuint* ids = nullptr,
+        GLboolean enabled = GL_FALSE);
 
     // Static forwarding callbacks
 	static void framebufferSizeCallback(GLFWwindow* window, int width, int height);
