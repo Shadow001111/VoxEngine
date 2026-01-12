@@ -13,7 +13,7 @@ layout(std140, binding = 0) uniform CameraRays
 layout(rgba8, binding = 0) writeonly uniform image2D outputImage;
 layout(binding = 1) uniform sampler2D geometryAlphaTex;
 layout(binding = 2) uniform sampler2D revealageTex;
-layout(binding = 3) uniform sampler3D noiseTex;
+uniform sampler3D noiseTex;
 
 uniform float time;
 uniform float auroraAlpha;

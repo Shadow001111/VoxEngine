@@ -121,8 +121,12 @@ private:
 	void initShaders();
 public:
 	void preparation();
+	void linkTexturesFromMainFramebuffer(const OpenGL_FBO& FBO);
+
 	void loadChunks(const glm::dvec3& playerPos);
+
 	void update(float deltaTime);
+
 	void sendChunkMeshesToGPU();
 public:
 	void render(const Camera& camera, const OpenGL_FBO& FBO, const RaycastResult& raycast);

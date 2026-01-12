@@ -127,7 +127,7 @@ void World::initTextures(const std::vector<std::string>& blockTextureNames)
 		blockTextureArray.makeResident();
 	}
 
-	// Sky noise texture
+	// Perlin noise texture
 	{
 		TextureLoader::TextureParams params;
 		params.minFilter = GL_LINEAR;
@@ -142,6 +142,9 @@ void World::initTextures(const std::vector<std::string>& blockTextureNames)
 
 		PROFILE_SCOPE("Noise texture creation", ProfileCategory::General);
 		TextureLoader::createTexture3DFromFloatData(tilingPerlinNoise3DTexture, data, textureSize, textureSize, textureSize, params);
+
+		tilingPerlinNoise3DTexture.initHandle();
+		tilingPerlinNoise3DTexture.makeResident();
 	}
 }
 
@@ -159,9 +162,9 @@ void World::initBuffers()
 
 void World::initShaders()
 {
-	// Bind only the textures which won't change their sizes (since texture can't be resized, its id have changed)
+	// Bind only the textures which will change their size (if texture will get resized, its handle will gone)
 	// TODO: Always pass textures with uniforms, not bind slots. Just check every frame, if id have changed, update uniform.
-	// Or just use mutable textures...
+	// Or update each uniform each frame. Or use binding...
 
 	std::vector<Shader::ShaderSource> sources;
 
@@ -218,6 +221,7 @@ void World::initShaders()
 			{GL_COMPUTE_SHADER, "res/Shaders/aurora.comp"}
 		};
 		auroraShader.create(sources);
+		auroraShader.setHandleui64ARB("noiseTex", tilingPerlinNoise3DTexture.getHandle());
 	}
 
 	// Set needed uniforms
