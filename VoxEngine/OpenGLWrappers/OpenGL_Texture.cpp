@@ -212,6 +212,12 @@ void OpenGL_Texture::recreate1D(int width)
 	glTextureParameteri(id, GL_TEXTURE_MIN_FILTER, minFilter);
 	glTextureParameteri(id, GL_TEXTURE_MAG_FILTER, magFilter);
 	glTextureParameteri(id, GL_TEXTURE_WRAP_S, wrapS);
+
+	if (id)
+	{
+		if (handle != 0) handle = glGetTextureHandleARB(id);
+		if (resident) glMakeTextureHandleResidentARB(handle);
+	}
 }
 
 void OpenGL_Texture::recreate2D(int width, int height)
@@ -242,6 +248,12 @@ void OpenGL_Texture::recreate2D(int width, int height)
 	glTextureParameteri(id, GL_TEXTURE_MAG_FILTER, magFilter);
 	glTextureParameteri(id, GL_TEXTURE_WRAP_S, wrapS);
 	glTextureParameteri(id, GL_TEXTURE_WRAP_T, wrapT);
+
+	if (id)
+	{
+		if (handle != 0) handle = glGetTextureHandleARB(id);
+		if (resident) glMakeTextureHandleResidentARB(handle);
+	}
 }
 
 void OpenGL_Texture::recreate3D(int width, int height, int depth)
@@ -274,6 +286,12 @@ void OpenGL_Texture::recreate3D(int width, int height, int depth)
 	glTextureParameteri(id, GL_TEXTURE_WRAP_S, wrapS);
 	glTextureParameteri(id, GL_TEXTURE_WRAP_T, wrapT);
 	glTextureParameteri(id, GL_TEXTURE_WRAP_R, wrapR);
+
+	if (id)
+	{
+		if (handle != 0) handle = glGetTextureHandleARB(id);
+		if (resident) glMakeTextureHandleResidentARB(handle);
+	}
 }
 
 void OpenGL_Texture::uploadData(const void* data, GLenum dataType, int level)
