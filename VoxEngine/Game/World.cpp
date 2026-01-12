@@ -18,20 +18,6 @@
 #include <stdexcept>
 #include <glm/glm.hpp>
 
-// BINDINGS
-constexpr unsigned BLOCK_TEXTURE_ARRAY_BINDING = 0;
-constexpr unsigned ITEM_UI_TEXTURE_ARRAY_BINDING = 0;
-constexpr unsigned HOTBAR_TEXTURE_BINDING = 0;
-
-namespace CompositePassBindings
-{	// Values are hardcoded in shaders
-	constexpr unsigned OUTPUT_IMAGE_BINDING = 0;
-	constexpr unsigned GEOMETRY_ALPHA_TEXTURE_BINDING = 1;
-	constexpr unsigned ACCUMULATION_TEX_BINDING = 2;
-	constexpr unsigned REVEALAGE_TEX_BINDING = 3;
-	constexpr unsigned AURORA_TEX_BINDING = 4;
-}
-
 struct ViewRays
 {
 	glm::vec4 bottomLeft;
@@ -66,74 +52,6 @@ World::World()
 	visualSettings.nightBackgroundColor = { 0.0f, 0.0f, 0.1f };
 	visualSettings.fogGradient = 5.0f;
 
-	// Shaders
-	{
-		std::vector<Shader::ShaderSource> sources =
-		{
-			{GL_VERTEX_SHADER, "res/Shaders/Chunk/alignedFace.vert"},
-			{GL_FRAGMENT_SHADER, "res/Shaders/Chunk/alignedOpaqueFace.frag"}
-		};
-		alignedOpaqueFaceShader.create(sources);
-	}
-	{
-		std::vector<Shader::ShaderSource> sources =
-		{
-			{GL_VERTEX_SHADER, "res/Shaders/Chunk/alignedFace.vert"},
-			{GL_FRAGMENT_SHADER, "res/Shaders/Chunk/alignedTranslucentFace.frag"}
-		};
-		alignedTranslucentFaceShader.create(sources);
-	}
-	{
-		std::vector<Shader::ShaderSource> sources =
-		{
-			{GL_VERTEX_SHADER, "res/Shaders/Chunk/nonAlignedFace.vert"},
-			{GL_FRAGMENT_SHADER, "res/Shaders/Chunk/nonAlignedOpaqueFace.frag"}
-		};
-		nonAlignedOpaqueFaceShader.create(sources);
-	}
-	{
-		std::vector<Shader::ShaderSource> sources =
-		{
-			{GL_VERTEX_SHADER, "res/Shaders/Chunk/nonAlignedFace.vert"},
-			{GL_FRAGMENT_SHADER, "res/Shaders/Chunk/nonAlignedTranslucentFace.frag"}
-		};
-		nonAlignedTranslucentFaceShader.create(sources);
-	}
-	{
-		std::vector<Shader::ShaderSource> sources =
-		{
-			{GL_COMPUTE_SHADER, "res/Shaders/composite.comp"}
-		};
-		compositeShader.create(sources);
-	}
-	{
-		std::vector<Shader::ShaderSource> sources =
-		{
-			{GL_VERTEX_SHADER, "res/Shaders/voxelMarker.vert"},
-			{GL_FRAGMENT_SHADER, "res/Shaders/voxelMarker.frag"}
-		};
-		voxelMarkerShader.create(sources);
-	}
-	{
-		std::vector<Shader::ShaderSource> sources =
-		{
-			{GL_COMPUTE_SHADER, "res/Shaders/aurora.comp"}
-		};
-		auroraShader.create(sources);
-	}
-
-	// Buffers
-	{
-		chunkDrawCommandBuffer.create(GL_DRAW_INDIRECT_BUFFER, GL_DYNAMIC_DRAW);
-
-		chunkPositionSSBO.create(GL_SHADER_STORAGE_BUFFER, GL_DYNAMIC_DRAW);
-		chunkPositionSSBO.bindBase(0);
-
-		skyViewRaysUBO.create(GL_UNIFORM_BUFFER, GL_DYNAMIC_DRAW);
-		skyViewRaysUBO.allocateMemory(sizeof(ViewRays));
-		skyViewRaysUBO.bindBase(0);
-	}
-
 	// Datapack loading and registering assets
 	std::vector<std::string> blockTextureNames;
 	{
@@ -143,32 +61,13 @@ World::World()
 	}
 
 	// Block textures
-	{
-		// Load
-		TextureLoader::TextureParams params;
-		params.createMipmaps = true;
-		params.minFilter = GL_NEAREST_MIPMAP_LINEAR;
+	initTextures(blockTextureNames);
 
-		PROFILE_SCOPE("Block texture array creation", ProfileCategory::General);
-		TextureLoader::createTextureArrayFromImages(blockTextureArray, "res/BlockTextures", blockTextureNames, params);
-	}
+	// Buffers
+	initBuffers();
 
-	// Sky noise texture
-	{
-		TextureLoader::TextureParams params;
-		params.minFilter = GL_LINEAR;
-		params.magFilter = GL_LINEAR;
-		params.wrapMode = GL_REPEAT;
-		params.desiredChannels = 1;
-
-		const size_t textureSize = 128;
-
-		std::vector<float> data;
-		SeamlessPerlinNoise::generatePerlinNoise3D(data, textureSize, textureSize, textureSize, 1.0f / 20.0f, 1.0f, 2.0f, true, 0);
-
-		PROFILE_SCOPE("Noise texture creation", ProfileCategory::General);
-		TextureLoader::createTexture3DFromFloatData(tilingPerlinNoise3DTexture, data, textureSize, textureSize, textureSize, params);
-	}
+	// Shaders
+	initShaders();
 
 	// Terrain generator
 	{
@@ -212,8 +111,133 @@ World::World()
 	}
 }
 
-World::~World()
-{}
+// TODO: Add more bindless textures
+void World::initTextures(const std::vector<std::string>& blockTextureNames)
+{
+	{
+		// Load
+		TextureLoader::TextureParams params;
+		params.createMipmaps = true;
+		params.minFilter = GL_NEAREST_MIPMAP_LINEAR;
+
+		PROFILE_SCOPE("Block texture array creation", ProfileCategory::General);
+		TextureLoader::createTextureArrayFromImages(blockTextureArray, "res/BlockTextures", blockTextureNames, params);
+
+		blockTextureArray.initHandle();
+		blockTextureArray.makeResident();
+	}
+
+	// Sky noise texture
+	{
+		TextureLoader::TextureParams params;
+		params.minFilter = GL_LINEAR;
+		params.magFilter = GL_LINEAR;
+		params.wrapMode = GL_REPEAT;
+		params.desiredChannels = 1;
+
+		const size_t textureSize = 128;
+
+		std::vector<float> data;
+		SeamlessPerlinNoise::generatePerlinNoise3D(data, textureSize, textureSize, textureSize, 1.0f / 20.0f, 1.0f, 2.0f, true, 0);
+
+		PROFILE_SCOPE("Noise texture creation", ProfileCategory::General);
+		TextureLoader::createTexture3DFromFloatData(tilingPerlinNoise3DTexture, data, textureSize, textureSize, textureSize, params);
+	}
+}
+
+void World::initBuffers()
+{
+	chunkDrawCommandBuffer.create(GL_DRAW_INDIRECT_BUFFER, GL_DYNAMIC_DRAW);
+
+	chunkPositionSSBO.create(GL_SHADER_STORAGE_BUFFER, GL_DYNAMIC_DRAW);
+	chunkPositionSSBO.bindBase(0);
+
+	skyViewRaysUBO.create(GL_UNIFORM_BUFFER);
+	skyViewRaysUBO.allocateStorage(sizeof(ViewRays), GL_DYNAMIC_STORAGE_BIT);
+	skyViewRaysUBO.bindBase(0);
+}
+
+void World::initShaders()
+{
+	// Bind only the textures which won't change their sizes (since texture can't be resized, its id have changed)
+	// TODO: Always pass textures with uniforms, not bind slots. Just check every frame, if id have changed, update uniform.
+	// Or just use mutable textures...
+
+	std::vector<Shader::ShaderSource> sources;
+
+	{
+		sources =
+		{
+			{GL_VERTEX_SHADER, "res/Shaders/Chunk/alignedFace.vert"},
+			{GL_FRAGMENT_SHADER, "res/Shaders/Chunk/alignedOpaqueFace.frag"}
+		};
+		alignedOpaqueFaceShader.create(sources);
+	}
+	{
+		sources =
+		{
+			{GL_VERTEX_SHADER, "res/Shaders/Chunk/alignedFace.vert"},
+			{GL_FRAGMENT_SHADER, "res/Shaders/Chunk/alignedTranslucentFace.frag"}
+		};
+		alignedTranslucentFaceShader.create(sources);
+	}
+	{
+		sources =
+		{
+			{GL_VERTEX_SHADER, "res/Shaders/Chunk/nonAlignedFace.vert"},
+			{GL_FRAGMENT_SHADER, "res/Shaders/Chunk/nonAlignedOpaqueFace.frag"}
+		};
+		nonAlignedOpaqueFaceShader.create(sources);
+	}
+	{
+		sources =
+		{
+			{GL_VERTEX_SHADER, "res/Shaders/Chunk/nonAlignedFace.vert"},
+			{GL_FRAGMENT_SHADER, "res/Shaders/Chunk/nonAlignedTranslucentFace.frag"}
+		};
+		nonAlignedTranslucentFaceShader.create(sources);
+	}
+	{
+		sources =
+		{
+			{GL_COMPUTE_SHADER, "res/Shaders/composite.comp"}
+		};
+		compositeShader.create(sources);
+	}
+	{
+		sources =
+		{
+			{GL_VERTEX_SHADER, "res/Shaders/voxelMarker.vert"},
+			{GL_FRAGMENT_SHADER, "res/Shaders/voxelMarker.frag"}
+		};
+		voxelMarkerShader.create(sources);
+	}
+	{
+		sources =
+		{
+			{GL_COMPUTE_SHADER, "res/Shaders/aurora.comp"}
+		};
+		auroraShader.create(sources);
+	}
+
+	// Set needed uniforms
+	{
+		const Shader* blockFaceShaders[] =
+		{
+			&alignedOpaqueFaceShader,
+			&alignedTranslucentFaceShader,
+			&nonAlignedOpaqueFaceShader,
+			&nonAlignedTranslucentFaceShader
+		};
+
+		auto blockTextureArrayHandle = blockTextureArray.getHandle();
+
+		for (const Shader* shader : blockFaceShaders)
+		{
+			shader->setHandleui64ARB("blockTextures", blockTextureArrayHandle);
+		}
+	}
+}
 
 void World::preparation()
 {
@@ -407,7 +431,6 @@ void World::render(const Camera& camera, const OpenGL_FBO& FBO, const RaycastRes
 	renderVoxelMarker(camera, raycast);
 }
 
-// TODO: Bind textures once
 void World::renderAurora(const Camera& camera, const OpenGL_FBO& FBO) const
 {
 	// Get textures
@@ -489,8 +512,6 @@ void World::renderChunks(const Camera& camera, const OpenGL_FBO& FBO)
 			const Shader* shader = shaders[i];
 			const bool isTranslucent = i & 1;
 
-			shader->use();
-
 			shader->setIvec3("cameraChunkPosition", cameraChunkPos.x, cameraChunkPos.y, cameraChunkPos.z);
 
 			shader->setMat4("view", viewMatrix);
@@ -514,10 +535,8 @@ void World::renderChunks(const Camera& camera, const OpenGL_FBO& FBO)
 	collectChunksToRenderAndSortThem(chunksToRender, camera);
 	debugData.renderedChunks = chunksToRender.size();
 
-	// Bind resources
-	blockTextureArray.bindUnit(BLOCK_TEXTURE_ARRAY_BINDING);
-
-	chunkDrawCommandBuffer.bind(); // Binding indirect buffer to allow indirect rendering
+	// Binding indirect buffer to allow indirect rendering
+	chunkDrawCommandBuffer.bind();
 
 	// Set shared opengl states
 	glEnable(GL_DEPTH_TEST);
@@ -725,7 +744,6 @@ void World::renderTranslucentChunks(const std::vector<ChunkRenderInfo>& chunksTo
 	glDepthMask(GL_TRUE);
 }
 
-// TODO: Bind textures once
 void World::compositePass(const OpenGL_FBO& FBO) const
 {
 	auto getTextureResult = FBO.getTexture("color");
@@ -773,11 +791,11 @@ void World::compositePass(const OpenGL_FBO& FBO) const
 	int height = colorTex.getHeight();
 
 	// Bind textures
-	glBindImageTexture(CompositePassBindings::OUTPUT_IMAGE_BINDING, colorTex.getID(), 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
-	geometryAlphaTex.bindUnit(CompositePassBindings::GEOMETRY_ALPHA_TEXTURE_BINDING);
-	accumulationTex.bindUnit(CompositePassBindings::ACCUMULATION_TEX_BINDING);
-	revealageTex.bindUnit(CompositePassBindings::REVEALAGE_TEX_BINDING);
-	auroraTex.bindUnit(CompositePassBindings::AURORA_TEX_BINDING);
+	glBindImageTexture(0, colorTex.getID(), 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
+	geometryAlphaTex.bindUnit(1);
+	accumulationTex.bindUnit(2);
+	revealageTex.bindUnit(3);
+	auroraTex.bindUnit(4);
 
 	// Set uniforms
 	compositeShader.use();
@@ -1338,7 +1356,7 @@ void World::updateBlockAt(const glm::ivec3& worldPos, BlockId block)
 	}
 
 	// Update the block
-	// TODO: Can possibly break something if chunk is in the middle of processing
+	// Note: Can possibly break something if chunk is in the middle of processing
 	chunk->setBlockAt(localPos.x, localPos.y, localPos.z, block);
 }
 

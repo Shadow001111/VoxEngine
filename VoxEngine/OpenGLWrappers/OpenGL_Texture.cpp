@@ -35,7 +35,8 @@ OpenGL_Texture::OpenGL_Texture(OpenGL_Texture&& other) noexcept :
 	internalFormat(other.internalFormat),
 	width(other.width), height(other.height), depth(other.depth), mipLevels(other.mipLevels),
 	minFilter(other.minFilter), magFilter(other.magFilter),
-	wrapS(other.wrapS), wrapT(other.wrapT), wrapR(other.wrapR)
+	wrapS(other.wrapS), wrapT(other.wrapT), wrapR(other.wrapR),
+	handle(other.handle), resident(other.resident)
 
 {
 	other.id = 0;
@@ -43,6 +44,8 @@ OpenGL_Texture::OpenGL_Texture(OpenGL_Texture&& other) noexcept :
 	other.height = 0;
 	other.depth = 0;
 	other.mipLevels = 1;
+	other.handle = 0;
+	other.resident = 0;
 }
 
 OpenGL_Texture& OpenGL_Texture::operator=(OpenGL_Texture&& other) noexcept
@@ -61,12 +64,16 @@ OpenGL_Texture& OpenGL_Texture::operator=(OpenGL_Texture&& other) noexcept
 		wrapS = other.wrapS;
 		wrapT = other.wrapT;
 		wrapR = other.wrapR;
+		handle = other.handle;
+		resident = other.resident;
 
 		other.id = 0;
 		other.width = 0;
 		other.height = 0;
 		other.depth = 0;
 		other.mipLevels = 1;
+		other.handle = 0;
+		other.resident = 0;
 	}
 	return *this;
 }
@@ -486,6 +493,32 @@ void OpenGL_Texture::unbind(GLenum target)
 void OpenGL_Texture::bindUnit(GLuint unit) const
 {
 	glBindTextureUnit(unit, id);
+}
+
+void OpenGL_Texture::initHandle()
+{
+	if (handle == 0 && id != 0)
+	{
+		handle = glGetTextureHandleARB(id);
+	}
+}
+
+void OpenGL_Texture::makeResident()
+{
+	if (handle != 0 && !resident)
+	{
+		glMakeTextureHandleResidentARB(handle);
+		resident = true;
+	}
+}
+
+void OpenGL_Texture::makeNonResident()
+{
+	if (handle != 0 && resident)
+	{
+		glMakeTextureHandleNonResidentARB(handle);
+		resident = false;
+	}
 }
 
 GLenum OpenGL_Texture::getFormatFromInternalFormat() const

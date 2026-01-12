@@ -1,7 +1,5 @@
 #include "VoxelMarkerMesh.h"
 
-#include "OpenGLWrappers/OpenGLDebug.h"
-
 VoxelMarkerMesh::VoxelMarkerMesh()
 {
     const float vertices[] = {

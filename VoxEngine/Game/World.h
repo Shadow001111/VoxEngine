@@ -10,6 +10,7 @@
 
 #include "OpenGLWrappers/Shader.h"
 #include "OpenGLWrappers/OpenGL_Buffer.h"
+#include "OpenGLWrappers/OpenGL_ImmutableBuffer.h"
 #include "OpenGLWrappers/OpenGL_FBO.h"
 
 #include "Core/Hashes/ivec3Hasher.h"
@@ -76,7 +77,7 @@ private:
 	OpenGL_Buffer chunkPositionSSBO;
 
 	Shader auroraShader;
-	OpenGL_Buffer skyViewRaysUBO;
+	OpenGL_ImmutableBuffer skyViewRaysUBO;
 
 	OpenGL_Texture tilingPerlinNoise3DTexture;
 
@@ -108,12 +109,16 @@ private:
 	float auroraAlpha = 0.0f;
 public:
 	World();
-	~World();
+	~World() = default;
 
 	World(const World&) = delete;
 	World& operator=(const World&) = delete;
 	World(World&&) = delete;
 	World& operator=(World&&) = delete;
+private:
+	void initTextures(const std::vector<std::string>& blockTextureNames);
+	void initBuffers();
+	void initShaders();
 public:
 	void preparation();
 	void loadChunks(const glm::dvec3& playerPos);

@@ -2187,9 +2187,6 @@ void Chunk::setBlockAt(int x, int y, int z, BlockId block, bool saveBlockChanges
 		changedBlocks[block].push_back(static_cast<uint16_t>(index));
 	}
 
-	// Mark meshes as dirty
-	markBlockMeshDirty(x, y, z);
-
 	// Light update
 	const BlockData* previousBlockData = AssetRegistry::getBlockDataSafe(previousBlock);
 	uint8_t previousEmission = previousBlockData->lightEmission;
@@ -2275,6 +2272,9 @@ void Chunk::setBlockAt(int x, int y, int z, BlockId block, bool saveBlockChanges
 			addBlockLightNodeToQueue(x, y, z);
 		}
 	}
+
+	// Mark meshes as dirty
+	markBlockMeshDirty(x, y, z);
 }
 
 void Chunk::setLightAt(int x, int y, int z, LightLevel lightValue)

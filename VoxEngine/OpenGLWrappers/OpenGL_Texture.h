@@ -35,10 +35,14 @@ class OpenGL_Texture
 	GLenum wrapT = GL_CLAMP_TO_EDGE;
 	GLenum wrapR = GL_CLAMP_TO_EDGE;
 
+	// TODO: Maybe make these smaller
 	int width = 0;
 	int height = 0;
 	int depth = 0;
 	int mipLevels = 1;
+
+	GLuint64 handle = 0;
+	bool resident = false;
 public:
 	OpenGL_Texture() = default;
 	~OpenGL_Texture();
@@ -91,6 +95,11 @@ public:
 
 	void bindUnit(GLuint unit) const;
 
+	// Handle managment
+	void initHandle();
+	void makeResident();
+	void makeNonResident();
+
 	// Getters
 	GLuint getID() const { return id; }
 	GLenum getType() const { return type; }
@@ -100,4 +109,6 @@ public:
 	int getDepth() const { return depth; }
 	int getMipLevels() const { return mipLevels; }
 	GLenum getFormatFromInternalFormat() const;
+	bool isResident() const { return resident; }
+	GLuint64 getHandle() const { return handle; }
 };

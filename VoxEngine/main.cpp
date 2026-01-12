@@ -22,7 +22,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #ifdef NDEBUG
-constexpr int CHUNK_LOAD_DISTANCE = 8;
+constexpr int CHUNK_LOAD_DISTANCE = 3;
 #else
 constexpr int CHUNK_LOAD_DISTANCE = 3;
 #endif
@@ -132,7 +132,6 @@ static void setupContainerUI(ContainerUI& c)
             {GL_FRAGMENT_SHADER, "res/Shaders/hotbar.frag"}
         };
         c.hotbarShader.create(sources);
-        c.hotbarShader.use();
         c.hotbarShader.setInt("uTexture", 0);
     }
 

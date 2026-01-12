@@ -1,6 +1,7 @@
 #version 460 core
+#extension GL_ARB_bindless_texture : require
 
-layout(binding = 0) uniform sampler2DArray blockTextures;
+uniform sampler2DArray blockTextures;
 
 uniform float farPlane;
 uniform vec3 fogColor;

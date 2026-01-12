@@ -49,6 +49,8 @@ public:
 
     void setMat4(const std::string& name, const glm::mat4& mat) const;
 
+    void setHandleui64ARB(const std::string& name, GLuint64 handle) const;
+
     GLuint getID() const { return id; }
 private:
     GLint getUniformLocation(const std::string& name) const;
