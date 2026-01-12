@@ -2,6 +2,9 @@
 #include <glm/glm.hpp>
 
 #include "OpenGLWrappers/Shader.h"
+#include "OpenGLWrappers/OpenGL_ImmutableBuffer.h"
+#include "OpenGLWrappers/OpenGL_VAO.h"
+#include "OpenGLWrappers/OpenGL_Texture.h"
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
@@ -15,13 +18,7 @@ struct Glyph
 
     Glyph() = default;
     Glyph(uint32_t textureID, const glm::ivec2& size, const glm::ivec2& bearing, GLuint advance);
-    ~Glyph();
-
-    Glyph(const Glyph& other) = delete;
-    Glyph& operator=(const Glyph& other) = delete;
-
-    Glyph(Glyph&& other) noexcept;
-    Glyph& operator=(Glyph&& other) noexcept;
+    ~Glyph() = default;
 };
 
 struct Font
@@ -29,10 +26,11 @@ struct Font
     robin_hood::unordered_flat_map<uint32_t, Glyph> glyphs;
     float fontSize = 0.0f;
     glm::ivec2 maxGlyphSize = { 0, 0 };
-    GLuint textureArrayID = 0;
+
+    OpenGL_Texture textureArray;
 
     Font() = default;
-    ~Font();
+    ~Font() = default;
 
     Font(const Font& other) = delete;
     Font& operator=(const Font& other) = delete;
@@ -50,13 +48,14 @@ struct GlyphInstance
 
 constexpr size_t GLYPH_INSTANCE_BATCH_SIZE = 1024;
 
-// TODO: Replace with opengl wrappers
 class TextRenderer
 {
     robin_hood::unordered_flat_map<std::string, Font> fonts;
     Font* currentFont = nullptr;
 
-    GLuint textVAO = 0, textVBO = 0, textInstanceVBO = 0;
+    OpenGL_VAO textVAO;
+    OpenGL_ImmutableBuffer textVBO;
+    OpenGL_ImmutableBuffer textInstanceVBO;
 
     Shader textShader;
     glm::mat4 projectionMatrix;
@@ -65,9 +64,11 @@ class TextRenderer
     size_t glyphInstanceCount = 0;
 
     TextRenderer();
-    ~TextRenderer();
+    ~TextRenderer() = default;
+
     TextRenderer(const TextRenderer& other) = delete;
     TextRenderer& operator=(const TextRenderer& other) = delete;
+
     TextRenderer(TextRenderer&& other) = delete;
     TextRenderer& operator=(TextRenderer&& other) = delete;
 
@@ -86,6 +87,8 @@ public:
     static bool loadFont(const std::string& fontName, GLuint fontSize);
 
     static void setCurrentFont(const std::string& fontName);
+
+    static void startTextRendering();
 
     static void renderText(const std::string& text, float x, float y, float rowHeight, const glm::vec3& color);
 

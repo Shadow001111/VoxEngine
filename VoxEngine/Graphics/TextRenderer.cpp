@@ -3,7 +3,6 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "Core/Profiler.h"
-#include "Core/Assert.h"
 
 #include <iostream>
 
@@ -12,44 +11,13 @@ Glyph::Glyph(uint32_t textureID, const glm::ivec2& size, const glm::ivec2& beari
 {
 }
 
-Glyph::~Glyph()
-{
-}
-
-Glyph::Glyph(Glyph&& other) noexcept :
-    textureID(other.textureID), size(other.size), bearing(other.bearing), advance(other.advance)
-{
-    other.textureID = 0;
-}
-
-Glyph& Glyph::operator=(Glyph&& other) noexcept
-{
-    if (this != &other)
-    {
-        textureID = other.textureID;
-        size = other.size;
-        bearing = other.bearing;
-        advance = other.advance;
-
-        other.textureID = 0;
-    }
-    return *this;
-}
-
-Font::~Font()
-{
-    if (textureArrayID)
-    {
-        glDeleteTextures(1, &textureArrayID);
-        textureArrayID = 0;
-    }
-}
 
 Font::Font(Font&& other) noexcept :
-    glyphs(std::move(other.glyphs)), fontSize(other.fontSize), maxGlyphSize(other.maxGlyphSize), textureArrayID(other.textureArrayID)
-{
-    other.textureArrayID = 0;
-}
+    glyphs(std::move(other.glyphs)),
+    fontSize(other.fontSize), 
+    maxGlyphSize(other.maxGlyphSize),
+    textureArray(std::move(other.textureArray))
+{}
 
 Font& Font::operator=(Font&& other) noexcept
 {
@@ -58,9 +26,7 @@ Font& Font::operator=(Font&& other) noexcept
         glyphs = std::move(other.glyphs);
         fontSize = other.fontSize;
         maxGlyphSize = other.maxGlyphSize;
-        textureArrayID = other.textureArrayID;
-
-        other.textureArrayID = 0;
+        textureArray = std::move(other.textureArray);
     }
     return *this;
 }
@@ -125,8 +91,7 @@ TextRenderer::TextRenderer()
 		{GL_FRAGMENT_SHADER, "res/Shaders/text.frag"}
 	};
 	textShader.create(textShaderSources);
-    textShader.use();
-    textShader.setInt("glyphTextureArray", 0);
+    //textShader.setInt("glyphTextureArray", 0);
     //textShader.setMat4("projection", projectionMatrix);
 
     // Buffers
@@ -138,46 +103,37 @@ TextRenderer::TextRenderer()
         { 0.0f, 1.0f }
     };
 
-    // Generate buffers
-    glGenVertexArrays(1, &textVAO);
-    glGenBuffers(1, &textVBO);
-    glGenBuffers(1, &textInstanceVBO);
+    // Create VAO
+    textVAO.create();
 
-    // Bind VAO
-    glBindVertexArray(textVAO);
+    // Create VBO
+    textVBO.create(GL_ARRAY_BUFFER);
+    textVBO.allocateStorage(sizeof(vertices), 0, vertices);
 
-    // VBO
-    glBindBuffer(GL_ARRAY_BUFFER, textVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    // Bind VBO to VAO
+    textVAO.bindVertexBuffer(0, textVBO.getID(), 0, sizeof(vertices[0]));
 
-    // Vertex data
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), 0);
+    textVAO.enableAttribute(0);
+    textVAO.setFloatAttribute(0, 2, 0, 0);
 
-    // Instance VBO
-    glBindBuffer(GL_ARRAY_BUFFER, textInstanceVBO);
-    glBufferData(GL_ARRAY_BUFFER, GLYPH_INSTANCE_BATCH_SIZE * sizeof(GlyphInstance), nullptr, GL_DYNAMIC_DRAW);
+    // Create instance VBO
+    textInstanceVBO.create(GL_ARRAY_BUFFER);
+    textInstanceVBO.allocateStorage(sizeof(GlyphInstance) * GLYPH_INSTANCE_BATCH_SIZE, GL_DYNAMIC_STORAGE_BIT);
 
-    // Instance data
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(GlyphInstance), 0);
-    glVertexAttribDivisor(1, 1);
+    // Bind instance VBO to VAO
+    textVAO.bindVertexBuffer(1, textInstanceVBO.getID(), 0, sizeof(GlyphInstance));
 
-    glEnableVertexAttribArray(2);
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(GlyphInstance), (void*)(4 * sizeof(float)));
-    glVertexAttribDivisor(2, 1);
+    textVAO.enableAttribute(1);
+    textVAO.setFloatAttribute(1, 4, 0, 1);
+    textVAO.setAttributeDivisor(1, 1);
 
-    glEnableVertexAttribArray(3);
-    glVertexAttribIPointer(3, 1, GL_INT, sizeof(GlyphInstance), (void*)(6 * sizeof(float)));
-    glVertexAttribDivisor(3, 1);
-}
+    textVAO.enableAttribute(2);
+    textVAO.setFloatAttribute(2, 2, 4 * sizeof(float), 1);
+    textVAO.setAttributeDivisor(2, 1);
 
-TextRenderer::~TextRenderer()
-{
-    fonts.clear();
-
-    glDeleteBuffers(1, &textVBO);
-    glDeleteVertexArrays(1, &textVAO);
+    textVAO.enableAttribute(3);
+    textVAO.setIntAttribute(3, 1, 6 * sizeof(float), 1);
+    textVAO.setAttributeDivisor(3, 1);
 }
 
 void TextRenderer::flushGlyphs()
@@ -187,16 +143,18 @@ void TextRenderer::flushGlyphs()
         return;
     }
 
-    glBindBuffer(GL_ARRAY_BUFFER, textInstanceVBO);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, glyphInstanceCount * sizeof(GlyphInstance), glyphInstances);
+    // Move glyph data to GPU
+    textInstanceVBO.write(glyphInstances, glyphInstanceCount * sizeof(GlyphInstance));
+
+    // Draw glyphs
     glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, 4, glyphInstanceCount);
 
+    // Reset glyphs count
     glyphInstanceCount = 0;
 }
 
 void TextRenderer::pushGlyph(const GlyphInstance& glyph)
 {
-    ASSERT(glyphInstanceCount < GLYPH_INSTANCE_BATCH_SIZE);
     glyphInstances[glyphInstanceCount++] = glyph;
     if (glyphInstanceCount >= GLYPH_INSTANCE_BATCH_SIZE)
     {
@@ -240,7 +198,6 @@ void TextRenderer::loadGlyphs(FT_Face& face, Font& font)
 
     uint32_t textureID = 1;
 
-    // TODO: Don't load charcodes <= 32 whatsoever. Add them to banned characters.
     while (gindex != 0)
     {
         if (FT_Load_Char(face, charcode, FT_LOAD_RENDER))
@@ -254,26 +211,24 @@ void TextRenderer::loadGlyphs(FT_Face& face, Font& font)
         {
             texture = textureID++;
 
-            glTexSubImage3D
-            (
-                GL_TEXTURE_2D_ARRAY,
-                0,
-                0, 0, texture - 1,
-                face->glyph->bitmap.width, face->glyph->bitmap.rows, 1,
-                GL_RED,
-                GL_UNSIGNED_BYTE,
-                face->glyph->bitmap.buffer
+            font.textureArray.uploadSubData2DArray(
+                face->glyph->bitmap.buffer,
+                0, 0,
+                texture - 1,
+                face->glyph->bitmap.width, face->glyph->bitmap.rows,
+                GL_UNSIGNED_BYTE
             );
         }
 
-        Glyph glyph = {
+        Glyph glyph =
+        {
             texture,
             glm::ivec2(face->glyph->bitmap.width, face->glyph->bitmap.rows),
             glm::ivec2(face->glyph->bitmap_left, face->glyph->bitmap_top),
             (GLuint)face->glyph->advance.x
         };
 
-        font.glyphs.emplace(charcode, std::move(glyph));
+        font.glyphs.emplace(charcode, glyph);
 
         charcode = FT_Get_Next_Char(face, charcode, &gindex);
     }
@@ -295,7 +250,7 @@ bool TextRenderer::loadFont(const std::string& fontName, GLuint fontSize)
 	// Test if font exists
 	if (fonts.find(fontName) != fonts.end())
 	{
-		std::cerr << "[TextRenderer]: Font '" << fontName << "' already exists.\n";
+		std::cerr << "[TextRenderer][loadFont]: Font '" << fontName << "' already exists\n";
 		return false;
 	}
 
@@ -303,7 +258,7 @@ bool TextRenderer::loadFont(const std::string& fontName, GLuint fontSize)
     FT_Library ft;
     if (FT_Init_FreeType(&ft))
     {
-        std::cerr << "[TextRenderer]: Couldn't init FreeType Library.\n";
+        std::cerr << "[TextRenderer][loadFont]: Couldn't init FreeType Library\n";
         return false;
     }
 
@@ -312,7 +267,7 @@ bool TextRenderer::loadFont(const std::string& fontName, GLuint fontSize)
     FT_Face face;
     if (FT_New_Face(ft, fontPath.c_str(), 0, &face))
     {
-        std::cerr << "[TextRenderer]: Failed to load font: " << fontPath << ".\n";
+        std::cerr << "[TextRenderer][loadFont]: Failed to load font: " << fontPath << "\n";
         FT_Done_FreeType(ft);
         return false;
     }
@@ -328,32 +283,27 @@ bool TextRenderer::loadFont(const std::string& fontName, GLuint fontSize)
     getFontInfo(face, font.maxGlyphSize, glyphCount);
 
     // Create texture array
+    GLint oldAlignment;
+    glGetIntegerv(GL_UNPACK_ALIGNMENT, &oldAlignment);
+
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    glGenTextures(1, &font.textureArrayID);
-    glBindTexture(GL_TEXTURE_2D_ARRAY, font.textureArrayID);
-    glTexImage3D(GL_TEXTURE_2D_ARRAY,
-        0,
-        GL_R8,
-        font.maxGlyphSize.x, font.maxGlyphSize.y, glyphCount,
-        0,
-        GL_RED,
-        GL_UNSIGNED_BYTE,
-        nullptr
-    );
-    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    font.textureArray.create2DArray(font.maxGlyphSize.x, font.maxGlyphSize.y, glyphCount, GL_R8);
+
+    font.textureArray.setParameters(GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
 
     // Load glyphs
     loadGlyphs(face, font);
-    ASSERT(glyphCount == font.glyphs.size());
 
     // Done
-    std::cout << "[TextRenderer]: Loaded font: '" << fontName << "' (" << fontPath << "). Character count: " << font.glyphs.size() << ". Max glyph size: (" << font.maxGlyphSize.x << ", " << font.maxGlyphSize.y << ").\n";
+    std::cout
+        << "[TextRenderer][loadFont]: Loaded font: '" << fontName << "' (" << fontPath << "). Character count: " << font.glyphs.size()
+        << ". Max glyph size: (" << font.maxGlyphSize.x << ", " << font.maxGlyphSize.y << ").\n";
 
     FT_Done_Face(face);
     FT_Done_FreeType(ft);
+
+    glPixelStorei(GL_UNPACK_ALIGNMENT, oldAlignment);
 
     fonts.emplace(fontName, std::move(font));
 
@@ -375,9 +325,33 @@ void TextRenderer::setCurrentFont(const std::string& fontName)
     inst.currentFont = &it->second;
 }
 
+void TextRenderer::startTextRendering()
+{
+    TextRenderer& inst = getInstance();
+
+    const Font* font = inst.currentFont;
+    if (!font)
+    {
+        std::cerr << "[TextRenderer][renderText]: Current font is not set\n";
+        return;
+    }
+
+    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glDisable(GL_CULL_FACE);
+    glDepthMask(GL_FALSE);
+
+    inst.textVAO.bind();
+    font->textureArray.bindUnit(0);
+
+    const auto& textShader = inst.textShader;
+    textShader.use();
+}
+
 void TextRenderer::renderText(const std::string& text, float x, float y, float rowHeight, const glm::vec3& color)
 {
-    PROFILE_SCOPE("Render: text", ProfileCategory::Render);
+    PROFILE_SCOPE("Render text", ProfileCategory::Render);
 
     TextRenderer& inst = getInstance();
     
@@ -385,7 +359,7 @@ void TextRenderer::renderText(const std::string& text, float x, float y, float r
     const Font* font = inst.currentFont;
     if (!font)
     {
-        std::cerr << "[TextRenderer]: Current font isn't set.\n";
+        std::cerr << "[TextRenderer][renderText]: Current font is not set\n";
         return;
     }
 
@@ -395,18 +369,7 @@ void TextRenderer::renderText(const std::string& text, float x, float y, float r
 
     // Shader
     const auto& textShader = inst.textShader;
-    textShader.use();
     textShader.setVec3("textColor", color.x, color.y, color.z);
-
-    glDisable(GL_DEPTH_TEST);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glDisable(GL_CULL_FACE);
-    glDepthMask(GL_FALSE);
-
-    glBindVertexArray(inst.textVAO);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D_ARRAY, font->textureArrayID);
 
     //
     const float startX = x;
@@ -463,7 +426,6 @@ void TextRenderer::updateProjectionMatrix(int width, int height)
     auto& proj = inst.projectionMatrix;
     const auto& textShader = inst.textShader;
 
-    proj = glm::ortho(0.0f, (float)width, 0.0f, (float)height);;
-    textShader.use();
+    proj = glm::ortho(0.0f, (float)width, 0.0f, (float)height);
     textShader.setMat4("projection", proj);
 }

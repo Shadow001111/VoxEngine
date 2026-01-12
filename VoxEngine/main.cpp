@@ -123,6 +123,19 @@ struct ContainerUI
     OpenGL_Texture itemUITextureArray;
 };
 
+struct DebugUIMetrics
+{
+    double fps = 0.0;
+    double frameTimeMs = 0.0;  // Accumulated milliseconds per frame
+    size_t loadedChunksCount = 0;
+    size_t renderedChunks = 0;
+    size_t totalFaces = 0;
+    size_t totalFaceCapacityInBytes = 0;
+    size_t renderedFaceCount = 0;
+    size_t chunkDrawCommandBufferSizeInBytes = 0;
+    size_t chunkPositionBufferSizeInBytes = 0;
+};
+
 static void setupContainerUI(ContainerUI& c)
 {
     {
@@ -139,8 +152,7 @@ static void setupContainerUI(ContainerUI& c)
         c.hotbarVAO.create();
 
         c.hotbarVBO.create(GL_ARRAY_BUFFER);
-        c.hotbarVBO.allocateStorage(sizeof(quadVertices), 0);
-        c.hotbarVBO.write(quadVertices, sizeof(quadVertices));
+        c.hotbarVBO.allocateStorage(sizeof(quadVertices), 0, quadVertices);
 
         c.hotbarVAO.bindVertexBuffer(0, c.hotbarVBO.getID(), 0, 4 * sizeof(float));
 
@@ -287,34 +299,34 @@ static void renderUI(const ContainerUI& c, const Player& player)
     renderHotbar(c, player);
 }
 
-static void renderDebugData(const World::DebugData& debug, const WindowManager& wnd, const Player& player, float FPS)
+static void renderDebugData(const WindowManager& wnd, const Player& player, const DebugUIMetrics& metrics)
 {
     float rowHeight = 24.0f;
     std::ostringstream ss;
     ss << std::fixed << std::setprecision(1);
 
-    ss << "FPS: " << FPS;
+    ss << "FPS: " << metrics.fps;
+    ss << " (" << metrics.frameTimeMs << " ms)";
 
-    if (wnd.getVSYNC())
-    {
+    if (wnd.getVSYNC()) {
         ss << " VSYNC";
     }
 
     // Chunks
-    ss << "\nChunks: Loaded: " << formatSize(debug.loadedChunksCount)
-        << ", Rendered: " << formatSize(debug.renderedChunks);
+    ss << "\nChunks: Loaded: " << formatSize(metrics.loadedChunksCount)
+        << ", Rendered: " << formatSize(metrics.renderedChunks);
 
     // Faces
-    ss << "\nFaces: " << formatSize(debug.totalFaces)
-        << "/" << formatSize(debug.totalFaceCapacityInBytes)
-        << ", Rendered: " << formatSize(debug.renderedFaceCount);
+    ss << "\nFaces: " << formatSize(metrics.totalFaces)
+        << "/" << formatSize(metrics.totalFaceCapacityInBytes)
+        << ", Rendered: " << formatSize(metrics.renderedFaceCount);
 
     // Meshes
-    ss << "\nChunk meshes: Capacity: " << formatSizeBinary(debug.totalFaceCapacityInBytes);
+    ss << "\nChunk meshes: Capacity: " << formatSizeBinary(metrics.totalFaceCapacityInBytes);
 
     // Buffer sizes
-    ss << "\nChunk draw command buffer: " << formatSizeBinary(debug.chunkDrawCommandBufferSizeInBytes);
-    ss << "\nChunk position buffer: " << formatSizeBinary(debug.chunkPositionBufferSizeInBytes);
+    ss << "\nChunk draw command buffer: " << formatSizeBinary(metrics.chunkDrawCommandBufferSizeInBytes);
+    ss << "\nChunk position buffer: " << formatSizeBinary(metrics.chunkPositionBufferSizeInBytes);
 
     // TODO: Add textures and font size in bytes
 
@@ -333,16 +345,13 @@ static void renderDebugData(const World::DebugData& debug, const WindowManager& 
         float absX = std::abs(cameraViewDirection.x);
         float absY = std::abs(cameraViewDirection.y);
         float absZ = std::abs(cameraViewDirection.z);
-        if (absX > absY && absX > absZ)
-        {
+        if (absX > absY && absX > absZ) {
             facingDir = (cameraViewDirection.x > 0.0f) ? "+X" : "-X";
         }
-        else if (absY > absX && absY > absZ)
-        {
+        else if (absY > absX && absY > absZ) {
             facingDir = (cameraViewDirection.y > 0.0f) ? "+Y" : "-Y";
         }
-        else
-        {
+        else {
             facingDir = (cameraViewDirection.z > 0.0f) ? "+Z" : "-Z";
         }
     }
@@ -435,7 +444,7 @@ void check()
 
 int main()
 {
-    constexpr float CAMERA_FAR_PLANE = (CHUNK_LOAD_DISTANCE + 0.5f) * (CHUNK_SIZE * 1.41f);
+    constexpr float CAMERA_FAR_PLANE = (CHUNK_LOAD_DISTANCE + 0.5f) * CHUNK_SIZE;
 
     //
     std::ios_base::sync_with_stdio(false);
@@ -519,13 +528,31 @@ int main()
     UpdateTimer frequentUIDataUpdateTimer(1.0);
 
     // Frequent UI data
-    double UI_FPS = 0.0f;
+    DebugUIMetrics uiMetrics;
     double accumulatedTime = 0.0f;
     int accumulatedFrames = 0;
 
     // Container UI
     ContainerUI containerUI;
     setupContainerUI(containerUI);
+
+    // Line
+    std::string randomLine;
+    {
+        const int lineCount = 45;
+        const int lineLength = 53 * 2;
+
+        randomLine.reserve(lineLength * (lineLength + 1));
+
+        for (int i = 0; i < lineCount; i++)
+        {
+            for (int j = 0; j < lineLength; j++)
+            {
+                randomLine.push_back('A');
+            }
+            randomLine.push_back('\n');
+        }
+    }
 
     // Main loop
     while (!wnd.shouldClose())
@@ -600,12 +627,25 @@ int main()
             {
                 world.render(player.getCamera(), framebuffer, player.raycastResult);
 
-                // Pre-text-rendering measure
-                TextRenderer::updateProjectionMatrix(wnd.getWidth(), wnd.getHeight());
+                // Update UI metrics with world debug data
+                const World::DebugData& worldDebug = world.getDebugData();
+                uiMetrics.loadedChunksCount = worldDebug.loadedChunksCount;
+                uiMetrics.renderedChunks = worldDebug.renderedChunks;
+                uiMetrics.totalFaces = worldDebug.totalFaces;
+                uiMetrics.totalFaceCapacityInBytes = worldDebug.totalFaceCapacityInBytes;
+                uiMetrics.renderedFaceCount = worldDebug.renderedFaceCount;
+                uiMetrics.chunkDrawCommandBufferSizeInBytes = worldDebug.chunkDrawCommandBufferSizeInBytes;
+                uiMetrics.chunkPositionBufferSizeInBytes = worldDebug.chunkPositionBufferSizeInBytes;
 
                 // Render UI
                 renderUI(containerUI, player);
-                renderDebugData(world.getDebugData(), wnd, player, UI_FPS);
+
+                // Pre-text-rendering measure
+                TextRenderer::updateProjectionMatrix(wnd.getWidth(), wnd.getHeight());
+                TextRenderer::startTextRendering();
+
+                // Render UI text
+                renderDebugData(wnd, player, uiMetrics);
 
                 // Blitting FBO to default FBO
                 framebuffer.blitToDefaultFramebuffer(wnd.getWidth(), wnd.getHeight());
@@ -622,7 +662,8 @@ int main()
         //
         if (frequentUIDataUpdateTimer.shouldUpdate())
         {
-            UI_FPS = accumulatedFrames / accumulatedTime;
+            uiMetrics.fps = accumulatedFrames / accumulatedTime;
+            uiMetrics.frameTimeMs = accumulatedTime / accumulatedFrames * 1000.0;
             accumulatedTime = 0.0;
             accumulatedFrames = 0;
         }
@@ -633,7 +674,7 @@ int main()
         }
     }
 
-    Profiler::printProfileReport();
+    //Profiler::printProfileReport();
 
     glfwTerminate();
 	return 0;
