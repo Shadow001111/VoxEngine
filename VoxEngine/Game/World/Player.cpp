@@ -19,7 +19,7 @@ glm::dvec3 makeVectorFlatNormalized(const glm::dvec3& vec)
 
 Player::Player(const glm::dvec3& position, float yaw, float pitch) :
 	Entity(position, yaw, pitch, glm::dvec3(0.0), glm::dvec3(0.6, 1.7, 0.6) * 0.5, true),
-	camera(position, yaw, pitch, glm::radians(90.0f), 1.0f, 0.1f, 1.0f)
+	camera(position, yaw, pitch, glm::radians(90.0f), 1.0f, 0.01f, 1.0f)
 {
 	setGameMode(GameMode::Fly);
 
