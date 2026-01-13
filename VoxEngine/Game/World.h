@@ -102,7 +102,7 @@ private:
 	size_t worldTime = 0;
 	float dayNightCycleValue = 0.0f; // 1 day; 0 night
 	float skyLightSub = 0.0f;
-	static constexpr int TICKS_PER_24_HOURS = 240;// 24000;
+	static constexpr int TICKS_PER_24_HOURS = 24000;
 
 	// Aurora varaibless
 	static constexpr float AURORA_THRESHOLD = 0.02f;

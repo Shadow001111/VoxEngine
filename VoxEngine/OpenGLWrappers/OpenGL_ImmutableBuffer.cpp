@@ -3,10 +3,7 @@
 
 OpenGL_ImmutableBuffer::~OpenGL_ImmutableBuffer()
 {
-    if (id)
-    {
-        glDeleteBuffers(1, &id);
-    }
+    if (id) glDeleteBuffers(1, &id);
 }
 
 OpenGL_ImmutableBuffer::OpenGL_ImmutableBuffer(OpenGL_ImmutableBuffer&& other) noexcept :
@@ -25,10 +22,7 @@ OpenGL_ImmutableBuffer& OpenGL_ImmutableBuffer::operator=(OpenGL_ImmutableBuffer
 {
     if (this != &other)
     {
-        if (id)
-        {
-            glDeleteBuffers(1, &id);
-        }
+        if (id) glDeleteBuffers(1, &id);
 
         target = other.target;
         id = other.id;
@@ -48,6 +42,11 @@ void OpenGL_ImmutableBuffer::create(GLenum target)
     this->target = target;
     if (id) glDeleteBuffers(1, &id);
     glCreateBuffers(1, &id);
+}
+
+void OpenGL_ImmutableBuffer::destroy()
+{
+    if (id) glDeleteBuffers(1, &id);
 }
 
 void OpenGL_ImmutableBuffer::allocateStorage(size_t size, GLbitfield flags, const void* data)

@@ -3,7 +3,6 @@
 
 class OpenGL_VAO
 {
-protected:
     GLuint id = 0;
 public:
     OpenGL_VAO() = default;
@@ -16,6 +15,7 @@ public:
     OpenGL_VAO& operator=(OpenGL_VAO&& other) noexcept;
 
     void create();
+    void destroy();
 
     void bind() const;
     static void unbind();

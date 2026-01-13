@@ -78,7 +78,7 @@ OpenGL_Texture& OpenGL_Texture::operator=(OpenGL_Texture&& other) noexcept
 	return *this;
 }
 
-void OpenGL_Texture::create1D(int width, GLenum internalFormat, int mipLevels)
+void OpenGL_Texture::create1D(texture_size width, GLenum internalFormat, mip_level mipLevels)
 {
 	if (width <= 0)
 	{
@@ -87,7 +87,7 @@ void OpenGL_Texture::create1D(int width, GLenum internalFormat, int mipLevels)
 	}
 	if (mipLevels < 1)
 	{
-		std::cerr << "[OpenGL_Texture][create1D]: Invalid mipLevels: " << mipLevels << "\n";
+		std::cerr << "[OpenGL_Texture][create1D]: Invalid mipLevels: " << (unsigned)mipLevels << "\n";
 		return;
 	}
 
@@ -105,7 +105,7 @@ void OpenGL_Texture::create1D(int width, GLenum internalFormat, int mipLevels)
 	glTextureStorage1D(id, mipLevels, internalFormat, width);
 }
 
-void OpenGL_Texture::create2D(int width, int height, GLenum internalFormat, int mipLevels)
+void OpenGL_Texture::create2D(texture_size width, texture_size height, GLenum internalFormat, mip_level mipLevels)
 {
 	if (width <= 0 || height <= 0)
 	{
@@ -114,7 +114,7 @@ void OpenGL_Texture::create2D(int width, int height, GLenum internalFormat, int 
 	}
 	if (mipLevels < 1)
 	{
-		std::cerr << "[OpenGL_Texture][create2D]: Invalid mipLevels: " << mipLevels << "\n";
+		std::cerr << "[OpenGL_Texture][create2D]: Invalid mipLevels: " << (unsigned)mipLevels << "\n";
 		return;
 	}
 
@@ -132,7 +132,7 @@ void OpenGL_Texture::create2D(int width, int height, GLenum internalFormat, int 
 	glTextureStorage2D(id, mipLevels, internalFormat, width, height);
 }
 
-void OpenGL_Texture::create3D(int width, int height, int depth, GLenum internalFormat, int mipLevels)
+void OpenGL_Texture::create3D(texture_size width, texture_size height, texture_size depth, GLenum internalFormat, mip_level mipLevels)
 {
 	if (width <= 0 || height <= 0 || depth <= 0)
 	{
@@ -141,7 +141,7 @@ void OpenGL_Texture::create3D(int width, int height, int depth, GLenum internalF
 	}
 	if (mipLevels < 1)
 	{
-		std::cerr << "[OpenGL_Texture][create3D]: Invalid mipLevels: " << mipLevels << "\n";
+		std::cerr << "[OpenGL_Texture][create3D]: Invalid mipLevels: " << (unsigned)mipLevels << "\n";
 		return;
 	}
 
@@ -159,7 +159,7 @@ void OpenGL_Texture::create3D(int width, int height, int depth, GLenum internalF
 	glTextureStorage3D(id, mipLevels, internalFormat, width, height, depth);
 }
 
-void OpenGL_Texture::create2DArray(int width, int height, int layers, GLenum internalFormat, int mipLevels)
+void OpenGL_Texture::create2DArray(texture_size width, texture_size height, texture_size layers, GLenum internalFormat, mip_level mipLevels)
 {
 	if (width <= 0 || height <= 0 || layers <= 0)
 	{
@@ -168,7 +168,7 @@ void OpenGL_Texture::create2DArray(int width, int height, int layers, GLenum int
 	}
 	if (mipLevels < 1)
 	{
-		std::cerr << "[OpenGL_Texture][create2DArray]: Invalid mipLevels: " << mipLevels << "\n";
+		std::cerr << "[OpenGL_Texture][create2DArray]: Invalid mipLevels: " << (unsigned)mipLevels << "\n";
 		return;
 	}
 
@@ -186,7 +186,7 @@ void OpenGL_Texture::create2DArray(int width, int height, int layers, GLenum int
 	glTextureStorage3D(id, mipLevels, internalFormat, width, height, layers);
 }
 
-void OpenGL_Texture::recreate1D(int width)
+void OpenGL_Texture::recreate1D(texture_size width)
 {
 	if (width <= 0)
 	{
@@ -195,7 +195,7 @@ void OpenGL_Texture::recreate1D(int width)
 	}
 	if (mipLevels < 1)
 	{
-		std::cerr << "[OpenGL_Texture][recreate1D]: Invalid mipLevels: " << mipLevels << "\n";
+		std::cerr << "[OpenGL_Texture][recreate1D]: Invalid mipLevels: " << (unsigned)mipLevels << "\n";
 		return;
 	}
 
@@ -220,7 +220,7 @@ void OpenGL_Texture::recreate1D(int width)
 	}
 }
 
-void OpenGL_Texture::recreate2D(int width, int height)
+void OpenGL_Texture::recreate2D(texture_size width, texture_size height)
 {
 	if (width <= 0 || height <= 0)
 	{
@@ -229,7 +229,7 @@ void OpenGL_Texture::recreate2D(int width, int height)
 	}
 	if (mipLevels < 1)
 	{
-		std::cerr << "[OpenGL_Texture][recreate2D]: Invalid mipLevels: " << mipLevels << "\n";
+		std::cerr << "[OpenGL_Texture][recreate2D]: Invalid mipLevels: " << (unsigned)mipLevels << "\n";
 		return;
 	}
 
@@ -256,7 +256,7 @@ void OpenGL_Texture::recreate2D(int width, int height)
 	}
 }
 
-void OpenGL_Texture::recreate3D(int width, int height, int depth)
+void OpenGL_Texture::recreate3D(texture_size width, texture_size height, texture_size depth)
 {
 	if (width <= 0 || height <= 0 || depth <= 0)
 	{
@@ -265,7 +265,7 @@ void OpenGL_Texture::recreate3D(int width, int height, int depth)
 	}
 	if (mipLevels < 1)
 	{
-		std::cerr << "[OpenGL_Texture][recreate3D]: Invalid mipLevels: " << mipLevels << "\n";
+		std::cerr << "[OpenGL_Texture][recreate3D]: Invalid mipLevels: " << (unsigned)mipLevels << "\n";
 		return;
 	}
 
@@ -294,11 +294,12 @@ void OpenGL_Texture::recreate3D(int width, int height, int depth)
 	}
 }
 
-void OpenGL_Texture::uploadData(const void* data, GLenum dataType, int level)
+void OpenGL_Texture::uploadData(
+	const void* data, GLenum dataType, mip_level level)
 {
 	if (level < 0 || level >= mipLevels)
 	{
-		std::cerr << "[OpenGL_Texture][uploadData]: Invalid mipmap level: " << level << ". Texture has " << mipLevels << " mipLevels.\n";
+		std::cerr << "[OpenGL_Texture][uploadData]: Invalid mipmap level: " << level << ". Texture has " << (unsigned)mipLevels << " mipLevels.\n";
 		return;
 	}
 
@@ -322,7 +323,9 @@ void OpenGL_Texture::uploadData(const void* data, GLenum dataType, int level)
 	}
 }
 
-void OpenGL_Texture::uploadSubData1D(const void* data, int xOffset, int width, GLenum dataType, int level)
+void OpenGL_Texture::uploadSubData1D(
+	const void* data, texture_size xOffset,
+	texture_size width, GLenum dataType, mip_level level)
 {
 	if (type != GL_TEXTURE_1D)
 	{
@@ -333,7 +336,7 @@ void OpenGL_Texture::uploadSubData1D(const void* data, int xOffset, int width, G
 	if (level < 0 || level >= mipLevels)
 	{
 		std::cerr << "[OpenGL_Texture][uploadSubData1D]: Invalid mipmap level: " << level
-			<< ". Texture has " << mipLevels << " mipLevels.\n";
+			<< ". Texture has " << (unsigned)mipLevels << " mipLevels.\n";
 		return;
 	}
 
@@ -348,7 +351,9 @@ void OpenGL_Texture::uploadSubData1D(const void* data, int xOffset, int width, G
 	glTextureSubImage1D(id, level, xOffset, width, format, dataType, data);
 }
 
-void OpenGL_Texture::uploadSubData2D(const void* data, int xOffset, int yOffset, int width, int height, GLenum dataType, int level)
+void OpenGL_Texture::uploadSubData2D(
+	const void* data, texture_size xOffset, texture_size yOffset,
+	texture_size width, texture_size height, GLenum dataType, mip_level level)
 {
 	if (type != GL_TEXTURE_2D)
 	{
@@ -359,7 +364,7 @@ void OpenGL_Texture::uploadSubData2D(const void* data, int xOffset, int yOffset,
 	if (level < 0 || level >= mipLevels)
 	{
 		std::cerr << "[OpenGL_Texture][uploadSubData2D]: Invalid mipmap level: " << level
-			<< ". Texture has " << mipLevels << " mipLevels.\n";
+			<< ". Texture has " << (unsigned)mipLevels << " mipLevels.\n";
 		return;
 	}
 
@@ -377,7 +382,9 @@ void OpenGL_Texture::uploadSubData2D(const void* data, int xOffset, int yOffset,
 	glTextureSubImage2D(id, level, xOffset, yOffset, width, height, format, dataType, data);
 }
 
-void OpenGL_Texture::uploadSubData3D(const void* data, int xOffset, int yOffset, int zOffset, int width, int height, int depth, GLenum dataType, int level)
+void OpenGL_Texture::uploadSubData3D(
+	const void* data, texture_size xOffset, texture_size yOffset, texture_size zOffset,
+	texture_size width, texture_size height, texture_size depth, GLenum dataType, mip_level level)
 {
 	if (type != GL_TEXTURE_3D)
 	{
@@ -388,7 +395,7 @@ void OpenGL_Texture::uploadSubData3D(const void* data, int xOffset, int yOffset,
 	if (level < 0 || level >= mipLevels)
 	{
 		std::cerr << "[OpenGL_Texture][uploadSubData3D]: Invalid mipmap level: " << level
-			<< ". Texture has " << mipLevels << " mipLevels.\n";
+			<< ". Texture has " << (unsigned)mipLevels << " mipLevels.\n";
 		return;
 	}
 
@@ -408,7 +415,9 @@ void OpenGL_Texture::uploadSubData3D(const void* data, int xOffset, int yOffset,
 	glTextureSubImage3D(id, level, xOffset, yOffset, zOffset, width, height, depth, format, dataType, data);
 }
 
-void OpenGL_Texture::uploadSubData2DArray(const void* data, int xOffset, int yOffset, int layer, int width, int height, GLenum dataType, int level)
+void OpenGL_Texture::uploadSubData2DArray(
+	const void* data, texture_size xOffset, texture_size yOffset, texture_size layer,
+	texture_size width, texture_size height, GLenum dataType, mip_level level)
 {
 	if (type != GL_TEXTURE_2D_ARRAY)
 	{
@@ -419,7 +428,7 @@ void OpenGL_Texture::uploadSubData2DArray(const void* data, int xOffset, int yOf
 	if (level < 0 || level >= mipLevels)
 	{
 		std::cerr << "[OpenGL_Texture][uploadSubData2DArray]: Invalid mipmap level: " << level
-			<< ". Texture has " << mipLevels << " mipLevels.\n";
+			<< ". Texture has " << (unsigned)mipLevels << " mipLevels.\n";
 		return;
 	}
 

@@ -4,7 +4,7 @@
 
 OpenGL_FBO::~OpenGL_FBO()
 {
-    if (id) glDeleteFramebuffers(1, &id);
+    destroy();
 }
 
 OpenGL_FBO::OpenGL_FBO(OpenGL_FBO&& other) noexcept
@@ -20,7 +20,7 @@ OpenGL_FBO& OpenGL_FBO::operator=(OpenGL_FBO&& other) noexcept
 {
     if (this != &other)
     {
-        if (id) glDeleteFramebuffers(1, &id);
+        if (id) destroy();
 
         id = other.id;
         width = other.width;
@@ -35,6 +35,19 @@ OpenGL_FBO& OpenGL_FBO::operator=(OpenGL_FBO&& other) noexcept
 }
 
 void OpenGL_FBO::create(int width, int height)
+{
+    // Clean up
+    if (id) destroy();
+
+    // Create new frame buffer
+    glCreateFramebuffers(1, &id);
+
+    // Set new resolution
+    this->width = width;
+    this->height = height;
+}
+
+void OpenGL_FBO::destroy()
 {
     // Clean up
     if (id)
@@ -54,13 +67,6 @@ void OpenGL_FBO::create(int width, int height)
 
         drawBuffers.clear();
     }
-
-    // Create new frame buffer
-    glCreateFramebuffers(1, &id);
-
-    // Set new resolution
-    this->width = width;
-    this->height = height;
 }
 
 void OpenGL_FBO::createColorAttachment(const std::string& name, GLenum internalFormat,

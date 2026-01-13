@@ -1,5 +1,6 @@
 #pragma once
 #include <glad/glad.h>
+#include <cstdint>
 
 //namespace TextureCompression
 //{
@@ -35,14 +36,16 @@ class OpenGL_Texture
 	GLenum wrapT = GL_CLAMP_TO_EDGE;
 	GLenum wrapR = GL_CLAMP_TO_EDGE;
 
-	// TODO: Maybe make these smaller
-	int width = 0;
-	int height = 0;
-	int depth = 0;
-	int mipLevels = 1;
+	using texture_size = uint16_t;
+	using mip_level = uint8_t;
 
-	GLuint64 handle = 0;
+	texture_size width = 0;
+	texture_size height = 0;
+	texture_size depth = 0;
+	mip_level mipLevels = 1;
+
 	bool resident = false;
+	GLuint64 handle = 0;
 public:
 	OpenGL_Texture() = default;
 	~OpenGL_Texture();
@@ -54,31 +57,31 @@ public:
 	OpenGL_Texture& operator=(OpenGL_Texture&& other) noexcept;
 
 	// Texture creation functions for different types
-	void create1D(int width,							  GLenum internalFormat, int mipLevels = 1);
-	void create2D(int width, int height,				  GLenum internalFormat, int mipLevels = 1);
-	void create3D(int width, int height, int depth,		  GLenum internalFormat, int mipLevels = 1);
-	void create2DArray(int width, int height, int layers, GLenum internalFormat, int mipLevels = 1);
+	void create1D(texture_size width,							  GLenum internalFormat, mip_level mipLevels = 1);
+	void create2D(texture_size width, texture_size height,				  GLenum internalFormat, mip_level mipLevels = 1);
+	void create3D(texture_size width, texture_size height, texture_size depth,		  GLenum internalFormat, mip_level mipLevels = 1);
+	void create2DArray(texture_size width, texture_size height, texture_size layers, GLenum internalFormat, mip_level mipLevels = 1);
 
 	// Texture resizing functions (it deletes old texture and creates new, since texture is immutable)
-	void recreate1D(int width);
-	void recreate2D(int width, int height);
-	void recreate3D(int width, int height, int depth);
+	void recreate1D(texture_size width);
+	void recreate2D(texture_size width, texture_size height);
+	void recreate3D(texture_size width, texture_size height, texture_size depth);
 
 	// Data upload functions
-	void uploadData(const void* data, GLenum dataType, int level = 0);
+	void uploadData(const void* data, GLenum dataType, mip_level level = 0);
 
 	void uploadSubData1D(
-		const void* data, int xOffset, int width,
-		GLenum dataType, int level = 0);
+		const void* data, texture_size xOffset, texture_size width,
+		GLenum dataType, mip_level level = 0);
 	void uploadSubData2D(
-		const void* data, int xOffset, int yOffset,
-		int width, int height, GLenum dataType, int level = 0);
+		const void* data, texture_size xOffset, texture_size yOffset,
+		texture_size width, texture_size height, GLenum dataType, mip_level level = 0);
 	void uploadSubData3D(
-		const void* data, int xOffset, int yOffset, int zOffset,
-		int width, int height, int depth, GLenum dataType, int level = 0);
+		const void* data, texture_size xOffset, texture_size yOffset, texture_size zOffset,
+		texture_size width, texture_size height, texture_size depth, GLenum dataType, mip_level level = 0);
 	void uploadSubData2DArray(
-		const void* data, int xOffset, int yOffset, int layer,
-		int width, int height, GLenum dataType, int level = 0);
+		const void* data, texture_size xOffset, texture_size yOffset, texture_size layer,
+		texture_size width, texture_size height, GLenum dataType, mip_level level = 0);
 
 	//
 	void generateMipmaps();
@@ -104,10 +107,10 @@ public:
 	GLuint getID() const { return id; }
 	GLenum getType() const { return type; }
 	GLenum getInternalFormat() const { return internalFormat; }
-	int getWidth() const { return width; }
-	int getHeight() const { return height; }
-	int getDepth() const { return depth; }
-	int getMipLevels() const { return mipLevels; }
+	texture_size getWidth() const { return width; }
+	texture_size getHeight() const { return height; }
+	texture_size getDepth() const { return depth; }
+	mip_level getMipLevels() const { return mipLevels; }
 	GLenum getFormatFromInternalFormat() const;
 	bool isResident() const { return resident; }
 	GLuint64 getHandle() const { return handle; }

@@ -3,7 +3,6 @@
 
 class OpenGL_Buffer
 {
-protected:
 	GLenum target = 0;
 	GLenum usage = 0;
 	GLuint id = 0;
@@ -19,6 +18,7 @@ public:
 	OpenGL_Buffer& operator=(OpenGL_Buffer&& other) noexcept;
 
 	void create(GLenum target, GLenum usage);
+	void destroy();
 
 	void bind() const;
 	void bind(GLenum target) const;

@@ -30,6 +30,11 @@ void OpenGL_VAO::create()
     glCreateVertexArrays(1, &id);
 }
 
+void OpenGL_VAO::destroy()
+{
+    if (id) glDeleteVertexArrays(1, &id);
+}
+
 void OpenGL_VAO::bind() const
 {
     glBindVertexArray(id);

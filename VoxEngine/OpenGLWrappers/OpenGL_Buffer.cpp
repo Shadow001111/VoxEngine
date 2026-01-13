@@ -3,10 +3,7 @@
 
 OpenGL_Buffer::~OpenGL_Buffer()
 {
-	if (id)
-	{
-		glDeleteBuffers(1, &id);
-	}
+	if (id) glDeleteBuffers(1, &id);
 }
 
 OpenGL_Buffer::OpenGL_Buffer(OpenGL_Buffer&& other) noexcept :
@@ -23,10 +20,7 @@ OpenGL_Buffer& OpenGL_Buffer::operator=(OpenGL_Buffer&& other) noexcept
 {
 	if (this != &other)
 	{
-		if (id)
-		{
-			glDeleteBuffers(1, &id);
-		}
+		if (id) glDeleteBuffers(1, &id);
 
 		target = other.target;
 		usage = other.usage;
@@ -45,6 +39,11 @@ void OpenGL_Buffer::create(GLenum target, GLenum usage)
 	this->usage = usage;
 	if (id) glDeleteBuffers(1, &id);
 	glCreateBuffers(1, &id);
+}
+
+void OpenGL_Buffer::destroy()
+{
+	if (id) glDeleteBuffers(1, &id);
 }
 
 void OpenGL_Buffer::bind() const

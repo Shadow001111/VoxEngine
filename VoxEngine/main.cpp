@@ -389,6 +389,7 @@ void check()
     std::cout << std::string(100, '=') << "\n";
 }
 
+// TODO: Fix terrain generation at far lands
 int main()
 {
     constexpr float CAMERA_FAR_PLANE = (CHUNK_LOAD_DISTANCE + 0.5f) * CHUNK_SIZE;
@@ -445,7 +446,7 @@ int main()
     world.preparation();
 
     // Player
-    Player& player = *world.createEntity<Player>(glm::vec3(0, 20.0, 0.0), glm::radians(180.0f), 0.0f);
+    Player& player = *world.createEntity<Player>(glm::vec3(0.0, 20.0, 0.0), glm::radians(180.0f), 0.0f);
     player.getCamera().setAspectRatio(wnd.getAspectRatio());
     player.getCamera().setFarPlane(CAMERA_FAR_PLANE);
 

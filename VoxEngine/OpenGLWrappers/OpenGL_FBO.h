@@ -50,6 +50,7 @@ public:
 
     // Creation
     void create(int width, int height);
+    void destroy();
 
     // Attachment management
     void createColorAttachment(
