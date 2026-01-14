@@ -338,6 +338,9 @@
     <ClInclude Include="OpenGLWrappers\OpenGL_ImmutableBuffer.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
+    <ClInclude Include="Core\MemoryAllocation\FixedArenaAllocator.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CopyFileToFolders Include="..\Libraries\bin\FastNoise.dll">

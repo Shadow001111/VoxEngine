@@ -195,6 +195,7 @@ xcopy "$(ProjectDir)DataPacks" "$(TargetDir)DataPacks" /E /I /Y</Command>
     <ClCompile Include="WindowManager.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Core\MemoryAllocation\FixedArenaAllocator.h" />
     <ClInclude Include="Game\DataPackManagment\AssetTypes\BlockAsset.h" />
     <ClInclude Include="Game\DataPackManagment\AssetRegistry.h" />
     <ClInclude Include="Game\DataPackManagment\AssetTypes\ItemAsset.h" />
