@@ -47,7 +47,7 @@ private:
 
 	//
 	ChunkPool chunkPool;
-	robin_hood::unordered_flat_map<glm::ivec3, std::unique_ptr<Chunk>, ivec3Hasher> chunks;
+	robin_hood::unordered_flat_map<glm::ivec3, Chunk*, ivec3Hasher> chunks;
 	
 	robin_hood::unordered_flat_set<Chunk*> buildBlocksContainer;
 	std::mutex buildBlocksMutex;

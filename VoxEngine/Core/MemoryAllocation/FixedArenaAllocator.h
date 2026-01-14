@@ -1,6 +1,5 @@
 #pragma once
 #include <vector>
-#include <new>
 
 template<typename T, size_t ItemsPerBlock>
 class FixedArenaAllocator
@@ -47,12 +46,12 @@ class FixedArenaAllocator
 public:
     FixedArenaAllocator()
     {
+        blocks.reserve(10);
         allocateBlock();
     }
-
-    ~FixedArenaAllocator()
+private:
+    void destroyAll()
     {
-        // Call destructors for all constructed objects
         for (size_t blockIdx = 0; blockIdx < blocks.size(); blockIdx++)
         {
             Block& block = blocks[blockIdx];
@@ -65,6 +64,11 @@ public:
                 block.getSlot(i)->~T();
             }
         }
+    }
+public:
+    ~FixedArenaAllocator()
+    {
+        destroyAll();
     }
 
     FixedArenaAllocator(const FixedArenaAllocator&) = delete;
@@ -81,7 +85,7 @@ public:
     {
         if (this != &other)
         {
-            this->~FixedArenaAllocator();
+            destroyAll();
 
             blocks = std::move(other.blocks);
             itemsUsedInCurrentBlock = other.itemsUsedInCurrentBlock;
@@ -95,7 +99,6 @@ public:
         if (itemsUsedInCurrentBlock >= ItemsPerBlock)
         {
             allocateBlock();
-            itemsUsedInCurrentBlock = 0;
         }
 
         T* ptr = blocks.back().getSlot(itemsUsedInCurrentBlock++);
@@ -112,23 +115,10 @@ public:
 
     void reset()
     {
-        // Call destructors for all constructed objects
-        for (size_t blockIdx = 0; blockIdx < blocks.size(); blockIdx++)
-        {
-            Block& block = blocks[blockIdx];
-            size_t itemsInThisBlock = (blockIdx == blocks.size() - 1)
-                ? itemsUsedInCurrentBlock
-                : ItemsPerBlock;
-
-            for (size_t i = 0; i < itemsInThisBlock; i++)
-            {
-                block.getSlot(i)->~T();
-            }
-        }
+        destroyAll();
 
         blocks.clear();
         allocateBlock();
-        itemsUsedInCurrentBlock = 0;
     }
 
     size_t capacity() const { return blocks.size() * ItemsPerBlock; }
@@ -138,5 +128,6 @@ private:
     void allocateBlock()
     {
         blocks.emplace_back();
+        itemsUsedInCurrentBlock = 0;
     }
 };

@@ -111,7 +111,6 @@ World::World()
 	}
 }
 
-// TODO: Add more bindless textures
 void World::initTextures(const std::vector<std::string>& blockTextureNames)
 {
 	{
@@ -353,7 +352,7 @@ void World::update(float deltaTime)
 
 		for (const auto& pair : chunks)
 		{
-			Chunk* chunk = pair.second.get();
+			Chunk* chunk = pair.second;
 			
 			if (chunk->areBlocksBuilt() && chunk->hasStructureBlockUpdates())
 			{
@@ -399,7 +398,7 @@ void World::sendChunkMeshesToGPU()
 	// Send only dirty meshes
 	for (auto& pair : chunks)
 	{
-		Chunk* chunk = pair.second.get();
+		Chunk* chunk = pair.second;
 		chunk->askForMeshUpload();
 	}
 	Chunk::sendMeshesToGPU();
@@ -565,7 +564,7 @@ void World::collectChunksToRenderAndSortThem(std::vector<ChunkRenderInfo>& chunk
 
 	for (const auto& pair : chunks)
 	{
-		const Chunk* chunk = pair.second.get();
+		const Chunk* chunk = pair.second;
 
 		if (!chunk->canBeRendered())
 		{
@@ -1014,7 +1013,7 @@ void World::rebuildAllChunkMeshes()
 {
 	for (const auto& pair : chunks)
 	{
-		Chunk* chunk = pair.second.get();
+		Chunk* chunk = pair.second;
 		chunk->markMeshDirty();
 	}
 }
@@ -1029,7 +1028,7 @@ const World::DebugData& World::getDebugData() const
 	debugData.totalFaces = 0;
 	for (const auto& pair : chunks)
 	{
-		const Chunk* chunk = pair.second.get();
+		const Chunk* chunk = pair.second;
 
 		debugData.totalFaces += chunk->getFaceCount();
 	}
@@ -1053,7 +1052,7 @@ Chunk* World::getChunkAt(const glm::ivec3& position) const
 	{
 		return nullptr;
 	}
-	return it->second.get();
+	return it->second;
 }
 
 bool World::chunkExistsAt(const glm::ivec3& position) const
@@ -1081,13 +1080,13 @@ void World::loadChunk(const glm::ivec3& position)
 	};
 
 	// Create and initialize chunk
-	std::unique_ptr<Chunk> chunk = chunkPool.acquire();
+	Chunk* chunk = chunkPool.acquire();
 	chunk->addLoader();
 	chunk->init(position, neighbors);
 
 	{
 		std::lock_guard<std::mutex> lock(buildBlocksMutex);
-		buildBlocksContainer.insert(chunk.get());
+		buildBlocksContainer.insert(chunk);
 	}
 
 	chunks.emplace(position, std::move(chunk));
@@ -1239,7 +1238,7 @@ void World::collectChunksNeedingLightUpdate()
 
 	for (const auto& pair : chunks)
 	{
-		Chunk* chunk = pair.second.get();
+		Chunk* chunk = pair.second;
 		if (chunk->hasLightUpdates())
 		{
 			glm::ivec3 pos = chunk->getPosition();
@@ -1277,7 +1276,7 @@ void World::updateChunkMeshes()
 	ThreadPool& pool = ParallelUtils::getGlobalThreadPool();
 	for (const auto& pair : chunks)
 	{
-		Chunk* chunk = pair.second.get();
+		Chunk* chunk = pair.second;
 		if (chunk->shouldMeshBeUpdated())
 		{
 			pool.enqueue([chunk]()

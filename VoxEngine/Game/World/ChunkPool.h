@@ -1,13 +1,10 @@
 #pragma once
 #include "Chunk.h"
+#include "Core/MemoryAllocation/FixedArenaObjectPool.h"
 
-#include <vector>
-#include <memory>
-
-class ChunkPool
+class ChunkPool : public FixedArenaObjectPool<Chunk>
 {
-	std::vector<std::unique_ptr<Chunk>> pool;
-	std::vector<std::unique_ptr<Chunk>> processingChunks;
+	std::vector<Chunk*> processingChunks;
 public:
 	ChunkPool() = default;
 	~ChunkPool() = default;
@@ -17,11 +14,7 @@ public:
 	ChunkPool(ChunkPool&&) = delete;
 	ChunkPool& operator=(ChunkPool&&) = delete;
 
-	std::unique_ptr<Chunk> acquire();
-	void release(std::unique_ptr<Chunk> chunk);
-
-	// Allocates only if 'count' is bigger than pool size
-	void allocate(size_t count);
+	void release(Chunk* chunk);
 
 	void returnProcessingChunksToPool();
 };
