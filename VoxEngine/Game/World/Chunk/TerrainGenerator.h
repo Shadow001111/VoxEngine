@@ -4,6 +4,8 @@
 #define FASTNOISE_STATIC_LIB
 #include "FastNoise/FastNoise.h"
 
+#include "Core/MemoryAllocation/FixedArenaObjectPool.h"
+
 #include "robin_hood.h"
 #include <memory>
 #include <mutex>
@@ -19,7 +21,7 @@ public:
 
 class ChunkColumnData
 {
-	int X, Z; // Coordinates in chunk space
+	int X = 0, Z = 0; // Coordinates in chunk space
 
 	int heightMap[CHUNK_AREA];
 
@@ -44,9 +46,8 @@ public:
 
 class TerrainGenerator
 {
-	class ChunkColumnDataPool
+	class ChunkColumnDataPool : public FixedArenaObjectPool<ChunkColumnData>
 	{
-		std::vector<std::unique_ptr<ChunkColumnData>> pool;
 		std::mutex poolMutex;
 	public:
 		ChunkColumnDataPool() = default;
@@ -57,13 +58,13 @@ class TerrainGenerator
 		ChunkColumnDataPool(ChunkColumnDataPool&&) = delete;
 		ChunkColumnDataPool& operator=(ChunkColumnDataPool&&) = delete;
 
-		std::unique_ptr<ChunkColumnData> acquire();
+		ChunkColumnData* acquire();
 
-		void release(std::unique_ptr<ChunkColumnData> chunkColumnData);
+		void release(ChunkColumnData* chunkColumnData);
 	};
 
 	ChunkColumnDataPool chunkColumnDataPool;
-	robin_hood::unordered_flat_map<glm::ivec2, std::unique_ptr<ChunkColumnData>, Int2Hasher> chunkColumnData;
+	robin_hood::unordered_flat_map<glm::ivec2, ChunkColumnData*, Int2Hasher> chunkColumnData;
 	mutable std::mutex dataMutex; // Protects chunkColumnData map
 	
 	static int seed;

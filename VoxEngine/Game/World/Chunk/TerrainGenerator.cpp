@@ -125,26 +125,18 @@ void ChunkColumnData::setToInitialized()
 //============================================================================
 //ChunkColumnDataPool
 
-std::unique_ptr<ChunkColumnData> TerrainGenerator::ChunkColumnDataPool::acquire()
+ChunkColumnData* TerrainGenerator::ChunkColumnDataPool::acquire()
 {
-	{
-		std::lock_guard<std::mutex> lock(poolMutex);
-		if (!pool.empty())
-		{
-			std::unique_ptr<ChunkColumnData> chunkColumnData = std::move(pool.back());
-			pool.pop_back();
-			return chunkColumnData;
-		}
-	}
-	return std::make_unique<ChunkColumnData>();
+	std::lock_guard<std::mutex> lock(poolMutex);
+	return FixedArenaObjectPool::acquire();
 }
 
-void TerrainGenerator::ChunkColumnDataPool::release(std::unique_ptr<ChunkColumnData> chunkColumnData)
+void TerrainGenerator::ChunkColumnDataPool::release(ChunkColumnData* chunkColumnData)
 {
 	chunkColumnData->destroy();
 
 	std::lock_guard<std::mutex> lock(poolMutex);
-	pool.push_back(std::move(chunkColumnData));
+	pool.push_back(chunkColumnData);
 }
 
 //============================================================================
@@ -187,7 +179,7 @@ const ChunkColumnData* TerrainGenerator::loadChunkColumnData(int chunkX, int chu
 				isColumnFound = it != chunkColumnData.end();
 				if (isColumnFound)
 				{
-					foundColumn = it->second.get();
+					foundColumn = it->second;
 				}
 			}
 			if (isColumnFound)
@@ -198,9 +190,9 @@ const ChunkColumnData* TerrainGenerator::loadChunkColumnData(int chunkX, int chu
 		}
 
 		// Create column
-		std::unique_ptr<ChunkColumnData> column = chunkColumnDataPool.acquire();
+		ChunkColumnData* column = chunkColumnDataPool.acquire();
 		column->referenceCount = 1;
-		columnPtr = column.get();
+		columnPtr = column;
 
 		{
 			// Check again in case another thread created it while we were acquiring from pool
@@ -213,7 +205,7 @@ const ChunkColumnData* TerrainGenerator::loadChunkColumnData(int chunkX, int chu
 				isColumnFound = it != chunkColumnData.end();
 				if (isColumnFound)
 				{
-					foundColumn = it->second.get();
+					foundColumn = it->second;
 				}
 			}
 			// Mutex could be unlocked here, but I think it will cause problems, creating a gap when other thread checks the stuff.
@@ -221,13 +213,13 @@ const ChunkColumnData* TerrainGenerator::loadChunkColumnData(int chunkX, int chu
 			if (isColumnFound)
 			{
 				// Another thread beat us to it, return the column to the pool
-				chunkColumnDataPool.release(std::move(column));
+				chunkColumnDataPool.release(column);
 				foundColumn->referenceCount.fetch_add(1, std::memory_order_acq_rel);
 				return foundColumn;
 			}
 
 			// Move column into the map
-			chunkColumnData.emplace(pos, std::move(column));
+			chunkColumnData.emplace(pos, column);
 		}
 	}
 	{
@@ -247,7 +239,7 @@ const ChunkColumnData* TerrainGenerator::getChunkColumnData(int chunkX, int chun
 	const auto& it = chunkColumnData.find(pos);
 	if (it != chunkColumnData.end())
 	{
-		return it->second.get();
+		return it->second;
 	}
 	return nullptr;
 }
@@ -259,7 +251,7 @@ void TerrainGenerator::unloadChunkColumnData(int chunkX, int chunkZ)
 	// Problems: Chunk::init is on main thread.
 	PROFILE_SCOPE("Unload ChunkColumnData", ProfileCategory::ChunkColumnData);
 
-	std::unique_ptr<ChunkColumnData> columnToRelease;
+	ChunkColumnData* columnToRelease = nullptr;
 	{
 		std::lock_guard<std::mutex> lock(dataMutex);
 
@@ -277,13 +269,13 @@ void TerrainGenerator::unloadChunkColumnData(int chunkX, int chunkZ)
 		// If no more references, unload the column
 		if (oldReferenceCount <= 1) // if (oldReferenceCount - 1 <= 0)
 		{
-			columnToRelease = std::move(it->second);
+			columnToRelease = it->second;
 			chunkColumnData.erase(it);
 		}
 	}
 	if (columnToRelease)
 	{
-		chunkColumnDataPool.release(std::move(columnToRelease));
+		chunkColumnDataPool.release(columnToRelease);
 	}
 }
 
