@@ -5,19 +5,11 @@
 #include "FastNoise/FastNoise.h"
 
 #include "Core/MemoryAllocation/FixedArenaObjectPool.h"
+#include "Core/Hashes/ivec2Hasher.h"
 
 #include "robin_hood.h"
-#include <memory>
 #include <mutex>
 #include <condition_variable>
-#include <vector>
-#include <glm/vec2.hpp>
-
-struct Int2Hasher
-{
-public:
-	size_t operator()(const glm::ivec2& other) const;
-};
 
 class ChunkColumnData
 {
@@ -32,8 +24,8 @@ private:
 	mutable std::mutex readDataMutex; // Prevents chunks from reading heightMap until it's built
 	mutable std::condition_variable readDataCV;
 public:
-	ChunkColumnData();
-	~ChunkColumnData();
+	ChunkColumnData() = default;
+	~ChunkColumnData() = default;
 
 	void init(int x, int z);
 	void destroy();
@@ -64,7 +56,7 @@ class TerrainGenerator
 	};
 
 	ChunkColumnDataPool chunkColumnDataPool;
-	robin_hood::unordered_flat_map<glm::ivec2, ChunkColumnData*, Int2Hasher> chunkColumnData;
+	robin_hood::unordered_flat_map<glm::ivec2, ChunkColumnData*, ivec2Hasher> chunkColumnData;
 	mutable std::mutex dataMutex; // Protects chunkColumnData map
 	
 	static int seed;

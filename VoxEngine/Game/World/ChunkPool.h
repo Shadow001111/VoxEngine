@@ -2,7 +2,7 @@
 #include "Chunk.h"
 #include "Core/MemoryAllocation/FixedArenaObjectPool.h"
 
-class ChunkPool : public FixedArenaObjectPool<Chunk>
+class ChunkPool : public FixedArenaObjectPool<Chunk, 256>
 {
 	std::vector<Chunk*> processingChunks;
 public:

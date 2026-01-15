@@ -32,7 +32,8 @@ public:
     void shutdown();
 
 	void waitForCompletion();
-    size_t getThreadCount() const;
+    size_t getThreadCount() const { return workers.size(); };
+    size_t getTaskCount() const { return tasks.size(); }
 private:
 	void workerThread();
 };

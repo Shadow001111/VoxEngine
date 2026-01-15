@@ -1,9 +1,7 @@
 #include "TerrainGenerator.h"
 
 #include "Core/Profiler.h"
-#include "Core/Assert.h"
 
-#include <iostream>
 #include <cmath>
 
 //============================================================================
@@ -79,14 +77,6 @@ float continentalSpline(float x)
 
 //============================================================================
 //ChunkColumnData
-
-ChunkColumnData::ChunkColumnData()
-{
-}
-
-ChunkColumnData::~ChunkColumnData()
-{
-}
 
 void ChunkColumnData::init(int x, int z)
 {
@@ -492,11 +482,3 @@ void TerrainGenerator::computeLayeredNoise_3D(float* outArray, int chunkX, int c
 }
 
 //============================================================================
-
-size_t Int2Hasher::operator()(const glm::ivec2& other) const
-{
-	constexpr size_t addConst = 0x9e3779b97f4a7c15;
-	size_t h = (size_t)other.x + addConst;
-	h ^= (size_t)other.y + addConst + (h << 6) + (h >> 2);
-	return h;
-}
