@@ -133,136 +133,164 @@ namespace TextureLoader
         }
     }
 
-    void createTexture2DFromImage(
-        OpenGL_Texture& texture,
-        const std::filesystem::path& texturePath,
-        const TextureParams& params)
+    int calculateMipmapLevels(int width, int height, bool createMipmaps)
     {
-        if (params.desiredChannels < 1 || params.desiredChannels > 4)
-        {
-            std::cerr << "[TextureLoader][createAndLoadTexture2D]: Only 1-4 channels are supported. Got: " << params.desiredChannels << "\n";
-            return;
-        }
+        if (!createMipmaps) return 1;
 
-        if (!fs::exists(texturePath) || !fs::is_regular_file(texturePath))
+        int maxSize = std::max(width, height);
+        int levels = 1 + static_cast<int>(std::log2(maxSize));
+
+        return levels;
+    }
+
+    int calculateMipmapLevels(int width, int height, int depth, bool createMipmaps)
+    {
+        if (!createMipmaps) return 1;
+
+        int maxSize = std::max({ width, height, depth });
+        int levels = 1 + static_cast<int>(std::log2(maxSize));
+
+        return levels;
+    }
+
+    bool validateChannels(int channels)
+    {
+        if (channels < 1 || channels > 4)
         {
-            std::cerr << "[TextureLoader][createAndLoadTexture2D]: Texture file is not found " << texturePath << "\n";
+            std::cerr << "[TextureLoader]: Only 1-4 channels are supported. Got: " << channels << "\n";
+            return false;
+        }
+        return true;
+    }
+
+    void convertImageData(
+        const unsigned char* srcData,
+        int width, int height,
+        int srcChannels, int dstChannels,
+        std::vector<unsigned char>& dstData)
+    {
+        dstData.resize(width * height * dstChannels);
+        const int srcStride = width * srcChannels;
+        const int dstStride = width * dstChannels;
+
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                int srcIndex = y * srcStride + x * srcChannels;
+                int dstIndex = y * dstStride + x * dstChannels;
+
+                // Copy available channels
+                int minChannels = std::min(srcChannels, dstChannels);
+                for (int c = 0; c < minChannels; c++)
+                {
+                    dstData[dstIndex + c] = srcData[srcIndex + c];
+                }
+
+                // Pad missing channels
+                for (int c = minChannels; c < dstChannels; c++)
+                {
+                    if (dstChannels == 4 && c == 3)
+                    {
+                        // Alpha channel - default to fully opaque
+                        dstData[dstIndex + c] = 255;
+                    }
+                    else if (dstChannels == 2 && c == 1)
+                    {
+                        // Second channel in 2-channel texture
+                        dstData[dstIndex + c] = 255;
+                    }
+                    else
+                    {
+                        dstData[dstIndex + c] = 0;
+                    }
+                }
+            }
+        }
+    }
+
+    void loadAndProcessImage(
+        const std::filesystem::path& path,
+        int desiredChannels,
+        std::vector<unsigned char>& outputData,
+        int& width, int& height)
+    {
+        if (!fs::exists(path) || !fs::is_regular_file(path))
+        {
+            std::cerr << "[TextureLoader]: Texture file not found: " << path << "\n";
+            width = height = 0;
             return;
         }
 
         stbi_set_flip_vertically_on_load(true);
 
-        int width, height, channels;
-        unsigned char* data = stbi_load(texturePath.string().c_str(), &width, &height, &channels, 0);
-
-        GLenum internalFormat = getInternalFormat(params.desiredChannels);
+        int channels;
+        unsigned char* data = stbi_load(path.string().c_str(), &width, &height, &channels, 0);
 
         if (!data)
         {
-            std::cerr << "[TextureLoader][createAndLoadTexture2D]: Failed to load texture: " << texturePath << "\n";
+            std::cerr << "[TextureLoader]: Failed to load texture: " << path << "\n";
+            width = height = 0;
+            return;
+        }
 
-            // Create a default-sized undefined texture
+        if (channels != desiredChannels)
+        {
+            convertImageData(data, width, height, channels, desiredChannels, outputData);
+        }
+        else
+        {
+            outputData.assign(data, data + width * height * channels);
+        }
+
+        stbi_image_free(data);
+    }
+
+
+
+    void createTexture2DFromImage(
+        OpenGL_Texture& texture,
+        const std::filesystem::path& texturePath,
+        const TextureParams& params)
+    {
+        if (!validateChannels(params.desiredChannels)) return;
+
+        std::vector<unsigned char> imageData;
+        int width, height;
+
+        loadAndProcessImage(texturePath, params.desiredChannels, imageData, width, height);
+
+        if (width == 0 || height == 0)
+        {
+            // Create fallback texture
             constexpr int defaultSize = 16;
             std::vector<unsigned char> undefinedTexture = createUndefinedTexture(defaultSize, defaultSize, params.desiredChannels);
 
-            const int mipmapLevels = 1 + (params.createMipmaps ? static_cast<int>(std::ceil(std::log2(defaultSize))) : 0);
+            const int mipmapLevels = calculateMipmapLevels(defaultSize, defaultSize, params.createMipmaps);
+            GLenum internalFormat = getInternalFormat(params.desiredChannels);
 
             texture.create2D(defaultSize, defaultSize, internalFormat, mipmapLevels);
-            texture.bind();
-
-            texture.setParameters(
-                params.minFilter,
-                params.magFilter,
-                params.wrapMode,
-                params.wrapMode,
-                params.wrapMode);
-
             texture.uploadSubData2D(
                 undefinedTexture.data(),
                 0, 0,
                 defaultSize, defaultSize,
                 GL_UNSIGNED_BYTE,
                 0);
+            if (mipmapLevels > 1) texture.generateMipmaps();
             return;
         }
 
-        const int mipmapLevels = 1 + (params.createMipmaps ? static_cast<int>(std::ceil(std::log2(std::max(width, height)))) : 0);
+        const int mipmapLevels = calculateMipmapLevels(width, height, params.createMipmaps);
+        GLenum internalFormat = getInternalFormat(params.desiredChannels);
 
         texture.create2D(width, height, internalFormat, mipmapLevels);
-        texture.setParameters(
-            params.minFilter,
-            params.magFilter,
-            params.wrapMode,
-            params.wrapMode,
-            params.wrapMode);
-
-        // Convert data to desired channel format
-        std::vector<unsigned char> convertedData;
-        if (channels != params.desiredChannels)
-        {
-            convertedData.resize(width * height * params.desiredChannels);
-            int srcStride = width * channels;
-            int dstStride = width * params.desiredChannels;
-
-            for (int y = 0; y < height; y++)
-            {
-                for (int x = 0; x < width; x++)
-                {
-                    int srcIndex = y * srcStride + x * channels;
-                    int dstIndex = y * dstStride + x * params.desiredChannels;
-
-                    // Copy available channels, pad missing ones with 0 (or 255 for alpha if needed)
-                    for (int c = 0; c < params.desiredChannels; c++)
-                    {
-                        if (c < channels)
-                        {
-                            // Copy existing channel
-                            convertedData[dstIndex + c] = data[srcIndex + c];
-                        }
-                        else
-                        {
-                            // Pad with 0 for RGB channels, 255 for alpha if it's the 4th channel
-                            if (params.desiredChannels == 4 && c == 3)
-                            {
-                                // If we're adding an alpha channel, default to fully opaque
-                                convertedData[dstIndex + c] = 255;
-                            }
-                            else if (params.desiredChannels == 2 && c == 1)
-                            {
-                                // For 2-channel, if we need a second channel, default to 255
-                                convertedData[dstIndex + c] = 255;
-                            }
-                            else
-                            {
-                                convertedData[dstIndex + c] = 0;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Upload the texture data
-        if (channels == params.desiredChannels)
-        {
-            texture.uploadSubData2D(
-                data,
-                0, 0,
-                width, height,
-                GL_UNSIGNED_BYTE,
-                0);
-        }
-        else
-        {
-            texture.uploadSubData2D(
-                convertedData.data(),
-                0, 0,
-                width, height,
-                GL_UNSIGNED_BYTE,
-                0);
-        }
-
-        stbi_image_free(data);
+        texture.uploadSubData2D(
+            imageData.data(),
+            0, 0,
+            width, height,
+            GL_UNSIGNED_BYTE,
+            0);
+        if (mipmapLevels > 1) texture.generateMipmaps();
     }
 
     void createTextureArrayFromImages(
@@ -272,127 +300,91 @@ namespace TextureLoader
         const TextureParams& params
     )
     {
-        if (params.desiredChannels < 1 || params.desiredChannels > 4)
-        {
-            std::cerr << "[TextureLoader][createAndLoadTextureArray]: Only 1-4 channels are supported. Got: " << params.desiredChannels<< "\n";
-            return;
-        }
+        if (!validateChannels(params.desiredChannels)) return;
 
         if (!fs::exists(texturesFolderPath))
         {
-            std::cerr << "[TextureLoader][createAndLoadTextureArray]: Textures folder is not found for path " << texturesFolderPath<< "\n";
+            std::cerr << "[TextureLoader]: Textures folder not found: " << texturesFolderPath << "\n";
             return;
         }
 
         stbi_set_flip_vertically_on_load(true);
 
-        // Read images' size and store maximum
         const size_t layerCount = textureNames.size();
 
+        // Determine maximum dimensions
         int sharedWidth = 0;
         int sharedHeight = 0;
-        // TODO: Add shared chanells
+        // TODO: Add 'sharedChannels'
 
         for (size_t i = 0; i < layerCount; i++)
         {
             fs::path fullPath = texturesFolderPath / (textureNames[i] + ".png");
 
             int width, height, channels;
-            if (!stbi_info(fullPath.string().c_str(), &width, &height, &channels))
+            if (stbi_info(fullPath.string().c_str(), &width, &height, &channels))
             {
-                continue;
+                sharedWidth = std::max(sharedWidth, width);
+                sharedHeight = std::max(sharedHeight, height);
             }
-
-            sharedWidth = std::max(sharedWidth, width);
-            sharedHeight = std::max(sharedHeight, height);
         }
 
-        //
-        const int mipmapLevels = 1 + (params.createMipmaps ? static_cast<int>(std::ceil(std::log2(std::max(sharedWidth, sharedHeight)))) : 0);
+        if (sharedWidth == 0 || sharedHeight == 0)
+        {
+            sharedWidth = sharedHeight = 16; // Default fallback size
+        }
 
+        const int mipmapLevels = calculateMipmapLevels(sharedWidth, sharedHeight, params.createMipmaps);
+        GLenum internalFormat = getInternalFormat(params.desiredChannels);
         std::vector<unsigned char> undefinedTexture = createUndefinedTexture(sharedWidth, sharedHeight, params.desiredChannels);
 
-        GLenum internalFormat = getInternalFormat(params.desiredChannels);
-
         texture.create2DArray(sharedWidth, sharedHeight, static_cast<int>(layerCount), internalFormat, mipmapLevels);
-        texture.setParameters(
-            params.minFilter,
-            params.magFilter,
-            params.wrapMode,
-            params.wrapMode,
-            params.wrapMode);
 
-        // Load textures
+        // Load and upload each texture
+        std::vector<unsigned char> imageData;
         std::vector<unsigned char> convertedData;
+
         for (size_t i = 0; i < layerCount; i++)
         {
             fs::path fullPath = texturesFolderPath / (textureNames[i] + ".png");
 
-            int width, height, channels;
-            unsigned char* data = stbi_load(fullPath.string().c_str(), &width, &height, &channels, 0);
+            int width, height;
+            loadAndProcessImage(fullPath, params.desiredChannels, imageData, width, height);
 
-            if (!data)
+            const unsigned char* uploadData = nullptr;
+            int uploadWidth = sharedWidth;
+            int uploadHeight = sharedHeight;
+
+            if (width == 0 || height == 0)
             {
-                std::cerr << "[TextureLoader][createAndLoadTextureArray]: Failed to load texture: " << fullPath << "\n";
-                // Upload fallback texture
-                texture.uploadSubData2DArray(
-                    undefinedTexture.data(),
-                    0, 0, static_cast<int>(i),
-                    sharedWidth, sharedHeight,
-                    GL_UNSIGNED_BYTE,
-                    0);
-                continue;
+                // Use undefined texture as fallback
+                uploadData = undefinedTexture.data();
+            }
+            else if (width != sharedWidth || height != sharedHeight)
+            {
+                // Resize or pad image data to match shared dimensions
+                convertImageData(imageData.data(), width, height, params.desiredChannels, params.desiredChannels, convertedData);
+                uploadData = convertedData.data();
+            }
+            else
+            {
+                uploadData = imageData.data();
             }
 
-            // Convert data to desired channel format
-            if (channels != params.desiredChannels)
-            {
-                const int minChannels = std::min(params.desiredChannels, channels);
-                convertedData.resize(sharedWidth * sharedHeight * params.desiredChannels);
-                const int srcStride = sharedWidth * channels;
-                const int dstStride = sharedWidth * params.desiredChannels;
-
-                for (int y = 0; y < sharedHeight; y++)
-                {
-                    for (int x = 0; x < sharedWidth; x++)
-                    {
-                        int srcIndex = y * srcStride + x * channels;
-                        int dstIndex = y * dstStride + x * params.desiredChannels;
-
-                        for (int c = 0; c < minChannels; c++)
-                        {
-                            convertedData[dstIndex + c] = data[srcIndex + c];
-                        }
-                    }
-                }
-            }
-
-            // Upload the texture data
-            const auto* readData = (channels == params.desiredChannels) ? data : convertedData.data();
             texture.uploadSubData2DArray(
-                readData,
+                uploadData,
                 0, 0, static_cast<int>(i),
-                sharedWidth, sharedHeight,
+                uploadWidth, uploadHeight,
                 GL_UNSIGNED_BYTE,
                 0);
-
-            stbi_image_free(data);
         }
 
-        // Generate mipmaps
-        if (params.createMipmaps)
-        {
-            texture.generateMipmaps();
-        }
+        if (mipmapLevels > 1) texture.generateMipmaps();
     }
 
     void createTexture3DFromFloatData(OpenGL_Texture& texture, const std::vector<float>& data, int width, int height, int depth, const TextureParams& params)
     {
-        if (params.desiredChannels < 1 || params.desiredChannels > 4)
-        {
-            std::cerr << "[TextureLoader][createAndLoadTexture3DFromFloatData]: Only 1-4 channels are supported. Got: " << params.desiredChannels<< "\n";
-            return;
-        }
+        if (!validateChannels(params.desiredChannels)) return;
 
         const int expectedSize = width * height * depth;
         if (data.size() < expectedSize)
@@ -400,25 +392,13 @@ namespace TextureLoader
             std::cerr << "[TextureLoader][createAndLoadTexture3D]: Provided data size is not enough\n";
             return;
         }
-        if (data.size() > expectedSize)
-        {
-            std::cerr << "[TextureLoader][createAndLoadTexture3D]: Provided data size is too big, truncating\n";
-        }
 
-        const int mipmapLevels = 1 + (params.createMipmaps ? static_cast<int>(std::ceil(std::log2(
-            std::max({ width, height, depth })
-        ))) : 0);
+        const int mipmapLevels = 1 + calculateMipmapLevels(width, height, depth, params.createMipmaps);
 
         GLenum internalFormat = getInternalFormat(params.desiredChannels);
         GLenum format = getFormat(params.desiredChannels);
 
         texture.create3D(width, height, depth, internalFormat, mipmapLevels);
-        texture.setParameters(
-            params.minFilter,
-            params.magFilter,
-            params.wrapMode,
-            params.wrapMode,
-            params.wrapMode);
 
         // Upload the texture data
         texture.uploadSubData3D(
@@ -427,5 +407,6 @@ namespace TextureLoader
             width, height, depth,
             GL_FLOAT,
             0);
+        if (mipmapLevels > 1) texture.generateMipmaps();
     }
 }

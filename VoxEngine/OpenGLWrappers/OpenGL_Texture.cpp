@@ -552,37 +552,43 @@ GLenum OpenGL_Texture::getFormatFromInternalFormat() const
 {
 	switch (internalFormat)
 	{
-	// Red formats
+		// Red formats (float/unsigned normalized)
 	case GL_R8:
 	case GL_R16:
 	case GL_R16F:
 	case GL_R32F:
+	case GL_COMPRESSED_RED:
+	case GL_COMPRESSED_RED_RGTC1:
+		return GL_RED;
+
+		// Red integer formats
 	case GL_R8I:
 	case GL_R8UI:
 	case GL_R16I:
 	case GL_R16UI:
 	case GL_R32I:
 	case GL_R32UI:
-	case GL_COMPRESSED_RED:
-	case GL_COMPRESSED_RED_RGTC1:
-		return GL_RED;
+		return GL_RED_INTEGER;
 
-	// RG formats
+		// RG formats (float/unsigned normalized)
 	case GL_RG8:
 	case GL_RG16:
 	case GL_RG16F:
 	case GL_RG32F:
+	case GL_COMPRESSED_RG:
+	case GL_COMPRESSED_RG_RGTC2:
+		return GL_RG;
+
+		// RG integer formats
 	case GL_RG8I:
 	case GL_RG8UI:
 	case GL_RG16I:
 	case GL_RG16UI:
 	case GL_RG32I:
 	case GL_RG32UI:
-	case GL_COMPRESSED_RG:
-	case GL_COMPRESSED_RG_RGTC2:
-		return GL_RG;
+		return GL_RG_INTEGER;
 
-	// RGB formats
+		// RGB formats (float/unsigned normalized)
 	case GL_R3_G3_B2:
 	case GL_RGB4:
 	case GL_RGB5:
@@ -594,21 +600,24 @@ GLenum OpenGL_Texture::getFormatFromInternalFormat() const
 	case GL_RGB32F:
 	case GL_R11F_G11F_B10F:
 	case GL_RGB9_E5:
+	case GL_COMPRESSED_RGB:
+	case GL_COMPRESSED_RGB_S3TC_DXT1_EXT:
+		return GL_RGB;
+
+		// RGB integer formats
 	case GL_RGB8I:
 	case GL_RGB8UI:
 	case GL_RGB16I:
 	case GL_RGB16UI:
 	case GL_RGB32I:
 	case GL_RGB32UI:
-	case GL_COMPRESSED_RGB:
-	case GL_COMPRESSED_RGB_S3TC_DXT1_EXT:
-		return GL_RGB;
+		return GL_RGB_INTEGER;
 
-	// BGR formats
+		// BGR format (no integer BGR in standard OpenGL)
 	case GL_BGR:
 		return GL_BGR;
 
-	// RGBA formats
+		// RGBA formats (float/unsigned normalized)
 	case GL_RGBA2:
 	case GL_RGBA4:
 	case GL_RGB5_A1:
@@ -618,6 +627,13 @@ GLenum OpenGL_Texture::getFormatFromInternalFormat() const
 	case GL_RGBA16:
 	case GL_RGBA16F:
 	case GL_RGBA32F:
+	case GL_COMPRESSED_RGBA:
+	case GL_COMPRESSED_RGBA_S3TC_DXT1_EXT:
+	case GL_COMPRESSED_RGBA_S3TC_DXT3_EXT:
+	case GL_COMPRESSED_RGBA_S3TC_DXT5_EXT:
+		return GL_RGBA;
+
+		// RGBA integer formats
 	case GL_RGBA8I:
 	case GL_RGBA8UI:
 	case GL_RGB10_A2UI:
@@ -625,33 +641,29 @@ GLenum OpenGL_Texture::getFormatFromInternalFormat() const
 	case GL_RGBA16UI:
 	case GL_RGBA32I:
 	case GL_RGBA32UI:
-	case GL_COMPRESSED_RGBA:
-	case GL_COMPRESSED_RGBA_S3TC_DXT1_EXT:
-	case GL_COMPRESSED_RGBA_S3TC_DXT3_EXT:
-	case GL_COMPRESSED_RGBA_S3TC_DXT5_EXT:
-		return GL_RGBA;
+		return GL_RGBA_INTEGER;
 
-	// BGRA format
+		// BGRA format (no integer BGRA in standard OpenGL)
 	case GL_BGRA:
 		return GL_BGRA;
 
-	// Depth formats
+		// Depth formats
 	case GL_DEPTH_COMPONENT16:
 	case GL_DEPTH_COMPONENT24:
 	case GL_DEPTH_COMPONENT32:
 	case GL_DEPTH_COMPONENT32F:
 		return GL_DEPTH_COMPONENT;
 
-	// Depth-stencil formats
+		// Depth-stencil formats
 	case GL_DEPTH24_STENCIL8:
 	case GL_DEPTH32F_STENCIL8:
 		return GL_DEPTH_STENCIL;
 
-	// Stencil format
+		// Stencil format
 	case GL_STENCIL_INDEX8:
 		return GL_STENCIL_INDEX;
 
-	// Default to RGBA for unknown formats
+		// Default to RGBA for unknown formats
 	default:
 		std::cerr << "[OpenGL_Texture][getFormatFromInternalFormat]: Unknown internal format: " << internalFormat
 			<< ", defaulting to GL_RGBA\n";

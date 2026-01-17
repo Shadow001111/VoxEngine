@@ -6,13 +6,8 @@
 
 namespace TextureLoader
 {
-    std::vector<unsigned char> createUndefinedTexture(int width, int height, int channels);
-
     struct TextureParams
     {
-        GLenum minFilter = GL_NEAREST;
-        GLenum magFilter = GL_NEAREST;
-        GLenum wrapMode = GL_CLAMP_TO_EDGE;
         int desiredChannels = 4;
         bool createMipmaps = false;
     };

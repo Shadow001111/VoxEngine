@@ -117,10 +117,11 @@ void World::initTextures(const std::vector<std::string>& blockTextureNames)
 		// Load
 		TextureLoader::TextureParams params;
 		params.createMipmaps = true;
-		params.minFilter = GL_NEAREST_MIPMAP_LINEAR;
 
 		PROFILE_SCOPE("Block texture array creation", ProfileCategory::General);
 		TextureLoader::createTextureArrayFromImages(blockTextureArray, "res/BlockTextures", blockTextureNames, params);
+
+		blockTextureArray.setParameters(GL_NEAREST_MIPMAP_LINEAR, GL_NEAREST, GL_REPEAT, GL_REPEAT);
 
 		blockTextureArray.initHandle();
 		blockTextureArray.makeResident();
@@ -129,9 +130,6 @@ void World::initTextures(const std::vector<std::string>& blockTextureNames)
 	// Perlin noise texture
 	{
 		TextureLoader::TextureParams params;
-		params.minFilter = GL_LINEAR;
-		params.magFilter = GL_LINEAR;
-		params.wrapMode = GL_REPEAT;
 		params.desiredChannels = 1;
 
 		const size_t textureSize = 128;
@@ -141,6 +139,8 @@ void World::initTextures(const std::vector<std::string>& blockTextureNames)
 
 		PROFILE_SCOPE("Noise texture creation", ProfileCategory::General);
 		TextureLoader::createTexture3DFromFloatData(tilingPerlinNoise3DTexture, data, textureSize, textureSize, textureSize, params);
+
+		tilingPerlinNoise3DTexture.setParameters(GL_LINEAR, GL_LINEAR, GL_REPEAT, GL_REPEAT);
 
 		tilingPerlinNoise3DTexture.initHandle();
 		tilingPerlinNoise3DTexture.makeResident();
