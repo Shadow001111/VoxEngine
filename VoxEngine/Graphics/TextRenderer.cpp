@@ -115,10 +115,39 @@ TextRenderer::TextRenderer()
 
     textVAO.enableAttribute(0);
     textVAO.setFloatAttribute(0, 2, 0, 0);
+}
 
+void TextRenderer::flushGlyphs()
+{
+    if (glyphInstanceCount == 0)
+    {
+        return;
+    }
+
+    // Move glyph data to GPU
+    textInstanceVBO.write(glyphInstances.get(), glyphInstanceCount * sizeof(GlyphInstance));
+
+    // Draw glyphs
+    glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, 4, glyphInstanceCount);
+
+    // Reset glyphs count
+    glyphInstanceCount = 0;
+}
+
+void TextRenderer::pushGlyph(const GlyphInstance& glyph)
+{
+    glyphInstances[glyphInstanceCount++] = glyph;
+    if (glyphInstanceCount >= glyphInstanceBatchSize)
+    {
+        flushGlyphs();
+    }
+}
+
+void TextRenderer::createInstanceVBO(size_t glyphCount)
+{
     // Create instance VBO
     textInstanceVBO.create(GL_ARRAY_BUFFER);
-    textInstanceVBO.allocateStorage(sizeof(GlyphInstance) * GLYPH_INSTANCE_BATCH_SIZE, GL_DYNAMIC_STORAGE_BIT);
+    textInstanceVBO.allocateStorage(sizeof(GlyphInstance) * glyphCount, GL_DYNAMIC_STORAGE_BIT);
 
     // Bind instance VBO to VAO
     textVAO.bindVertexBuffer(1, textInstanceVBO.getID(), 0, sizeof(GlyphInstance));
@@ -134,32 +163,6 @@ TextRenderer::TextRenderer()
     textVAO.enableAttribute(3);
     textVAO.setIntAttribute(3, 1, 6 * sizeof(float), 1);
     textVAO.setAttributeDivisor(3, 1);
-}
-
-void TextRenderer::flushGlyphs()
-{
-    if (glyphInstanceCount == 0)
-    {
-        return;
-    }
-
-    // Move glyph data to GPU
-    textInstanceVBO.write(glyphInstances, glyphInstanceCount * sizeof(GlyphInstance));
-
-    // Draw glyphs
-    glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, 4, glyphInstanceCount);
-
-    // Reset glyphs count
-    glyphInstanceCount = 0;
-}
-
-void TextRenderer::pushGlyph(const GlyphInstance& glyph)
-{
-    glyphInstances[glyphInstanceCount++] = glyph;
-    if (glyphInstanceCount >= GLYPH_INSTANCE_BATCH_SIZE)
-    {
-        flushGlyphs();
-    }
 }
 
 void TextRenderer::getFontInfo(FT_Face& face, glm::ivec2& maxGlyphSize, size_t& glyphCount)
@@ -310,6 +313,22 @@ bool TextRenderer::loadFont(const std::string& fontName, GLuint fontSize)
     return true;
 }
 
+void TextRenderer::setGlyphInstanceBatchSize(size_t size)
+{
+    TextRenderer& inst = getInstance();
+    inst.glyphInstanceBatchSize = size;
+    if (size == 0)
+    {
+        inst.glyphInstances.reset();
+        inst.textInstanceVBO.destroy();
+    }
+    else
+    {
+        inst.glyphInstances = std::unique_ptr<GlyphInstance[]>(new GlyphInstance[size]);
+        inst.createInstanceVBO(size);
+    }
+}
+
 void TextRenderer::setCurrentFont(const std::string& fontName)
 {
     TextRenderer& inst = getInstance();
@@ -354,6 +373,13 @@ void TextRenderer::renderText(const std::string& text, float x, float y, float r
     PROFILE_SCOPE("Render text", ProfileCategory::Render);
 
     TextRenderer& inst = getInstance();
+
+    // Check buffer
+    if (inst.glyphInstanceBatchSize == 0)
+    {
+        std::cerr << "[TextRenderer][renderText]: Glyph instance batch size is zero\n";
+        return;
+    }
     
     // Font
     const Font* font = inst.currentFont;

@@ -1,5 +1,6 @@
 #pragma once
 #include <glm/glm.hpp>
+#include <memory>
 
 #include "OpenGLWrappers/Shader.h"
 #include "OpenGLWrappers/OpenGL_ImmutableBuffer.h"
@@ -46,8 +47,6 @@ struct GlyphInstance
     uint32_t textureID;
 };
 
-constexpr size_t GLYPH_INSTANCE_BATCH_SIZE = 1024;
-
 class TextRenderer
 {
     robin_hood::unordered_flat_map<std::string, Font> fonts;
@@ -60,7 +59,8 @@ class TextRenderer
     Shader textShader;
     glm::mat4 projectionMatrix;
 
-    GlyphInstance glyphInstances[GLYPH_INSTANCE_BATCH_SIZE];
+    size_t glyphInstanceBatchSize = 0;
+    std::unique_ptr<GlyphInstance[]> glyphInstances;
     size_t glyphInstanceCount = 0;
 
     TextRenderer();
@@ -79,12 +79,16 @@ class TextRenderer
     void flushGlyphs();
     void pushGlyph(const GlyphInstance& glyph);
 
+    void createInstanceVBO(size_t glyphCount);
+
     static void getFontInfo(FT_Face& face, glm::ivec2& maxGlyphSize, size_t& glyphCount);
     static void loadGlyphs(FT_Face& face, Font& font);
 public:
     static void init();
 
     static bool loadFont(const std::string& fontName, GLuint fontSize);
+
+    static void setGlyphInstanceBatchSize(size_t size);
 
     static void setCurrentFont(const std::string& fontName);
 

@@ -439,6 +439,7 @@ int main()
     TextRenderer::init();
     TextRenderer::loadFont("RusEngMinecraft", 8);
     TextRenderer::setCurrentFont("RusEngMinecraft");
+    TextRenderer::setGlyphInstanceBatchSize(1024); // TODO: Make sure this thing does smth
 
     // World
     World world;
