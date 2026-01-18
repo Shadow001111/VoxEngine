@@ -184,7 +184,7 @@ void ChunkMeshManager::MeshAllocator::processMeshRequests(std::vector<ChunkMeshD
 	else
 	{
 		// Create new buffer
-		OpenGL_ImmutableBuffer newBuffer;
+		ImmutableBuffer newBuffer;
 		newBuffer.create(GL_ARRAY_BUFFER);
 		newBuffer.allocateStorage(newCapacity * config.faceSize, GL_DYNAMIC_STORAGE_BIT);
 

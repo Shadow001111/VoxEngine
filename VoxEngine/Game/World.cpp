@@ -404,7 +404,7 @@ void World::sendChunkMeshesToGPU()
 	Chunk::sendMeshesToGPU();
 }
 
-void World::render(const Camera& camera, const OpenGL_FBO& FBO, const RaycastResult& raycast)
+void World::render(const Camera& camera, const FrameBuffer& FBO, const RaycastResult& raycast)
 {
 	// Clear buffers
 	{
@@ -434,7 +434,7 @@ void World::render(const Camera& camera, const OpenGL_FBO& FBO, const RaycastRes
 	renderVoxelMarker(camera, raycast);
 }
 
-void World::renderAurora(const Camera& camera, const OpenGL_FBO& FBO) const
+void World::renderAurora(const Camera& camera, const FrameBuffer& FBO) const
 {
 	// Get textures
 	auto getTextureResult = FBO.getTexture("aurora");
@@ -443,7 +443,7 @@ void World::renderAurora(const Camera& camera, const OpenGL_FBO& FBO) const
 		std::cerr << "[World][renderAurora]: FBO does not have 'aurora' texture\n";
 		return;
 	}
-	const OpenGL_Texture& auroraTex = *getTextureResult.value();
+	const Texture& auroraTex = *getTextureResult.value();
 
 	getTextureResult = FBO.getTexture("geometryAlpha");
 	if (!getTextureResult.has_value())
@@ -451,7 +451,7 @@ void World::renderAurora(const Camera& camera, const OpenGL_FBO& FBO) const
 		std::cerr << "[World][compositePass]: FBO does not have 'geometryAlpha' texture\n";
 		return;
 	}
-	const OpenGL_Texture& geometryAlphaTex = *getTextureResult.value();
+	const Texture& geometryAlphaTex = *getTextureResult.value();
 
 	getTextureResult = FBO.getTexture("revealage");
 	if (!getTextureResult.has_value())
@@ -459,7 +459,7 @@ void World::renderAurora(const Camera& camera, const OpenGL_FBO& FBO) const
 		std::cerr << "[World][compositePass]: FBO does not have 'revealage' texture\n";
 		return;
 	}
-	const OpenGL_Texture& revealageTex = *getTextureResult.value();
+	const Texture& revealageTex = *getTextureResult.value();
 
 	// Compute rays and pass them to UBO
 	auto viewRays = computeViewRays(camera);
@@ -488,7 +488,7 @@ void World::renderAurora(const Camera& camera, const OpenGL_FBO& FBO) const
 	glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
 }
 
-void World::renderChunks(const Camera& camera, const OpenGL_FBO& FBO)
+void World::renderChunks(const Camera& camera, const FrameBuffer& FBO)
 {
 	debugData.renderedChunks = 0;
 	debugData.renderedFaceCount = 0;
@@ -747,7 +747,7 @@ void World::renderTranslucentChunks(const std::vector<ChunkRenderInfo>& chunksTo
 	glDepthMask(GL_TRUE);
 }
 
-void World::compositePass(const OpenGL_FBO& FBO) const
+void World::compositePass(const FrameBuffer& FBO) const
 {
 	auto getTextureResult = FBO.getTexture("color");
 	if (!getTextureResult.has_value())
@@ -755,7 +755,7 @@ void World::compositePass(const OpenGL_FBO& FBO) const
 		std::cerr << "[World][compositePass]: FBO does not have 'color' texture\n";
 		return;
 	}
-	const OpenGL_Texture& colorTex = *getTextureResult.value();
+	const Texture& colorTex = *getTextureResult.value();
 
 	getTextureResult = FBO.getTexture("geometryAlpha");
 	if (!getTextureResult.has_value())
@@ -763,7 +763,7 @@ void World::compositePass(const OpenGL_FBO& FBO) const
 		std::cerr << "[World][compositePass]: FBO does not have 'geometryAlpha' texture\n";
 		return;
 	}
-	const OpenGL_Texture& geometryAlphaTex = *getTextureResult.value();
+	const Texture& geometryAlphaTex = *getTextureResult.value();
 
 	getTextureResult = FBO.getTexture("accumulation");
 	if (!getTextureResult.has_value())
@@ -771,7 +771,7 @@ void World::compositePass(const OpenGL_FBO& FBO) const
 		std::cerr << "[World][compositePass]: FBO does not have 'accumulation' texture\n";
 		return;
 	}
-	const OpenGL_Texture& accumulationTex = *getTextureResult.value();
+	const Texture& accumulationTex = *getTextureResult.value();
 
 	getTextureResult = FBO.getTexture("revealage");
 	if (!getTextureResult.has_value())
@@ -779,7 +779,7 @@ void World::compositePass(const OpenGL_FBO& FBO) const
 		std::cerr << "[World][compositePass]: FBO does not have 'revealage' texture\n";
 		return;
 	}
-	const OpenGL_Texture& revealageTex = *getTextureResult.value();
+	const Texture& revealageTex = *getTextureResult.value();
 
 	getTextureResult = FBO.getTexture("aurora");
 	if (!getTextureResult.has_value())
@@ -787,7 +787,7 @@ void World::compositePass(const OpenGL_FBO& FBO) const
 		std::cerr << "[World][compositePass]: FBO does not have 'aurora' texture\n";
 		return;
 	}
-	const OpenGL_Texture& auroraTex = *getTextureResult.value();
+	const Texture& auroraTex = *getTextureResult.value();
 
 	// Get texture dimensions
 	int width = colorTex.getWidth();

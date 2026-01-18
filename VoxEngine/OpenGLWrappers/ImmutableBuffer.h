@@ -1,21 +1,21 @@
 #pragma once
 #include <glad/glad.h>
 
-class OpenGL_ImmutableBuffer
+class ImmutableBuffer
 {
     GLenum target = 0;
     GLbitfield flags = 0;
     GLuint id = 0;
     size_t capacity = 0;
 public:
-    OpenGL_ImmutableBuffer() = default;
-    ~OpenGL_ImmutableBuffer();
+    ImmutableBuffer() = default;
+    ~ImmutableBuffer();
 
-    OpenGL_ImmutableBuffer(const OpenGL_ImmutableBuffer& other) = delete;
-    OpenGL_ImmutableBuffer& operator=(const OpenGL_ImmutableBuffer& other) = delete;
+    ImmutableBuffer(const ImmutableBuffer& other) = delete;
+    ImmutableBuffer& operator=(const ImmutableBuffer& other) = delete;
 
-    OpenGL_ImmutableBuffer(OpenGL_ImmutableBuffer&& other) noexcept;
-    OpenGL_ImmutableBuffer& operator=(OpenGL_ImmutableBuffer&& other) noexcept;
+    ImmutableBuffer(ImmutableBuffer&& other) noexcept;
+    ImmutableBuffer& operator=(ImmutableBuffer&& other) noexcept;
 
     void create(GLenum target);
     void destroy();
@@ -30,10 +30,10 @@ public:
     void bindBase(GLuint index) const;
     void bindBase(GLenum target, GLuint index) const;
 
-    void swap(OpenGL_ImmutableBuffer& other) noexcept;
+    void swap(ImmutableBuffer& other) noexcept;
 
     void write(const void* data, size_t dataSize, size_t offset = 0) const;
-    void copyRangeFrom(const OpenGL_ImmutableBuffer& src, size_t srcOffset, size_t dstOffset, size_t size) const;
+    void copyRangeFrom(const ImmutableBuffer& src, size_t srcOffset, size_t dstOffset, size_t size) const;
     void clearData(GLenum internalFormat, GLenum format, GLenum type, const void* data) const;
 
     GLuint getID() const { return id; }

@@ -92,7 +92,7 @@ bool WindowManager::shouldClose() const
     return glfwWindowShouldClose(window);
 }
 
-void WindowManager::linkFramebuffer(OpenGL_FBO* fbo)
+void WindowManager::linkFramebuffer(FrameBuffer* fbo)
 {
     if (fbo == nullptr)
     {
@@ -104,12 +104,12 @@ void WindowManager::linkFramebuffer(OpenGL_FBO* fbo)
     fbo->resize(width, height);
 }
 
-void WindowManager::unlinkFramebuffer(OpenGL_FBO* fbo)
+void WindowManager::unlinkFramebuffer(FrameBuffer* fbo)
 {
     linkedFramebuffers.erase(fbo);
 }
 
-bool WindowManager::isFramebufferLinked(OpenGL_FBO* fbo) const
+bool WindowManager::isFramebufferLinked(FrameBuffer* fbo) const
 {
     return linkedFramebuffers.contains(fbo);
 }
@@ -209,7 +209,7 @@ void WindowManager::onResize(int width, int height)
     {
         glViewport(0, 0, width, height);
 
-        OpenGL_FBO* lastFramebuffer = nullptr;
+        FrameBuffer* lastFramebuffer = nullptr;
         for (auto* framebuffer : linkedFramebuffers)
         {
             framebuffer->bind();

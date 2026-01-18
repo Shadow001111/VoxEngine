@@ -1,4 +1,4 @@
-#include "OpenGL_Texture.h"
+#include "Texture.h"
 #include <iostream>
 
 
@@ -25,12 +25,12 @@
 //	}
 //}
 
-OpenGL_Texture::~OpenGL_Texture()
+Texture::~Texture()
 {
 	if (id) glDeleteTextures(1, &id);
 }
 
-OpenGL_Texture::OpenGL_Texture(OpenGL_Texture&& other) noexcept :
+Texture::Texture(Texture&& other) noexcept :
 	id(other.id), type(other.type),
 	internalFormat(other.internalFormat),
 	width(other.width), height(other.height), depth(other.depth), mipLevels(other.mipLevels),
@@ -48,7 +48,7 @@ OpenGL_Texture::OpenGL_Texture(OpenGL_Texture&& other) noexcept :
 	other.resident = 0;
 }
 
-OpenGL_Texture& OpenGL_Texture::operator=(OpenGL_Texture&& other) noexcept
+Texture& Texture::operator=(Texture&& other) noexcept
 {
 	if (this != &other)
 	{
@@ -78,16 +78,16 @@ OpenGL_Texture& OpenGL_Texture::operator=(OpenGL_Texture&& other) noexcept
 	return *this;
 }
 
-void OpenGL_Texture::create1D(texture_size width, GLenum internalFormat, mip_level mipLevels)
+void Texture::create1D(texture_size width, GLenum internalFormat, mip_level mipLevels)
 {
 	if (width <= 0)
 	{
-		std::cerr << "[OpenGL_Texture][create1D]: Invalid texture dimensions: width=" << width << "\n";
+		std::cerr << "[Texture][create1D]: Invalid texture dimensions: width=" << width << "\n";
 		return;
 	}
 	if (mipLevels < 1)
 	{
-		std::cerr << "[OpenGL_Texture][create1D]: Invalid mipLevels: " << (unsigned)mipLevels << "\n";
+		std::cerr << "[Texture][create1D]: Invalid mipLevels: " << (unsigned)mipLevels << "\n";
 		return;
 	}
 
@@ -105,16 +105,16 @@ void OpenGL_Texture::create1D(texture_size width, GLenum internalFormat, mip_lev
 	glTextureStorage1D(id, mipLevels, internalFormat, width);
 }
 
-void OpenGL_Texture::create2D(texture_size width, texture_size height, GLenum internalFormat, mip_level mipLevels)
+void Texture::create2D(texture_size width, texture_size height, GLenum internalFormat, mip_level mipLevels)
 {
 	if (width <= 0 || height <= 0)
 	{
-		std::cerr << "[OpenGL_Texture][create2D]: Invalid texture dimensions: width=" << width << ", height=" << height << "\n";
+		std::cerr << "[Texture][create2D]: Invalid texture dimensions: width=" << width << ", height=" << height << "\n";
 		return;
 	}
 	if (mipLevels < 1)
 	{
-		std::cerr << "[OpenGL_Texture][create2D]: Invalid mipLevels: " << (unsigned)mipLevels << "\n";
+		std::cerr << "[Texture][create2D]: Invalid mipLevels: " << (unsigned)mipLevels << "\n";
 		return;
 	}
 
@@ -132,16 +132,16 @@ void OpenGL_Texture::create2D(texture_size width, texture_size height, GLenum in
 	glTextureStorage2D(id, mipLevels, internalFormat, width, height);
 }
 
-void OpenGL_Texture::create3D(texture_size width, texture_size height, texture_size depth, GLenum internalFormat, mip_level mipLevels)
+void Texture::create3D(texture_size width, texture_size height, texture_size depth, GLenum internalFormat, mip_level mipLevels)
 {
 	if (width <= 0 || height <= 0 || depth <= 0)
 	{
-		std::cerr << "[OpenGL_Texture][create3D]: Invalid texture dimensions: width=" << width << ", height=" << height << ", depth=" << depth << "\n";
+		std::cerr << "[Texture][create3D]: Invalid texture dimensions: width=" << width << ", height=" << height << ", depth=" << depth << "\n";
 		return;
 	}
 	if (mipLevels < 1)
 	{
-		std::cerr << "[OpenGL_Texture][create3D]: Invalid mipLevels: " << (unsigned)mipLevels << "\n";
+		std::cerr << "[Texture][create3D]: Invalid mipLevels: " << (unsigned)mipLevels << "\n";
 		return;
 	}
 
@@ -159,16 +159,16 @@ void OpenGL_Texture::create3D(texture_size width, texture_size height, texture_s
 	glTextureStorage3D(id, mipLevels, internalFormat, width, height, depth);
 }
 
-void OpenGL_Texture::create2DArray(texture_size width, texture_size height, texture_size layers, GLenum internalFormat, mip_level mipLevels)
+void Texture::create2DArray(texture_size width, texture_size height, texture_size layers, GLenum internalFormat, mip_level mipLevels)
 {
 	if (width <= 0 || height <= 0 || layers <= 0)
 	{
-		std::cerr << "[OpenGL_Texture][create2DArray]: Invalid texture array dimensions: width=" << width << ", height=" << height << ", layers=" << layers << "\n";
+		std::cerr << "[Texture][create2DArray]: Invalid texture array dimensions: width=" << width << ", height=" << height << ", layers=" << layers << "\n";
 		return;
 	}
 	if (mipLevels < 1)
 	{
-		std::cerr << "[OpenGL_Texture][create2DArray]: Invalid mipLevels: " << (unsigned)mipLevels << "\n";
+		std::cerr << "[Texture][create2DArray]: Invalid mipLevels: " << (unsigned)mipLevels << "\n";
 		return;
 	}
 
@@ -186,16 +186,16 @@ void OpenGL_Texture::create2DArray(texture_size width, texture_size height, text
 	glTextureStorage3D(id, mipLevels, internalFormat, width, height, layers);
 }
 
-void OpenGL_Texture::recreate1D(texture_size width)
+void Texture::recreate1D(texture_size width)
 {
 	if (width <= 0)
 	{
-		std::cerr << "[OpenGL_Texture][recreate1D]: Invalid texture dimensions: width=" << width << "\n";
+		std::cerr << "[Texture][recreate1D]: Invalid texture dimensions: width=" << width << "\n";
 		return;
 	}
 	if (mipLevels < 1)
 	{
-		std::cerr << "[OpenGL_Texture][recreate1D]: Invalid mipLevels: " << (unsigned)mipLevels << "\n";
+		std::cerr << "[Texture][recreate1D]: Invalid mipLevels: " << (unsigned)mipLevels << "\n";
 		return;
 	}
 
@@ -220,16 +220,16 @@ void OpenGL_Texture::recreate1D(texture_size width)
 	}
 }
 
-void OpenGL_Texture::recreate2D(texture_size width, texture_size height)
+void Texture::recreate2D(texture_size width, texture_size height)
 {
 	if (width <= 0 || height <= 0)
 	{
-		std::cerr << "[OpenGL_Texture][recreate2D]: Invalid texture dimensions: width=" << width << ", height=" << height << "\n";
+		std::cerr << "[Texture][recreate2D]: Invalid texture dimensions: width=" << width << ", height=" << height << "\n";
 		return;
 	}
 	if (mipLevels < 1)
 	{
-		std::cerr << "[OpenGL_Texture][recreate2D]: Invalid mipLevels: " << (unsigned)mipLevels << "\n";
+		std::cerr << "[Texture][recreate2D]: Invalid mipLevels: " << (unsigned)mipLevels << "\n";
 		return;
 	}
 
@@ -256,16 +256,16 @@ void OpenGL_Texture::recreate2D(texture_size width, texture_size height)
 	}
 }
 
-void OpenGL_Texture::recreate3D(texture_size width, texture_size height, texture_size depth)
+void Texture::recreate3D(texture_size width, texture_size height, texture_size depth)
 {
 	if (width <= 0 || height <= 0 || depth <= 0)
 	{
-		std::cerr << "[OpenGL_Texture][recreate3D]: Invalid texture dimensions: width=" << width << ", height=" << height << ", depth=" << depth << "\n";
+		std::cerr << "[Texture][recreate3D]: Invalid texture dimensions: width=" << width << ", height=" << height << ", depth=" << depth << "\n";
 		return;
 	}
 	if (mipLevels < 1)
 	{
-		std::cerr << "[OpenGL_Texture][recreate3D]: Invalid mipLevels: " << (unsigned)mipLevels << "\n";
+		std::cerr << "[Texture][recreate3D]: Invalid mipLevels: " << (unsigned)mipLevels << "\n";
 		return;
 	}
 
@@ -294,12 +294,12 @@ void OpenGL_Texture::recreate3D(texture_size width, texture_size height, texture
 	}
 }
 
-void OpenGL_Texture::uploadData(
+void Texture::uploadData(
 	const void* data, GLenum dataType, mip_level level)
 {
 	if (level < 0 || level >= mipLevels)
 	{
-		std::cerr << "[OpenGL_Texture][uploadData]: Invalid mipmap level: " << level << ". Texture has " << (unsigned)mipLevels << " mipLevels.\n";
+		std::cerr << "[Texture][uploadData]: Invalid mipmap level: " << level << ". Texture has " << (unsigned)mipLevels << " mipLevels.\n";
 		return;
 	}
 
@@ -318,31 +318,31 @@ void OpenGL_Texture::uploadData(
 		glTextureSubImage3D(id, level, 0, 0, 0, width, height, depth, format, dataType, data);
 		break;
 	default:
-		std::cerr << "[OpenGL_Texture][uploadData]: Unsupported texture type for data upload: " << type<< "\n";
+		std::cerr << "[Texture][uploadData]: Unsupported texture type for data upload: " << type<< "\n";
 		break;
 	}
 }
 
-void OpenGL_Texture::uploadSubData1D(
+void Texture::uploadSubData1D(
 	const void* data, texture_size xOffset,
 	texture_size width, GLenum dataType, mip_level level)
 {
 	if (type != GL_TEXTURE_1D)
 	{
-		std::cerr << "[OpenGL_Texture][uploadSubData1D]: Texture is not 1D type. Actual type: " << type << "\n";
+		std::cerr << "[Texture][uploadSubData1D]: Texture is not 1D type. Actual type: " << type << "\n";
 		return;
 	}
 
 	if (level < 0 || level >= mipLevels)
 	{
-		std::cerr << "[OpenGL_Texture][uploadSubData1D]: Invalid mipmap level: " << level
+		std::cerr << "[Texture][uploadSubData1D]: Invalid mipmap level: " << level
 			<< ". Texture has " << (unsigned)mipLevels << " mipLevels.\n";
 		return;
 	}
 
 	if (xOffset < 0 || width <= 0 || (xOffset + width) > this->width)
 	{
-		std::cerr << "[OpenGL_Texture][uploadSubData1D]: Invalid subregion: xOffset="
+		std::cerr << "[Texture][uploadSubData1D]: Invalid subregion: xOffset="
 			<< xOffset << ", width=" << width << ", texture width=" << this->width << "\n";
 		return;
 	}
@@ -351,19 +351,19 @@ void OpenGL_Texture::uploadSubData1D(
 	glTextureSubImage1D(id, level, xOffset, width, format, dataType, data);
 }
 
-void OpenGL_Texture::uploadSubData2D(
+void Texture::uploadSubData2D(
 	const void* data, texture_size xOffset, texture_size yOffset,
 	texture_size width, texture_size height, GLenum dataType, mip_level level)
 {
 	if (type != GL_TEXTURE_2D)
 	{
-		std::cerr << "[OpenGL_Texture][uploadSubData2D]: Texture is not 2D type. Actual type: " << type << "\n";
+		std::cerr << "[Texture][uploadSubData2D]: Texture is not 2D type. Actual type: " << type << "\n";
 		return;
 	}
 
 	if (level < 0 || level >= mipLevels)
 	{
-		std::cerr << "[OpenGL_Texture][uploadSubData2D]: Invalid mipmap level: " << level
+		std::cerr << "[Texture][uploadSubData2D]: Invalid mipmap level: " << level
 			<< ". Texture has " << (unsigned)mipLevels << " mipLevels.\n";
 		return;
 	}
@@ -371,7 +371,7 @@ void OpenGL_Texture::uploadSubData2D(
 	if (xOffset < 0 || yOffset < 0 || width <= 0 || height <= 0 ||
 		(xOffset + width) > this->width || (yOffset + height) > this->height)
 	{
-		std::cerr << "[OpenGL_Texture][uploadSubData2D]: Invalid subregion: xOffset="
+		std::cerr << "[Texture][uploadSubData2D]: Invalid subregion: xOffset="
 			<< xOffset << ", yOffset=" << yOffset << ", width=" << width
 			<< ", height=" << height << ", texture size=" << this->width
 			<< "x" << this->height << "\n";
@@ -382,19 +382,19 @@ void OpenGL_Texture::uploadSubData2D(
 	glTextureSubImage2D(id, level, xOffset, yOffset, width, height, format, dataType, data);
 }
 
-void OpenGL_Texture::uploadSubData3D(
+void Texture::uploadSubData3D(
 	const void* data, texture_size xOffset, texture_size yOffset, texture_size zOffset,
 	texture_size width, texture_size height, texture_size depth, GLenum dataType, mip_level level)
 {
 	if (type != GL_TEXTURE_3D)
 	{
-		std::cerr << "[OpenGL_Texture][uploadSubData3D]: Texture is not 3D type. Actual type: " << type << "\n";
+		std::cerr << "[Texture][uploadSubData3D]: Texture is not 3D type. Actual type: " << type << "\n";
 		return;
 	}
 
 	if (level < 0 || level >= mipLevels)
 	{
-		std::cerr << "[OpenGL_Texture][uploadSubData3D]: Invalid mipmap level: " << level
+		std::cerr << "[Texture][uploadSubData3D]: Invalid mipmap level: " << level
 			<< ". Texture has " << (unsigned)mipLevels << " mipLevels.\n";
 		return;
 	}
@@ -404,7 +404,7 @@ void OpenGL_Texture::uploadSubData3D(
 		(xOffset + width) > this->width || (yOffset + height) > this->height ||
 		(zOffset + depth) > this->depth)
 	{
-		std::cerr << "[OpenGL_Texture][uploadSubData3D]: Invalid subregion: offset=["
+		std::cerr << "[Texture][uploadSubData3D]: Invalid subregion: offset=["
 			<< xOffset << "," << yOffset << "," << zOffset << "], size=["
 			<< width << "x" << height << "x" << depth << "], texture size=["
 			<< this->width << "x" << this->height << "x" << this->depth << "]\n";
@@ -415,19 +415,19 @@ void OpenGL_Texture::uploadSubData3D(
 	glTextureSubImage3D(id, level, xOffset, yOffset, zOffset, width, height, depth, format, dataType, data);
 }
 
-void OpenGL_Texture::uploadSubData2DArray(
+void Texture::uploadSubData2DArray(
 	const void* data, texture_size xOffset, texture_size yOffset, texture_size layer,
 	texture_size width, texture_size height, GLenum dataType, mip_level level)
 {
 	if (type != GL_TEXTURE_2D_ARRAY)
 	{
-		std::cerr << "[OpenGL_Texture][uploadSubData2DArray]: Texture is not 2D Array type. Actual type: " << type << "\n";
+		std::cerr << "[Texture][uploadSubData2DArray]: Texture is not 2D Array type. Actual type: " << type << "\n";
 		return;
 	}
 
 	if (level < 0 || level >= mipLevels)
 	{
-		std::cerr << "[OpenGL_Texture][uploadSubData2DArray]: Invalid mipmap level: " << level
+		std::cerr << "[Texture][uploadSubData2DArray]: Invalid mipmap level: " << level
 			<< ". Texture has " << (unsigned)mipLevels << " mipLevels.\n";
 		return;
 	}
@@ -437,7 +437,7 @@ void OpenGL_Texture::uploadSubData2DArray(
 		(xOffset + width) > this->width || (yOffset + height) > this->height ||
 		layer >= this->depth)
 	{
-		std::cerr << "[OpenGL_Texture][uploadSubData2DArray]: Invalid subregion: xOffset="
+		std::cerr << "[Texture][uploadSubData2DArray]: Invalid subregion: xOffset="
 			<< xOffset << ", yOffset=" << yOffset << ", layer=" << layer
 			<< ", width=" << width << ", height=" << height
 			<< ", texture size=" << this->width << "x" << this->height
@@ -450,7 +450,7 @@ void OpenGL_Texture::uploadSubData2DArray(
 	glTextureSubImage3D(id, level, xOffset, yOffset, layer, width, height, 1, format, dataType, data);
 }
 
-void OpenGL_Texture::generateMipmaps()
+void Texture::generateMipmaps()
 {
 	if (mipLevels > 1)
 	{
@@ -458,7 +458,7 @@ void OpenGL_Texture::generateMipmaps()
 	}
 }
 
-void OpenGL_Texture::setParameters(GLenum minFilter_, GLenum magFilter_, GLenum wrapS_)
+void Texture::setParameters(GLenum minFilter_, GLenum magFilter_, GLenum wrapS_)
 {
 	minFilter = minFilter_;
 	magFilter = magFilter_;
@@ -469,7 +469,7 @@ void OpenGL_Texture::setParameters(GLenum minFilter_, GLenum magFilter_, GLenum 
 	glTextureParameteri(id, GL_TEXTURE_WRAP_S, wrapS);
 }
 
-void OpenGL_Texture::setParameters(GLenum minFilter_, GLenum magFilter_, GLenum wrapS_, GLenum wrapT_)
+void Texture::setParameters(GLenum minFilter_, GLenum magFilter_, GLenum wrapS_, GLenum wrapT_)
 {
 	minFilter = minFilter_;
 	magFilter = magFilter_;
@@ -482,7 +482,7 @@ void OpenGL_Texture::setParameters(GLenum minFilter_, GLenum magFilter_, GLenum 
 	glTextureParameteri(id, GL_TEXTURE_WRAP_T, wrapT);
 }
 
-void OpenGL_Texture::setParameters(GLenum minFilter_, GLenum magFilter_, GLenum wrapS_, GLenum wrapT_, GLenum wrapR_)
+void Texture::setParameters(GLenum minFilter_, GLenum magFilter_, GLenum wrapS_, GLenum wrapT_, GLenum wrapR_)
 {
 	minFilter = minFilter_;
 	magFilter = magFilter_;
@@ -497,32 +497,32 @@ void OpenGL_Texture::setParameters(GLenum minFilter_, GLenum magFilter_, GLenum 
 	glTextureParameteri(id, GL_TEXTURE_WRAP_R, wrapR);
 }
 
-void OpenGL_Texture::bind() const
+void Texture::bind() const
 {
 	glBindTexture(type, id);
 }
 
-void OpenGL_Texture::bind(GLenum target) const
+void Texture::bind(GLenum target) const
 {
 	glBindTexture(target, id);
 }
 
-void OpenGL_Texture::unbind() const
+void Texture::unbind() const
 {
 	glBindTexture(type, 0);
 }
 
-void OpenGL_Texture::unbind(GLenum target)
+void Texture::unbind(GLenum target)
 {
 	glBindTexture(target, 0);
 }
 
-void OpenGL_Texture::bindUnit(GLuint unit) const
+void Texture::bindUnit(GLuint unit) const
 {
 	glBindTextureUnit(unit, id);
 }
 
-void OpenGL_Texture::initHandle()
+void Texture::initHandle()
 {
 	if (handle == 0 && id != 0)
 	{
@@ -530,7 +530,7 @@ void OpenGL_Texture::initHandle()
 	}
 }
 
-void OpenGL_Texture::makeResident()
+void Texture::makeResident()
 {
 	if (handle != 0 && !resident)
 	{
@@ -539,7 +539,7 @@ void OpenGL_Texture::makeResident()
 	}
 }
 
-void OpenGL_Texture::makeNonResident()
+void Texture::makeNonResident()
 {
 	if (handle != 0 && resident)
 	{
@@ -548,7 +548,7 @@ void OpenGL_Texture::makeNonResident()
 	}
 }
 
-GLenum OpenGL_Texture::getFormatFromInternalFormat() const
+GLenum Texture::getFormatFromInternalFormat() const
 {
 	switch (internalFormat)
 	{
@@ -665,7 +665,7 @@ GLenum OpenGL_Texture::getFormatFromInternalFormat() const
 
 		// Default to RGBA for unknown formats
 	default:
-		std::cerr << "[OpenGL_Texture][getFormatFromInternalFormat]: Unknown internal format: " << internalFormat
+		std::cerr << "[Texture][getFormatFromInternalFormat]: Unknown internal format: " << internalFormat
 			<< ", defaulting to GL_RGBA\n";
 		return GL_RGBA;
 	}

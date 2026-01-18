@@ -24,7 +24,7 @@
 //	GLenum getBestCompressedFormat(int channels, GLenum valueType);
 //}
 
-class OpenGL_Texture
+class Texture
 {
 	GLuint id = 0;
 	GLenum type = 0;
@@ -47,14 +47,14 @@ class OpenGL_Texture
 	bool resident = false;
 	GLuint64 handle = 0;
 public:
-	OpenGL_Texture() = default;
-	~OpenGL_Texture();
+	Texture() = default;
+	~Texture();
 
-	OpenGL_Texture(const OpenGL_Texture&) = delete;
-	OpenGL_Texture& operator=(const OpenGL_Texture&) = delete;
+	Texture(const Texture&) = delete;
+	Texture& operator=(const Texture&) = delete;
 
-	OpenGL_Texture(OpenGL_Texture&& other) noexcept;
-	OpenGL_Texture& operator=(OpenGL_Texture&& other) noexcept;
+	Texture(Texture&& other) noexcept;
+	Texture& operator=(Texture&& other) noexcept;
 
 	// Texture creation functions for different types
 	void create1D(texture_size width,							  GLenum internalFormat, mip_level mipLevels = 1);

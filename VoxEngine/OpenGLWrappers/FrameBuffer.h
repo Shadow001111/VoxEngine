@@ -1,10 +1,10 @@
 #pragma once
-#include "OpenGL_Texture.h"
+#include "Texture.h"
 #include "robin_hood.h"
 #include <string>
 #include <optional>
 
-class OpenGL_FBO
+class FrameBuffer
 {
     enum class AttachmentType
     {
@@ -17,7 +17,7 @@ class OpenGL_FBO
 
     struct Attachment
     {
-        OpenGL_Texture texture;
+        Texture texture;
         AttachmentType type = AttachmentType::COLOR;
         GLenum attachmentPoint = -1;
         float resolutionFactor = 1.0f;
@@ -37,16 +37,16 @@ class OpenGL_FBO
     robin_hood::unordered_flat_map<std::string, Attachment> attachments;
     std::vector<std::string> drawBuffers;
 public:
-    OpenGL_FBO() = default;
-    ~OpenGL_FBO();
+    FrameBuffer() = default;
+    ~FrameBuffer();
 
     // Delete copy constructor/assignment
-    OpenGL_FBO(const OpenGL_FBO&) = delete;
-    OpenGL_FBO& operator=(const OpenGL_FBO&) = delete;
+    FrameBuffer(const FrameBuffer&) = delete;
+    FrameBuffer& operator=(const FrameBuffer&) = delete;
 
     // Move constructor/assignment
-    OpenGL_FBO(OpenGL_FBO&& other) noexcept;
-    OpenGL_FBO& operator=(OpenGL_FBO&& other) noexcept;
+    FrameBuffer(FrameBuffer&& other) noexcept;
+    FrameBuffer& operator=(FrameBuffer&& other) noexcept;
 
     // Creation
     void create(int width, int height);
@@ -92,15 +92,15 @@ public:
     void setDrawBuffers(const std::vector<std::string>& attachmentNames);
     void resize(int newWidth, int newHeight);
 
-    void blitTo(const OpenGL_FBO& dstFBO, GLbitfield mask = GL_COLOR_BUFFER_BIT, GLenum filter = GL_NEAREST) const;
+    void blitTo(const FrameBuffer& dstFBO, GLbitfield mask = GL_COLOR_BUFFER_BIT, GLenum filter = GL_NEAREST) const;
     void blitToDefaultFramebuffer(int dstWidth, int dstHeight, GLbitfield mask = GL_COLOR_BUFFER_BIT, GLenum filter = GL_NEAREST) const;
 
     void clearAttachment(const std::string& name, const float* clearValue) const;
     void clearDrawBuffer(const std::string& name, const float* clearValue) const;
 
     // Texture access
-    std::optional<OpenGL_Texture*> getTexture(const std::string& name);
-    std::optional<const OpenGL_Texture*> getTexture(const std::string& name) const;
+    std::optional<Texture*> getTexture(const std::string& name);
+    std::optional<const Texture*> getTexture(const std::string& name) const;
     bool hasTexture(const std::string& name) const;
     void bindTextureToUnit(const std::string& name, GLuint textureUnit) const;
 

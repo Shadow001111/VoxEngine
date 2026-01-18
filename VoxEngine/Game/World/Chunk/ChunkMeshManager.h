@@ -1,6 +1,6 @@
 #pragma once
-#include "OpenGLWrappers/OpenGL_ImmutableBuffer.h"
-#include "OpenGLWrappers/OpenGL_VAO.h"
+#include "OpenGLWrappers/ImmutableBuffer.h"
+#include "OpenGLWrappers/VertexArray.h"
 
 #include "MeshData.h"
 
@@ -23,8 +23,8 @@ class ChunkMeshManager
 
 	struct MeshAllocator
 	{
-		OpenGL_VAO vao;
-		OpenGL_ImmutableBuffer instanceVBO;
+		VertexArray vao;
+		ImmutableBuffer instanceVBO;
 		BlockAllocator blockAllocator;
 		ProcessorConfig config;
 
@@ -36,7 +36,7 @@ class ChunkMeshManager
 		void processMeshRequests(std::vector<ChunkMeshData*>& meshRequests);
 	};
 	
-	OpenGL_ImmutableBuffer vbo;
+	ImmutableBuffer vbo;
 
 	MeshAllocator alignedMeshAllocator;
 	MeshAllocator nonAlignedMeshAllocator;
@@ -51,8 +51,8 @@ public:
 
 	void processMeshRequests(std::vector<ChunkMeshData*>& alignedMeshRequests, std::vector<ChunkMeshData*>& nonAlignedMeshRequests);
 public:
-	OpenGL_ImmutableBuffer& getAlignedInstanceVBO() { return alignedMeshAllocator.instanceVBO; };
-	OpenGL_ImmutableBuffer& getNonAlignedInstanceVBO() { return nonAlignedMeshAllocator.instanceVBO; };
+	ImmutableBuffer& getAlignedInstanceVBO() { return alignedMeshAllocator.instanceVBO; };
+	ImmutableBuffer& getNonAlignedInstanceVBO() { return nonAlignedMeshAllocator.instanceVBO; };
 
 	void bindAlignedVAO() const { alignedMeshAllocator.vao.bind(); };
 	void bindNonAlignedVAO() const { nonAlignedMeshAllocator.vao.bind(); };

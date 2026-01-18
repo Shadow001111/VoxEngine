@@ -1,17 +1,17 @@
-#include "OpenGL_VAO.h"
+#include "VertexArray.h"
 
-OpenGL_VAO::~OpenGL_VAO()
+VertexArray::~VertexArray()
 {
     if (id) glDeleteVertexArrays(1, &id);
 }
 
-OpenGL_VAO::OpenGL_VAO(OpenGL_VAO&& other) noexcept
+VertexArray::VertexArray(VertexArray&& other) noexcept
     : id(other.id)
 {
     other.id = 0;
 }
 
-OpenGL_VAO& OpenGL_VAO::operator=(OpenGL_VAO&& other) noexcept
+VertexArray& VertexArray::operator=(VertexArray&& other) noexcept
 {
     if (this != &other)
     {
@@ -24,28 +24,28 @@ OpenGL_VAO& OpenGL_VAO::operator=(OpenGL_VAO&& other) noexcept
     return *this;
 }
 
-void OpenGL_VAO::create()
+void VertexArray::create()
 {
     if (id) glDeleteVertexArrays(1, &id);
     glCreateVertexArrays(1, &id);
 }
 
-void OpenGL_VAO::destroy()
+void VertexArray::destroy()
 {
     if (id) glDeleteVertexArrays(1, &id);
 }
 
-void OpenGL_VAO::bind() const
+void VertexArray::bind() const
 {
     glBindVertexArray(id);
 }
 
-void OpenGL_VAO::unbind()
+void VertexArray::unbind()
 {
     glBindVertexArray(0);
 }
 
-void OpenGL_VAO::setFloatAttribute(
+void VertexArray::setFloatAttribute(
     GLuint attributeIndex, GLint componentCount, GLsizei stride, GLuint bindingIndex,
     GLenum type, GLboolean normalized)
 {
@@ -53,7 +53,7 @@ void OpenGL_VAO::setFloatAttribute(
     glVertexArrayAttribBinding(id, attributeIndex, bindingIndex);
 }
 
-void OpenGL_VAO::setIntAttribute(
+void VertexArray::setIntAttribute(
     GLuint attributeIndex, GLint componentCount, GLsizei stride, GLuint bindingIndex,
     GLenum type)
 {
@@ -61,27 +61,27 @@ void OpenGL_VAO::setIntAttribute(
     glVertexArrayAttribBinding(id, attributeIndex, bindingIndex);
 }
 
-void OpenGL_VAO::enableAttribute(GLuint index)
+void VertexArray::enableAttribute(GLuint index)
 {
     glEnableVertexArrayAttrib(id, index);
 }
 
-void OpenGL_VAO::disableAttribute(GLuint index)
+void VertexArray::disableAttribute(GLuint index)
 {
     glDisableVertexArrayAttrib(id, index);
 }
 
-void OpenGL_VAO::setAttributeDivisor(GLuint index, GLuint divisor)
+void VertexArray::setAttributeDivisor(GLuint index, GLuint divisor)
 {
     glVertexArrayBindingDivisor(id, index, divisor);
 }
 
-void OpenGL_VAO::bindVertexBuffer(GLuint bindingIndex, GLuint bufferId, GLintptr offset, GLsizei stride)
+void VertexArray::bindVertexBuffer(GLuint bindingIndex, GLuint bufferId, GLintptr offset, GLsizei stride)
 {
     glVertexArrayVertexBuffer(id, bindingIndex, bufferId, offset, stride);
 }
 
-void OpenGL_VAO::bindElementBuffer(GLuint bufferId)
+void VertexArray::bindElementBuffer(GLuint bufferId)
 {
     glVertexArrayElementBuffer(id, bufferId);
 }

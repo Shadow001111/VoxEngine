@@ -9,9 +9,9 @@
 #include "Graphics/Camera.h"
 
 #include "OpenGLWrappers/Shader.h"
-#include "OpenGLWrappers/OpenGL_Buffer.h"
-#include "OpenGLWrappers/OpenGL_ImmutableBuffer.h"
-#include "OpenGLWrappers/OpenGL_FBO.h"
+#include "OpenGLWrappers/Buffer.h"
+#include "OpenGLWrappers/ImmutableBuffer.h"
+#include "OpenGLWrappers/FrameBuffer.h"
 
 #include "Core/Hashes/ivec3Hasher.h"
 
@@ -71,15 +71,15 @@ private:
 	Shader voxelMarkerShader;
 	VoxelMarkerMesh voxelMarkerMesh;
 
-	OpenGL_Texture blockTextureArray;
+	Texture blockTextureArray;
 
-	OpenGL_Buffer chunkDrawCommandBuffer;
-	OpenGL_Buffer chunkPositionSSBO;
+	Buffer chunkDrawCommandBuffer;
+	Buffer chunkPositionSSBO;
 
 	Shader auroraShader;
-	OpenGL_ImmutableBuffer skyViewRaysUBO;
+	ImmutableBuffer skyViewRaysUBO;
 
-	OpenGL_Texture tilingPerlinNoise3DTexture;
+	Texture tilingPerlinNoise3DTexture;
 
 	// Debug
 	mutable DebugData debugData;
@@ -121,7 +121,7 @@ private:
 	void initShaders();
 public:
 	void preparation();
-	void linkTexturesFromMainFramebuffer(const OpenGL_FBO& FBO);
+	void linkTexturesFromMainFramebuffer(const FrameBuffer& FBO);
 
 	void loadChunks(const glm::dvec3& playerPos);
 
@@ -129,11 +129,11 @@ public:
 
 	void sendChunkMeshesToGPU();
 public:
-	void render(const Camera& camera, const OpenGL_FBO& FBO, const RaycastResult& raycast);
+	void render(const Camera& camera, const FrameBuffer& FBO, const RaycastResult& raycast);
 private:
-	void renderAurora(const Camera& camera, const OpenGL_FBO& FBO) const;
+	void renderAurora(const Camera& camera, const FrameBuffer& FBO) const;
 
-	void renderChunks(const Camera& camera, const OpenGL_FBO& FBO);
+	void renderChunks(const Camera& camera, const FrameBuffer& FBO);
 
 	void collectChunksToRenderAndSortThem(std::vector<ChunkRenderInfo>& chunksToRender, const Camera& camera) const;
 
@@ -141,7 +141,7 @@ private:
 
 	void renderTranslucentChunks(const std::vector<ChunkRenderInfo>& chunksToRender);
 
-	void compositePass(const OpenGL_FBO& FBO) const;
+	void compositePass(const FrameBuffer& FBO) const;
 public:
 	void renderVoxelMarker(const Camera& camera, const RaycastResult& raycast) const;
 

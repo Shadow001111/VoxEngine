@@ -69,10 +69,10 @@
     <ClCompile Include="Core\BlockAllocator.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="OpenGLWrappers\OpenGL_Buffer.cpp">
+    <ClCompile Include="OpenGLWrappers\Buffer.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="OpenGLWrappers\OpenGL_FBO.cpp">
+    <ClCompile Include="OpenGLWrappers\FrameBuffer.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
     <ClCompile Include="Core\Hashes\ivec3Hasher.cpp">
@@ -81,10 +81,10 @@
     <ClCompile Include="Core\Hashes\ivec2Hasher.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="OpenGLWrappers\OpenGL_Texture.cpp">
+    <ClCompile Include="OpenGLWrappers\Texture.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="OpenGLWrappers\OpenGL_VAO.cpp">
+    <ClCompile Include="OpenGLWrappers\VertexArray.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
     <ClCompile Include="SoundManager.cpp">
@@ -150,7 +150,7 @@
     <ClCompile Include="SeamlessPerlinNoise\Perlin.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="OpenGLWrappers\OpenGL_ImmutableBuffer.cpp">
+    <ClCompile Include="OpenGLWrappers\ImmutableBuffer.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
   </ItemGroup>
@@ -206,10 +206,10 @@
     <ClInclude Include="Core\BlockAllocator.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="OpenGLWrappers\OpenGL_Buffer.h">
+    <ClInclude Include="OpenGLWrappers\Buffer.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="OpenGLWrappers\OpenGL_FBO.h">
+    <ClInclude Include="OpenGLWrappers\FrameBuffer.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Core\SymmetricBitMatrix.h">
@@ -233,10 +233,10 @@
     <ClInclude Include="Core\Debug.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="OpenGLWrappers\OpenGL_Texture.h">
+    <ClInclude Include="OpenGLWrappers\Texture.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="OpenGLWrappers\OpenGL_VAO.h">
+    <ClInclude Include="OpenGLWrappers\VertexArray.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="SoundManager.h">
@@ -335,7 +335,7 @@
     <ClInclude Include="SeamlessPerlinNoise\Perlin.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="OpenGLWrappers\OpenGL_ImmutableBuffer.h">
+    <ClInclude Include="OpenGLWrappers\ImmutableBuffer.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Core\MemoryAllocation\FixedArenaAllocator.h">

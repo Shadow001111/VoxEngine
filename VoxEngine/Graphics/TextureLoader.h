@@ -1,5 +1,5 @@
 #pragma once
-#include "OpenGLWrappers/OpenGL_Texture.h"
+#include "OpenGLWrappers/Texture.h"
 #include <string>
 #include <vector>
 #include <filesystem>
@@ -13,20 +13,20 @@ namespace TextureLoader
     };
 
     void createTexture2DFromImage(
-        OpenGL_Texture& texture,
+        Texture& texture,
         const std::filesystem::path& texturePath,
         const TextureParams& params = TextureParams()
     );
 
     void createTextureArrayFromImages(
-        OpenGL_Texture& texture,
+        Texture& texture,
         const std::filesystem::path& texturesFolderPath,
         const std::vector<std::string>& textureNames,
         const TextureParams& params = TextureParams()
     );
 
     void createTexture3DFromFloatData(
-        OpenGL_Texture& texture,
+        Texture& texture,
         const std::vector<float>& data,
         int width, int height, int depth,
         const TextureParams& params = TextureParams()

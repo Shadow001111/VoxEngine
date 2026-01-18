@@ -1,5 +1,5 @@
 #pragma once
-#include "OpenGLWrappers/OpenGL_FBO.h"
+#include "OpenGLWrappers/FrameBuffer.h"
 #include <GLFW/glfw3.h>
 #include <memory>
 
@@ -17,7 +17,7 @@ class WindowManager
 {
     GLFWwindow* window = nullptr;
 
-    robin_hood::unordered_flat_set<OpenGL_FBO*> linkedFramebuffers;
+    robin_hood::unordered_flat_set<FrameBuffer*> linkedFramebuffers;
 
     int width, height;
 	float aspectRatio;
@@ -31,9 +31,9 @@ public:
 	bool shouldClose() const;
 
     // Framebuffer linkage (for resizing)
-    void linkFramebuffer(OpenGL_FBO* fbo);
-    void unlinkFramebuffer(OpenGL_FBO* fbo);
-    bool isFramebufferLinked(OpenGL_FBO* fbo) const;
+    void linkFramebuffer(FrameBuffer* fbo);
+    void unlinkFramebuffer(FrameBuffer* fbo);
+    bool isFramebufferLinked(FrameBuffer* fbo) const;
 
     // Setters
     void setTitle(const std::string& title) const;

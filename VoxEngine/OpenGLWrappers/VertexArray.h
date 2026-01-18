@@ -1,18 +1,18 @@
 #pragma once
 #include <glad/glad.h>
 
-class OpenGL_VAO
+class VertexArray
 {
     GLuint id = 0;
 public:
-    OpenGL_VAO() = default;
-    ~OpenGL_VAO();
+    VertexArray() = default;
+    ~VertexArray();
 
-    OpenGL_VAO(const OpenGL_VAO& other) = delete;
-    OpenGL_VAO& operator=(const OpenGL_VAO& other) = delete;
+    VertexArray(const VertexArray& other) = delete;
+    VertexArray& operator=(const VertexArray& other) = delete;
 
-    OpenGL_VAO(OpenGL_VAO&& other) noexcept;
-    OpenGL_VAO& operator=(OpenGL_VAO&& other) noexcept;
+    VertexArray(VertexArray&& other) noexcept;
+    VertexArray& operator=(VertexArray&& other) noexcept;
 
     void create();
     void destroy();

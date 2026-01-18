@@ -3,9 +3,9 @@
 #include <memory>
 
 #include "OpenGLWrappers/Shader.h"
-#include "OpenGLWrappers/OpenGL_ImmutableBuffer.h"
-#include "OpenGLWrappers/OpenGL_VAO.h"
-#include "OpenGLWrappers/OpenGL_Texture.h"
+#include "OpenGLWrappers/ImmutableBuffer.h"
+#include "OpenGLWrappers/VertexArray.h"
+#include "OpenGLWrappers/Texture.h"
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
@@ -28,7 +28,7 @@ struct Font
     float fontSize = 0.0f;
     glm::ivec2 maxGlyphSize = { 0, 0 };
 
-    OpenGL_Texture textureArray;
+    Texture textureArray;
 
     Font() = default;
     ~Font() = default;
@@ -52,9 +52,9 @@ class TextRenderer
     robin_hood::unordered_flat_map<std::string, Font> fonts;
     Font* currentFont = nullptr;
 
-    OpenGL_VAO textVAO;
-    OpenGL_ImmutableBuffer textVBO;
-    OpenGL_ImmutableBuffer textInstanceVBO;
+    VertexArray textVAO;
+    ImmutableBuffer textVBO;
+    ImmutableBuffer textInstanceVBO;
 
     Shader textShader;
     glm::mat4 projectionMatrix;

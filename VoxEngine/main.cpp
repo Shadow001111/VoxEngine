@@ -11,8 +11,8 @@
 #include "Graphics/quad_vertices.h"
 #include "Graphics/TextureLoader.h"
 
-#include "OpenGLWrappers/OpenGL_VAO.h"
-#include "OpenGLWrappers/OpenGL_ImmutableBuffer.h"
+#include "OpenGLWrappers/VertexArray.h"
+#include "OpenGLWrappers/ImmutableBuffer.h"
 
 #include "SoundManager.h"
 
@@ -116,11 +116,11 @@ static void collectPlayerInput(PlayerInput& input, const WindowManager& wnd, glm
 struct ContainerUI
 {
     Shader hotbarShader;
-    OpenGL_Texture hotbarSlotImage;
-    OpenGL_VAO hotbarVAO;
-    OpenGL_ImmutableBuffer hotbarVBO;
+    Texture hotbarSlotImage;
+    VertexArray hotbarVAO;
+    ImmutableBuffer hotbarVBO;
 
-    OpenGL_Texture itemUITextureArray;
+    Texture itemUITextureArray;
 };
 
 struct DebugUIMetrics
@@ -404,7 +404,7 @@ int main()
     check();
 
     // Create framebuffer
-    OpenGL_FBO framebuffer;
+    FrameBuffer framebuffer;
     {
         framebuffer.create(wnd.getWidth(), wnd.getHeight());
 
