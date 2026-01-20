@@ -18,10 +18,10 @@ glm::dvec3 makeVectorFlatNormalized(const glm::dvec3& vec)
 }
 
 Player::Player(const glm::dvec3& position, float yaw, float pitch) :
-	Entity(position, yaw, pitch, glm::dvec3(0.0), glm::dvec3(0.6, 1.7, 0.6) * 0.5, true),
+	Entity(position, yaw, pitch, glm::dvec3(0.0), glm::dvec3(0.6, 1.7, 0.6), true),
 	camera(position, yaw, pitch, glm::radians(90.0f), 1.0f, 0.01f, 1.0f)
 {
-	setGameMode(GameMode::Fly);
+	setGameMode(GameMode::Normal);
 
 	for (int i = 0; i < 9; i++)
 	{
@@ -36,22 +36,34 @@ Player::Player(const glm::dvec3& position, float yaw, float pitch) :
 
 void Player::update(double deltaTime)
 {
+	// Update base physics
 	Entity::update(deltaTime);
 
+	// Process input
+	input.processInput();
+
+	// Get input
+	const bool moveRight	= input.isKeyPressed(GLFW_KEY_D);
+	const bool moveLeft		= input.isKeyPressed(GLFW_KEY_A);
+	const bool moveForward	= input.isKeyPressed(GLFW_KEY_W);
+	const bool moveBackward = input.isKeyPressed(GLFW_KEY_S);
+	const bool jump			= input.isKeyPressed(GLFW_KEY_SPACE);
+
+	// Move
 	if (gameMode == GameMode::Normal)
 	{
 		// Jump
-		if (onGround && input.jump)
+		if (onGround && jump)
 		{
 			velocity.y = 10.0;
 			onGround = false;
 		}
-
+	
 		// Position and velocity
 		{
 			double friction, maxSpeed, maxAcceleration;
 			getMovingValues(friction, maxSpeed, maxAcceleration);
-
+	
 			// Apply friction
 			{
 				double frictionForce = friction * deltaTime;
@@ -66,24 +78,24 @@ void Player::update(double deltaTime)
 					velocity -= glm::normalize(flatVelocity) * frictionForce;
 				}
 			}
-
+	
 			// Get flat vectors
 			glm::dvec3 right = makeVectorFlatNormalized(camera.getRight());
 			glm::dvec3 forward = makeVectorFlatNormalized(camera.getForward());
-
+	
 			// Get wishDir
-			double leftRight = input.moveRight - input.moveLeft;
-			double forwardBackward = input.moveForward - input.moveBackward;
+			double leftRight = moveRight - moveLeft;
+			double forwardBackward = moveForward - moveBackward;
 			glm::dvec3 wishDir = right * leftRight + forward * forwardBackward;
-
+	
 			if (glm::dot(wishDir, wishDir) > 0.0)
 			{
 				wishDir = glm::normalize(wishDir);
-
+	
 				double currentSpeed = glm::dot(velocity, wishDir);
-
+	
 				double acceleration = fmax(0.0, fmin(maxAcceleration * deltaTime, maxSpeed - currentSpeed));
-
+	
 				// Apply acceleration
 				velocity += wishDir * acceleration;
 			}
@@ -92,7 +104,7 @@ void Player::update(double deltaTime)
 	else if (gameMode == GameMode::Fly)
 	{
 		double friction = 50.0, maxSpeed = 100.0, maxAcceleration = 100.0;
-
+	
 		// Apply friction
 		{
 			double frictionForce = friction * deltaTime;
@@ -105,116 +117,94 @@ void Player::update(double deltaTime)
 				velocity -= glm::normalize(velocity) * frictionForce;
 			}
 		}
-
+	
 		// Get flat vectors
 		glm::dvec3 right = camera.getRight();
 		glm::dvec3 forward = camera.getForward();
-
+	
 		// Get wishDir
-		double leftRight = input.moveRight - input.moveLeft;
-		double forwardBackward = input.moveForward - input.moveBackward;
-
+		double leftRight = moveRight - moveLeft;
+		double forwardBackward = moveForward - moveBackward;
+	
 		glm::dvec3 wishDir = right * leftRight + forward * forwardBackward;
-		if (input.jump)
+		if (jump)
 		{
 			wishDir += glm::dvec3(0.0f, 1.0f, 0.0f);
 		}
-
+	
 		if (glm::dot(wishDir, wishDir) > 0.0)
 		{
 			wishDir = glm::normalize(wishDir);
-
+	
 			double currentSpeed = glm::dot(velocity, wishDir);
-
+	
 			double acceleration = fmax(0.0, fmin(maxAcceleration * deltaTime, maxSpeed - currentSpeed));
-
+	
 			// Apply acceleration
 			velocity += wishDir * acceleration;
 		}
 	}
-
+	
 	// Rotation
 	{
 		const float mouseSensitivity = 0.002f;
-		rotate(-input.mouseDelta.x * mouseSensitivity, -input.mouseDelta.y * mouseSensitivity);
-	}
+		
+		auto mouseDelta = input.getMouseDelta();
 
+		rotate(-mouseDelta.x * mouseSensitivity, -mouseDelta.y * mouseSensitivity);
+	}
+	
 	// Selecting item
 	for (int i = 0; i < PLAYER_HOTBAR_SIZE; i++)
 	{
-		if (input.numbers[i + 1])
+		if (input.isKeyJustPressed(GLFW_KEY_1 + i))
 		{
-			selectedItemIndex = i;
+			hotbarSelectedItemIndex = i;
 		}
 	}
-
+	
 	// Raycast
 	raycastResult = world->raycast(camera.getPosition(), camera.getForward(), 16.0f);
 	if (raycastResult.hit)
 	{
-		if (input.leftMouseClicked)
+		if (input.isMouseButtonJustPressed(GLFW_MOUSE_BUTTON_LEFT))
 		{
-			input.leftMouseClicked = false;
-
-			const auto& item = hotbar[selectedItemIndex];
+			const auto& item = hotbar[hotbarSelectedItemIndex];
 			const auto* itemData = AssetRegistry::getItemData(item.id);
 			if (itemData && itemData->hasBlockPlaceable)
 			{
 				world->placeBlock(raycastResult, itemData->blockPlaceableId);
 			}
 		}
-		if (input.rightMouseClicked)
+		if (input.isMouseButtonJustPressed(GLFW_MOUSE_BUTTON_RIGHT))
 		{
-			input.rightMouseClicked = false;
-
 			world->breakBlock(raycastResult);
 		}
 	}
-
-	// Reset input
-	resetInput();
-}
-
-void Player::resetInput()
-{
-	input.moveForward = false;
-	input.moveBackward = false;
-	input.moveLeft = false;
-	input.moveRight = false;
-	input.jump = false;
-	input.crouch = false;
-	input.sprint = false;
-
-	for (int i = 0; i <= 9; i++)
-	{
-		input.numbers[i] = false;
-	}
-
-	input.leftMousePressed = false;
-	input.rightMousePressed = false;
-
-	input.leftMouseClicked = false;
-	input.rightMouseClicked = false;
-
-	input.mouseDelta = glm::vec2(0.0f);
 }
 
 void Player::getMovingValues(double& friction, double& maxSpeed, double& maxAcceleration) const
 {
 	if (onGround)
 	{
-		bool moveAny = input.moveForward || input.moveBackward || input.moveLeft || input.moveRight;
-		if (input.sprint && moveAny)
+		const bool moveRight	= input.isKeyPressed(GLFW_KEY_D);
+		const bool moveLeft		= input.isKeyPressed(GLFW_KEY_A);
+		const bool moveForward	= input.isKeyPressed(GLFW_KEY_W);
+		const bool moveBackward = input.isKeyPressed(GLFW_KEY_S);
+		const bool sprint		= input.isKeyPressed(GLFW_KEY_LEFT_SHIFT);
+
+		bool moveAny = moveForward || moveBackward || moveLeft || moveRight;
+		if (sprint && moveAny)
 		{
-			friction = 10.0;
-			maxSpeed = 1000.0;
-			maxAcceleration = 100.0;
+			friction = 40.0;
+			maxSpeed = 10.0;
+			maxAcceleration = 1000.0;
 		}
 		else
 		{
-			friction = 10.0;
+			friction = 40.0;
 			maxSpeed = 5.0;
-			maxAcceleration = 50.0;
+			maxAcceleration = 500.0;
 		}
 	}
 	else

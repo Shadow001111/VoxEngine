@@ -1,7 +1,7 @@
 #pragma once
 #include "OpenGLWrappers/FrameBuffer.h"
-#include <GLFW/glfw3.h>
-#include <memory>
+
+#include "Input/InputManager.h"
 
 struct WindowParams
 {
@@ -18,10 +18,11 @@ class WindowManager
     GLFWwindow* window = nullptr;
 
     robin_hood::unordered_flat_set<FrameBuffer*> linkedFramebuffers;
+    robin_hood::unordered_flat_set<InputManager*> linkedInputManagers;
 
-    int width, height;
-	float aspectRatio;
-    bool vsync;
+    int width = 0, height = 0;
+	float aspectRatio = 1.0f;
+    bool vsync = false;
 public:
     WindowManager(const WindowParams& params);
 	~WindowManager();
@@ -34,6 +35,11 @@ public:
     void linkFramebuffer(FrameBuffer* fbo);
     void unlinkFramebuffer(FrameBuffer* fbo);
     bool isFramebufferLinked(FrameBuffer* fbo) const;
+
+    // Input manager linkage
+    void linkInputManager(InputManager* im);
+    void unlinkInputManager(InputManager* im);
+    bool isInputManagerLinked(InputManager* im) const;
 
     // Setters
     void setTitle(const std::string& title) const;
@@ -67,9 +73,15 @@ public:
     // Static forwarding callbacks
 	static void framebufferSizeCallback(GLFWwindow* window, int width, int height);
 	static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
+    static void cursorPosStaticCallback(GLFWwindow* window, double xpos, double ypos);
+    static void mouseButtonStaticCallback(GLFWwindow* window, int button, int action, int mods);
+    static void scrollStaticCallback(GLFWwindow* window, double xoffset, double yoffset);
 
     // Instance-level callback handling
 	void onResize(int width, int height);
     void onKey(int key, int scancode, int action, int mods);
+    void onCursorPos(double xpos, double ypos);
+    void onMouseButton(int button, int action, int mods);
+    void onScroll(double xoffset, double yoffset);
 };
 

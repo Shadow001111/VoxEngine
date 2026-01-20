@@ -43,6 +43,9 @@ WindowManager::WindowManager(const WindowParams& params)
     // Setup callbacks
     glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
     glfwSetKeyCallback(window, keyCallback);
+    glfwSetCursorPosCallback(window, cursorPosStaticCallback);
+    glfwSetMouseButtonCallback(window, mouseButtonStaticCallback);
+    glfwSetScrollCallback(window, scrollStaticCallback);
 
     // vsync
     glfwSwapInterval(params.vsync);
@@ -112,6 +115,26 @@ void WindowManager::unlinkFramebuffer(FrameBuffer* fbo)
 bool WindowManager::isFramebufferLinked(FrameBuffer* fbo) const
 {
     return linkedFramebuffers.contains(fbo);
+}
+
+void WindowManager::linkInputManager(InputManager* im)
+{
+    if (im == nullptr)
+    {
+        std::cout << "[WindowManager][linkInputManager]: Cannot link nullptr\n";
+        return;
+    }
+    linkedInputManagers.insert(im);
+}
+
+void WindowManager::unlinkInputManager(InputManager* im)
+{
+    linkedInputManagers.erase(im);
+}
+
+bool WindowManager::isInputManagerLinked(InputManager* im) const
+{
+    return linkedInputManagers.contains(im);
 }
 
 void WindowManager::setTitle(const std::string& title) const
@@ -199,6 +222,24 @@ void WindowManager::keyCallback(GLFWwindow* window, int key, int scancode, int a
     if (gm) gm->onKey(key, scancode, action, mods);
 }
 
+void WindowManager::cursorPosStaticCallback(GLFWwindow* window, double xpos, double ypos)
+{
+    auto* gm = static_cast<WindowManager*>(glfwGetWindowUserPointer(window));
+    if (gm) gm->onCursorPos(xpos, ypos);
+}
+
+void WindowManager::mouseButtonStaticCallback(GLFWwindow* window, int button, int action, int mods)
+{
+    auto* gm = static_cast<WindowManager*>(glfwGetWindowUserPointer(window));
+    if (gm) gm->onMouseButton(button, action, mods);
+}
+
+void WindowManager::scrollStaticCallback(GLFWwindow* window, double xoffset, double yoffset)
+{
+    auto* gm = static_cast<WindowManager*>(glfwGetWindowUserPointer(window));
+    if (gm) gm->onScroll(xoffset, yoffset);
+}
+
 void WindowManager::onResize(int width, int height)
 {
     this->width = width;
@@ -228,5 +269,35 @@ void WindowManager::onKey(int key, int scancode, int action, int mods)
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
     {
         glfwSetWindowShouldClose(window, true);
+        return;
+    }
+
+    for (auto* im : linkedInputManagers)
+    {
+        im->onKey(key, scancode, action, mods);
+    }
+}
+
+void WindowManager::onCursorPos(double xpos, double ypos)
+{
+    for (auto* im : linkedInputManagers)
+    {
+        im->onMousePosition(xpos, ypos);
+    }
+}
+
+void WindowManager::onMouseButton(int button, int action, int mods)
+{
+    for (auto* im : linkedInputManagers)
+    {
+        im->onMouseButton(button, action, mods);
+    }
+}
+
+void WindowManager::onScroll(double xoffset, double yoffset)
+{
+    for (auto* im : linkedInputManagers)
+    {
+        im->onMouseScroll(xoffset, yoffset);
     }
 }

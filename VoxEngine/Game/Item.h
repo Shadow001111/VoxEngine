@@ -4,5 +4,5 @@
 struct Item
 {
 	ItemId id = -1;
-	uint8_t count = 0;
+	uint16_t count = 0;
 };

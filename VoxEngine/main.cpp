@@ -22,7 +22,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #ifdef NDEBUG
-constexpr int CHUNK_LOAD_DISTANCE = 8;
+constexpr int CHUNK_LOAD_DISTANCE = 3;
 #else
 constexpr int CHUNK_LOAD_DISTANCE = 3;
 #endif
@@ -74,44 +74,44 @@ static void setupOpenGLStates()
 }
 
 
-static void collectPlayerInput(PlayerInput& input, const WindowManager& wnd, glm::vec2& previousMousePos)
-{
-    input.moveForward |= wnd.isKeyPressed(GLFW_KEY_W);
-    input.moveBackward |= wnd.isKeyPressed(GLFW_KEY_S);
-    input.moveLeft |= wnd.isKeyPressed(GLFW_KEY_A);
-    input.moveRight |= wnd.isKeyPressed(GLFW_KEY_D);
-    input.jump |= wnd.isKeyPressed(GLFW_KEY_SPACE);
-    input.crouch |= wnd.isKeyPressed(GLFW_KEY_LEFT_CONTROL);
-    input.sprint |= wnd.isKeyPressed(GLFW_KEY_LEFT_SHIFT);
-
-    for (int i = 0; i <= 9; i++)
-    {
-        input.numbers[i] |= wnd.isKeyPressed(GLFW_KEY_0 + i);
-    }
-
-	static bool prevLeftMouseState = false;
-	static bool prevRightMouseState = false;
-
-    input.leftMousePressed |= wnd.isMouseButtonPressed(GLFW_MOUSE_BUTTON_LEFT);
-    input.rightMousePressed |= wnd.isMouseButtonPressed(GLFW_MOUSE_BUTTON_RIGHT);
-
-    if (!prevLeftMouseState && input.leftMousePressed)
-    {
-		input.leftMouseClicked = true;
-    }
-    if (!prevRightMouseState && input.rightMousePressed)
-	{
-		input.rightMouseClicked = true;
-	}
-
-	prevLeftMouseState = input.leftMousePressed;
-	prevRightMouseState = input.rightMousePressed;
-
-    float mouseX, mouseY;
-    wnd.getMousePos(mouseX, mouseY);
-    input.mouseDelta += glm::vec2(mouseX - previousMousePos.x, mouseY - previousMousePos.y);
-    previousMousePos = glm::vec2(mouseX, mouseY);
-}
+//static void collectPlayerInput(PlayerInput& input, const WindowManager& wnd, glm::vec2& previousMousePos)
+//{
+//    input.moveForward |= wnd.isKeyPressed(GLFW_KEY_W);
+//    input.moveBackward |= wnd.isKeyPressed(GLFW_KEY_S);
+//    input.moveLeft |= wnd.isKeyPressed(GLFW_KEY_A);
+//    input.moveRight |= wnd.isKeyPressed(GLFW_KEY_D);
+//    input.jump |= wnd.isKeyPressed(GLFW_KEY_SPACE);
+//    input.crouch |= wnd.isKeyPressed(GLFW_KEY_LEFT_CONTROL);
+//    input.sprint |= wnd.isKeyPressed(GLFW_KEY_LEFT_SHIFT);
+//
+//    for (int i = 0; i <= 9; i++)
+//    {
+//        input.numbers[i] |= wnd.isKeyPressed(GLFW_KEY_0 + i);
+//    }
+//
+//	static bool prevLeftMouseState = false;
+//	static bool prevRightMouseState = false;
+//
+//    input.leftMousePressed |= wnd.isMouseButtonPressed(GLFW_MOUSE_BUTTON_LEFT);
+//    input.rightMousePressed |= wnd.isMouseButtonPressed(GLFW_MOUSE_BUTTON_RIGHT);
+//
+//    if (!prevLeftMouseState && input.leftMousePressed)
+//    {
+//		input.leftMouseClicked = true;
+//    }
+//    if (!prevRightMouseState && input.rightMousePressed)
+//	{
+//		input.rightMouseClicked = true;
+//	}
+//
+//	prevLeftMouseState = input.leftMousePressed;
+//	prevRightMouseState = input.rightMousePressed;
+//
+//    float mouseX, mouseY;
+//    wnd.getMousePos(mouseX, mouseY);
+//    input.mouseDelta += glm::vec2(mouseX - previousMousePos.x, mouseY - previousMousePos.y);
+//    previousMousePos = glm::vec2(mouseX, mouseY);
+//}
 
 struct ContainerUI
 {
@@ -167,12 +167,16 @@ static void setupContainerUI(ContainerUI& c)
 
         PROFILE_SCOPE("Item ui texture array creation", ProfileCategory::General);
         TextureLoader::createTextureArrayFromImages(c.itemUITextureArray, "res/ItemUITextures", itemTextureNames, params);
+
+        c.itemUITextureArray.setParameters(GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
     }
 
     {
         TextureLoader::TextureParams params;
 
         TextureLoader::createTextureArrayFromImages(c.hotbarSlotImage, "res/UITextures", { "empty_hotbar_slot", "selected_hotbar_slot" }, params);
+
+        c.hotbarSlotImage.setParameters(GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
     }
 }
 
@@ -389,6 +393,7 @@ void check()
     std::cout << std::string(100, '=') << "\n";
 }
 
+
 // TODO: Fix terrain generation at far lands
 int main()
 {
@@ -451,12 +456,14 @@ int main()
     player.getCamera().setAspectRatio(wnd.getAspectRatio());
     player.getCamera().setFarPlane(CAMERA_FAR_PLANE);
 
-    PlayerInput playerInput;
+    InputManager& playerInputManager = player.getInputManager();
+    wnd.linkInputManager(&playerInputManager);
 
     // Input
     glm::vec2 previousMousePos;
     wnd.getMousePos(previousMousePos.x, previousMousePos.y);
     glfwSetInputMode(wnd.getWindow(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    glfwSetInputMode(wnd.getWindow(), GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
 
     // Timers
     double lastTime = glfwGetTime();
@@ -472,24 +479,6 @@ int main()
     // Container UI
     ContainerUI containerUI;
     setupContainerUI(containerUI);
-
-    // Line
-    std::string randomLine;
-    {
-        const int lineCount = 45;
-        const int lineLength = 53 * 2;
-
-        randomLine.reserve(lineLength * (lineLength + 1));
-
-        for (int i = 0; i < lineCount; i++)
-        {
-            for (int j = 0; j < lineLength; j++)
-            {
-                randomLine.push_back('A');
-            }
-            randomLine.push_back('\n');
-        }
-    }
 
     // Main loop
     while (!wnd.shouldClose())
@@ -515,12 +504,6 @@ int main()
 
         // Sounds
 		SoundManager::getInstance().update();
-
-        // Player
-        if (!iconified)
-        {
-            collectPlayerInput(player.input, wnd, previousMousePos);
-        }
 
         // World
         world.setAppTime(time);

@@ -166,6 +166,7 @@ xcopy "$(ProjectDir)DataPacks" "$(TargetDir)DataPacks" /E /I /Y</Command>
     <ClCompile Include="Game\World\Player.cpp" />
     <ClCompile Include="Game\World\VoxelMarkerMesh.cpp" />
     <ClCompile Include="Game\World\WorldVisualSettings.cpp" />
+    <ClCompile Include="Input\InputManager.cpp" />
     <ClCompile Include="OpenGLWrappers\Buffer.cpp" />
     <ClCompile Include="Graphics\TextureLoader.cpp" />
     <ClCompile Include="Core\StringIndexer.cpp" />
@@ -231,6 +232,7 @@ xcopy "$(ProjectDir)DataPacks" "$(TargetDir)DataPacks" /E /I /Y</Command>
     <ClInclude Include="Game\World\VoxelMarkerMesh.h" />
     <ClInclude Include="Game\World\WorldVisualSettings.h" />
     <ClInclude Include="Core\MemoryAllocation\FixedArenaObjectPool.h" />
+    <ClInclude Include="Input\InputManager.h" />
     <ClInclude Include="OpenGLWrappers\Buffer.h" />
     <ClInclude Include="Graphics\TextureLoader.h" />
     <ClInclude Include="Core\StringIndexer.h" />

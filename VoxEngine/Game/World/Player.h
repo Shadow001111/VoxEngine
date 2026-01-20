@@ -7,26 +7,7 @@
 #include "RaycastResult.h"
 #include "Entity.h"
 
-struct PlayerInput
-{
-	bool moveForward = false;
-	bool moveBackward = false;
-	bool moveLeft = false;
-	bool moveRight = false;
-	bool jump = false;
-	bool crouch = false;
-	bool sprint = false;
-
-	bool numbers[10] = { false, false, false, false, false, false, false, false, false, false };
-
-	bool leftMousePressed = false;
-	bool rightMousePressed = false;
-
-	bool leftMouseClicked = false;
-	bool rightMouseClicked = false;
-
-	glm::vec2 mouseDelta = glm::vec2(0.0f);
-};
+#include "Input/InputManager.h"
 
 enum class GameMode : uint8_t
 {
@@ -35,24 +16,27 @@ enum class GameMode : uint8_t
 };
 
 constexpr int PLAYER_HOTBAR_SIZE = 9;
+constexpr int PLAYER_INVENTORY_SIZE = 27;
 
 class Player : public Entity
 {
 	Camera camera;
 
 	Item hotbar[PLAYER_HOTBAR_SIZE];
-	uint8_t selectedItemIndex = 0;
-	GameMode gameMode = GameMode::Normal;
-public:
-	PlayerInput input;
+	uint8_t hotbarSelectedItemIndex = 0;
 
+	Item inventory[PLAYER_INVENTORY_SIZE];
+
+	GameMode gameMode = GameMode::Normal;
+
+	InputManager input;
+public:
 	RaycastResult raycastResult;
 
 	Player(const glm::dvec3& position, float yaw, float pitch);
 
 	void update(double deltaTime) override;
 private:
-	void resetInput();
 	void getMovingValues(double& friction, double& maxSpeed, double& maxAcceleration) const;
 public:
 	void interpolateCameraTransform(float factor);
@@ -75,9 +59,10 @@ public:
 	Transform getPreviousTransform() const { return previousTransform; };
 	Camera& getCamera() { return camera; };
 	const Camera& getCamera() const { return camera; };
+	InputManager& getInputManager() { return input; }
 
 	const Item* getHotbar() const { return hotbar; }
-	int getSelectedItemIndex() const { return selectedItemIndex; }
-	const Item& getSelectedItem() const { return hotbar[selectedItemIndex]; };
+	int getSelectedItemIndex() const { return hotbarSelectedItemIndex; }
+	const Item& getSelectedItem() const { return hotbar[hotbarSelectedItemIndex]; };
 };
 
