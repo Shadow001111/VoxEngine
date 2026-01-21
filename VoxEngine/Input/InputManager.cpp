@@ -14,14 +14,11 @@ void InputManager::onKey(int key, int scancode, int action, int mods)
 
 void InputManager::onMouseButton(int button, int action, int mods)
 {
-    if (action == GLFW_PRESS)
+    if (button < 0 || button >= pressedMouseButtons.size())
     {
-        pressedMouseButtons.insert(button);
+        return;
     }
-    else if (action == GLFW_RELEASE)
-    {
-        pressedMouseButtons.erase(button);
-    }
+    pressedMouseButtons[button] = action == GLFW_PRESS;
 }
 
 void InputManager::onMousePosition(double xpos, double ypos)
@@ -78,14 +75,17 @@ void InputManager::processInput()
         }
     }
 
-    // Process all mouse buttons that are in the mouseButtonStates map
-    for (auto& [button, state] : mouseButtonStates)
+    // Process all mouse buttons
+    for (int button = 0; button < mouseButtonStates.size(); button++)
     {
+        // Get key state
+        auto& state = mouseButtonStates[button];
+        
         // Store previous pressed state
         state.previousPressed = state.pressed;
 
         // Check if the button is currently pressed in the current frame
-        bool currentlyPressed = pressedMouseButtons.contains(button);
+        bool currentlyPressed = pressedMouseButtons[button];
 
         // Update current pressed state
         state.pressed = currentlyPressed;
@@ -95,20 +95,6 @@ void InputManager::processInput()
 
         // Determine justReleased: not pressed now but was pressed before
         state.justReleased = (!state.pressed && state.previousPressed);
-    }
-
-    // Add new mouse buttons that were pressed but aren't in the mouseButtonStates map yet
-    for (int button : pressedMouseButtons)
-    {
-        if (!mouseButtonStates.contains(button))
-        {
-            MouseButtonState newState;
-            newState.pressed = 1;
-            newState.justPressed = 1;  // First time we see this button, it's "just pressed"
-            newState.justReleased = 0;
-            newState.previousPressed = 0;
-            mouseButtonStates[button] = newState;
-        }
     }
 
     // Reset mouse delta for next frame
@@ -136,18 +122,15 @@ bool InputManager::isKeyJustReleased(int key) const
 
 bool InputManager::isMouseButtonPressed(int button) const
 {
-    auto it = mouseButtonStates.find(button);
-    return it != mouseButtonStates.end() && it->second.pressed;
+    return (button < mouseButtonStates.size() && button >= 0) && mouseButtonStates[button].pressed;
 }
 
 bool InputManager::isMouseButtonJustPressed(int button) const
 {
-    auto it = mouseButtonStates.find(button);
-    return it != mouseButtonStates.end() && it->second.justPressed;
+    return (button < mouseButtonStates.size() && button >= 0) && mouseButtonStates[button].justPressed;
 }
 
 bool InputManager::isMouseButtonJustReleased(int button) const
 {
-    auto it = mouseButtonStates.find(button);
-    return it != mouseButtonStates.end() && it->second.justReleased;
+    return (button < mouseButtonStates.size() && button >= 0) && mouseButtonStates[button].justReleased;
 }

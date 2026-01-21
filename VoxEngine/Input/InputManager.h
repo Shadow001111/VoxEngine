@@ -2,6 +2,7 @@
 #include "robin_hood.h"
 #include <cstdint>
 #include <glm/glm.hpp>
+#include <array>
 
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
@@ -28,10 +29,12 @@ class InputManager
 	};
 
 	robin_hood::unordered_flat_set<int> pressedKeys;
-	robin_hood::unordered_flat_set<int> pressedMouseButtons;
+	std::array<bool, GLFW_MOUSE_BUTTON_LAST + 1> pressedMouseButtons = {}; // TODO: Maybe make it a bitset
 
+	// TODO: Maybe make it array of size (GLFW_KEY_LAST - GLFW_KEY_SPACE) instead of map?
+	// TODO: Key can be stored as uint_16
 	robin_hood::unordered_flat_map<int, KeyState> keyStates;
-	robin_hood::unordered_flat_map<int, MouseButtonState> mouseButtonStates;
+	std::array<MouseButtonState, GLFW_MOUSE_BUTTON_LAST + 1> mouseButtonStates;
 
 	glm::dvec2 mousePosition = {};
 	glm::dvec2 previousMousePosition = {};
@@ -46,8 +49,6 @@ class InputManager
 	void onMousePosition(double xpos, double ypos);
 	void onMouseScroll(double xoffset, double yoffset);
 public:
-	InputManager() = default;
-
 	void processInput();
 
 	// Keyboard input

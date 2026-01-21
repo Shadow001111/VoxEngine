@@ -463,7 +463,10 @@ int main()
     glm::vec2 previousMousePos;
     wnd.getMousePos(previousMousePos.x, previousMousePos.y);
     glfwSetInputMode(wnd.getWindow(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-    glfwSetInputMode(wnd.getWindow(), GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+    if (glfwRawMouseMotionSupported())
+    {
+        glfwSetInputMode(wnd.getWindow(), GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+    }
 
     // Timers
     double lastTime = glfwGetTime();
