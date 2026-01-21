@@ -135,7 +135,7 @@ void World::initTextures(const std::vector<std::string>& blockTextureNames)
 		const size_t textureSize = 128;
 
 		std::vector<float> data;
-		SeamlessPerlinNoise::generatePerlinNoise3D(data, textureSize, textureSize, textureSize, 1.0f / 20.0f, 1.0f, 2.0f, true, 0);
+		SeamlessPerlinNoise::generatePerlinNoise3D(data, textureSize, textureSize, textureSize, 1.0f / 20.0f, 1, 2.0f, true, 0);
 
 		PROFILE_SCOPE("Noise texture creation", ProfileCategory::General);
 		TextureLoader::createTexture3DFromFloatData(tilingPerlinNoise3DTexture, data, textureSize, textureSize, textureSize, params);
@@ -250,7 +250,7 @@ void World::preparation()
 		int rsq = chunkLoadingDistance * chunkLoadingDistance;
 		for (int x = 1; x < chunkLoadingDistance; x++)
 		{
-			P += (int)sqrtf(rsq - x * x);
+			P += (int)sqrtf(float(rsq - x * x));
 		}
 		area = (P + chunkLoadingDistance) * 4 + 1;
 	}
@@ -264,7 +264,7 @@ void World::preparation()
 			int maxY = (int)sqrt(D1);
 			for (int y = 1; y <= maxY; y++)
 			{
-				P += (int)sqrtf(D1 - y * y);
+				P += (int)sqrtf(float(D1 - y * y));
 			}
 		}
 		chunkCount = P * 8 + (area - chunkLoadingDistance * 2) * 3 - 2;
@@ -336,7 +336,7 @@ void World::update(float deltaTime)
 		const float cosValue = cosf(t * 2.0f * 3.14159f);
 		dayNightCycleValue = (cosValue + 1.0f) * 0.5f;
 		skyLightSub = (1.0f - dayNightCycleValue) * 15.0f;
-		auroraAlpha = pow(1.0 - dayNightCycleValue, 10.0);
+		auroraAlpha = (float)pow(1.0 - dayNightCycleValue, 10.0);
 	}
 
 	// Chunks
@@ -526,7 +526,7 @@ void World::renderChunks(const Camera& camera, const FrameBuffer& FBO)
 
 			if (isTranslucent)
 			{
-				shader->setFloat("farPlane", chunkLoadingDistance * CHUNK_SIZE);
+				shader->setFloat("farPlane", float(chunkLoadingDistance * CHUNK_SIZE));
 			}
 
 			shader->setFloat("skyLightSub", skyLightSub);
@@ -629,7 +629,7 @@ void World::renderOpaqueChunks(const std::vector<ChunkRenderInfo>& chunksToRende
 			chunkPositionSSBO.write(chunkPositions.data(), drawCount * sizeof(glm::ivec3));
 
 			alignedOpaqueFaceShader.use();
-			glMultiDrawArraysIndirect(GL_TRIANGLE_FAN, NULL, drawCount, 0);
+			glMultiDrawArraysIndirect(GL_TRIANGLE_FAN, NULL, (GLsizei)drawCount, 0);
 		}
 	}
 
@@ -662,7 +662,7 @@ void World::renderOpaqueChunks(const std::vector<ChunkRenderInfo>& chunksToRende
 			chunkPositionSSBO.write(chunkPositions.data(), drawCount * sizeof(glm::ivec3));
 
 			nonAlignedOpaqueFaceShader.use();
-			glMultiDrawArraysIndirect(GL_TRIANGLE_FAN, NULL, drawCount, 0);
+			glMultiDrawArraysIndirect(GL_TRIANGLE_FAN, NULL, (GLsizei)drawCount, 0);
 		}
 	}
 }
@@ -707,7 +707,7 @@ void World::renderTranslucentChunks(const std::vector<ChunkRenderInfo>& chunksTo
 			chunkPositionSSBO.write(chunkPositions.data(), drawCount * sizeof(glm::ivec3));
 
 			alignedTranslucentFaceShader.use();
-			glMultiDrawArraysIndirect(GL_TRIANGLE_FAN, NULL, drawCount, 0);
+			glMultiDrawArraysIndirect(GL_TRIANGLE_FAN, NULL, (GLsizei)drawCount, 0);
 		}
 	}
 
@@ -740,7 +740,7 @@ void World::renderTranslucentChunks(const std::vector<ChunkRenderInfo>& chunksTo
 			chunkPositionSSBO.write(chunkPositions.data(), drawCount * sizeof(glm::ivec3));
 
 			nonAlignedTranslucentFaceShader.use();
-			glMultiDrawArraysIndirect(GL_TRIANGLE_FAN, NULL, drawCount, 0);
+			glMultiDrawArraysIndirect(GL_TRIANGLE_FAN, NULL, (GLsizei)drawCount, 0);
 		}
 	}
 
@@ -872,7 +872,7 @@ void World::renderVoxelMarker(const Camera& camera, const RaycastResult& raycast
 		voxelMarkerMesh.draw();
 	}
 	{
-		const auto& pos = raycast.hitPosition;
+		glm::vec3 pos = raycast.hitPosition;
 		voxelMarkerShader.setVec3("position", pos.x, pos.y, pos.z);
 		voxelMarkerShader.setFloat("scale", 0.2f);
 		voxelMarkerShader.setVec3("color", 1.0f, 0.0f, 0.0f);
@@ -964,7 +964,7 @@ RaycastResult World::raycast(const glm::dvec3& origin, const glm::dvec3& directi
 				{
 					result.hitNormal = lastAxis * 2 + (step[lastAxis] > 0 ? 0 : 1);
 				}
-				result.distance = distanceTraveled;
+				result.distance = (float)distanceTraveled;
 				return result;
 			}
 		}

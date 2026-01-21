@@ -20,7 +20,7 @@ ThreadPool::~ThreadPool()
 
 void ThreadPool::shutdown()
 {
-    stop.store(true, std::memory_order_relaxed);
+    stop.store(true, std::memory_order_release);
     condition.notify_all();
     {
         std::unique_lock<std::mutex> lock(queueMutex);

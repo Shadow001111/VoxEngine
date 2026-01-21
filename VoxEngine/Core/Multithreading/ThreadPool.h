@@ -65,24 +65,25 @@ inline auto ThreadPool::broadcast(F&& f, Args&&... args)
 {
     std::vector<std::future<void>> futures;
 
-    if (stop.load(std::memory_order_relaxed))
+    if (stop.load(std::memory_order_acquire))
     {
         return futures;
     }
 
-    std::unique_lock<std::mutex> lock(queueMutex);
-
-    for (size_t i = 0; i < workers.size(); ++i)
     {
-        auto task = std::make_shared<std::packaged_task<void()>>(
-            std::bind(std::forward<F>(f), std::forward<Args>(args)...)
-        );
+        std::unique_lock<std::mutex> lock(queueMutex);
 
-        futures.emplace_back(task->get_future());
-        tasks.emplace([task]() { (*task)(); });
+        for (size_t i = 0; i < workers.size(); i++)
+        {
+            auto task = std::make_shared<std::packaged_task<void()>>(
+                std::bind(std::forward<F>(f), std::forward<Args>(args)...)
+            );
+
+            futures.emplace_back(task->get_future());
+            tasks.emplace([task]() { (*task)(); });
+        }
     }
 
-    lock.unlock();
     condition.notify_all(); // wake all threads to grab the tasks
     return futures;
 }

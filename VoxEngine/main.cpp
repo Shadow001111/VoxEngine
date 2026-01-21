@@ -460,7 +460,7 @@ int main()
     wnd.linkInputManager(&playerInputManager);
 
     // Input
-    glm::vec2 previousMousePos;
+    glm::vec2 previousMousePos{};
     wnd.getMousePos(previousMousePos.x, previousMousePos.y);
     glfwSetInputMode(wnd.getWindow(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     if (glfwRawMouseMotionSupported())

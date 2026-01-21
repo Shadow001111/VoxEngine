@@ -5,9 +5,9 @@
 struct RaycastResult
 {
 	bool hit = false;
-	BlockId hitBlock;
-	glm::dvec3 hitPosition;
-	glm::ivec3 hitBlockPosition;
+	BlockId hitBlock = 0;
+	glm::dvec3 hitPosition = {};
+	glm::ivec3 hitBlockPosition = {};
 	Chunk* hitChunk = nullptr;
 	int hitNormal = -1;
 	float distance = 0.0f;
