@@ -50,9 +50,7 @@ struct GlyphInstance
 
 class TextRenderer
 {
-    using UTFDecoder = std::function<uint32_t(const void*, size_t, size_t&)>;
-
-    constexpr static uint32_t INVALID_CODEPOINT = -1;
+    using UTFDecoderFunction = std::function<uint32_t(const void*, size_t, size_t&)>;
 
     robin_hood::unordered_flat_map<std::string, Font> fonts;
     Font* currentFont = nullptr;
@@ -92,7 +90,7 @@ class TextRenderer
     static void getFontInfo(FT_Face& face, glm::ivec2& maxGlyphSize, size_t& glyphCount);
     static void loadGlyphs(FT_Face& face, Font& font);
 
-    static void renderTextInternal(const void* text, size_t textLength, UTFDecoder decoder, float x, float y, float rowHeight, const glm::vec3& color);
+    static void renderTextInternal(const void* text, size_t textLength, UTFDecoderFunction decoder, float x, float y, float rowHeight, const glm::vec3& color);
 public:
     static void init();
 

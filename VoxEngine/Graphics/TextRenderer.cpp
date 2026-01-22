@@ -3,6 +3,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "Core/Profiler.h"
+#include "Core/Decoding/UTFDecoder.h"
 
 #include <iostream>
 
@@ -40,117 +41,24 @@ TextRenderer& TextRenderer::getInstance()
 
 uint32_t TextRenderer::decodeStdString(const void* byteBuffer, size_t bufferLength, size_t& index)
 {
-    if (index >= bufferLength) return INVALID_CODEPOINT;
+    if (index >= bufferLength) return UTFDecoder::INVALID_CODEPOINT;
     const uint8_t* text_ = static_cast<const uint8_t*>(byteBuffer);
     return text_[index++];
 }
 
 uint32_t TextRenderer::decodeUTF8(const void* byteBuffer, size_t bufferLength, size_t& index)
 {
-    if (index >= bufferLength) return INVALID_CODEPOINT;
-
-    const uint8_t* buf = static_cast<const uint8_t*>(byteBuffer);
-    uint8_t c = buf[index];
-
-    // 1-byte ASCII (0xxxxxxx)
-    if (c < 0x80)
-    {
-        return buf[index++];
-    }
-
-    // 2-byte sequence
-    if ((c & 0xE0) == 0xC0)
-    {
-        if (index + 1 >= bufferLength)
-        {
-            index = bufferLength;
-            return INVALID_CODEPOINT;
-        }
-        uint32_t cp = ((c & 0x1F) << 6) | (buf[index + 1] & 0x3F);
-        index += 2;
-        return cp < 0x80 ? INVALID_CODEPOINT : cp;
-    }
-
-    // 3-byte sequence
-    if ((c & 0xF0) == 0xE0)
-    {
-        if (index + 2 >= bufferLength)
-        {
-            index = bufferLength;
-            return INVALID_CODEPOINT;
-        }
-        uint32_t cp = ((c & 0x0F) << 12) | ((buf[index + 1] & 0x3F) << 6) | (buf[index + 2] & 0x3F);
-        index += 3;
-        return cp < 0x800 ? INVALID_CODEPOINT : cp;
-    }
-
-    // 4-byte sequence
-    if ((c & 0xF8) == 0xF0)
-    {
-        if (index + 3 >= bufferLength)
-        {
-            index = bufferLength;
-            return INVALID_CODEPOINT;
-        }
-        uint32_t cp =
-            ((c & 0x07) << 18) | ((buf[index + 1] & 0x3F) << 12) |
-            ((buf[index + 2] & 0x3F) << 6) | (buf[index + 3] & 0x3F);
-        index += 4;
-        return (cp < 0x10000 || cp > 0x10FFFF) ? INVALID_CODEPOINT : cp;
-    }
-
-    // Invalid byte
-    index++;
-    return INVALID_CODEPOINT;
+    return UTFDecoder::decodeUTF8CodePoint(static_cast<const char8_t*>(byteBuffer), bufferLength, index);
 }
 
 uint32_t TextRenderer::decodeUTF16(const void* byteBuffer, size_t bufferLength, size_t& index)
 {
-    if (index >= bufferLength) return INVALID_CODEPOINT;
-
-    const uint16_t* buf = static_cast<const uint16_t*>(byteBuffer);
-    uint16_t first = buf[index];
-
-    // Single UTF-16 code unit (BMP character)
-    if (first < 0xD800 || first > 0xDFFF) {
-        return buf[index++];
-    }
-
-    // High surrogate (first of pair)
-    if (first >= 0xD800 && first <= 0xDBFF)
-    {
-        if (index + 1 >= bufferLength)
-        {
-            index = bufferLength;
-            return INVALID_CODEPOINT;
-        }
-
-        uint16_t second = buf[index + 1];
-
-        // Check if second is a low surrogate
-        if (second >= 0xDC00 && second <= 0xDFFF)
-        {
-            // Decode surrogate pair
-            uint32_t cp = 0x10000 + ((first - 0xD800) << 10) + (second - 0xDC00);
-            index += 2;
-            return cp;
-        }
-    }
-
-    // Invalid: lone surrogate or wrong order
-    index++;
-    return INVALID_CODEPOINT;
+    return UTFDecoder::decodeUTF16CodePoint(static_cast<const char16_t*>(byteBuffer), bufferLength, index);
 }
 
 uint32_t TextRenderer::decodeUTF32(const void* byteBuffer, size_t bufferLength, size_t& index)
 {
-    if (index >= bufferLength) return INVALID_CODEPOINT;
-
-    const uint32_t* buf = static_cast<const uint32_t*>(byteBuffer);
-    uint32_t cp = buf[index++];
-
-    // Validate code point range
-    return (cp > 0x10FFFF || (cp >= 0xD800 && cp <= 0xDFFF)) ? INVALID_CODEPOINT : cp;
+    return UTFDecoder::decodeUTF32CodePoint(static_cast<const char32_t*>(byteBuffer), bufferLength, index);
 }
 
 TextRenderer::TextRenderer() :
@@ -309,7 +217,7 @@ void TextRenderer::loadGlyphs(FT_Face& face, Font& font)
     }
 }
 
-void TextRenderer::renderTextInternal(const void* text, size_t textLength, UTFDecoder decoder, float x, float y, float rowHeight, const glm::vec3& color)
+void TextRenderer::renderTextInternal(const void* text, size_t textLength, UTFDecoderFunction decoder, float x, float y, float rowHeight, const glm::vec3& color)
 {
     PROFILE_SCOPE("Render text", ProfileCategory::Render);
 
@@ -346,7 +254,7 @@ void TextRenderer::renderTextInternal(const void* text, size_t textLength, UTFDe
     {
         uint32_t codepoint = decoder(text, textLength, index);
 
-        if (codepoint == INVALID_CODEPOINT)
+        if (codepoint == UTFDecoder::INVALID_CODEPOINT)
         {
             break;
         }
