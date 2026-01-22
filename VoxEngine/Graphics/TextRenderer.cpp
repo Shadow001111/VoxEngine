@@ -1,4 +1,4 @@
-#include "TextRenderer.h"
+﻿#include "TextRenderer.h"
 
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -38,51 +38,123 @@ TextRenderer& TextRenderer::getInstance()
 	return textRenderer;
 }
 
-uint32_t TextRenderer::decodeUTF8(const std::string& text, size_t& index)
+uint32_t TextRenderer::decodeStdString(const void* byteBuffer, size_t bufferLength, size_t& index)
 {
-    unsigned char c = text[index++];
-
-    // 1-byte sequence (ASCII)
-    if ((c & 0x80) == 0)
-    {
-        return c;
-    }
-    // 2-byte sequence
-    else if ((c & 0xE0) == 0xC0)
-    {
-        uint32_t codepoint = (c & 0x1F) << 6;
-        if (index < text.length())
-            codepoint |= (text[index++] & 0x3F);
-        return codepoint;
-    }
-    // 3-byte sequence
-    else if ((c & 0xF0) == 0xE0)
-    {
-        uint32_t codepoint = (c & 0x0F) << 12;
-        if (index < text.length())
-            codepoint |= (text[index++] & 0x3F) << 6;
-        if (index < text.length())
-            codepoint |= (text[index++] & 0x3F);
-        return codepoint;
-    }
-    // 4-byte sequence
-    else if ((c & 0xF8) == 0xF0)
-    {
-        uint32_t codepoint = (c & 0x07) << 18;
-        if (index < text.length())
-            codepoint |= (text[index++] & 0x3F) << 12;
-        if (index < text.length())
-            codepoint |= (text[index++] & 0x3F) << 6;
-        if (index < text.length())
-            codepoint |= (text[index++] & 0x3F);
-        return codepoint;
-    }
-
-    // Invalid UTF-8 sequence
-    return 0;
+    if (index >= bufferLength) return INVALID_CODEPOINT;
+    const uint8_t* text_ = static_cast<const uint8_t*>(byteBuffer);
+    return text_[index++];
 }
 
-TextRenderer::TextRenderer()
+uint32_t TextRenderer::decodeUTF8(const void* byteBuffer, size_t bufferLength, size_t& index)
+{
+    if (index >= bufferLength) return INVALID_CODEPOINT;
+
+    const uint8_t* buf = static_cast<const uint8_t*>(byteBuffer);
+    uint8_t c = buf[index];
+
+    // 1-byte ASCII (0xxxxxxx)
+    if (c < 0x80)
+    {
+        return buf[index++];
+    }
+
+    // 2-byte sequence
+    if ((c & 0xE0) == 0xC0)
+    {
+        if (index + 1 >= bufferLength)
+        {
+            index = bufferLength;
+            return INVALID_CODEPOINT;
+        }
+        uint32_t cp = ((c & 0x1F) << 6) | (buf[index + 1] & 0x3F);
+        index += 2;
+        return cp < 0x80 ? INVALID_CODEPOINT : cp;
+    }
+
+    // 3-byte sequence
+    if ((c & 0xF0) == 0xE0)
+    {
+        if (index + 2 >= bufferLength)
+        {
+            index = bufferLength;
+            return INVALID_CODEPOINT;
+        }
+        uint32_t cp = ((c & 0x0F) << 12) | ((buf[index + 1] & 0x3F) << 6) | (buf[index + 2] & 0x3F);
+        index += 3;
+        return cp < 0x800 ? INVALID_CODEPOINT : cp;
+    }
+
+    // 4-byte sequence
+    if ((c & 0xF8) == 0xF0)
+    {
+        if (index + 3 >= bufferLength)
+        {
+            index = bufferLength;
+            return INVALID_CODEPOINT;
+        }
+        uint32_t cp =
+            ((c & 0x07) << 18) | ((buf[index + 1] & 0x3F) << 12) |
+            ((buf[index + 2] & 0x3F) << 6) | (buf[index + 3] & 0x3F);
+        index += 4;
+        return (cp < 0x10000 || cp > 0x10FFFF) ? INVALID_CODEPOINT : cp;
+    }
+
+    // Invalid byte
+    index++;
+    return INVALID_CODEPOINT;
+}
+
+uint32_t TextRenderer::decodeUTF16(const void* byteBuffer, size_t bufferLength, size_t& index)
+{
+    if (index >= bufferLength) return INVALID_CODEPOINT;
+
+    const uint16_t* buf = static_cast<const uint16_t*>(byteBuffer);
+    uint16_t first = buf[index];
+
+    // Single UTF-16 code unit (BMP character)
+    if (first < 0xD800 || first > 0xDFFF) {
+        return buf[index++];
+    }
+
+    // High surrogate (first of pair)
+    if (first >= 0xD800 && first <= 0xDBFF)
+    {
+        if (index + 1 >= bufferLength)
+        {
+            index = bufferLength;
+            return INVALID_CODEPOINT;
+        }
+
+        uint16_t second = buf[index + 1];
+
+        // Check if second is a low surrogate
+        if (second >= 0xDC00 && second <= 0xDFFF)
+        {
+            // Decode surrogate pair
+            uint32_t cp = 0x10000 + ((first - 0xD800) << 10) + (second - 0xDC00);
+            index += 2;
+            return cp;
+        }
+    }
+
+    // Invalid: lone surrogate or wrong order
+    index++;
+    return INVALID_CODEPOINT;
+}
+
+uint32_t TextRenderer::decodeUTF32(const void* byteBuffer, size_t bufferLength, size_t& index)
+{
+    if (index >= bufferLength) return INVALID_CODEPOINT;
+
+    const uint32_t* buf = static_cast<const uint32_t*>(byteBuffer);
+    uint32_t cp = buf[index++];
+
+    // Validate code point range
+    return (cp > 0x10FFFF || (cp >= 0xD800 && cp <= 0xDFFF)) ? INVALID_CODEPOINT : cp;
+}
+
+TextRenderer::TextRenderer() :
+    projectionMatrix(glm::identity<glm::mat4>())
 {
     // Shaders
 	std::vector<Shader::ShaderSource> textShaderSources =
@@ -237,6 +309,88 @@ void TextRenderer::loadGlyphs(FT_Face& face, Font& font)
     }
 }
 
+void TextRenderer::renderTextInternal(const void* text, size_t textLength, UTFDecoder decoder, float x, float y, float rowHeight, const glm::vec3& color)
+{
+    PROFILE_SCOPE("Render text", ProfileCategory::Render);
+
+    TextRenderer& inst = getInstance();
+
+    // Check buffer
+    if (inst.glyphInstanceBatchSize == 0)
+    {
+        std::cerr << "[TextRenderer][renderText]: Glyph instance batch size is zero\n";
+        return;
+    }
+
+    // Font
+    const Font* font = inst.currentFont;
+    if (!font)
+    {
+        std::cerr << "[TextRenderer][renderText]: Current font is not set\n";
+        return;
+    }
+
+    const auto& glyphs = font->glyphs;
+    const float scale = rowHeight / font->fontSize;
+    const glm::vec2 invMaxGlyphSize = 1.0f / glm::vec2(font->maxGlyphSize);
+
+    // Shader
+    const auto& textShader = inst.textShader;
+    textShader.setVec3("textColor", color.x, color.y, color.z);
+
+    //
+    const float startX = x;
+
+    size_t index = 0;
+    while (index < textLength)
+    {
+        uint32_t codepoint = decoder(text, textLength, index);
+
+        if (codepoint == INVALID_CODEPOINT)
+        {
+            break;
+        }
+        else if (codepoint == '\n')
+        {
+            y -= rowHeight;
+            x = startX;
+            continue;
+        }
+
+        auto it = glyphs.find(codepoint);
+        if (it == glyphs.end())
+        {
+            codepoint = '?';
+            it = glyphs.find(codepoint);
+            if (it == glyphs.end())
+            {
+                continue;
+            }
+        }
+        const Glyph& glyph = it->second;
+
+        if (glyph.textureID)
+        {
+            float xpos = x + glyph.bearing.x * scale;
+            float ypos = y - (glyph.size.y - glyph.bearing.y) * scale;
+            float w = glyph.size.x * scale;
+            float h = glyph.size.y * scale;
+
+            GlyphInstance glyphInstance = {
+                glm::vec4(xpos, ypos, w, h),
+                glm::vec2(glyph.size.x * invMaxGlyphSize.x, glyph.size.y * invMaxGlyphSize.y),
+                glyph.textureID - 1
+            };
+
+            inst.pushGlyph(glyphInstance);
+        }
+
+        x += (glyph.advance >> 6) * scale;
+    }
+
+    inst.flushGlyphs();
+}
+
 void TextRenderer::init()
 {
 	getInstance();
@@ -370,80 +524,22 @@ void TextRenderer::startTextRendering()
 
 void TextRenderer::renderText(const std::string& text, float x, float y, float rowHeight, const glm::vec3& color)
 {
-    PROFILE_SCOPE("Render text", ProfileCategory::Render);
+    renderTextInternal(reinterpret_cast<const void*>(text.c_str()), text.length(), decodeStdString, x, y, rowHeight, color);
+}
 
-    TextRenderer& inst = getInstance();
+void TextRenderer::renderText(const std::u8string& text, float x, float y, float rowHeight, const glm::vec3& color)
+{
+    renderTextInternal(reinterpret_cast<const void*>(text.c_str()), text.length(), decodeUTF8, x, y, rowHeight, color);
+}
 
-    // Check buffer
-    if (inst.glyphInstanceBatchSize == 0)
-    {
-        std::cerr << "[TextRenderer][renderText]: Glyph instance batch size is zero\n";
-        return;
-    }
-    
-    // Font
-    const Font* font = inst.currentFont;
-    if (!font)
-    {
-        std::cerr << "[TextRenderer][renderText]: Current font is not set\n";
-        return;
-    }
+void TextRenderer::renderText(const std::u16string& text, float x, float y, float rowHeight, const glm::vec3& color)
+{
+    renderTextInternal(reinterpret_cast<const void*>(text.c_str()), text.length(), decodeUTF16, x, y, rowHeight, color);
+}
 
-    const auto& glyphs = font->glyphs;
-    const float scale = rowHeight / font->fontSize;
-    const glm::vec2 invMaxGlyphSize = 1.0f / glm::vec2(font->maxGlyphSize);
-
-    // Shader
-    const auto& textShader = inst.textShader;
-    textShader.setVec3("textColor", color.x, color.y, color.z);
-
-    //
-    const float startX = x;
-
-    size_t index = 0;
-    while (index < text.length())
-    {
-        uint32_t codepoint = decodeUTF8(text, index);
-
-        if (codepoint == '\n')
-        {
-            y -= rowHeight;
-            x = startX;
-            continue;
-        }
-
-        auto it = glyphs.find(codepoint);
-        if (it == glyphs.end())
-        {
-            codepoint = '?';
-            it = glyphs.find(codepoint);
-            if (it == glyphs.end())
-            {
-                continue;
-            }
-        }
-        const Glyph& glyph = it->second;
-
-        if (glyph.textureID)
-        {
-            float xpos = x + glyph.bearing.x * scale;
-            float ypos = y - (glyph.size.y - glyph.bearing.y) * scale;
-            float w = glyph.size.x * scale;
-            float h = glyph.size.y * scale;
-
-            GlyphInstance glyphInstance = {
-                glm::vec4(xpos, ypos, w, h),
-                glm::vec2(glyph.size.x * invMaxGlyphSize.x, glyph.size.y * invMaxGlyphSize.y),
-                glyph.textureID - 1
-            };
-
-            inst.pushGlyph(glyphInstance);
-        }
-
-        x += (glyph.advance >> 6) * scale;
-    }
-
-    inst.flushGlyphs();
+void TextRenderer::renderText(const std::u32string& text, float x, float y, float rowHeight, const glm::vec3& color)
+{
+    renderTextInternal(reinterpret_cast<const void*>(text.c_str()), text.length(), decodeUTF32, x, y, rowHeight, color);
 }
 
 void TextRenderer::updateProjectionMatrix(int width, int height)

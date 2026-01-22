@@ -1,6 +1,7 @@
 #pragma once
 #include <glm/glm.hpp>
 #include <memory>
+#include <functional>
 
 #include "OpenGLWrappers/Shader.h"
 #include "OpenGLWrappers/ImmutableBuffer.h"
@@ -49,6 +50,10 @@ struct GlyphInstance
 
 class TextRenderer
 {
+    using UTFDecoder = std::function<uint32_t(const void*, size_t, size_t&)>;
+
+    constexpr static uint32_t INVALID_CODEPOINT = -1;
+
     robin_hood::unordered_flat_map<std::string, Font> fonts;
     Font* currentFont = nullptr;
 
@@ -74,7 +79,10 @@ class TextRenderer
 
     static TextRenderer& getInstance();
 
-    static uint32_t decodeUTF8(const std::string& text, size_t& index);
+    static uint32_t decodeStdString(const void* byteBuffer, size_t bufferLength, size_t& index);
+    static uint32_t decodeUTF8(     const void* byteBuffer, size_t bufferLength, size_t& index);
+    static uint32_t decodeUTF16(    const void* byteBuffer, size_t bufferLength, size_t& index);
+    static uint32_t decodeUTF32(    const void* byteBuffer, size_t bufferLength, size_t& index);
 
     void flushGlyphs();
     void pushGlyph(const GlyphInstance& glyph);
@@ -83,6 +91,8 @@ class TextRenderer
 
     static void getFontInfo(FT_Face& face, glm::ivec2& maxGlyphSize, size_t& glyphCount);
     static void loadGlyphs(FT_Face& face, Font& font);
+
+    static void renderTextInternal(const void* text, size_t textLength, UTFDecoder decoder, float x, float y, float rowHeight, const glm::vec3& color);
 public:
     static void init();
 
@@ -95,6 +105,9 @@ public:
     static void startTextRendering();
 
     static void renderText(const std::string& text, float x, float y, float rowHeight, const glm::vec3& color);
+    static void renderText(const std::u8string& text, float x, float y, float rowHeight, const glm::vec3& color);
+    static void renderText(const std::u16string& text, float x, float y, float rowHeight, const glm::vec3& color);
+    static void renderText(const std::u32string& text, float x, float y, float rowHeight, const glm::vec3& color);
 
     static void updateProjectionMatrix(int width, int height);
 };

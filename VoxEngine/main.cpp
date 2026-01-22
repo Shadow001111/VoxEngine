@@ -73,46 +73,6 @@ static void setupOpenGLStates()
     glFrontFace(GL_CCW);
 }
 
-
-//static void collectPlayerInput(PlayerInput& input, const WindowManager& wnd, glm::vec2& previousMousePos)
-//{
-//    input.moveForward |= wnd.isKeyPressed(GLFW_KEY_W);
-//    input.moveBackward |= wnd.isKeyPressed(GLFW_KEY_S);
-//    input.moveLeft |= wnd.isKeyPressed(GLFW_KEY_A);
-//    input.moveRight |= wnd.isKeyPressed(GLFW_KEY_D);
-//    input.jump |= wnd.isKeyPressed(GLFW_KEY_SPACE);
-//    input.crouch |= wnd.isKeyPressed(GLFW_KEY_LEFT_CONTROL);
-//    input.sprint |= wnd.isKeyPressed(GLFW_KEY_LEFT_SHIFT);
-//
-//    for (int i = 0; i <= 9; i++)
-//    {
-//        input.numbers[i] |= wnd.isKeyPressed(GLFW_KEY_0 + i);
-//    }
-//
-//	static bool prevLeftMouseState = false;
-//	static bool prevRightMouseState = false;
-//
-//    input.leftMousePressed |= wnd.isMouseButtonPressed(GLFW_MOUSE_BUTTON_LEFT);
-//    input.rightMousePressed |= wnd.isMouseButtonPressed(GLFW_MOUSE_BUTTON_RIGHT);
-//
-//    if (!prevLeftMouseState && input.leftMousePressed)
-//    {
-//		input.leftMouseClicked = true;
-//    }
-//    if (!prevRightMouseState && input.rightMousePressed)
-//	{
-//		input.rightMouseClicked = true;
-//	}
-//
-//	prevLeftMouseState = input.leftMousePressed;
-//	prevRightMouseState = input.rightMousePressed;
-//
-//    float mouseX, mouseY;
-//    wnd.getMousePos(mouseX, mouseY);
-//    input.mouseDelta += glm::vec2(mouseX - previousMousePos.x, mouseY - previousMousePos.y);
-//    previousMousePos = glm::vec2(mouseX, mouseY);
-//}
-
 struct ContainerUI
 {
     Shader hotbarShader;
@@ -181,114 +141,193 @@ static void setupContainerUI(ContainerUI& c)
 }
 
 // TODO: Stop hotbar from drawing itself on other draw buffers
-static void renderHotbar(const ContainerUI& c, const Player& player)
+static void renderHotbarAndInventory(const ContainerUI& c, const Player& player)
 {
     glDisable(GL_DEPTH_TEST);
     glDepthMask(GL_FALSE);
 
-    const Item* hotbar = player.getHotbar();
-
-    //
-    constexpr int   slotCount = PLAYER_HOTBAR_SIZE;
     constexpr float slotSize = 0.2f;
-    constexpr float bottomOffset = 0.0f;
+    constexpr float hotbarBottomOffset = 0.0f;
+    constexpr float inventoryTopOffset = 0.0f; // Spacing between hotbar and inventory
 
-    // Texture pixel sizes
     constexpr float TEXTURE_PX = 24.0f;
     constexpr float EMPTY_PX = 16.0f;
     constexpr float SELECTED_PX = 22.0f;
     constexpr float ITEM_PX = EMPTY_PX - 4.0f;
 
-    // World-space scaling
     const float emptyScale = (TEXTURE_PX / EMPTY_PX) * slotSize;
     const float selectedScale = emptyScale;
     const float itemScale = (ITEM_PX / EMPTY_PX) * slotSize;
 
-    float totalWidth = slotCount * slotSize;
-    float startX = -totalWidth * 0.5f + slotSize * 0.5f;
-
-    int viewport[4];
-    glGetIntegerv(GL_VIEWPORT, viewport);
-    float aspect = float(viewport[2]) / float(viewport[3]);
-
-    glm::mat4 projection = glm::ortho(
-        -aspect, aspect,
-        -1.0f, 1.0f,
-        -1.0f, 1.0f
-    );
-
-    c.hotbarVAO.bind();
-    c.hotbarShader.use();
-    c.hotbarShader.setMat4("projection", projection);
-
-    /* =========================
-       1. EMPTY HOTBAR SLOTS
-       ========================= */
-    c.hotbarSlotImage.bindUnit(0);
-    c.hotbarShader.setUint("uTextureId", 0); // array layer 0
-
-    for (int i = 0; i < slotCount; i++)
     {
-        float x = startX + i * slotSize;
-        float y = -1.0f + bottomOffset + slotSize * 0.5f;
+        const auto& hotbar = player.getHotbar();
 
-        glm::mat4 model(1.0f);
-        model = glm::translate(model, { x, y, 0.0f });
-        model = glm::scale(model, { emptyScale * 0.5f, emptyScale * 0.5f, 1.0f });
+        //
+        int slotCount = hotbar.size();
 
-        c.hotbarShader.setMat4("model", model);
-        glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-    }
+        float totalWidth = slotCount * slotSize;
+        float startX = -totalWidth * 0.5f + slotSize * 0.5f;
 
-    /* =========================
-       2. ITEMS (24x24)
-       ========================= */
-    c.itemUITextureArray.bindUnit(0);
+        int viewport[4];
+        glGetIntegerv(GL_VIEWPORT, viewport);
+        float aspect = float(viewport[2]) / float(viewport[3]);
 
-    for (int i = 0; i < slotCount; i++)
-    {
-        const Item& item = hotbar[i];
-        if (item.count == 0)
+        glm::mat4 projection = glm::ortho(
+            -aspect, aspect,
+            -1.0f, 1.0f,
+            -1.0f, 1.0f
+        );
+
+        c.hotbarVAO.bind();
+        c.hotbarShader.use();
+        c.hotbarShader.setMat4("projection", projection);
+
+        /* =========================
+           1. EMPTY HOTBAR SLOTS
+           ========================= */
+        c.hotbarSlotImage.bindUnit(0);
+        c.hotbarShader.setUint("uTextureId", 0); // array layer 0
+
+        for (int i = 0; i < slotCount; i++)
         {
-            continue;
+            float x = startX + i * slotSize;
+            float y = -1.0f + hotbarBottomOffset + slotSize * 0.5f;
+
+            glm::mat4 model(1.0f);
+            model = glm::translate(model, { x, y, 0.0f });
+            model = glm::scale(model, { emptyScale * 0.5f, emptyScale * 0.5f, 1.0f });
+
+            c.hotbarShader.setMat4("model", model);
+            glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
         }
 
-        const auto* itemData = AssetRegistry::getItemData(item.id);
-        if (!itemData)
+        /* =========================
+           2. ITEMS (24x24)
+           ========================= */
+        c.itemUITextureArray.bindUnit(0);
+
+        for (int i = 0; i < slotCount; i++)
         {
-            continue;
+            const Item& item = hotbar[i];
+            if (item.count == 0)
+            {
+                continue;
+            }
+
+            const auto* itemData = AssetRegistry::getItemData(item.id);
+            if (!itemData)
+            {
+                continue;
+            }
+
+            float x = startX + i * slotSize;
+            float y = -1.0f + hotbarBottomOffset + slotSize * 0.5f;
+
+            glm::mat4 model(1.0f);
+            model = glm::translate(model, { x, y, 0.0f });
+            model = glm::scale(model, { itemScale * 0.5f, itemScale * 0.5f, 1.0f });
+
+            c.hotbarShader.setMat4("model", model);
+            c.hotbarShader.setUint("uTextureId", itemData->uiTextureId);
+
+            glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
         }
 
-        float x = startX + i * slotSize;
-        float y = -1.0f + bottomOffset + slotSize * 0.5f;
+        /* =========================
+           3. SELECTED OVERLAY
+           ========================= */
+        c.hotbarSlotImage.bindUnit(0);
+        c.hotbarShader.setUint("uTextureId", 1); // array layer 1 (selected)
 
-        glm::mat4 model(1.0f);
-        model = glm::translate(model, { x, y, 0.0f });
-        model = glm::scale(model, { itemScale * 0.5f, itemScale * 0.5f, 1.0f });
+        int selectedSlot = player.getSelectedItemIndex();
+        {
+            float x = startX + selectedSlot * slotSize;
+            float y = -1.0f + hotbarBottomOffset + slotSize * 0.5f;
 
-        c.hotbarShader.setMat4("model", model);
-        c.hotbarShader.setUint("uTextureId", itemData->uiTextureId);
+            glm::mat4 model(1.0f);
+            model = glm::translate(model, { x, y, 0.0f });
+            model = glm::scale(model, { selectedScale * 0.5f, selectedScale * 0.5f, 1.0f });
 
-        glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+            c.hotbarShader.setMat4("model", model);
+            glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+        }
     }
 
-    /* =========================
-       3. SELECTED OVERLAY
-       ========================= */
-    c.hotbarSlotImage.bindUnit(0);
-    c.hotbarShader.setUint("uTextureId", 1); // array layer 1 (selected)
-
-    int selectedSlot = player.getSelectedItemIndex();
+    if (player.isInventoryOpened())
     {
-        float x = startX + selectedSlot * slotSize;
-        float y = -1.0f + bottomOffset + slotSize * 0.5f;
+        /* =========================
+       4. INVENTORY RENDERING
+       ========================= */
+       constexpr int inventoryRows = 3; // Adjust based on your inventory layout
+       constexpr int inventoryCols = 9; // Adjust based on your inventory layout
+       constexpr int inventorySlotCount = inventoryRows * inventoryCols;
 
-        glm::mat4 model(1.0f);
-        model = glm::translate(model, { x, y, 0.0f });
-        model = glm::scale(model, { selectedScale * 0.5f, selectedScale * 0.5f, 1.0f });
+       // Position inventory below hotbar
+       float inventoryStartY = 1.0f - (slotSize * 0.5f + inventoryTopOffset);
+       float inventorySlotSize = slotSize * 0.9f; // Slightly smaller slots for inventory
+       float inventoryTotalWidth = inventoryCols * inventorySlotSize;
+       float inventoryStartX = -inventoryTotalWidth * 0.5f + inventorySlotSize * 0.5f;
 
-        c.hotbarShader.setMat4("model", model);
-        glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+       // Get inventory data
+       const auto& inventory = player.getInventory();
+
+       /* =========================
+          4.1 EMPTY INVENTORY SLOTS
+          ========================= */
+       c.hotbarSlotImage.bindUnit(0);
+       c.hotbarShader.setUint("uTextureId", 0); // array layer 0
+
+       for (int row = 0; row < inventoryRows; row++)
+       {
+           for (int col = 0; col < inventoryCols; col++)
+           {
+               float x = inventoryStartX + col * inventorySlotSize;
+               float y = inventoryStartY - row * inventorySlotSize;
+
+               glm::mat4 model(1.0f);
+               model = glm::translate(model, { x, y, 0.0f });
+               model = glm::scale(model, { emptyScale * 0.5f, emptyScale * 0.5f, 1.0f });
+
+               c.hotbarShader.setMat4("model", model);
+               glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+           }
+       }
+
+       /* =========================
+          4.2 INVENTORY ITEMS
+          ========================= */
+       c.itemUITextureArray.bindUnit(0);
+
+       for (int i = 0; i < inventorySlotCount; i++)
+       {
+           const Item& item = inventory[i];
+           if (item.count == 0)
+           {
+               continue;
+           }
+
+           const auto* itemData = AssetRegistry::getItemData(item.id);
+           if (!itemData)
+           {
+               continue;
+           }
+
+           int row = i / inventoryCols;
+           int col = i % inventoryCols;
+
+           float x = inventoryStartX + col * inventorySlotSize;
+           float y = inventoryStartY + row * inventorySlotSize;
+
+           glm::mat4 model(1.0f);
+           model = glm::translate(model, { x, y, 0.0f });
+           model = glm::scale(model, { itemScale * 0.5f, itemScale * 0.5f, 1.0f });
+
+           c.hotbarShader.setMat4("model", model);
+           c.hotbarShader.setUint("uTextureId", itemData->uiTextureId);
+
+           glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+       }
+
     }
 
     glDepthMask(GL_TRUE);
@@ -300,7 +339,7 @@ static void renderUI(const ContainerUI& c, const Player& player)
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    renderHotbar(c, player);
+    renderHotbarAndInventory(c, player);
 }
 
 static void renderDebugData(const WindowManager& wnd, const Player& player, const DebugUIMetrics& metrics)
@@ -360,6 +399,8 @@ static void renderDebugData(const WindowManager& wnd, const Player& player, cons
         }
     }
     ss << "\nView direction: " << facingDir;
+
+    // Render text
 
     std::string text = ss.str();
 
@@ -531,9 +572,33 @@ int main()
                 world.debugMethod();
             }
         }
-
         world.sendChunkMeshesToGPU();
 
+        //
+        {
+            static bool previousInventoryOpened = false;
+            bool opened = player.isInventoryOpened();
+
+            bool open = !previousInventoryOpened && opened;
+            bool close = previousInventoryOpened && !opened;
+
+            previousInventoryOpened = opened;
+
+            if (open)
+            {
+                glfwSetInputMode(wnd.getWindow(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+            }
+            else if (close)
+            {
+                glfwSetInputMode(wnd.getWindow(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
+                int width, height;
+                glfwGetWindowSize(wnd.getWindow(), &width, &height);
+                glfwSetCursorPos(wnd.getWindow(), width / 2, height / 2);
+            }
+        }
+
+        //
         if (iconified)
         {
             // Force app to 20 fps. Stop rendering and swapping buffers.

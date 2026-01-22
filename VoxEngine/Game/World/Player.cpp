@@ -23,14 +23,24 @@ Player::Player(const glm::dvec3& position, float yaw, float pitch) :
 {
 	setGameMode(GameMode::Normal);
 
-	for (int i = 0; i < 9; i++)
+	for (int i = 0; i < hotbar.size(); i++)
 	{
-		hotbar[i].id = i;
-		hotbar[i].count = 1;
 		if (AssetRegistry::getItemData(i) == nullptr)
 		{
 			break;
 		}
+		hotbar[i].id = i;
+		hotbar[i].count = 1;
+	}
+
+	for (int i = 0; i < inventory.size(); i++)
+	{
+		if (AssetRegistry::getItemData(i) == nullptr)
+		{
+			break;
+		}
+		inventory[i].id = i;
+		inventory[i].count = 1;
 	}
 }
 
@@ -160,6 +170,7 @@ void Player::update(double deltaTime)
 		if (input.isKeyJustPressed(GLFW_KEY_1 + i))
 		{
 			hotbarSelectedItemIndex = i;
+			break;
 		}
 	}
 	
@@ -180,6 +191,12 @@ void Player::update(double deltaTime)
 		{
 			world->breakBlock(raycastResult);
 		}
+	}
+
+	// Inventory
+	if (input.isKeyJustPressed(GLFW_KEY_I))
+	{
+		inventoryOpened = !inventoryOpened;
 	}
 }
 

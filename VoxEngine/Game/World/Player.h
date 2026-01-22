@@ -9,27 +9,31 @@
 
 #include "Input/InputManager.h"
 
+#include <array>
+
 enum class GameMode : uint8_t
 {
 	Normal,
 	Fly
 };
 
-constexpr int PLAYER_HOTBAR_SIZE = 9;
-constexpr int PLAYER_INVENTORY_SIZE = 27;
-
 class Player : public Entity
 {
+	static constexpr int PLAYER_HOTBAR_SIZE = 9;
+	static constexpr int PLAYER_INVENTORY_SIZE = 27;
+
 	Camera camera;
 
-	Item hotbar[PLAYER_HOTBAR_SIZE];
+	std::array<Item, PLAYER_HOTBAR_SIZE> hotbar;
 	uint8_t hotbarSelectedItemIndex = 0;
 
-	Item inventory[PLAYER_INVENTORY_SIZE];
+	std::array<Item, PLAYER_INVENTORY_SIZE> inventory;
 
 	GameMode gameMode = GameMode::Normal;
 
 	InputManager input;
+
+	bool inventoryOpened = false;
 public:
 	RaycastResult raycastResult;
 
@@ -61,8 +65,12 @@ public:
 	const Camera& getCamera() const { return camera; };
 	InputManager& getInputManager() { return input; }
 
-	const Item* getHotbar() const { return hotbar; }
+	const std::array<Item, PLAYER_HOTBAR_SIZE>& getHotbar() const { return hotbar; }
+	const std::array<Item, PLAYER_INVENTORY_SIZE>& getInventory() const { return inventory; }
+
 	int getSelectedItemIndex() const { return hotbarSelectedItemIndex; }
 	const Item& getSelectedItem() const { return hotbar[hotbarSelectedItemIndex]; };
+
+	bool isInventoryOpened() const { return inventoryOpened; }
 };
 
