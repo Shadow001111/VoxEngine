@@ -1370,7 +1370,6 @@ const WorldVisualSettings& World::getWorldVisualSettings() const
 
 void World::setChunkLoadingDistance(int renderDistance)
 {
-	// TODO: Set camera far plane dynamicly
 	chunkLoadingDistance = renderDistance;
 
 	float fogDistance = (chunkLoadingDistance - 0.5f) * CHUNK_SIZE;

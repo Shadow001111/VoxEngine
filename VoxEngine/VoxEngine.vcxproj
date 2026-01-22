@@ -119,8 +119,7 @@
       <Command>taskkill /f /fi "imagename eq $(TargetFileName)"</Command>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>xcopy "$(ProjectDir)res" "$(TargetDir)res" /E /I /Y
-xcopy "$(ProjectDir)DataPacks" "$(TargetDir)DataPacks" /E /I /Y</Command>
+      <Command>xcopy "$(ProjectDir)res" "$(TargetDir)res" /E /I /Y</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -148,8 +147,7 @@ xcopy "$(ProjectDir)DataPacks" "$(TargetDir)DataPacks" /E /I /Y</Command>
       <Command>taskkill /f /fi "imagename eq $(TargetFileName)"</Command>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>xcopy "$(ProjectDir)res" "$(TargetDir)res" /E /I /Y
-xcopy "$(ProjectDir)DataPacks" "$(TargetDir)DataPacks" /E /I /Y</Command>
+      <Command>xcopy "$(ProjectDir)res" "$(TargetDir)res" /E /I /Y</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>

@@ -15,7 +15,7 @@ void DataPackManager::loadAllDataPacks()
     AssetRegistry::reset();
 
     // Check if directory exist
-	const fs::path packsDir = "DataPacks";
+	const fs::path packsDir = "res/DataPacks";
 
     if (!fs::exists(packsDir) || !fs::is_directory(packsDir))
     {

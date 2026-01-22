@@ -19,6 +19,7 @@
 #include <mutex>
 #include "robin_hood.h"
 
+// TODO: Too much methods. Split work on different classes. PImpl idiom.
 class World
 {
 	struct ChunkRenderInfo
@@ -121,7 +122,6 @@ private:
 	void initShaders();
 public:
 	void preparation();
-	void linkTexturesFromMainFramebuffer(const FrameBuffer& FBO);
 
 	void loadChunks(const glm::dvec3& playerPos);
 
