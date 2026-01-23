@@ -3,8 +3,6 @@
 #include "World/Chunk/TerrainGenerator.h"
 #include "World/Chunk/ChunkMeshManager.h"
 
-#include "Graphics/TextureLoader.h"
-
 #include "DataPackManagment/DataPackManager.h"
 #include "DataPackManagment/AssetRegistry.h"
 
@@ -13,45 +11,18 @@
 
 #include "SoundManager.h"
 
-#include "SeamlessPerlinNoise/Perlin.h"
-
 #include <stdexcept>
 #include <glm/glm.hpp>
 
-struct ViewRays
+World::World() :
+	// Passing references to sub-systems
+	renderer({
+			chunkManager.getAllChunks(),
+			dayNightCycleValue,
+			skyLightSub,
+			appTime
+	})
 {
-	glm::vec4 bottomLeft;
-	glm::vec4 bottomRight;
-	glm::vec4 topLeft;
-	glm::vec4 topRight;
-};
-
-ViewRays computeViewRays(const Camera& cam)
-{
-	// Half extents of the view plane at unit distance
-	float halfHeight = tan(cam.getFOV() * 0.5f);
-	float halfWidth = halfHeight * cam.getAspectRatio();
-
-	// Scale basis vectors
-	glm::vec3 forward = cam.getForward();
-	glm::vec3 right = glm::vec3(cam.getRight()) * halfWidth;
-	glm::vec3 up = glm::vec3(cam.getUp()) * halfHeight;
-
-	ViewRays rays;
-	rays.bottomLeft	= glm::vec4(forward - right - up, 0);
-	rays.bottomRight= glm::vec4(forward + right - up, 0);
-	rays.topLeft	= glm::vec4(forward - right + up, 0);
-	rays.topRight	= glm::vec4(forward + right + up, 0);
-	return rays;
-}
-
-World::World()
-{
-	// Visual settings
-	visualSettings.dayBackgroundColor = { 0.52f, 0.8f, 0.92f };
-	visualSettings.nightBackgroundColor = { 0.0f, 0.0f, 0.1f };
-	visualSettings.fogGradient = 5.0f;
-
 	// Datapack loading and registering assets
 	std::vector<std::string> blockTextureNames;
 	{
@@ -60,14 +31,8 @@ World::World()
 		blockTextureNames = AssetRegistry::getBlockTextureNames();
 	}
 
-	// Block textures
-	initTextures(blockTextureNames);
-
-	// Buffers
-	initBuffers();
-
-	// Shaders
-	initShaders();
+	// Init WorldRenderer
+	renderer.init(blockTextureNames);
 
 	// Terrain generator
 	{
@@ -83,9 +48,6 @@ World::World()
 
 	// Chunks
 	Chunk::globalInit();
-
-	// Chunk loaders
-	createChunkLoader<SphericalChunkLoader>();
 
 	// Entities
 	Entity::world = this;
@@ -108,137 +70,6 @@ World::World()
 	catch (const std::filesystem::filesystem_error& e)
 	{
 		throw std::runtime_error("Filesystem error creating world: " + std::string(e.what()));
-	}
-}
-
-void World::initTextures(const std::vector<std::string>& blockTextureNames)
-{
-	{
-		// Load
-		TextureLoader::TextureParams params;
-		params.createMipmaps = true;
-
-		PROFILE_SCOPE("Block texture array creation", ProfileCategory::General);
-		TextureLoader::createTextureArrayFromImages(blockTextureArray, "res/BlockTextures", blockTextureNames, params);
-
-		blockTextureArray.setParameters(GL_NEAREST_MIPMAP_LINEAR, GL_NEAREST, GL_REPEAT, GL_REPEAT);
-
-		blockTextureArray.initHandle();
-		blockTextureArray.makeResident();
-	}
-
-	// Perlin noise texture
-	{
-		TextureLoader::TextureParams params;
-		params.desiredChannels = 1;
-
-		const size_t textureSize = 128;
-
-		std::vector<float> data;
-		SeamlessPerlinNoise::generatePerlinNoise3D(data, textureSize, textureSize, textureSize, 1.0f / 20.0f, 1, 2.0f, true, 0);
-
-		PROFILE_SCOPE("Noise texture creation", ProfileCategory::General);
-		TextureLoader::createTexture3DFromFloatData(tilingPerlinNoise3DTexture, data, textureSize, textureSize, textureSize, params);
-
-		tilingPerlinNoise3DTexture.setParameters(GL_LINEAR, GL_LINEAR, GL_REPEAT, GL_REPEAT);
-
-		tilingPerlinNoise3DTexture.initHandle();
-		tilingPerlinNoise3DTexture.makeResident();
-	}
-}
-
-void World::initBuffers()
-{
-	chunkDrawCommandBuffer.create(GL_DRAW_INDIRECT_BUFFER, GL_DYNAMIC_DRAW);
-
-	chunkPositionSSBO.create(GL_SHADER_STORAGE_BUFFER, GL_DYNAMIC_DRAW);
-	chunkPositionSSBO.bindBase(0);
-
-	skyViewRaysUBO.create(GL_UNIFORM_BUFFER);
-	skyViewRaysUBO.allocateStorage(sizeof(ViewRays), GL_DYNAMIC_STORAGE_BIT);
-	skyViewRaysUBO.bindBase(0);
-}
-
-void World::initShaders()
-{
-	// Bind only the textures which will change their size (if texture will get resized, its handle will gone)
-	// TODO: Always pass textures with uniforms, not bind slots. Just check every frame, if id have changed, update uniform.
-	// Or update each uniform each frame. Or use binding...
-
-	std::vector<Shader::ShaderSource> sources;
-
-	{
-		sources =
-		{
-			{GL_VERTEX_SHADER, "res/Shaders/Chunk/alignedFace.vert"},
-			{GL_FRAGMENT_SHADER, "res/Shaders/Chunk/alignedOpaqueFace.frag"}
-		};
-		alignedOpaqueFaceShader.create(sources);
-	}
-	{
-		sources =
-		{
-			{GL_VERTEX_SHADER, "res/Shaders/Chunk/alignedFace.vert"},
-			{GL_FRAGMENT_SHADER, "res/Shaders/Chunk/alignedTranslucentFace.frag"}
-		};
-		alignedTranslucentFaceShader.create(sources);
-	}
-	{
-		sources =
-		{
-			{GL_VERTEX_SHADER, "res/Shaders/Chunk/nonAlignedFace.vert"},
-			{GL_FRAGMENT_SHADER, "res/Shaders/Chunk/nonAlignedOpaqueFace.frag"}
-		};
-		nonAlignedOpaqueFaceShader.create(sources);
-	}
-	{
-		sources =
-		{
-			{GL_VERTEX_SHADER, "res/Shaders/Chunk/nonAlignedFace.vert"},
-			{GL_FRAGMENT_SHADER, "res/Shaders/Chunk/nonAlignedTranslucentFace.frag"}
-		};
-		nonAlignedTranslucentFaceShader.create(sources);
-	}
-	{
-		sources =
-		{
-			{GL_COMPUTE_SHADER, "res/Shaders/composite.comp"}
-		};
-		compositeShader.create(sources);
-	}
-	{
-		sources =
-		{
-			{GL_VERTEX_SHADER, "res/Shaders/voxelMarker.vert"},
-			{GL_FRAGMENT_SHADER, "res/Shaders/voxelMarker.frag"}
-		};
-		voxelMarkerShader.create(sources);
-	}
-	{
-		sources =
-		{
-			{GL_COMPUTE_SHADER, "res/Shaders/aurora.comp"}
-		};
-		auroraShader.create(sources);
-		auroraShader.setHandleui64ARB("noiseTex", tilingPerlinNoise3DTexture.getHandle());
-	}
-
-	// Set needed uniforms
-	{
-		const Shader* blockFaceShaders[] =
-		{
-			&alignedOpaqueFaceShader,
-			&alignedTranslucentFaceShader,
-			&nonAlignedOpaqueFaceShader,
-			&nonAlignedTranslucentFaceShader
-		};
-
-		auto blockTextureArrayHandle = blockTextureArray.getHandle();
-
-		for (const Shader* shader : blockFaceShaders)
-		{
-			shader->setHandleui64ARB("blockTextures", blockTextureArrayHandle);
-		}
 	}
 }
 
@@ -270,8 +101,7 @@ void World::preparation()
 		chunkCount = P * 8 + (area - chunkLoadingDistance * 2) * 3 - 2;
 	}
 
-	chunkPool.allocate(chunkCount + 10);
-	chunks.reserve(chunkCount + 10);
+	chunkManager.preparation(chunkCount);
 
 	/*size_t maxFacesCount = chunkCount * size_t(CHUNK_VOLUME * 6);
 	ChunkMeshManager::getInstance().preallocateMemory(maxFacesCount);
@@ -282,110 +112,27 @@ void World::preparation()
 
 void World::loadChunks(const glm::dvec3& playerPos)
 {
-	// Check if player chunk position changed
-	glm::ivec3 chunkLoaderPos = glm::ivec3(glm::floor(playerPos)) >> CHUNK_SIZE_LOG2;
-	if (lastChunkLoaderPos == chunkLoaderPos && lastChunkLoadingDistance == chunkLoadingDistance)
-	{
-		return;
-	}
-	lastChunkLoaderPos = chunkLoaderPos;
-	lastChunkLoadingDistance = chunkLoadingDistance;
-
-	// Update chunk loaders
-	{
-		PROFILE_SCOPE("Update chunk loaders", ProfileCategory::ChunkLoadUnload);
-		for (auto& chunkLoader : chunkLoaders)
-		{
-			chunkLoader->update(chunkLoaderPos, chunkLoadingDistance);
-		}
-	}
-	
-	// Load chunks
-	{
-		PROFILE_SCOPE("Load chunks", ProfileCategory::ChunkLoadUnload);
-		for (auto& chunkLoader : chunkLoaders)
-		{
-			const auto& positions = chunkLoader->getChunksToLoad();
-			for (const auto& pos : positions)
-			{
-				loadChunk(pos);
-			}
-		}
-	}
-
-	// Unload chunks
-	{
-		PROFILE_SCOPE("Unload chunks", ProfileCategory::ChunkLoadUnload);
-		for (auto& chunkLoader : chunkLoaders)
-		{
-			const auto& positions = chunkLoader->getChunksToUnload();
-			for (const auto& pos : positions)
-			{
-				unloadChunk(pos);
-			}
-		}
-	}
+	chunkManager.loadChunks(playerPos, chunkLoadingDistance);
 }
 
 void World::update(float deltaTime)
 {
-	// Time
+	// Update time
 	worldTime = (worldTime + 1) % TICKS_PER_24_HOURS;
 	{
 		const float t = (float)worldTime / (float)TICKS_PER_24_HOURS;
 		const float cosValue = cosf(t * 2.0f * 3.14159f);
 		dayNightCycleValue = (cosValue + 1.0f) * 0.5f;
 		skyLightSub = (1.0f - dayNightCycleValue) * 15.0f;
-		auroraAlpha = (float)pow(1.0 - dayNightCycleValue, 10.0);
 	}
 
-	// Chunks
-	chunkPool.returnProcessingChunksToPool();
+	// Update chunk manager
+	chunkManager.update();
 
-	if (!buildBlocksContainer.empty())
-	{
-		startBuildingChunkBlocks();
-	}
+	// Update renderer
+	renderer.update();
 
-	{
-		PROFILE_SCOPE("Update chunk blocks", ProfileCategory::ChunkBlocks);
-
-		for (const auto& pair : chunks)
-		{
-			Chunk* chunk = pair.second;
-			
-			if (chunk->areBlocksBuilt() && chunk->hasStructureBlockUpdates())
-			{
-				chunk->updateStructureBlocks();
-			}
-		}
-	}
-
-	if (!buildLightContainer.empty())
-	{
-		startBuildingChunkLights();
-	}
-
-	// Sometimes loops forever. Because of sky light propagation.
-	// If not limited, it goes forever. But when limited to 20 iterations, next fame iteration count is low and less than 20. STRANGE.
-	{
-		size_t iterations = 0;
-		collectChunksNeedingLightUpdate();
-		while (!lightUpdateContainerA.empty() || !lightUpdateContainerB.empty())
-		{
-			updateChunkLights();
-			iterations++;
-			if (iterations >= 10)
-			{
-				break;
-			}
-			collectChunksNeedingLightUpdate();
-		}
-	}
-
-	updateChunkMeshes();
-
-	// Entities
+	// Update entities
 	for (auto& pair : entities)
 	{
 		auto& entity = pair.second;
@@ -395,489 +142,12 @@ void World::update(float deltaTime)
 
 void World::sendChunkMeshesToGPU()
 {
-	// Send only dirty meshes
-	for (auto& pair : chunks)
-	{
-		Chunk* chunk = pair.second;
-		chunk->askForMeshUpload();
-	}
-	Chunk::sendMeshesToGPU();
+	chunkManager.sendChunkMeshesToGPU();
 }
 
 void World::render(const Camera& camera, const FrameBuffer& FBO, const RaycastResult& raycast)
 {
-	// Clear buffers
-	{
-		const float geometryAlpha[] = { 0.0 };
-		float accumulation[] = { 0.0f, 0.0f, 0.0f, 0.0f };
-		float revealage[] = { 0.0f };
-		float aurora[] = { 0.0f, 0.0f, 0.0f, 0.0f };
-		FBO.clearDrawBuffer("geometryAlpha", geometryAlpha);
-		FBO.clearDrawBuffer("accumulation", accumulation);
-		FBO.clearDrawBuffer("revealage", revealage);
-		if (auroraAlpha > AURORA_THRESHOLD)
-		{
-			FBO.clearAttachment("aurora", aurora);
-		}
-
-		const float depth[] = { 1.0f };
-		FBO.clearAttachment("depth", depth);
-	}
-
-	renderChunks(camera, FBO);
-	if (auroraAlpha > AURORA_THRESHOLD)
-	{
-		renderAurora(camera, FBO);
-	}
-	compositePass(FBO);
-
-	renderVoxelMarker(camera, raycast);
-}
-
-void World::renderAurora(const Camera& camera, const FrameBuffer& FBO) const
-{
-	// Get textures
-	auto getTextureResult = FBO.getTexture("aurora");
-	if (!getTextureResult.has_value())
-	{
-		std::cerr << "[World][renderAurora]: FBO does not have 'aurora' texture\n";
-		return;
-	}
-	const Texture& auroraTex = *getTextureResult.value();
-
-	getTextureResult = FBO.getTexture("geometryAlpha");
-	if (!getTextureResult.has_value())
-	{
-		std::cerr << "[World][compositePass]: FBO does not have 'geometryAlpha' texture\n";
-		return;
-	}
-	const Texture& geometryAlphaTex = *getTextureResult.value();
-
-	getTextureResult = FBO.getTexture("revealage");
-	if (!getTextureResult.has_value())
-	{
-		std::cerr << "[World][compositePass]: FBO does not have 'revealage' texture\n";
-		return;
-	}
-	const Texture& revealageTex = *getTextureResult.value();
-
-	// Compute rays and pass them to UBO
-	auto viewRays = computeViewRays(camera);
-	skyViewRaysUBO.write(&viewRays, sizeof(viewRays));
-
-	// Set uniforms
-	auroraShader.use();
-	auroraShader.setFloat("time", appTime);
-	auroraShader.setFloat("auroraAlpha", auroraAlpha);
-
-	// Get texture dimensions
-	int width = auroraTex.getWidth();
-	int height = auroraTex.getHeight();
-
-	// Dispatch compute shader
-	const int localSize = 16;
-	int groupsX = (width + localSize - 1) / localSize;
-	int groupsY = (height + localSize - 1) / localSize;
-
-	glBindImageTexture(0, auroraTex.getID(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
-	geometryAlphaTex.bindUnit(1);
-	revealageTex.bindUnit(2);
-	tilingPerlinNoise3DTexture.bindUnit(3);
-
-	glDispatchCompute(groupsX, groupsY, 1);
-	glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
-}
-
-void World::renderChunks(const Camera& camera, const FrameBuffer& FBO)
-{
-	debugData.renderedChunks = 0;
-	debugData.renderedFaceCount = 0;
-
-	// Set uniforms
-	{
-		glm::vec3 fogColor = glm::mix(visualSettings.nightBackgroundColor, visualSettings.dayBackgroundColor, dayNightCycleValue);
-
-		const glm::ivec3 cameraChunkPos = glm::ivec3(glm::floor(camera.getPosition())) >> CHUNK_SIZE_LOG2;
-
-		auto viewMatrix = camera.getViewMatrixModified(glm::dvec3(CHUNK_SIZE));
-		auto projectionMatrix = camera.getProjectionMatrix();
-
-		const Shader* shaders[4] =
-		{
-			&alignedOpaqueFaceShader,
-			&alignedTranslucentFaceShader,
-			&nonAlignedOpaqueFaceShader,
-			&nonAlignedTranslucentFaceShader
-		};
-
-		for (int i = 0; i < 4; i++)
-		{
-			const Shader* shader = shaders[i];
-			const bool isTranslucent = i & 1;
-
-			shader->setIvec3("cameraChunkPosition", cameraChunkPos.x, cameraChunkPos.y, cameraChunkPos.z);
-
-			shader->setMat4("view", viewMatrix);
-			shader->setMat4("projection", projectionMatrix);
-
-			shader->setVec3("fogColor", fogColor.r, fogColor.g, fogColor.b);
-			shader->setFloat("fogDensity", visualSettings.fogDensity);
-			shader->setFloat("fogGradient", visualSettings.fogGradient);
-
-			if (isTranslucent)
-			{
-				shader->setFloat("farPlane", float(chunkLoadingDistance * CHUNK_SIZE));
-			}
-
-			shader->setFloat("skyLightSub", skyLightSub);
-		}
-	}
-
-	// Collect chunks to render
-	std::vector<ChunkRenderInfo> chunksToRender;
-	collectChunksToRenderAndSortThem(chunksToRender, camera);
-	debugData.renderedChunks = chunksToRender.size();
-
-	// Binding indirect buffer to allow indirect rendering
-	chunkDrawCommandBuffer.bind();
-
-	// Set shared opengl states
-	glEnable(GL_DEPTH_TEST);
-	glDepthFunc(GL_LESS);
-
-	// Render chunks
-	renderOpaqueChunks(chunksToRender);
-	renderTranslucentChunks(chunksToRender);
-}
-
-void World::collectChunksToRenderAndSortThem(std::vector<ChunkRenderInfo>& chunksToRender, const Camera& camera) const
-{
-	PROFILE_SCOPE("Render: collect and sort chunks", ProfileCategory::Render);
-
-	chunksToRender.reserve(chunks.size());
-
-	const Frustum& frustum = camera.getFrustum();
-	Box chunkShape(glm::dvec3(0.0), glm::dvec3(CHUNK_SIZE >> 1));
-
-	const glm::dvec3 cameraPosition = camera.getPosition();
-	const glm::ivec3 cameraChunkPosition = glm::ivec3(glm::floor(cameraPosition / (double)CHUNK_SIZE));
-
-	for (const auto& pair : chunks)
-	{
-		const Chunk* chunk = pair.second;
-
-		if (!chunk->canBeRendered())
-		{
-			continue;
-		}
-
-		// Check is chunk is on frustum
-		glm::ivec3 chunkPosition = chunk->getPosition();
-		glm::dvec3 chunkWorldPosition = chunkPosition << CHUNK_SIZE_LOG2;
-
-		chunkShape.center = chunkWorldPosition + chunkShape.halfExtents;
-		if (!frustum.checkBox(chunkShape))
-		{
-			continue;
-		}
-
-		glm::ivec3 delta = glm::abs(chunkPosition - cameraChunkPosition);
-
-		unsigned int manhattanDistance = delta.x + delta.y + delta.z;
-		chunksToRender.emplace_back(chunk, manhattanDistance);
-	}
-
-	// Maybe use radix sort? I doesn't take long now anyway.
-	std::sort(chunksToRender.begin(), chunksToRender.end(),
-		[](const ChunkRenderInfo& a, const ChunkRenderInfo& b)
-		{
-			return a.manhattanDistance < b.manhattanDistance;
-		});
-}
-
-void World::renderOpaqueChunks(const std::vector<ChunkRenderInfo>& chunksToRender)
-{
-	glEnable(GL_CULL_FACE);
-	glDisable(GL_BLEND);
-
-	// Aligned
-	ChunkMeshManager::getInstance().bindAlignedVAO();
-	{
-		PROFILE_SCOPE("Render: collect draw commands", ProfileCategory::Render);
-
-		chunkDrawCommands.clear();
-		chunkPositions.clear();
-		for (const auto& info : chunksToRender)
-		{
-			info.chunk->collectAlignedOpaqueRenderData(chunkDrawCommands, chunkPositions);
-		}
-	}
-
-	{
-		const size_t drawCount = chunkDrawCommands.size();
-		if (drawCount > 0)
-		{
-			for (const auto& command : chunkDrawCommands)
-			{
-				debugData.renderedFaceCount += command.instanceCount;
-			}
-
-			chunkDrawCommandBuffer.allocateMemory(drawCount * sizeof(DrawArraysIndirectCommand));
-			chunkDrawCommandBuffer.write(chunkDrawCommands.data(), drawCount * sizeof(DrawArraysIndirectCommand));
-
-			chunkPositionSSBO.allocateMemory(drawCount * sizeof(glm::ivec3));
-			chunkPositionSSBO.write(chunkPositions.data(), drawCount * sizeof(glm::ivec3));
-
-			alignedOpaqueFaceShader.use();
-			glMultiDrawArraysIndirect(GL_TRIANGLE_FAN, NULL, (GLsizei)drawCount, 0);
-		}
-	}
-
-	// Non-aligned
-	ChunkMeshManager::getInstance().bindNonAlignedVAO();
-	{
-		PROFILE_SCOPE("Render: collect draw commands", ProfileCategory::Render);
-
-		chunkDrawCommands.clear();
-		chunkPositions.clear();
-		for (const auto& info : chunksToRender)
-		{
-			info.chunk->collectNonAlignedOpaqueRenderData(chunkDrawCommands, chunkPositions);
-		}
-	}
-
-	{
-		const size_t drawCount = chunkDrawCommands.size();
-		if (drawCount > 0)
-		{
-			for (const auto& command : chunkDrawCommands)
-			{
-				debugData.renderedFaceCount += command.instanceCount;
-			}
-
-			chunkDrawCommandBuffer.allocateMemory(drawCount * sizeof(DrawArraysIndirectCommand));
-			chunkDrawCommandBuffer.write(chunkDrawCommands.data(), drawCount * sizeof(DrawArraysIndirectCommand));
-
-			chunkPositionSSBO.allocateMemory(drawCount * sizeof(glm::ivec3));
-			chunkPositionSSBO.write(chunkPositions.data(), drawCount * sizeof(glm::ivec3));
-
-			nonAlignedOpaqueFaceShader.use();
-			glMultiDrawArraysIndirect(GL_TRIANGLE_FAN, NULL, (GLsizei)drawCount, 0);
-		}
-	}
-}
-
-void World::renderTranslucentChunks(const std::vector<ChunkRenderInfo>& chunksToRender)
-{
-	//glDepthFunc(GL_LEQUAL);
-	glDepthMask(GL_FALSE);
-	glDisable(GL_CULL_FACE);
-	glEnable(GL_BLEND);
-	glBlendEquation(GL_FUNC_ADD);
-	glBlendFunc(GL_ONE, GL_ONE);
-	//glBlendFunci(0, GL_ONE, GL_ONE);	// accumulation buffer
-	//glBlendFunci(1, GL_ONE, GL_ONE);	// revealage buffer
-
-	// Aligned
-	ChunkMeshManager::getInstance().bindAlignedVAO();
-	{
-		PROFILE_SCOPE("Render: collect draw commands", ProfileCategory::Render);
-
-		chunkDrawCommands.clear();
-		chunkPositions.clear();
-		for (const auto& info : chunksToRender)
-		{
-			info.chunk->collectAlignedTranslucentRenderData(chunkDrawCommands, chunkPositions);
-		}
-	}
-
-	{
-		const size_t drawCount = chunkDrawCommands.size();
-		if (drawCount > 0)
-		{
-			for (const auto& command : chunkDrawCommands)
-			{
-				debugData.renderedFaceCount += command.instanceCount;
-			}
-
-			chunkDrawCommandBuffer.allocateMemory(drawCount * sizeof(DrawArraysIndirectCommand));
-			chunkDrawCommandBuffer.write(chunkDrawCommands.data(), drawCount * sizeof(DrawArraysIndirectCommand));
-
-			chunkPositionSSBO.allocateMemory(drawCount * sizeof(glm::ivec3));
-			chunkPositionSSBO.write(chunkPositions.data(), drawCount * sizeof(glm::ivec3));
-
-			alignedTranslucentFaceShader.use();
-			glMultiDrawArraysIndirect(GL_TRIANGLE_FAN, NULL, (GLsizei)drawCount, 0);
-		}
-	}
-
-	// Non-aligned
-	ChunkMeshManager::getInstance().bindNonAlignedVAO();
-	{
-		PROFILE_SCOPE("Render: collect draw commands", ProfileCategory::Render);
-
-		chunkDrawCommands.clear();
-		chunkPositions.clear();
-		for (const auto& info : chunksToRender)
-		{
-			info.chunk->collectNonAlignedTranslucentRenderData(chunkDrawCommands, chunkPositions);
-		}
-	}
-
-	{
-		const size_t drawCount = chunkDrawCommands.size();
-		if (drawCount > 0)
-		{
-			for (const auto& command : chunkDrawCommands)
-			{
-				debugData.renderedFaceCount += command.instanceCount;
-			}
-
-			chunkDrawCommandBuffer.allocateMemory(drawCount * sizeof(DrawArraysIndirectCommand));
-			chunkDrawCommandBuffer.write(chunkDrawCommands.data(), drawCount * sizeof(DrawArraysIndirectCommand));
-
-			chunkPositionSSBO.allocateMemory(drawCount * sizeof(glm::ivec3));
-			chunkPositionSSBO.write(chunkPositions.data(), drawCount * sizeof(glm::ivec3));
-
-			nonAlignedTranslucentFaceShader.use();
-			glMultiDrawArraysIndirect(GL_TRIANGLE_FAN, NULL, (GLsizei)drawCount, 0);
-		}
-	}
-
-	glDepthMask(GL_TRUE);
-}
-
-void World::compositePass(const FrameBuffer& FBO) const
-{
-	auto getTextureResult = FBO.getTexture("color");
-	if (!getTextureResult.has_value())
-	{
-		std::cerr << "[World][compositePass]: FBO does not have 'color' texture\n";
-		return;
-	}
-	const Texture& colorTex = *getTextureResult.value();
-
-	getTextureResult = FBO.getTexture("geometryAlpha");
-	if (!getTextureResult.has_value())
-	{
-		std::cerr << "[World][compositePass]: FBO does not have 'geometryAlpha' texture\n";
-		return;
-	}
-	const Texture& geometryAlphaTex = *getTextureResult.value();
-
-	getTextureResult = FBO.getTexture("accumulation");
-	if (!getTextureResult.has_value())
-	{
-		std::cerr << "[World][compositePass]: FBO does not have 'accumulation' texture\n";
-		return;
-	}
-	const Texture& accumulationTex = *getTextureResult.value();
-
-	getTextureResult = FBO.getTexture("revealage");
-	if (!getTextureResult.has_value())
-	{
-		std::cerr << "[World][compositePass]: FBO does not have 'revealage' texture\n";
-		return;
-	}
-	const Texture& revealageTex = *getTextureResult.value();
-
-	getTextureResult = FBO.getTexture("aurora");
-	if (!getTextureResult.has_value())
-	{
-		std::cerr << "[World][compositePass]: FBO does not have 'aurora' texture\n";
-		return;
-	}
-	const Texture& auroraTex = *getTextureResult.value();
-
-	// Get texture dimensions
-	int width = colorTex.getWidth();
-	int height = colorTex.getHeight();
-
-	// Bind textures
-	glBindImageTexture(0, colorTex.getID(), 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
-	geometryAlphaTex.bindUnit(1);
-	accumulationTex.bindUnit(2);
-	revealageTex.bindUnit(3);
-	auroraTex.bindUnit(4);
-
-	// Set uniforms
-	compositeShader.use();
-	glm::vec3 fogColor = glm::mix(visualSettings.nightBackgroundColor, visualSettings.dayBackgroundColor, dayNightCycleValue);
-	compositeShader.setVec3("backgroundColor", fogColor.r, fogColor.g, fogColor.z);
-	compositeShader.setBool("enableAurora", auroraAlpha > AURORA_THRESHOLD);
-
-	// Dispatch compute shader
-	const int localSize = 16;
-	int groupsX = (width + localSize - 1) / localSize;
-	int groupsY = (height + localSize - 1) / localSize;
-
-	glDispatchCompute(groupsX, groupsY, 1);
-
-	// Ensure computation is complete before subsequent operations
-	glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
-}
-
-void World::renderVoxelMarker(const Camera& camera, const RaycastResult& raycast) const
-{
-	if (!raycast.hit)
-	{
-		return;
-	}
-
-	voxelMarkerShader.use();
-	{
-		const glm::ivec3 cameraChunkPos = glm::ivec3(glm::floor(camera.getPosition())) >> CHUNK_SIZE_LOG2;
-		auto viewMatrix = camera.getViewMatrixModified(glm::dvec3(CHUNK_SIZE));
-		auto projectionMatrix = camera.getProjectionMatrix();
-
-		// Camera chunk position
-		voxelMarkerShader.setIvec3("cameraChunkPosition", cameraChunkPos.x, cameraChunkPos.y, cameraChunkPos.z);
-		voxelMarkerShader.setMat4("view", viewMatrix);
-		voxelMarkerShader.setMat4("projection", projectionMatrix);
-	}
-
-	auto placePos = raycast.hitBlockPosition;
-	
-	/*switch (raycast.hitNormal)
-	{
-	case 0:
-		placePos.x--;
-		break;
-	case 1:
-		placePos.x++;
-		break;
-	case 2:
-		placePos.y--;
-		break;
-	case 3:
-		placePos.y++;
-		break;
-	case 4:
-		placePos.z--;
-		break;
-	case 5:
-		placePos.z++;
-		break;
-	}*/
-
-	glDisable(GL_DEPTH_TEST);
-	glDisable(GL_BLEND);
-	glEnable(GL_CULL_FACE);
-
-	{
-		const auto& pos = placePos;
-		voxelMarkerShader.setVec3("position", pos.x + 0.5f, pos.y + 0.5f, pos.z + 0.5f);
-		voxelMarkerShader.setFloat("scale", 1.01f);
-		voxelMarkerShader.setVec3("color", 1.0f, 0.0f, 1.0f);
-		voxelMarkerMesh.draw();
-	}
-	{
-		glm::vec3 pos = raycast.hitPosition;
-		voxelMarkerShader.setVec3("position", pos.x, pos.y, pos.z);
-		voxelMarkerShader.setFloat("scale", 0.2f);
-		voxelMarkerShader.setVec3("color", 1.0f, 0.0f, 0.0f);
-		voxelMarkerMesh.draw();
-	}
+	renderer.render(camera, FBO, raycast);
 }
 
 // TODO: Make raycast undependable of float precision. Or do the same for voxel marker rendering.
@@ -938,7 +208,7 @@ RaycastResult World::raycast(const glm::dvec3& origin, const glm::dvec3& directi
 		if (chunkPos != cachedChunkPos)
 		{
 			cachedChunkPos = chunkPos;
-			chunk = getChunkAt(cachedChunkPos);
+			chunk = chunkManager.getChunkAt(cachedChunkPos);
 		}
 
 		// Check current block
@@ -1011,11 +281,7 @@ RaycastResult World::raycast(const glm::dvec3& origin, const glm::dvec3& directi
 
 void World::rebuildAllChunkMeshes()
 {
-	for (const auto& pair : chunks)
-	{
-		Chunk* chunk = pair.second;
-		chunk->markMeshDirty();
-	}
+	chunkManager.rebuildAllChunkMeshes();
 }
 
 void World::debugMethod()
@@ -1025,266 +291,33 @@ void World::debugMethod()
 
 const World::DebugData& World::getDebugData() const
 {
+	const auto& chunks = chunkManager.getAllChunks();
+
+	// Total chunk block faces
 	debugData.totalFaces = 0;
 	for (const auto& pair : chunks)
 	{
 		const Chunk* chunk = pair.second;
-
+	
 		debugData.totalFaces += chunk->getFaceCount();
 	}
+
+	// Block face capacity
 	debugData.totalFaceCapacityInBytes = (
 		ChunkMeshManager::getInstance().getAlignedInstanceVBO().getCapacity() +
 		ChunkMeshManager::getInstance().getNonAlignedInstanceVBO().getCapacity()
 		);
-
+	
+	// Chunks count
 	debugData.loadedChunksCount = chunks.size();
 
-	debugData.chunkDrawCommandBufferSizeInBytes = chunkDrawCommandBuffer.getCapacity();
-	debugData.chunkPositionBufferSizeInBytes = chunkPositionSSBO.getCapacity();
+	// Render info
+	const auto& renderInfo = renderer.getRenderStats();
+	
+	debugData.chunkDrawCommandBufferSizeInBytes = renderInfo.chunkDrawCommandBufferSizeInBytes;
+	debugData.chunkPositionBufferSizeInBytes = renderInfo.chunkPositionBufferSizeInBytes;
 
 	return debugData;
-}
-
-Chunk* World::getChunkAt(const glm::ivec3& position) const
-{
-	auto it = chunks.find(position);
-	if (it == chunks.end())
-	{
-		return nullptr;
-	}
-	return it->second;
-}
-
-bool World::chunkExistsAt(const glm::ivec3& position) const
-{
-	return chunks.find(position) != chunks.end();
-}
-
-void World::loadChunk(const glm::ivec3& position)
-{
-	// Check if chunk already exists
-	if (chunkExistsAt(position))
-	{
-		std::cerr << "[LoadChunk]: Chunk is already loaded.\n";
-		return;
-	}
-
-	// Find existing neighbors
-	Chunk* neighbors[6] = {
-		getChunkAt({ position.x - 1, position.y,	 position.z		}),
-		getChunkAt({ position.x + 1, position.y,	 position.z		}),
-		getChunkAt({ position.x,	 position.y - 1, position.z		}),
-		getChunkAt({ position.x,	 position.y + 1, position.z		}),
-		getChunkAt({ position.x,	 position.y,	 position.z - 1 }),
-		getChunkAt({ position.x,	 position.y,	 position.z + 1 })
-	};
-
-	// Create and initialize chunk
-	Chunk* chunk = chunkPool.acquire();
-	chunk->addLoader();
-	chunk->init(position, neighbors);
-
-	{
-		std::lock_guard<std::mutex> lock(buildBlocksMutex);
-		buildBlocksContainer.insert(chunk);
-	}
-
-	chunks.emplace(position, std::move(chunk));
-}
-
-void World::unloadChunk(const glm::ivec3& position)
-{
-	const auto& it = chunks.find(position);
-	if (it == chunks.end())
-	{
-		std::cerr << "[UnloadChunk]: Chunk isn't in map.\n";
-		return;
-	}
-	it->second->removeLoader();
-	chunkPool.release(std::move(it->second));
-	chunks.erase(it);
-}
-
-void World::startBuildingChunkBlocks()
-{
-	// Collect chunks
-	std::vector<Chunk*> chunksToProcess;
-	{
-		PROFILE_SCOPE("Collect chunks for block building", ProfileCategory::ChunkBlocks);
-
-		std::lock_guard<std::mutex> lock(buildBlocksMutex);
-		if (buildBlocksContainer.empty())
-		{
-			return;
-		}
-
-		chunksToProcess.reserve(buildBlocksContainer.size());
-		for (Chunk* chunk : buildBlocksContainer)
-		{
-			if (chunk->getState() != Chunk::State::NotInitialized_NeedsBlocks)
-			{
-				continue;
-			}
-			ASSERT(!chunk->areBlocksBuilt());
-			chunk->setState(Chunk::State::BuildingBlocks);
-			chunksToProcess.push_back(chunk);
-		}
-		buildBlocksContainer.clear();
-	}
-
-	// Submit chunks to thread pool
-	{
-		PROFILE_SCOPE("Send chunks to block building", ProfileCategory::ChunkBlocks);
-
-		ThreadPool& pool = ParallelUtils::getGlobalThreadPool();
-		for (Chunk* chunk : chunksToProcess)
-		{
-			pool.enqueue([this, chunk]()
-				{
-					chunk->buildBlocks();
-					if (!chunk->getIsLoadedInWorld())
-					{
-						return;
-					}
-
-					chunk->setState(Chunk::State::NeedsLight);
-
-					{
-						std::lock_guard<std::mutex> lock(buildLightMutex);
-						buildLightContainer.insert(chunk);
-					}
-				});
-		}
-	}
-}
-
-void World::startBuildingChunkLights()
-{
-	// Collect chunks that are ready for light building
-	std::vector<Chunk*> chunksToProcess;
-	{
-		PROFILE_SCOPE("Collect chunks for light building", ProfileCategory::ChunkLight);
-
-		std::lock_guard<std::mutex> lock(buildLightMutex);
-		if (buildLightContainer.empty())
-		{
-			return;
-		}
-
-		robin_hood::unordered_flat_set<Chunk*> remainingChunks;
-		remainingChunks.reserve(buildLightContainer.size());
-
-		chunksToProcess.reserve(buildLightContainer.size());
-		for (Chunk* chunk : buildLightContainer)
-		{
-			// Should always pass the test, but sometimes it doesn't
-			if (chunk->getState() != Chunk::State::NeedsLight)
-			{
-				continue;
-			}
-
-			ASSERT(chunk->areBlocksBuilt());
-			ASSERT(!chunk->isLightBuilt());
-
-			// Check if all neighbors have blocks built
-			bool allNeighborsReady = true;
-			for (int i = 0; i < 6; i++)
-			{
-				const Chunk* neighbor = chunk->neighbors[i];
-				if (neighbor && !neighbor->areBlocksBuilt())
-				{
-					allNeighborsReady = false;
-					break;
-				}
-			}
-
-			if (allNeighborsReady)
-			{
-				chunk->setState(Chunk::State::BuildingLight);
-				chunksToProcess.push_back(chunk);
-			}
-			else
-			{
-				// Keep in container, waiting for neighbors
-				remainingChunks.insert(chunk);
-			}
-		}
-
-		buildLightContainer.swap(remainingChunks);
-	}
-
-	// Submit chunks to thread pool
-	{
-		PROFILE_SCOPE("Send chunks to light building", ProfileCategory::ChunkLight);
-
-		ThreadPool& pool = ParallelUtils::getGlobalThreadPool();
-		for (Chunk* chunk : chunksToProcess)
-		{
-			pool.enqueue([this, chunk]()
-				{
-					chunk->buildLight();
-					if (!chunk->getIsLoadedInWorld())
-					{
-						return;
-					}
-				});
-		}
-	}
-}
-
-void World::collectChunksNeedingLightUpdate()
-{
-	PROFILE_SCOPE("Collect chunks needing light update", ProfileCategory::ChunkLight);
-
-	for (const auto& pair : chunks)
-	{
-		Chunk* chunk = pair.second;
-		if (chunk->hasLightUpdates())
-		{
-			glm::ivec3 pos = chunk->getPosition();
-			if ((pos.x ^ pos.y ^ pos.z) & 1)
-			{
-				lightUpdateContainerA.push_back(chunk);
-			}
-			else
-			{
-				lightUpdateContainerB.push_back(chunk);
-			}
-		}
-	}
-}
-
-void World::updateChunkLights()
-{
-	// Using parallelForEach because it will assure that all tasks are done before returning
-	// Update chunks in two separate passes in checkboard pattern to avoid racing conditions
-	ParallelUtils::parallelForEach(lightUpdateContainerA, 1, [](Chunk* chunk)
-		{
-			chunk->updateLight();
-		});
-	ParallelUtils::parallelForEach(lightUpdateContainerB, 1, [](Chunk* chunk)
-		{
-			chunk->updateLight();
-		});
-
-	lightUpdateContainerA.clear();
-	lightUpdateContainerB.clear();
-}
-
-void World::updateChunkMeshes()
-{
-	ThreadPool& pool = ParallelUtils::getGlobalThreadPool();
-	for (const auto& pair : chunks)
-	{
-		Chunk* chunk = pair.second;
-		if (chunk->shouldMeshBeUpdated())
-		{
-			pool.enqueue([chunk]()
-				{
-					chunk->updateMesh();
-				});
-		}
-	}
 }
 
 bool World::placeBlock(const RaycastResult& raycast, BlockId block)
@@ -1352,7 +385,7 @@ void World::updateBlockAt(const glm::ivec3& worldPos, BlockId block)
 	glm::ivec3 localPos = worldPos & CHUNK_LOWER_BITS_MASK;
 
 	// Get the chunk
-	Chunk* chunk = getChunkAt(chunkPos);
+	Chunk* chunk = chunkManager.getChunkAt(chunkPos);
 	if (!chunk)
 	{
 		return;
@@ -1363,24 +396,11 @@ void World::updateBlockAt(const glm::ivec3& worldPos, BlockId block)
 	chunk->setBlockAt(localPos.x, localPos.y, localPos.z, block);
 }
 
-const WorldVisualSettings& World::getWorldVisualSettings() const
-{
-	return visualSettings;
-}
-
-void World::setChunkLoadingDistance(int renderDistance)
-{
-	chunkLoadingDistance = renderDistance;
-
-	float fogDistance = (chunkLoadingDistance - 0.5f) * CHUNK_SIZE;
-	visualSettings.fogDensity = visualSettings.calculateFogDensity(fogDistance, visualSettings.fogGradient);
-}
-
 std::optional<BlockId> World::getBlockAt(const glm::ivec3& globalPosition) const
 {
 	glm::ivec3 chunkPos = globalPosition >> CHUNK_SIZE_LOG2;
 
-	const Chunk* chunk = getChunkAt(chunkPos);
+	const Chunk* chunk = chunkManager.getChunkAt(chunkPos);
 	if (!chunk)
 	{
 		return std::nullopt;
@@ -1390,17 +410,13 @@ std::optional<BlockId> World::getBlockAt(const glm::ivec3& globalPosition) const
 	return chunk->getBlockAt(localBlockPos.x, localBlockPos.y, localBlockPos.z);
 }
 
+void World::setChunkLoadingDistance(int loadingDistanceInChunks)
+{
+	chunkLoadingDistance = loadingDistanceInChunks;
+	renderer.setRenderDistance(loadingDistanceInChunks);
+}
+
 void World::setAppTime(float time)
 {
 	this->appTime = time;
 }
-
-//============================================================================
-// ChunkRenderInfo
-
-World::ChunkRenderInfo::ChunkRenderInfo(const Chunk* chunk, unsigned int manhattanDistance) :
-	chunk(chunk), manhattanDistance(manhattanDistance)
-{
-}
-
-//============================================================================

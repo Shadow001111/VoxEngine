@@ -199,6 +199,8 @@
     <ClCompile Include="SoundManager.cpp" />
     <ClCompile Include="SeamlessPerlinNoise\Perlin.cpp" />
     <ClCompile Include="WindowManager.cpp" />
+    <ClCompile Include="Game\WorldImpl\WorldChunkManager.cpp" />
+    <ClCompile Include="Game\WorldImpl\WorldRenderer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Core\Decoding\UTFDecoder.h" />
@@ -266,6 +268,8 @@
     <ClInclude Include="SoundManager.h" />
     <ClInclude Include="SeamlessPerlinNoise\Perlin.h" />
     <ClInclude Include="WindowManager.h" />
+    <ClInclude Include="Game\WorldImpl\WorldChunkManager.h" />
+    <ClInclude Include="Game\WorldImpl\WorldRenderer.h" />
   </ItemGroup>
   <ItemGroup>
     <CopyFileToFolders Include="..\Libraries\bin\FastNoise.dll">
