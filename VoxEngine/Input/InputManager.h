@@ -38,9 +38,12 @@ class InputManager
 
 	glm::dvec2 mousePosition = {};
 	glm::dvec2 previousMousePosition = {};
+
 	glm::dvec2 mouseDelta = {};
 	glm::dvec2 returnMouseDelta = {};
+
 	glm::dvec2 scrollDelta = {};
+	glm::dvec2 returnScrollDelta = {};
 
 	bool firstMouse = true;
 
@@ -64,6 +67,6 @@ public:
 	// Mouse vector getters
 	const glm::dvec2& getMousePosition() const { return mousePosition; }
 	const glm::dvec2& getMouseDelta() const { return returnMouseDelta; }
-	const glm::dvec2& getScrollDelta() const { return scrollDelta; }
+	const glm::dvec2& getScrollDelta() const { return returnScrollDelta; }
 };
 

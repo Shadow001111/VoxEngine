@@ -97,9 +97,12 @@ void InputManager::processInput()
         state.justReleased = (!state.pressed && state.previousPressed);
     }
 
-    // Reset mouse delta for next frame
+    // Reset for next frame
     returnMouseDelta = mouseDelta;
     mouseDelta = glm::dvec2(0.0);
+
+    returnScrollDelta = scrollDelta;
+    scrollDelta = glm::dvec2(0.0);
 }
 
 bool InputManager::isKeyPressed(int key) const

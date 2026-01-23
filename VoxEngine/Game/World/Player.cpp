@@ -21,7 +21,7 @@ Player::Player(const glm::dvec3& position, float yaw, float pitch) :
 	Entity(position, yaw, pitch, glm::dvec3(0.0), glm::dvec3(0.6, 1.7, 0.6), true),
 	camera(position, yaw, pitch, glm::radians(90.0f), 1.0f, 0.01f, 1.0f)
 {
-	setGameMode(GameMode::Normal);
+	setGameMode(GameMode::Fly);
 
 	for (int i = 0; i < hotbar.size(); i++)
 	{
@@ -60,102 +60,106 @@ void Player::update(double deltaTime)
 	const bool jump			= input.isKeyPressed(GLFW_KEY_SPACE);
 
 	// Move
-	if (gameMode == GameMode::Normal)
+	if (!inventoryOpened)
 	{
-		// Jump
-		if (onGround && jump)
+		if (gameMode == GameMode::Normal)
 		{
-			velocity.y = 10.0;
-			onGround = false;
+			// Jump
+			if (onGround && jump)
+			{
+				velocity.y = 10.0;
+				onGround = false;
+			}
+
+			// Position and velocity
+			{
+				double friction, maxSpeed, maxAcceleration;
+				getMovingValues(friction, maxSpeed, maxAcceleration);
+
+				// Apply friction
+				{
+					double frictionForce = friction * deltaTime;
+					glm::dvec3 flatVelocity = glm::dvec3(velocity.x, 0.0, velocity.z);
+					if (frictionForce > glm::length(flatVelocity))
+					{
+						velocity.x = 0.0;
+						velocity.z = 0.0;
+					}
+					else
+					{
+						velocity -= glm::normalize(flatVelocity) * frictionForce;
+					}
+				}
+
+				// Get flat vectors
+				glm::dvec3 right = makeVectorFlatNormalized(camera.getRight());
+				glm::dvec3 forward = makeVectorFlatNormalized(camera.getForward());
+
+				// Get wishDir
+				double leftRight = moveRight - moveLeft;
+				double forwardBackward = moveForward - moveBackward;
+				glm::dvec3 wishDir = right * leftRight + forward * forwardBackward;
+
+				if (glm::dot(wishDir, wishDir) > 0.0)
+				{
+					wishDir = glm::normalize(wishDir);
+
+					double currentSpeed = glm::dot(velocity, wishDir);
+
+					double acceleration = fmax(0.0, fmin(maxAcceleration * deltaTime, maxSpeed - currentSpeed));
+
+					// Apply acceleration
+					velocity += wishDir * acceleration;
+				}
+			}
 		}
-	
-		// Position and velocity
+		else if (gameMode == GameMode::Fly)
 		{
-			double friction, maxSpeed, maxAcceleration;
-			getMovingValues(friction, maxSpeed, maxAcceleration);
-	
+			double friction = 50.0, maxSpeed = 100.0, maxAcceleration = 100.0;
+
 			// Apply friction
 			{
 				double frictionForce = friction * deltaTime;
-				glm::dvec3 flatVelocity = glm::dvec3(velocity.x, 0.0, velocity.z);
-				if (frictionForce > glm::length(flatVelocity))
+				if (frictionForce > glm::length(velocity))
 				{
-					velocity.x = 0.0;
-					velocity.z = 0.0;
+					velocity = { 0.0, 0.0, 0.0 };
 				}
 				else
 				{
-					velocity -= glm::normalize(flatVelocity) * frictionForce;
+					velocity -= glm::normalize(velocity) * frictionForce;
 				}
 			}
-	
+
 			// Get flat vectors
-			glm::dvec3 right = makeVectorFlatNormalized(camera.getRight());
-			glm::dvec3 forward = makeVectorFlatNormalized(camera.getForward());
-	
+			glm::dvec3 right = camera.getRight();
+			glm::dvec3 forward = camera.getForward();
+
 			// Get wishDir
 			double leftRight = moveRight - moveLeft;
 			double forwardBackward = moveForward - moveBackward;
+
 			glm::dvec3 wishDir = right * leftRight + forward * forwardBackward;
-	
+			if (jump)
+			{
+				wishDir += glm::dvec3(0.0f, 1.0f, 0.0f);
+			}
+
 			if (glm::dot(wishDir, wishDir) > 0.0)
 			{
 				wishDir = glm::normalize(wishDir);
-	
+
 				double currentSpeed = glm::dot(velocity, wishDir);
-	
+
 				double acceleration = fmax(0.0, fmin(maxAcceleration * deltaTime, maxSpeed - currentSpeed));
-	
+
 				// Apply acceleration
 				velocity += wishDir * acceleration;
 			}
 		}
 	}
-	else if (gameMode == GameMode::Fly)
-	{
-		double friction = 50.0, maxSpeed = 100.0, maxAcceleration = 100.0;
-	
-		// Apply friction
-		{
-			double frictionForce = friction * deltaTime;
-			if (frictionForce > glm::length(velocity))
-			{
-				velocity = { 0.0, 0.0, 0.0 };
-			}
-			else
-			{
-				velocity -= glm::normalize(velocity) * frictionForce;
-			}
-		}
-	
-		// Get flat vectors
-		glm::dvec3 right = camera.getRight();
-		glm::dvec3 forward = camera.getForward();
-	
-		// Get wishDir
-		double leftRight = moveRight - moveLeft;
-		double forwardBackward = moveForward - moveBackward;
-	
-		glm::dvec3 wishDir = right * leftRight + forward * forwardBackward;
-		if (jump)
-		{
-			wishDir += glm::dvec3(0.0f, 1.0f, 0.0f);
-		}
-	
-		if (glm::dot(wishDir, wishDir) > 0.0)
-		{
-			wishDir = glm::normalize(wishDir);
-	
-			double currentSpeed = glm::dot(velocity, wishDir);
-	
-			double acceleration = fmax(0.0, fmin(maxAcceleration * deltaTime, maxSpeed - currentSpeed));
-	
-			// Apply acceleration
-			velocity += wishDir * acceleration;
-		}
-	}
 	
 	// Rotation
+	if (!inventoryOpened)
 	{
 		const float mouseSensitivity = 0.002f;
 		
@@ -164,7 +168,7 @@ void Player::update(double deltaTime)
 		rotate(-mouseDelta.x * mouseSensitivity, -mouseDelta.y * mouseSensitivity);
 	}
 	
-	// Selecting item
+	// Selecting hotbar item
 	for (int i = 0; i < PLAYER_HOTBAR_SIZE; i++)
 	{
 		if (input.isKeyJustPressed(GLFW_KEY_1 + i))
@@ -173,10 +177,31 @@ void Player::update(double deltaTime)
 			break;
 		}
 	}
+
+	{
+		double scroll = input.getScrollDelta().y;
+
+		if (scroll < 0.0)
+		{
+			hotbarSelectedItemIndex++;
+			if (hotbarSelectedItemIndex >= PLAYER_HOTBAR_SIZE)
+			{
+				hotbarSelectedItemIndex = 0;
+			}
+		}
+		else if (scroll > 0.0)
+		{
+			hotbarSelectedItemIndex--;
+			if (hotbarSelectedItemIndex >= PLAYER_HOTBAR_SIZE)
+			{
+				hotbarSelectedItemIndex = PLAYER_HOTBAR_SIZE - 1;
+			}
+		}
+	}
 	
 	// Raycast
 	raycastResult = world->raycast(camera.getPosition(), camera.getForward(), 16.0f);
-	if (raycastResult.hit)
+	if (raycastResult.hit && !inventoryOpened)
 	{
 		if (input.isMouseButtonJustPressed(GLFW_MOUSE_BUTTON_LEFT))
 		{
@@ -193,7 +218,7 @@ void Player::update(double deltaTime)
 		}
 	}
 
-	// Inventory
+	// Open/close inventory
 	if (input.isKeyJustPressed(GLFW_KEY_I))
 	{
 		inventoryOpened = !inventoryOpened;
