@@ -47,6 +47,8 @@ class InputManager
 
 	bool firstMouse = true;
 
+	int* widthHeightPtr = nullptr;
+
 	void onKey(int key, int scancode, int action, int mods);
 	void onMouseButton(int button, int action, int mods);
 	void onMousePosition(double xpos, double ypos);
@@ -68,5 +70,7 @@ public:
 	const glm::dvec2& getMousePosition() const { return mousePosition; }
 	const glm::dvec2& getMouseDelta() const { return returnMouseDelta; }
 	const glm::dvec2& getScrollDelta() const { return returnScrollDelta; }
+
+	const glm::dvec2& getNormalizedMousePosition() const;
 };
 

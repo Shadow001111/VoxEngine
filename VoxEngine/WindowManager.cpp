@@ -124,11 +124,13 @@ void WindowManager::linkInputManager(InputManager* im)
         std::cout << "[WindowManager][linkInputManager]: Cannot link nullptr\n";
         return;
     }
+    im->widthHeightPtr = &width;
     linkedInputManagers.insert(im);
 }
 
 void WindowManager::unlinkInputManager(InputManager* im)
 {
+    im->widthHeightPtr = nullptr;
     linkedInputManagers.erase(im);
 }
 

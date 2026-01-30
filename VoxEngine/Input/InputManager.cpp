@@ -137,3 +137,22 @@ bool InputManager::isMouseButtonJustReleased(int button) const
 {
     return (button < mouseButtonStates.size() && button >= 0) && mouseButtonStates[button].justReleased;
 }
+
+const glm::dvec2& InputManager::getNormalizedMousePosition() const
+{
+    if (widthHeightPtr == nullptr)
+    {
+        return mousePosition;
+    }
+
+    const double width = widthHeightPtr[0];
+    const double height = widthHeightPtr[1];
+    const double aspectRatio = width / height;
+
+    glm::dvec2 norm = mousePosition / glm::dvec2(width, height);
+    norm = norm * 2.0 - 1.0;
+    norm.x *= aspectRatio;
+    norm.y = -norm.y;
+
+    return norm;
+}

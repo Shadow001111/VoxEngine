@@ -3,6 +3,60 @@
 #include "../World.h"
 #include "Game/DataPackManagment/AssetRegistry.h"
 
+
+int InventoryGrid::getSlotIndexAt(const glm::vec2& point) const
+{
+	// Check if point is in bounds
+	if (
+		point.x < left || point.x > right
+		)
+	{
+		return -1;
+	}
+
+	const float gridWidth = getWidth();
+	const float slotSize = gridWidth / columns;
+
+	float minY, maxY;
+	if (gridGoesUp)
+	{
+		minY = y + slotSize;
+		maxY = y + slotSize + rows * slotSize;
+	}
+	else
+	{
+		minY = y - rows * slotSize;
+		maxY = y;
+	}
+
+	if (
+		point.y < minY || point.y > maxY
+		)
+	{
+		return -1;
+	}
+
+	// Calculate column index
+	float nx = (point.x - left) / gridWidth;
+	float ny = (point.y - minY) / (maxY - minY);
+
+	int slotX = (int)floorf(nx * columns);
+	slotX = std::min((int)columns - 1, slotX);
+
+	int slotY = (int)floorf(ny * rows);
+	if (gridGoesUp)
+	{
+		slotY = std::min((int)rows - 1, slotY);
+	}
+	else
+	{
+		slotY = std::max(0, (int)rows - 1 - slotY);
+	}
+
+	return slotX + slotY * columns;
+}
+
+
 glm::dvec3 makeVectorFlatNormalized(const glm::dvec3& vec)
 {
 	glm::dvec3 flat = vec;
@@ -42,6 +96,23 @@ Player::Player(const glm::dvec3& position, float yaw, float pitch) :
 		inventory[i].id = i;
 		inventory[i].count = 1;
 	}
+
+	//
+	hotbarGrid.left = -0.9f;
+	hotbarGrid.right = 0.9f;
+	hotbarGrid.y = -1.0f;
+	hotbarGrid.gridGoesUp = true;
+	hotbarGrid.columns = PLAYER_HOTBAR_SIZE;
+	hotbarGrid.rows = 1;
+	hotbarGrid.slotsCount = PLAYER_HOTBAR_SIZE;
+
+	inventoryGrid.left = -0.9f;
+	inventoryGrid.right = 0.9f;
+	inventoryGrid.y = 1.0f;
+	inventoryGrid.gridGoesUp = false;
+	inventoryGrid.columns = 9;
+	inventoryGrid.rows = 3;
+	inventoryGrid.slotsCount = PLAYER_INVENTORY_SIZE;
 }
 
 void Player::update(double deltaTime)
@@ -198,6 +269,12 @@ void Player::update(double deltaTime)
 			}
 		}
 	}
+
+	// Process inventory input if inventory is opened
+	if (inventoryOpened)
+	{
+		processInventoryInput();
+	}
 	
 	// Raycast
 	raycastResult = world->raycast(camera.getPosition(), camera.getForward(), 16.0f);
@@ -205,7 +282,9 @@ void Player::update(double deltaTime)
 	{
 		if (input.isMouseButtonJustPressed(GLFW_MOUSE_BUTTON_LEFT))
 		{
-			const auto& item = hotbar[hotbarSelectedItemIndex];
+			const auto& item = hotbar[
+				hotbarSelectedItemIndex < PLAYER_HOTBAR_SIZE ? hotbarSelectedItemIndex : 0
+			];
 			const auto* itemData = AssetRegistry::getItemData(item.id);
 			if (itemData && itemData->hasBlockPlaceable)
 			{
@@ -222,6 +301,11 @@ void Player::update(double deltaTime)
 	if (input.isKeyJustPressed(GLFW_KEY_I))
 	{
 		inventoryOpened = !inventoryOpened;
+		// Clear drag state when closing inventory
+		if (!inventoryOpened)
+		{
+			stopDragging(-1);
+		}
 	}
 }
 
@@ -254,6 +338,62 @@ void Player::getMovingValues(double& friction, double& maxSpeed, double& maxAcce
 		friction = 1.0;
 		maxSpeed = 3.0;
 		maxAcceleration = 25.0;
+	}
+}
+
+void Player::startDragging(int slot)
+{
+	if (slot < 0 || slot >= PLAYER_INVENTORY_SIZE) return;
+
+	Item& source = inventory[slot];
+
+	if (source.count == 0) return;
+
+	dragState.isDragging = true;
+	dragState.draggedItem = source;
+	dragState.sourceSlot = slot;
+
+	// Clear the source slot (will be restored if dropped nowhere or swapped)
+	source = Item{ 0, 0 };
+}
+
+void Player::stopDragging(int slot)
+{
+	if (!dragState.isDragging || slot < 0 || slot >= PLAYER_INVENTORY_SIZE)
+	{
+		dragState = InventoryDragState();
+		return;
+	}
+
+	inventory[slot] = dragState.draggedItem;
+
+	dragState = InventoryDragState();
+}
+
+void Player::processInventoryInput()
+{
+	auto normalizedMousePos = input.getNormalizedMousePosition();
+
+	// Start dragging on left click
+	if (input.isMouseButtonJustPressed(GLFW_MOUSE_BUTTON_LEFT))
+	{
+		int slot = inventoryGrid.getSlotIndexAt(normalizedMousePos);
+
+		if (slot >= 0 && slot < PLAYER_INVENTORY_SIZE)
+		{
+			startDragging(slot);
+			dragState.dragStartPosition = glm::vec2(normalizedMousePos.x, normalizedMousePos.y);
+		}
+	}
+	// Stop dragging on release
+	else if (input.isMouseButtonJustReleased(GLFW_MOUSE_BUTTON_LEFT))
+	{
+		int slot = inventoryGrid.getSlotIndexAt(normalizedMousePos);
+
+		if (dragState.isDragging && slot >= 0 && slot < PLAYER_INVENTORY_SIZE)
+		{
+			stopDragging(slot);
+		}
 	}
 }
 

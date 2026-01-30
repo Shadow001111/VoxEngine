@@ -22,7 +22,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #ifdef NDEBUG
-constexpr int CHUNK_LOAD_DISTANCE = 8;
+constexpr int CHUNK_LOAD_DISTANCE = 1;
 #else
 constexpr int CHUNK_LOAD_DISTANCE = 3;
 #endif
@@ -140,58 +140,51 @@ static void setupContainerUI(ContainerUI& c)
     }
 }
 
-// TODO: Stop hotbar from drawing itself on other draw buffers
-static void renderHotbarAndInventory(const ContainerUI& c, const Player& player)
+static void renderInventory(const float aspectRatio, const InventoryGrid& grid, const Item* inventory, const ContainerUI& c)
 {
-    glDisable(GL_DEPTH_TEST);
-    glDepthMask(GL_FALSE);
-
-    constexpr float slotSize = 0.2f;
-    constexpr float hotbarBottomOffset = 0.0f;
-    constexpr float inventoryTopOffset = 0.0f; // Spacing between hotbar and inventory
-
+    // Settings
     constexpr float TEXTURE_PX = 24.0f;
     constexpr float EMPTY_PX = 16.0f;
     constexpr float SELECTED_PX = 22.0f;
     constexpr float ITEM_PX = EMPTY_PX - 4.0f;
 
+    // Calculate slot size
+    const float gridWidth = grid.getWidth();
+    const float slotSize = gridWidth / grid.columns;
+
+    // Calculate image scales
     const float emptyScale = (TEXTURE_PX / EMPTY_PX) * slotSize;
     const float selectedScale = emptyScale;
     const float itemScale = (ITEM_PX / EMPTY_PX) * slotSize;
 
+    // Get projection
+    glm::mat4 projection = glm::ortho(
+        -aspectRatio, aspectRatio,
+        -1.0f, 1.0f,
+        -1.0f, 1.0f
+    );
+
+    // Calculate grid start coordinates
+    const float startX = grid.left + slotSize * 0.5f;
+    const float slotDeltaY = grid.gridGoesUp ? slotSize : -slotSize;
+    const float startY = grid.y + slotDeltaY * 0.5f;
+
+    // Bind resources
+    c.hotbarShader.use();
+    c.hotbarVAO.bind();
+
+    // Render empty slots
+    // TODO: Use tiling instead of drawing many identical quads
+    c.hotbarShader.setUint("uTextureId", 0);
+    c.hotbarShader.setMat4("projection", projection);
+
+    c.hotbarSlotImage.bindUnit(0);
+    for (int row = 0; row < grid.rows; row++)
     {
-        const auto& hotbar = player.getHotbar();
-
-        //
-        int slotCount = hotbar.size();
-
-        float totalWidth = slotCount * slotSize;
-        float startX = -totalWidth * 0.5f + slotSize * 0.5f;
-
-        int viewport[4];
-        glGetIntegerv(GL_VIEWPORT, viewport);
-        float aspect = float(viewport[2]) / float(viewport[3]);
-
-        glm::mat4 projection = glm::ortho(
-            -aspect, aspect,
-            -1.0f, 1.0f,
-            -1.0f, 1.0f
-        );
-
-        c.hotbarVAO.bind();
-        c.hotbarShader.use();
-        c.hotbarShader.setMat4("projection", projection);
-
-        /* =========================
-           1. EMPTY HOTBAR SLOTS
-           ========================= */
-        c.hotbarSlotImage.bindUnit(0);
-        c.hotbarShader.setUint("uTextureId", 0); // array layer 0
-
-        for (int i = 0; i < slotCount; i++)
+        for (int col = 0; col < grid.columns; col++)
         {
-            float x = startX + i * slotSize;
-            float y = -1.0f + hotbarBottomOffset + slotSize * 0.5f;
+            float x = startX + col * slotSize;
+            float y = startY + row * slotDeltaY;
 
             glm::mat4 model(1.0f);
             model = glm::translate(model, { x, y, 0.0f });
@@ -200,146 +193,72 @@ static void renderHotbarAndInventory(const ContainerUI& c, const Player& player)
             c.hotbarShader.setMat4("model", model);
             glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
         }
+    }
 
-        /* =========================
-           2. ITEMS (24x24)
-           ========================= */
-        c.itemUITextureArray.bindUnit(0);
-
-        for (int i = 0; i < slotCount; i++)
+    // Render items
+    c.itemUITextureArray.bindUnit(0);
+    size_t index = -1;
+    for (int row = 0; row < grid.rows; row++)
+    {
+        for (int col = 0; col < grid.columns; col++)
         {
-            const Item& item = hotbar[i];
+            index++;
+            if (index > grid.slotsCount)
+            {
+                break;
+            }
+    
+            // Get item
+            const Item& item = inventory[index];
             if (item.count == 0)
             {
                 continue;
             }
-
+    
+            // Get item data
             const auto* itemData = AssetRegistry::getItemData(item.id);
             if (!itemData)
             {
                 continue;
             }
-
-            float x = startX + i * slotSize;
-            float y = -1.0f + hotbarBottomOffset + slotSize * 0.5f;
-
+    
+            float x = startX + col * slotSize;
+            float y = startY + row * slotDeltaY;
+    
             glm::mat4 model(1.0f);
             model = glm::translate(model, { x, y, 0.0f });
             model = glm::scale(model, { itemScale * 0.5f, itemScale * 0.5f, 1.0f });
-
+    
             c.hotbarShader.setMat4("model", model);
             c.hotbarShader.setUint("uTextureId", itemData->uiTextureId);
-
-            glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-        }
-
-        /* =========================
-           3. SELECTED OVERLAY
-           ========================= */
-        c.hotbarSlotImage.bindUnit(0);
-        c.hotbarShader.setUint("uTextureId", 1); // array layer 1 (selected)
-
-        int selectedSlot = player.getSelectedItemIndex();
-        {
-            float x = startX + selectedSlot * slotSize;
-            float y = -1.0f + hotbarBottomOffset + slotSize * 0.5f;
-
-            glm::mat4 model(1.0f);
-            model = glm::translate(model, { x, y, 0.0f });
-            model = glm::scale(model, { selectedScale * 0.5f, selectedScale * 0.5f, 1.0f });
-
-            c.hotbarShader.setMat4("model", model);
+    
             glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
         }
     }
+}
 
+// TODO: Stop hotbar from drawing itself on other draw buffers
+static void renderHotbarAndInventory(const float aspectRatio, const ContainerUI& c, const Player& player)
+{
+    glDisable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);
+
+    renderInventory(aspectRatio, player.getHotbarGrid(), player.getHotbar().data(), c); // TODO: Add rendering choosen slot
     if (player.isInventoryOpened())
     {
-        /* =========================
-       4. INVENTORY RENDERING
-       ========================= */
-       constexpr int inventoryRows = 3; // Adjust based on your inventory layout
-       constexpr int inventoryCols = 9; // Adjust based on your inventory layout
-       constexpr int inventorySlotCount = inventoryRows * inventoryCols;
-
-       // Position inventory below hotbar
-       float inventoryStartY = 1.0f - (slotSize * 0.5f + inventoryTopOffset);
-       float inventorySlotSize = slotSize * 0.9f; // Slightly smaller slots for inventory
-       float inventoryTotalWidth = inventoryCols * inventorySlotSize;
-       float inventoryStartX = -inventoryTotalWidth * 0.5f + inventorySlotSize * 0.5f;
-
-       // Get inventory data
-       const auto& inventory = player.getInventory();
-
-       /* =========================
-          4.1 EMPTY INVENTORY SLOTS
-          ========================= */
-       c.hotbarSlotImage.bindUnit(0);
-       c.hotbarShader.setUint("uTextureId", 0); // array layer 0
-
-       for (int row = 0; row < inventoryRows; row++)
-       {
-           for (int col = 0; col < inventoryCols; col++)
-           {
-               float x = inventoryStartX + col * inventorySlotSize;
-               float y = inventoryStartY - row * inventorySlotSize;
-
-               glm::mat4 model(1.0f);
-               model = glm::translate(model, { x, y, 0.0f });
-               model = glm::scale(model, { emptyScale * 0.5f, emptyScale * 0.5f, 1.0f });
-
-               c.hotbarShader.setMat4("model", model);
-               glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-           }
-       }
-
-       /* =========================
-          4.2 INVENTORY ITEMS
-          ========================= */
-       c.itemUITextureArray.bindUnit(0);
-
-       for (int i = 0; i < inventorySlotCount; i++)
-       {
-           const Item& item = inventory[i];
-           if (item.count == 0)
-           {
-               continue;
-           }
-
-           const auto* itemData = AssetRegistry::getItemData(item.id);
-           if (!itemData)
-           {
-               continue;
-           }
-
-           int row = i / inventoryCols;
-           int col = i % inventoryCols;
-
-           float x = inventoryStartX + col * inventorySlotSize;
-           float y = inventoryStartY + row * inventorySlotSize;
-
-           glm::mat4 model(1.0f);
-           model = glm::translate(model, { x, y, 0.0f });
-           model = glm::scale(model, { itemScale * 0.5f, itemScale * 0.5f, 1.0f });
-
-           c.hotbarShader.setMat4("model", model);
-           c.hotbarShader.setUint("uTextureId", itemData->uiTextureId);
-
-           glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-       }
-
+        renderInventory(aspectRatio, player.getInventoryGrid(), player.getInventory().data(), c);
     }
 
     glDepthMask(GL_TRUE);
 }
 
-static void renderUI(const ContainerUI& c, const Player& player)
+static void renderUI(const float aspectRatio, const ContainerUI& c, const Player& player)
 {
     glDisable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    renderHotbarAndInventory(c, player);
+    renderHotbarAndInventory(aspectRatio, c, player);
 }
 
 static void renderDebugData(const WindowManager& wnd, const Player& player, const DebugUIMetrics& metrics)
@@ -626,7 +545,7 @@ int main()
                 uiMetrics.chunkPositionBufferSizeInBytes = worldDebug.chunkPositionBufferSizeInBytes;
 
                 // Render UI
-                renderUI(containerUI, player);
+                renderUI(wnd.getAspectRatio(), containerUI, player);
 
                 // Pre-text-rendering measure
                 TextRenderer::updateProjectionMatrix(wnd.getWidth(), wnd.getHeight());

@@ -17,6 +17,30 @@ enum class GameMode : uint8_t
 	Fly
 };
 
+struct InventoryDragState
+{
+	bool isDragging = false;
+	Item draggedItem;
+	int sourceSlot = -1; // -1 for no source
+	glm::vec2 dragStartPosition = glm::vec2(0.0f);
+};
+
+struct InventoryGrid
+{
+	float left = 0.0f, right = 0.0f;
+	float y = 0.0f;
+	bool gridGoesUp = false;
+
+	uint8_t columns = 0, rows = 0;
+	uint16_t slotsCount = 0;
+
+	float getWidth() const { return right - left; }
+
+	int getSlotIndexAt(const glm::vec2& point) const;
+};
+
+// TODO: Move items if other item is put on its place
+// TODO: Render dragged item
 class Player : public Entity
 {
 	static constexpr int PLAYER_HOTBAR_SIZE = 9;
@@ -24,9 +48,11 @@ class Player : public Entity
 
 	Camera camera;
 
+	InventoryGrid hotbarGrid;
 	std::array<Item, PLAYER_HOTBAR_SIZE> hotbar;
 	uint8_t hotbarSelectedItemIndex = 0;
 
+	InventoryGrid inventoryGrid;
 	std::array<Item, PLAYER_INVENTORY_SIZE> inventory;
 
 	GameMode gameMode = GameMode::Normal;
@@ -34,6 +60,8 @@ class Player : public Entity
 	InputManager input;
 
 	bool inventoryOpened = false;
+
+	InventoryDragState dragState;
 public:
 	RaycastResult raycastResult;
 
@@ -42,6 +70,10 @@ public:
 	void update(double deltaTime) override;
 private:
 	void getMovingValues(double& friction, double& maxSpeed, double& maxAcceleration) const;
+
+	void startDragging(int slot);
+	void stopDragging(int slot);
+	void processInventoryInput();
 public:
 	void interpolateCameraTransform(float factor);
 
@@ -65,12 +97,20 @@ public:
 	const Camera& getCamera() const { return camera; };
 	InputManager& getInputManager() { return input; }
 
+	std::array<Item, PLAYER_HOTBAR_SIZE>& getHotbar() { return hotbar; }
+	std::array<Item, PLAYER_INVENTORY_SIZE>& getInventory() { return inventory; }
+
 	const std::array<Item, PLAYER_HOTBAR_SIZE>& getHotbar() const { return hotbar; }
 	const std::array<Item, PLAYER_INVENTORY_SIZE>& getInventory() const { return inventory; }
 
-	int getSelectedItemIndex() const { return hotbarSelectedItemIndex; }
+	auto getSelectedItemIndex() const { return hotbarSelectedItemIndex; }
 	const Item& getSelectedItem() const { return hotbar[hotbarSelectedItemIndex]; };
 
 	bool isInventoryOpened() const { return inventoryOpened; }
+
+	const InventoryDragState& getDragState() const { return dragState; }
+
+	const InventoryGrid& getHotbarGrid() const { return hotbarGrid; }
+	const InventoryGrid& getInventoryGrid() const { return inventoryGrid; }
 };
 
