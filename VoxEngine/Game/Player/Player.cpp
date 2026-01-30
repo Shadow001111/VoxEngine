@@ -4,59 +4,6 @@
 #include "Game/DataPackManagment/AssetRegistry.h"
 
 
-int InventoryGrid::getSlotIndexAt(const glm::vec2& point) const
-{
-	// Check if point is in bounds
-	if (
-		point.x < left || point.x > right
-		)
-	{
-		return -1;
-	}
-
-	const float gridWidth = getWidth();
-	const float slotSize = gridWidth / columns;
-
-	float minY, maxY;
-	if (gridGoesUp)
-	{
-		minY = y + slotSize;
-		maxY = y + slotSize + rows * slotSize;
-	}
-	else
-	{
-		minY = y - rows * slotSize;
-		maxY = y;
-	}
-
-	if (
-		point.y < minY || point.y > maxY
-		)
-	{
-		return -1;
-	}
-
-	// Calculate column index
-	float nx = (point.x - left) / gridWidth;
-	float ny = (point.y - minY) / (maxY - minY);
-
-	int slotX = (int)floorf(nx * columns);
-	slotX = std::min((int)columns - 1, slotX);
-
-	int slotY = (int)floorf(ny * rows);
-	if (gridGoesUp)
-	{
-		slotY = std::min((int)rows - 1, slotY);
-	}
-	else
-	{
-		slotY = std::max(0, (int)rows - 1 - slotY);
-	}
-
-	return slotX + slotY * columns;
-}
-
-
 glm::dvec3 makeVectorFlatNormalized(const glm::dvec3& vec)
 {
 	glm::dvec3 flat = vec;
@@ -75,44 +22,42 @@ Player::Player(const glm::dvec3& position, float yaw, float pitch) :
 	Entity(position, yaw, pitch, glm::dvec3(0.0), glm::dvec3(0.6, 1.7, 0.6), true),
 	camera(position, yaw, pitch, glm::radians(90.0f), 1.0f, 0.01f, 1.0f)
 {
+	// Set game mode
 	setGameMode(GameMode::Fly);
 
-	for (int i = 0; i < hotbar.size(); i++)
+	// Configure hotbar
+	hotbar.configureStorage(PLAYER_HOTBAR_SIZE, PLAYER_HOTBAR_SIZE);
+	hotbar.configureVisualGrid(-0.9f, 0.9f, -1.0f, true);
+
+	// Configure inventory
+	inventory.configureStorage(PLAYER_INVENTORY_SIZE, 9);
+	inventory.configureVisualGrid(-0.9f, 0.9f, 1.0f, false);
+
+	// Fill hotbar
+	for (size_t i = 0; i < hotbar.getSlotCount(); i++)
 	{
 		if (AssetRegistry::getItemData(i) == nullptr)
 		{
 			break;
 		}
-		hotbar[i].id = i;
-		hotbar[i].count = 1;
+		Item item;
+		item.id = i;
+		item.count = 1;
+		hotbar.pushItem(item);
 	}
 
-	for (int i = 0; i < inventory.size(); i++)
+	// Fill inventory
+	for (size_t i = 0; i < inventory.getSlotCount(); i++)
 	{
 		if (AssetRegistry::getItemData(i) == nullptr)
 		{
 			break;
 		}
-		inventory[i].id = i;
-		inventory[i].count = 1;
+		Item item;
+		item.id = i;
+		item.count = 1;
+		inventory.pushItem(item);
 	}
-
-	//
-	hotbarGrid.left = -0.9f;
-	hotbarGrid.right = 0.9f;
-	hotbarGrid.y = -1.0f;
-	hotbarGrid.gridGoesUp = true;
-	hotbarGrid.columns = PLAYER_HOTBAR_SIZE;
-	hotbarGrid.rows = 1;
-	hotbarGrid.slotsCount = PLAYER_HOTBAR_SIZE;
-
-	inventoryGrid.left = -0.9f;
-	inventoryGrid.right = 0.9f;
-	inventoryGrid.y = 1.0f;
-	inventoryGrid.gridGoesUp = false;
-	inventoryGrid.columns = 9;
-	inventoryGrid.rows = 3;
-	inventoryGrid.slotsCount = PLAYER_INVENTORY_SIZE;
 }
 
 void Player::update(double deltaTime)
@@ -282,13 +227,14 @@ void Player::update(double deltaTime)
 	{
 		if (input.isMouseButtonJustPressed(GLFW_MOUSE_BUTTON_LEFT))
 		{
-			const auto& item = hotbar[
-				hotbarSelectedItemIndex < PLAYER_HOTBAR_SIZE ? hotbarSelectedItemIndex : 0
-			];
-			const auto* itemData = AssetRegistry::getItemData(item.id);
-			if (itemData && itemData->hasBlockPlaceable)
+			const auto* item = hotbar.getItemAt(hotbarSelectedItemIndex);
+			if (item)
 			{
-				world->placeBlock(raycastResult, itemData->blockPlaceableId);
+				const auto* itemData = AssetRegistry::getItemData(item->id);
+				if (itemData && itemData->hasBlockPlaceable)
+				{
+					world->placeBlock(raycastResult, itemData->blockPlaceableId);
+				}
 			}
 		}
 		if (input.isMouseButtonJustPressed(GLFW_MOUSE_BUTTON_RIGHT))
@@ -341,31 +287,32 @@ void Player::getMovingValues(double& friction, double& maxSpeed, double& maxAcce
 	}
 }
 
-void Player::startDragging(int slot)
+void Player::startDragging(size_t slot)
 {
-	if (slot < 0 || slot >= PLAYER_INVENTORY_SIZE) return;
-
-	Item& source = inventory[slot];
-
-	if (source.count == 0) return;
-
+	auto sourceOpt = inventory.takeItem(slot);
+	if (!sourceOpt.has_value())
+	{
+		return;
+	}
+	
 	dragState.isDragging = true;
-	dragState.draggedItem = source;
+	dragState.draggedItem = sourceOpt.value();
 	dragState.sourceSlot = slot;
-
-	// Clear the source slot (will be restored if dropped nowhere or swapped)
-	source = Item{ 0, 0 };
 }
 
-void Player::stopDragging(int slot)
+void Player::stopDragging(size_t slot)
 {
-	if (!dragState.isDragging || slot < 0 || slot >= PLAYER_INVENTORY_SIZE)
+	if (!dragState.isDragging)
 	{
 		dragState = InventoryDragState();
 		return;
 	}
 
-	inventory[slot] = dragState.draggedItem;
+	bool success = inventory.putItem(dragState.draggedItem, slot, dragState.sourceSlot);
+	if (!success)
+	{
+		inventory.pushItem(dragState.draggedItem);
+	}
 
 	dragState = InventoryDragState();
 }
@@ -377,22 +324,22 @@ void Player::processInventoryInput()
 	// Start dragging on left click
 	if (input.isMouseButtonJustPressed(GLFW_MOUSE_BUTTON_LEFT))
 	{
-		int slot = inventoryGrid.getSlotIndexAt(normalizedMousePos);
+		auto slotOpt = inventory.getSlotIndexAtPoint(normalizedMousePos);
 
-		if (slot >= 0 && slot < PLAYER_INVENTORY_SIZE)
+		if (slotOpt.has_value())
 		{
-			startDragging(slot);
+			startDragging(slotOpt.value());
 			dragState.dragStartPosition = glm::vec2(normalizedMousePos.x, normalizedMousePos.y);
 		}
 	}
 	// Stop dragging on release
 	else if (input.isMouseButtonJustReleased(GLFW_MOUSE_BUTTON_LEFT))
 	{
-		int slot = inventoryGrid.getSlotIndexAt(normalizedMousePos);
+		auto slotOpt = inventory.getSlotIndexAtPoint(normalizedMousePos);
 
-		if (dragState.isDragging && slot >= 0 && slot < PLAYER_INVENTORY_SIZE)
+		if (dragState.isDragging && slotOpt.has_value())
 		{
-			stopDragging(slot);
+			stopDragging(slotOpt.value());
 		}
 	}
 }

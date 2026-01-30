@@ -135,7 +135,7 @@
     <ClCompile Include="Game\World\Entity.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="Game\World\Player.cpp">
+    <ClCompile Include="Game\Player\Player.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
     <ClCompile Include="Game\World\VoxelMarkerMesh.cpp">
@@ -163,6 +163,12 @@
       <Filter>Исходные файлы</Filter>
     </ClCompile>
     <ClCompile Include="Game\WorldImpl\WorldRenderer.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Inventory\Inventory.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Inventory\GUIInventory.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
   </ItemGroup>
@@ -314,7 +320,7 @@
     <ClInclude Include="Game\World\Entity.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="Game\World\Player.h">
+    <ClInclude Include="Game\Player\Player.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Game\World\RaycastResult.h">
@@ -366,6 +372,12 @@
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Game\WorldImpl\WorldRenderer.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Inventory\Inventory.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Inventory\GUIInventory.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
   </ItemGroup>

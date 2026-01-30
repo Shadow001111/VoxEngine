@@ -4,7 +4,7 @@
 #include "Core/Profiler.h"
 
 #include "Game/World.h"
-#include "Game/World/Player.h"
+#include "Game/Player/Player.h"
 #include "Game/DataPackManagment/AssetRegistry.h"
 
 #include "Graphics/TextRenderer.h"
@@ -140,7 +140,7 @@ static void setupContainerUI(ContainerUI& c)
     }
 }
 
-static void renderInventory(const float aspectRatio, const InventoryGrid& grid, const Item* inventory, const ContainerUI& c)
+static void renderInventory(const float aspectRatio, const GUIInventory& inventory, const ContainerUI& c)
 {
     // Settings
     constexpr float TEXTURE_PX = 24.0f;
@@ -148,9 +148,16 @@ static void renderInventory(const float aspectRatio, const InventoryGrid& grid, 
     constexpr float SELECTED_PX = 22.0f;
     constexpr float ITEM_PX = EMPTY_PX - 4.0f;
 
+    // Get invetory dimensions
+    const auto columnCount = inventory.getColumnCount();
+    const auto rowCount = inventory.getRowCount();
+    const auto slotCount = inventory.getSlotCount();
+
     // Calculate slot size
+    const auto& grid = inventory.getVisualGrid();
+
     const float gridWidth = grid.getWidth();
-    const float slotSize = gridWidth / grid.columns;
+    const float slotSize = gridWidth / columnCount;
 
     // Calculate image scales
     const float emptyScale = (TEXTURE_PX / EMPTY_PX) * slotSize;
@@ -165,9 +172,9 @@ static void renderInventory(const float aspectRatio, const InventoryGrid& grid, 
     );
 
     // Calculate grid start coordinates
-    const float startX = grid.left + slotSize * 0.5f;
+    const float startX = grid.leftBorder + slotSize * 0.5f;
     const float slotDeltaY = grid.gridGoesUp ? slotSize : -slotSize;
-    const float startY = grid.y + slotDeltaY * 0.5f;
+    const float startY = grid.borderY + slotDeltaY * 0.5f;
 
     // Bind resources
     c.hotbarShader.use();
@@ -179,9 +186,9 @@ static void renderInventory(const float aspectRatio, const InventoryGrid& grid, 
     c.hotbarShader.setMat4("projection", projection);
 
     c.hotbarSlotImage.bindUnit(0);
-    for (int row = 0; row < grid.rows; row++)
+    for (int row = 0; row < rowCount; row++)
     {
-        for (int col = 0; col < grid.columns; col++)
+        for (int col = 0; col < columnCount; col++)
         {
             float x = startX + col * slotSize;
             float y = startY + row * slotDeltaY;
@@ -198,18 +205,18 @@ static void renderInventory(const float aspectRatio, const InventoryGrid& grid, 
     // Render items
     c.itemUITextureArray.bindUnit(0);
     size_t index = -1;
-    for (int row = 0; row < grid.rows; row++)
+    for (int row = 0; row < rowCount; row++)
     {
-        for (int col = 0; col < grid.columns; col++)
+        for (int col = 0; col < columnCount; col++)
         {
             index++;
-            if (index > grid.slotsCount)
+            if (index > slotCount)
             {
                 break;
             }
     
             // Get item
-            const Item& item = inventory[index];
+            const Item& item = *inventory.getItemAt(index);
             if (item.count == 0)
             {
                 continue;
@@ -243,10 +250,10 @@ static void renderHotbarAndInventory(const float aspectRatio, const ContainerUI&
     glDisable(GL_DEPTH_TEST);
     glDepthMask(GL_FALSE);
 
-    renderInventory(aspectRatio, player.getHotbarGrid(), player.getHotbar().data(), c); // TODO: Add rendering choosen slot
+    renderInventory(aspectRatio, player.getHotbar(), c); // TODO: Add rendering choosen slot
     if (player.isInventoryOpened())
     {
-        renderInventory(aspectRatio, player.getInventoryGrid(), player.getInventory().data(), c);
+        renderInventory(aspectRatio, player.getInventory(), c);
     }
 
     glDepthMask(GL_TRUE);
