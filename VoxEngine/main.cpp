@@ -140,6 +140,7 @@ static void setupContainerUI(ContainerUI& c)
     }
 }
 
+// TODO: Render item count
 static void renderInventory(const float aspectRatio, const GUIInventory& inventory, const ContainerUI& c)
 {
     // Settings

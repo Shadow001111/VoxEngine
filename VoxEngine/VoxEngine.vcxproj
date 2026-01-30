@@ -198,6 +198,7 @@
     <ClCompile Include="OpenGLWrappers\Texture.cpp" />
     <ClCompile Include="Game\DataPackManagment\DataPackManager.cpp" />
     <ClCompile Include="OpenGLWrappers\ImmutableBuffer.cpp" />
+    <ClCompile Include="Random.cpp" />
     <ClCompile Include="SoundManager.cpp" />
     <ClCompile Include="SeamlessPerlinNoise\Perlin.cpp" />
     <ClCompile Include="WindowManager.cpp" />
@@ -269,6 +270,7 @@
     <ClInclude Include="OpenGLWrappers\Texture.h" />
     <ClInclude Include="Game\DataPackManagment\DataPackManager.h" />
     <ClInclude Include="OpenGLWrappers\ImmutableBuffer.h" />
+    <ClInclude Include="Random.h" />
     <ClInclude Include="SoundManager.h" />
     <ClInclude Include="SeamlessPerlinNoise\Perlin.h" />
     <ClInclude Include="WindowManager.h" />

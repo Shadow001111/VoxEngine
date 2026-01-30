@@ -3,6 +3,8 @@
 #include "../World.h"
 #include "Game/DataPackManagment/AssetRegistry.h"
 
+#include "Random.h"
+
 
 glm::dvec3 makeVectorFlatNormalized(const glm::dvec3& vec)
 {
@@ -36,26 +38,30 @@ Player::Player(const glm::dvec3& position, float yaw, float pitch) :
 	// Fill hotbar
 	for (size_t i = 0; i < hotbar.getSlotCount(); i++)
 	{
-		if (AssetRegistry::getItemData(i) == nullptr)
+		const auto* itemData = AssetRegistry::getItemData(i);
+		if (itemData == nullptr)
 		{
 			break;
 		}
+
 		Item item;
 		item.id = i;
-		item.count = 1;
+		item.count = Random::integer<ItemId>(1, itemData->stackSize);
 		hotbar.pushItem(item);
 	}
 
 	// Fill inventory
 	for (size_t i = 0; i < inventory.getSlotCount(); i++)
 	{
-		if (AssetRegistry::getItemData(i) == nullptr)
+		const auto* itemData = AssetRegistry::getItemData(i);
+		if (itemData == nullptr)
 		{
 			break;
 		}
+
 		Item item;
 		item.id = i;
-		item.count = 1;
+		item.count = Random::integer<ItemId>(1, itemData->stackSize);
 		inventory.pushItem(item);
 	}
 }
