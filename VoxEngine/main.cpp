@@ -140,7 +140,6 @@ static void setupContainerUI(ContainerUI& c)
     }
 }
 
-// TODO: Text renderer should work with normalized coordinates (Switch with update version. Use appropriate layout)
 static void renderInventory(const float aspectRatio, const GUIInventory& inventory, const ContainerUI& c)
 {
     // Settings
@@ -259,25 +258,21 @@ static void renderInventory(const float aspectRatio, const GUIInventory& invento
     }
 
     // Render item counts after all items are drawn (single shader switch)
-    const float COUNT_FONT_SIZE = 20.0f;
+    const float COUNT_FONT_SIZE = slotSize * 0.25f;
     if (!itemsWithCount.empty())
     {
-        glDisable(GL_DEPTH_TEST);
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
         // Prepare text rendering
         TextRenderer::startTextRendering();
 
         // Render counts for all items
         for (const auto& itemInfo : itemsWithCount)
         {
-            // Convert normalized coordinates to pixel coordinates for text rendering
-            float pixelX = (itemInfo.x + aspectRatio) * 0.5f; // Normalized to [0, aspectRatio]
-            float pixelY = (itemInfo.y + -slotSize * 0.35f + 1.0f) * 0.5f; // Normalized to [0, 1]
+            // Text position
+            const float cornerOffset = slotSize * 0.1f;
+            const float shadowOffset = slotSize * 0.02f;
 
-            pixelX = pixelX * 720.0f; // Assuming window height
-            pixelY = pixelY * 720.0f;
+            const float x = itemInfo.x + slotSize * 0.5f - cornerOffset;
+            const float y = itemInfo.y - slotSize * 0.5f + cornerOffset;
 
             // Format count text
             std::string countText = (itemInfo.count > 999) ? "999+" : std::to_string(itemInfo.count);
@@ -286,8 +281,8 @@ static void renderInventory(const float aspectRatio, const GUIInventory& invento
             glm::vec3 textColor = glm::vec3(1.0f, 1.0f, 1.0f);
 
             // Add drop shadow for better readability
-            TextRenderer::renderText(countText, pixelX + 1, pixelY - 1, COUNT_FONT_SIZE, glm::vec3(0.0f, 0.0f, 0.0f));
-            TextRenderer::renderText(countText, pixelX, pixelY, COUNT_FONT_SIZE, textColor);
+            TextRenderer::renderText(countText, x + shadowOffset, y - shadowOffset, COUNT_FONT_SIZE, glm::vec3(0.0f, 0.0f, 0.0f), TextRenderer::TextAlignment::BottomRight);
+            TextRenderer::renderText(countText, x, y, COUNT_FONT_SIZE, textColor, TextRenderer::TextAlignment::BottomRight);
         }
     }
 }
@@ -318,14 +313,16 @@ static void renderUI(const float aspectRatio, const ContainerUI& c, const Player
 
 static void renderDebugData(const WindowManager& wnd, const Player& player, const DebugUIMetrics& metrics)
 {
-    float rowHeight = 24.0f;
+    const float rowHeight = 0.06f;
+
     std::ostringstream ss;
     ss << std::fixed << std::setprecision(1);
 
     ss << "FPS: " << metrics.fps;
     ss << " (" << metrics.frameTimeMs << " ms)";
 
-    if (wnd.getVSYNC()) {
+    if (wnd.getVSYNC())
+    {
         ss << " VSYNC";
     }
 
@@ -379,7 +376,7 @@ static void renderDebugData(const WindowManager& wnd, const Player& player, cons
     std::string text = ss.str();
 
     TextRenderer::startTextRendering();
-    TextRenderer::renderText(text, 10.0f, wnd.getHeight() - 10.0f - rowHeight, rowHeight, glm::vec3(1.0f, 0.0f, 0.0f));
+    TextRenderer::renderText(text, -wnd.getAspectRatio() + 0.014f, 1.0f - 0.014f, rowHeight, glm::vec3(1.0f, 0.0f, 0.0f));
 
     glDepthMask(GL_TRUE);
 }
@@ -411,6 +408,7 @@ void check()
 
 
 // TODO: Fix terrain generation at far lands
+// TODO: Fix: GUI disappears when window gets resized
 int main()
 {
     constexpr float CAMERA_FAR_PLANE = (CHUNK_LOAD_DISTANCE + 0.5f) * CHUNK_SIZE;
@@ -460,7 +458,7 @@ int main()
     TextRenderer::init();
     TextRenderer::loadFont("RusEngMinecraft", 8);
     TextRenderer::setCurrentFont("RusEngMinecraft");
-    TextRenderer::setGlyphInstanceBatchSize(1024); // TODO: Make sure this thing does smth
+    TextRenderer::setGlyphInstanceBatchSize(1024);
 
     // World
     World world;
@@ -601,8 +599,9 @@ int main()
                 uiMetrics.chunkPositionBufferSizeInBytes = worldDebug.chunkPositionBufferSizeInBytes;
 
                 // Render UI
-                TextRenderer::updateProjectionMatrix(wnd.getWidth(), wnd.getHeight());
-                renderUI(wnd.getAspectRatio(), containerUI, player);
+                const float aspectRatio = wnd.getAspectRatio();
+                TextRenderer::setCustomCoordinateSpace(-aspectRatio, aspectRatio, -1.0f, 1.0f);
+                renderUI(aspectRatio, containerUI, player);
 
                 // Render UI text
                 renderDebugData(wnd, player, uiMetrics);

@@ -50,6 +50,20 @@ struct GlyphInstance
 
 class TextRenderer
 {
+public:
+    enum class TextAlignment
+    {
+        TopLeft,
+        TopCenter,
+        TopRight,
+        MiddleLeft,
+        MiddleCenter,
+        MiddleRight,
+        BottomLeft,
+        BottomCenter,
+        BottomRight
+    };
+private:
     using UTFDecoderFunction = std::function<uint32_t(const void*, size_t, size_t&)>;
 
     robin_hood::unordered_flat_map<std::string, Font> fonts;
@@ -66,6 +80,11 @@ class TextRenderer
     std::unique_ptr<GlyphInstance[]> glyphInstances;
     size_t glyphInstanceCount = 0;
 
+    float left = 0.0f;
+    float right = 1.0f;   // Default width
+    float bottom = 0.0f;
+    float top = 1.0f;
+
     TextRenderer();
     ~TextRenderer() = default;
 
@@ -78,9 +97,9 @@ class TextRenderer
     static TextRenderer& getInstance();
 
     static uint32_t decodeStdString(const void* byteBuffer, size_t bufferLength, size_t& index);
-    static uint32_t decodeUTF8(     const void* byteBuffer, size_t bufferLength, size_t& index);
-    static uint32_t decodeUTF16(    const void* byteBuffer, size_t bufferLength, size_t& index);
-    static uint32_t decodeUTF32(    const void* byteBuffer, size_t bufferLength, size_t& index);
+    static uint32_t decodeUTF8(const void* byteBuffer, size_t bufferLength, size_t& index);
+    static uint32_t decodeUTF16(const void* byteBuffer, size_t bufferLength, size_t& index);
+    static uint32_t decodeUTF32(const void* byteBuffer, size_t bufferLength, size_t& index);
 
     void flushGlyphs();
     void pushGlyph(const GlyphInstance& glyph);
@@ -90,7 +109,10 @@ class TextRenderer
     static void getFontInfo(FT_Face& face, glm::ivec2& maxGlyphSize, size_t& glyphCount);
     static void loadGlyphs(FT_Face& face, Font& font);
 
-    static void renderTextInternal(const void* text, size_t textLength, UTFDecoderFunction decoder, float x, float y, float rowHeight, const glm::vec3& color);
+    static void renderTextInternal(const void* text, size_t textLength, UTFDecoderFunction decoder, float x, float y, float rowHeight,
+        const glm::vec3& color, TextAlignment alignment, const glm::vec2& bounds);
+
+    void updateProjectionMatrixInternal();
 public:
     static void init();
 
@@ -102,10 +124,18 @@ public:
 
     static void startTextRendering();
 
-    static void renderText(const std::string& text, float x, float y, float rowHeight, const glm::vec3& color);
-    static void renderText(const std::u8string& text, float x, float y, float rowHeight, const glm::vec3& color);
-    static void renderText(const std::u16string& text, float x, float y, float rowHeight, const glm::vec3& color);
-    static void renderText(const std::u32string& text, float x, float y, float rowHeight, const glm::vec3& color);
+    static void renderText(const std::string& text, float x, float y, float rowHeight,
+        const glm::vec3& color, TextAlignment alignment = TextAlignment::TopLeft, const glm::vec2& bounds = { 0.0f, 0.0f });
 
-    static void updateProjectionMatrix(int width, int height);
+    static void renderText(const std::u8string& text, float x, float y, float rowHeight,
+        const glm::vec3& color, TextAlignment alignment = TextAlignment::TopLeft, const glm::vec2& bounds = { 0.0f, 0.0f });
+
+    static void renderText(const std::u16string& text, float x, float y, float rowHeight,
+        const glm::vec3& color, TextAlignment alignment = TextAlignment::TopLeft, const glm::vec2& bounds = { 0.0f, 0.0f });
+
+    static void renderText(const std::u32string& text, float x, float y, float rowHeight,
+        const glm::vec3& color, TextAlignment alignment = TextAlignment::TopLeft, const glm::vec2& bounds = { 0.0f, 0.0f });
+
+    static void setPixelCoordinateSpace(int width, int height);
+    static void setCustomCoordinateSpace(float left, float right, float bottom, float top);
 };

@@ -15,10 +15,11 @@ Glyph::Glyph(uint32_t textureID, const glm::ivec2& size, const glm::ivec2& beari
 
 Font::Font(Font&& other) noexcept :
     glyphs(std::move(other.glyphs)),
-    fontSize(other.fontSize), 
+    fontSize(other.fontSize),
     maxGlyphSize(other.maxGlyphSize),
     textureArray(std::move(other.textureArray))
-{}
+{
+}
 
 Font& Font::operator=(Font&& other) noexcept
 {
@@ -35,8 +36,8 @@ Font& Font::operator=(Font&& other) noexcept
 
 TextRenderer& TextRenderer::getInstance()
 {
-	static TextRenderer textRenderer;
-	return textRenderer;
+    static TextRenderer textRenderer;
+    return textRenderer;
 }
 
 uint32_t TextRenderer::decodeStdString(const void* byteBuffer, size_t bufferLength, size_t& index)
@@ -65,12 +66,12 @@ TextRenderer::TextRenderer() :
     projectionMatrix(glm::identity<glm::mat4>())
 {
     // Shaders
-	std::vector<Shader::ShaderSource> textShaderSources =
-	{
-		{GL_VERTEX_SHADER, "res/Shaders/text.vert"},
-		{GL_FRAGMENT_SHADER, "res/Shaders/text.frag"}
-	};
-	textShader.create(textShaderSources);
+    std::vector<Shader::ShaderSource> textShaderSources =
+    {
+        {GL_VERTEX_SHADER, "res/Shaders/text.vert"},
+        {GL_FRAGMENT_SHADER, "res/Shaders/text.frag"}
+    };
+    textShader.create(textShaderSources);
     //textShader.setInt("glyphTextureArray", 0);
     //textShader.setMat4("projection", projectionMatrix);
 
@@ -217,7 +218,8 @@ void TextRenderer::loadGlyphs(FT_Face& face, Font& font)
     }
 }
 
-void TextRenderer::renderTextInternal(const void* text, size_t textLength, UTFDecoderFunction decoder, float x, float y, float rowHeight, const glm::vec3& color)
+void TextRenderer::renderTextInternal(const void* text, size_t textLength, UTFDecoderFunction decoder, float x, float y, float rowHeight,
+    const glm::vec3& color, TextAlignment alignment, const glm::vec2& bounds)
 {
     PROFILE_SCOPE("Render text", ProfileCategory::Render);
 
@@ -238,18 +240,28 @@ void TextRenderer::renderTextInternal(const void* text, size_t textLength, UTFDe
         return;
     }
 
+    //
     const auto& glyphs = font->glyphs;
-    const float scale = rowHeight / font->fontSize;
+    float scale = rowHeight / font->fontSize;
     const glm::vec2 invMaxGlyphSize = 1.0f / glm::vec2(font->maxGlyphSize);
 
     // Shader
     const auto& textShader = inst.textShader;
     textShader.setVec3("textColor", color.x, color.y, color.z);
 
-    //
-    const float startX = x;
+    // Decode text
+    std::vector<uint32_t> codepoints;
+    codepoints.reserve(textLength);
 
     size_t index = 0;
+    float totalWidth = 0.0f;
+    float maxLineWidth = 0.0f;
+    int lineCount = 1;
+    float currentLineWidth = 0.0f;
+
+    const uint32_t replaceCodepoint = '?';
+    const bool doesNotReplaceCodepointExist = glyphs.find(replaceCodepoint) == glyphs.end();
+
     while (index < textLength)
     {
         uint32_t codepoint = decoder(text, textLength, index);
@@ -260,7 +272,121 @@ void TextRenderer::renderTextInternal(const void* text, size_t textLength, UTFDe
         }
         else if (codepoint == '\n')
         {
-            y -= rowHeight;
+            // Update max line width for current line
+            maxLineWidth = std::max(maxLineWidth, currentLineWidth);
+            currentLineWidth = 0.0f;
+            lineCount++;
+            codepoints.push_back(codepoint);
+            continue;
+        }
+
+        // Check if glyph exists, replace if not
+        auto it = glyphs.find(codepoint);
+        if (it == glyphs.end())
+        {
+            if (doesNotReplaceCodepointExist)
+            {
+                continue;
+            }
+            codepoint = replaceCodepoint;
+        }
+
+        const Glyph& glyph = it->second;
+        currentLineWidth += (glyph.advance >> 6) * scale;
+
+        codepoints.push_back(codepoint);
+    }
+
+    // Update max line width for the last line
+    maxLineWidth = std::max(maxLineWidth, currentLineWidth);
+
+    // Calculate text bounds
+    float textWidth = maxLineWidth;
+    float textHeight = lineCount * rowHeight;
+
+    // Apply bounds scaling if needed
+    float widthScale = 1.0f;
+    float heightScale = 1.0f;
+
+    if (bounds.x > 0.0f && textWidth > bounds.x)
+    {
+        widthScale = bounds.x / textWidth;
+    }
+
+    if (bounds.y > 0.0f && textHeight > bounds.y)
+    {
+        heightScale = bounds.y / textHeight;
+    }
+
+    // Use the smaller scale factor to maintain aspect ratio
+    if (widthScale < 1.0f || heightScale < 1.0f)
+    {
+        const float tempScale = std::min(widthScale, heightScale);
+
+        scale *= tempScale;
+        rowHeight *= tempScale;
+
+        // Recalculate dimensions with new scale
+        textWidth *= tempScale;
+        textHeight *= tempScale;
+    }
+
+    // Adjust position for alignment if needed
+    glm::vec2 alignmentOffset(0.0f);
+
+    if (alignment != TextAlignment::TopLeft)
+    {
+        // Horizontal alignment
+        switch (alignment)
+        {
+        case TextAlignment::TopCenter:
+        case TextAlignment::MiddleCenter:
+        case TextAlignment::BottomCenter:
+            alignmentOffset.x = -textWidth * 0.5f;
+            break;
+
+        case TextAlignment::TopRight:
+        case TextAlignment::MiddleRight:
+        case TextAlignment::BottomRight:
+            alignmentOffset.x = -textWidth;
+            break;
+
+        default:
+            break;
+        }
+
+        // Vertical alignment
+        switch (alignment)
+        {
+        case TextAlignment::MiddleLeft:
+        case TextAlignment::MiddleCenter:
+        case TextAlignment::MiddleRight:
+            alignmentOffset.y = textHeight * 0.5f;
+            break;
+
+        case TextAlignment::BottomLeft:
+        case TextAlignment::BottomCenter:
+        case TextAlignment::BottomRight:
+            alignmentOffset.y = textHeight;
+            break;
+
+        default:
+            break;
+        }
+
+        x += alignmentOffset.x;
+        y += alignmentOffset.y;
+    }
+    y -= rowHeight;
+
+    // Second pass: render glyphs
+    const float startX = x;
+
+    for (uint32_t codepoint : codepoints)
+    {
+        if (codepoint == '\n')
+        {
+            y -= rowHeight;  // y increases downward
             x = startX;
             continue;
         }
@@ -268,19 +394,15 @@ void TextRenderer::renderTextInternal(const void* text, size_t textLength, UTFDe
         auto it = glyphs.find(codepoint);
         if (it == glyphs.end())
         {
-            codepoint = '?';
-            it = glyphs.find(codepoint);
-            if (it == glyphs.end())
-            {
-                continue;
-            }
+            continue; // Should not happen since we filtered already
         }
+
         const Glyph& glyph = it->second;
 
         if (glyph.textureID)
         {
             float xpos = x + glyph.bearing.x * scale;
-            float ypos = y - (glyph.size.y - glyph.bearing.y) * scale;
+            float ypos = y - (glyph.size.y - glyph.bearing.y) * scale;  // y increases downward
             float w = glyph.size.x * scale;
             float h = glyph.size.y * scale;
 
@@ -299,9 +421,19 @@ void TextRenderer::renderTextInternal(const void* text, size_t textLength, UTFDe
     inst.flushGlyphs();
 }
 
+void TextRenderer::updateProjectionMatrixInternal()
+{
+    TextRenderer& inst = getInstance();
+    auto& proj = inst.projectionMatrix;
+    const auto& textShader = inst.textShader;
+
+    proj = glm::ortho(inst.left, inst.right, inst.bottom, inst.top);
+    textShader.setMat4("projection", proj);
+}
+
 void TextRenderer::init()
 {
-	getInstance();
+    getInstance();
 }
 
 bool TextRenderer::loadFont(const std::string& fontName, GLuint fontSize)
@@ -309,15 +441,15 @@ bool TextRenderer::loadFont(const std::string& fontName, GLuint fontSize)
     auto scopeName = std::string("Load font: ") + fontName;
     PROFILE_SCOPE(scopeName.c_str(), ProfileCategory::General);
 
-	TextRenderer& inst = getInstance();
-	auto& fonts = inst.fonts;
+    TextRenderer& inst = getInstance();
+    auto& fonts = inst.fonts;
 
-	// Test if font exists
-	if (fonts.find(fontName) != fonts.end())
-	{
-		std::cerr << "[TextRenderer][loadFont]: Font '" << fontName << "' already exists\n";
-		return false;
-	}
+    // Test if font exists
+    if (fonts.find(fontName) != fonts.end())
+    {
+        std::cerr << "[TextRenderer][loadFont]: Font '" << fontName << "' already exists\n";
+        return false;
+    }
 
     // Init FreeType
     FT_Library ft;
@@ -430,32 +562,52 @@ void TextRenderer::startTextRendering()
     textShader.use();
 }
 
-void TextRenderer::renderText(const std::string& text, float x, float y, float rowHeight, const glm::vec3& color)
+void TextRenderer::renderText(const std::string& text, float x, float y, float rowHeight,
+    const glm::vec3& color, TextAlignment alignment, const glm::vec2& bounds)
 {
-    renderTextInternal(reinterpret_cast<const void*>(text.c_str()), text.length(), decodeStdString, x, y, rowHeight, color);
+    renderTextInternal(reinterpret_cast<const void*>(text.c_str()), text.length(), decodeStdString, x, y, rowHeight, color, alignment, bounds);
 }
 
-void TextRenderer::renderText(const std::u8string& text, float x, float y, float rowHeight, const glm::vec3& color)
+void TextRenderer::renderText(const std::u8string& text, float x, float y, float rowHeight,
+    const glm::vec3& color, TextAlignment alignment, const glm::vec2& bounds)
 {
-    renderTextInternal(reinterpret_cast<const void*>(text.c_str()), text.length(), decodeUTF8, x, y, rowHeight, color);
+    renderTextInternal(reinterpret_cast<const void*>(text.c_str()), text.length(), decodeUTF8, x, y, rowHeight, color, alignment, bounds);
 }
 
-void TextRenderer::renderText(const std::u16string& text, float x, float y, float rowHeight, const glm::vec3& color)
+void TextRenderer::renderText(const std::u16string& text, float x, float y, float rowHeight,
+    const glm::vec3& color, TextAlignment alignment, const glm::vec2& bounds)
 {
-    renderTextInternal(reinterpret_cast<const void*>(text.c_str()), text.length(), decodeUTF16, x, y, rowHeight, color);
+    renderTextInternal(reinterpret_cast<const void*>(text.c_str()), text.length(), decodeUTF16, x, y, rowHeight, color, alignment, bounds);
 }
 
-void TextRenderer::renderText(const std::u32string& text, float x, float y, float rowHeight, const glm::vec3& color)
+void TextRenderer::renderText(const std::u32string& text, float x, float y, float rowHeight,
+    const glm::vec3& color, TextAlignment alignment, const glm::vec2& bounds)
 {
-    renderTextInternal(reinterpret_cast<const void*>(text.c_str()), text.length(), decodeUTF32, x, y, rowHeight, color);
+    renderTextInternal(reinterpret_cast<const void*>(text.c_str()), text.length(), decodeUTF32, x, y, rowHeight, color, alignment, bounds);
 }
 
-void TextRenderer::updateProjectionMatrix(int width, int height)
+void TextRenderer::setPixelCoordinateSpace(int width, int height)
+{
+    setCustomCoordinateSpace(
+        0.0f, static_cast<float>(width),
+        0.0f, static_cast<float>(height)
+    );
+}
+
+void TextRenderer::setCustomCoordinateSpace(float left, float right, float bottom, float top)
 {
     TextRenderer& inst = getInstance();
-    auto& proj = inst.projectionMatrix;
-    const auto& textShader = inst.textShader;
 
-    proj = glm::ortho(0.0f, (float)width, 0.0f, (float)height);
-    textShader.setMat4("projection", proj);
+    if (left >= right || bottom >= top)
+    {
+        std::cerr << "[TextRenderer][setCustomCoordinateSpace]: Invalid bounds\n";
+        return;
+    }
+
+    inst.left = left;
+    inst.right = right;
+    inst.bottom = bottom;
+    inst.top = top;
+
+    inst.updateProjectionMatrixInternal();
 }
