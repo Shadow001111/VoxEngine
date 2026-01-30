@@ -140,7 +140,7 @@ static void setupContainerUI(ContainerUI& c)
     }
 }
 
-// TODO: Render item count
+// TODO: Text renderer should work with normalized coordinates (Switch with update version. Use appropriate layout)
 static void renderInventory(const float aspectRatio, const GUIInventory& inventory, const ContainerUI& c)
 {
     // Settings
@@ -187,9 +187,9 @@ static void renderInventory(const float aspectRatio, const GUIInventory& invento
     c.hotbarShader.setMat4("projection", projection);
 
     c.hotbarSlotImage.bindUnit(0);
-    for (int row = 0; row < rowCount; row++)
+    for (uint32_t row = 0; row < rowCount; row++)
     {
-        for (int col = 0; col < columnCount; col++)
+        for (uint32_t col = 0; col < columnCount; col++)
         {
             float x = startX + col * slotSize;
             float y = startY + row * slotDeltaY;
@@ -203,12 +203,20 @@ static void renderInventory(const float aspectRatio, const GUIInventory& invento
         }
     }
 
-    // Render items
+    // Collect items that need count text
+    struct ItemCountInfo
+    {
+        float x, y;
+        uint16_t count;
+    };
+    std::vector<ItemCountInfo> itemsWithCount;
+
+    // Render items and collect those that need count text
     c.itemUITextureArray.bindUnit(0);
     size_t index = -1;
-    for (int row = 0; row < rowCount; row++)
+    for (uint32_t row = 0; row < rowCount; row++)
     {
-        for (int col = 0; col < columnCount; col++)
+        for (uint32_t col = 0; col < columnCount; col++)
         {
             index++;
             if (index > slotCount)
@@ -241,6 +249,45 @@ static void renderInventory(const float aspectRatio, const GUIInventory& invento
             c.hotbarShader.setUint("uTextureId", itemData->uiTextureId);
     
             glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+
+            // Collect item for count text if needed
+            if (item.count > 1)
+            {
+                itemsWithCount.emplace_back(x, y, item.count);
+            }
+        }
+    }
+
+    // Render item counts after all items are drawn (single shader switch)
+    const float COUNT_FONT_SIZE = 20.0f;
+    if (!itemsWithCount.empty())
+    {
+        glDisable(GL_DEPTH_TEST);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+        // Prepare text rendering
+        TextRenderer::startTextRendering();
+
+        // Render counts for all items
+        for (const auto& itemInfo : itemsWithCount)
+        {
+            // Convert normalized coordinates to pixel coordinates for text rendering
+            float pixelX = (itemInfo.x + aspectRatio) * 0.5f; // Normalized to [0, aspectRatio]
+            float pixelY = (itemInfo.y + -slotSize * 0.35f + 1.0f) * 0.5f; // Normalized to [0, 1]
+
+            pixelX = pixelX * 720.0f; // Assuming window height
+            pixelY = pixelY * 720.0f;
+
+            // Format count text
+            std::string countText = (itemInfo.count > 999) ? "999+" : std::to_string(itemInfo.count);
+
+            // Render count with appropriate color
+            glm::vec3 textColor = glm::vec3(1.0f, 1.0f, 1.0f);
+
+            // Add drop shadow for better readability
+            TextRenderer::renderText(countText, pixelX + 1, pixelY - 1, COUNT_FONT_SIZE, glm::vec3(0.0f, 0.0f, 0.0f));
+            TextRenderer::renderText(countText, pixelX, pixelY, COUNT_FONT_SIZE, textColor);
         }
     }
 }
@@ -331,6 +378,7 @@ static void renderDebugData(const WindowManager& wnd, const Player& player, cons
 
     std::string text = ss.str();
 
+    TextRenderer::startTextRendering();
     TextRenderer::renderText(text, 10.0f, wnd.getHeight() - 10.0f - rowHeight, rowHeight, glm::vec3(1.0f, 0.0f, 0.0f));
 
     glDepthMask(GL_TRUE);
@@ -553,11 +601,8 @@ int main()
                 uiMetrics.chunkPositionBufferSizeInBytes = worldDebug.chunkPositionBufferSizeInBytes;
 
                 // Render UI
-                renderUI(wnd.getAspectRatio(), containerUI, player);
-
-                // Pre-text-rendering measure
                 TextRenderer::updateProjectionMatrix(wnd.getWidth(), wnd.getHeight());
-                TextRenderer::startTextRendering();
+                renderUI(wnd.getAspectRatio(), containerUI, player);
 
                 // Render UI text
                 renderDebugData(wnd, player, uiMetrics);
