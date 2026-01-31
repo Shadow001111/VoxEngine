@@ -16,6 +16,8 @@
 
 #include "SoundManager.h"
 
+#include "FileLogger.h"
+
 #include <iostream>
 #include <sstream>
 #include <iomanip>
@@ -406,15 +408,9 @@ void check()
     std::cout << std::string(100, '=') << "\n";
 }
 
-
-// TODO: Fix terrain generation at far lands
-// TODO: Fix: GUI disappears when window gets resized
-int main()
+int gameFunc()
 {
     constexpr float CAMERA_FAR_PLANE = (CHUNK_LOAD_DISTANCE + 0.5f) * CHUNK_SIZE;
-
-    //
-    std::ios_base::sync_with_stdio(false);
 
     // Window
     WindowManager wnd({ 1280, 720, "VoxEngine", true, true, true });
@@ -484,8 +480,8 @@ int main()
 
     // Timers
     double lastTime = glfwGetTime();
-	UpdateTimer worldUpdateTimer(20.0); worldUpdateTimer.setUpdateToTrue();
-	UpdateTimer profilerUpdateTimer(1.0 / 3.0);
+    UpdateTimer worldUpdateTimer(20.0); worldUpdateTimer.setUpdateToTrue();
+    UpdateTimer profilerUpdateTimer(1.0 / 3.0);
     UpdateTimer frequentUIDataUpdateTimer(1.0);
 
     // Frequent UI data
@@ -500,27 +496,27 @@ int main()
     // Main loop
     while (!wnd.shouldClose())
     {
-		// Poll events
+        // Poll events
         wnd.pollEvents();
-        
+
         // Check if window is iconified
         const bool iconified = wnd.isZeroSize();
 
-		// Time logic
+        // Time logic
         // TODO: Maybe reset timer. Maybe if timer will get too big, everything will break.
         double time = glfwGetTime();
         double deltaTime = time - lastTime;
-		lastTime = time;
+        lastTime = time;
 
         accumulatedTime += deltaTime;
         accumulatedFrames++;
 
-		worldUpdateTimer.addTime(deltaTime);
-		profilerUpdateTimer.addTime(deltaTime);
+        worldUpdateTimer.addTime(deltaTime);
+        profilerUpdateTimer.addTime(deltaTime);
         frequentUIDataUpdateTimer.addTime(deltaTime);
 
         // Sounds
-		SoundManager::getInstance().update();
+        SoundManager::getInstance().update();
 
         // World
         world.setAppTime(time);
@@ -632,9 +628,27 @@ int main()
             Profiler::printProfileReport();
         }
     }
+    return 0;
+}
 
-    //Profiler::printProfileReport();
+// TODO: Fix terrain generation at far lands
+// TODO: Fix: GUI disappears when window gets resized
+int main()
+{
+    std::ios_base::sync_with_stdio(false);
 
-    glfwTerminate();
-	return 0;
+    int result;
+    
+    try
+    {
+        result = gameFunc();
+    }
+    catch (const std::exception& e)
+    {
+        FileLogger logger("log/crash.txt");
+        logger.logException(e);
+        result = -1;
+    }
+
+    return result;
 }

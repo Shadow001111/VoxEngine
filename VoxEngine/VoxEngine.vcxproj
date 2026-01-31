@@ -152,6 +152,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Core\Decoding\UTFDecoder.cpp" />
+    <ClCompile Include="FileLogger.cpp" />
     <ClCompile Include="Game\DataPackManagment\AssetRegistry.cpp" />
     <ClCompile Include="Core\BlockAllocator.cpp" />
     <ClCompile Include="Core\MemoryFileReader.cpp" />
@@ -208,6 +209,7 @@
   <ItemGroup>
     <ClInclude Include="Core\Decoding\UTFDecoder.h" />
     <ClInclude Include="Core\MemoryAllocation\FixedArenaAllocator.h" />
+    <ClInclude Include="FileLogger.h" />
     <ClInclude Include="Game\DataPackManagment\AssetTypes\BlockAsset.h" />
     <ClInclude Include="Game\DataPackManagment\AssetRegistry.h" />
     <ClInclude Include="Game\DataPackManagment\AssetTypes\ItemAsset.h" />
