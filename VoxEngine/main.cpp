@@ -24,7 +24,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #ifdef NDEBUG
-constexpr int CHUNK_LOAD_DISTANCE = 1;
+constexpr int CHUNK_LOAD_DISTANCE = 24;
 #else
 constexpr int CHUNK_LOAD_DISTANCE = 3;
 #endif
@@ -481,7 +481,7 @@ int gameFunc()
     // Timers
     double lastTime = glfwGetTime();
     UpdateTimer worldUpdateTimer(20.0); worldUpdateTimer.setUpdateToTrue();
-    UpdateTimer profilerUpdateTimer(1.0 / 3.0);
+    UpdateTimer profilerUpdateTimer(1.0 / 1.0);
     UpdateTimer frequentUIDataUpdateTimer(1.0);
 
     // Frequent UI data

@@ -1651,35 +1651,11 @@ void Chunk::updateLight()
 
 bool Chunk::hasLightUpdates() const
 {
-	{
-		std::lock_guard<std::mutex> lock(blockLightBfsMutex);
-		if (!blockLightBfsQueue.empty())
-		{
-			return true;
-		}
-	}
-	{
-		std::lock_guard<std::mutex> lock(blockLightRemovalBfsMutex);
-		if (!blockLightRemovalBfsQueue.empty())
-		{
-			return true;
-		}
-	}
-	{
-		std::lock_guard<std::mutex> lock(skyLightBfsMutex);
-		if (!skyLightBfsQueue.empty())
-		{
-			return true;
-		}
-	}
-	{
-		std::lock_guard<std::mutex> lock(skyLightRemovalBfsMutex);
-		if (!skyLightRemovalBfsQueue.empty())
-		{
-			return true;
-		}
-	}
-	return false;
+	return
+		!blockLightBfsQueue.empty() ||
+		!blockLightRemovalBfsQueue.empty() ||
+		!skyLightBfsQueue.empty() ||
+		!skyLightRemovalBfsQueue.empty();
 }
 
 void Chunk::updateMesh()
@@ -2060,11 +2036,6 @@ void Chunk::collectNonAlignedTranslucentRenderData(std::vector<DrawArraysIndirec
 	}
 	drawCommands.emplace_back(4, faceCount, 0, meshData.allocatedBlock_nonAlignedFaces.offset + meshData.renderNonAlignedOpaqueFaceCount);
 	positions.push_back(position);
-}
-
-bool Chunk::canBeRendered() const
-{
-	return (meshData.alignedCreated || meshData.nonAlignedCreated) && meshData.getRenderFaceCount() > 0;
 }
 
 const Chunk* Chunk::getChunkAndIndex_checkSideNeighbor(int x, int y, int z, int side, size_t& outIndex) const

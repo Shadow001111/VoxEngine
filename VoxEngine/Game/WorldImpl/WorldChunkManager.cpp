@@ -276,17 +276,16 @@ void WorldChunkManager::startBuildingChunkLights()
 void WorldChunkManager::collectChunksNeedingLightUpdate()
 {
 	PROFILE_SCOPE("Collect chunks needing light update", ProfileCategory::ChunkLight);
+	// TODO: Have single container, but add chunks from different ends, depending on group
 
-	buildContainers.lightUpdateA.reserve(chunks.size() / 2);
-	buildContainers.lightUpdateB.reserve(chunks.size() / 2);
+	buildContainers.lightUpdateA.clear();
+	buildContainers.lightUpdateB.clear();
 
-	for (const auto& pair : chunks)
+	for (const auto& [chunkPosition, chunk] : chunks)
 	{
-		Chunk* chunk = pair.second;
 		if (chunk->hasLightUpdates())
 		{
-			glm::ivec3 pos = chunk->getPosition();
-			if ((pos.x ^ pos.y ^ pos.z) & 1)
+			if ((chunkPosition.x ^ chunkPosition.y ^ chunkPosition.z) & 1)
 			{
 				buildContainers.lightUpdateA.push_back(chunk);
 			}
@@ -310,9 +309,6 @@ void WorldChunkManager::updateChunkLights()
 		{
 			chunk->updateLight();
 		});
-
-	buildContainers.lightUpdateA.clear();
-	buildContainers.lightUpdateB.clear();
 }
 
 void WorldChunkManager::updateChunkMeshes()

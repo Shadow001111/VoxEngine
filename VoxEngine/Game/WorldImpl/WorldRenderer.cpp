@@ -175,47 +175,48 @@ void WorldRenderer::initShaders()
 
 void WorldRenderer::collectChunksToRenderAndSortThem(std::vector<ChunkRenderInfo>& chunksToRender, const Camera& camera) const
 {
-	PROFILE_SCOPE("Render: collect and sort chunks", ProfileCategory::Render);
-
-	chunksToRender.reserve(references.chunks.size());
-
-	const Frustum& frustum = camera.getFrustum();
-	Box chunkShape(glm::dvec3(0.0), glm::dvec3(CHUNK_SIZE >> 1));
-
-	const glm::dvec3 cameraPosition = camera.getPosition();
-	const glm::ivec3 cameraChunkPosition = glm::ivec3(glm::floor(cameraPosition / (double)CHUNK_SIZE));
-
-	for (const auto& pair : references.chunks)
 	{
-		const Chunk* chunk = pair.second;
+		PROFILE_SCOPE("Render: collect chunks", ProfileCategory::Render);
 
-		if (!chunk->canBeRendered())
+		const Frustum& frustum = camera.getFrustum();
+		Box chunkShape(glm::dvec3(0.0), glm::dvec3(CHUNK_SIZE >> 1));
+
+		const glm::dvec3 cameraPosition = camera.getPosition();
+		const glm::ivec3 cameraChunkPosition = glm::ivec3(glm::floor(cameraPosition / (double)CHUNK_SIZE));
+
+		for (const auto& [chunkPosition, chunk] : references.chunks)
 		{
-			continue;
+			if (!chunk->canBeRendered())
+			{
+				continue;
+			}
+
+			// Check is chunk is on frustum
+			glm::dvec3 chunkWorldPosition = glm::dvec3(chunkPosition) * (double)CHUNK_SIZE;
+
+			chunkShape.center = chunkWorldPosition + chunkShape.halfExtents;
+			if (!frustum.checkBox(chunkShape))
+			{
+				continue;
+			}
+
+			glm::ivec3 delta = glm::abs(chunkPosition - cameraChunkPosition);
+
+			unsigned int manhattanDistance = delta.x + delta.y + delta.z;
+			chunksToRender.emplace_back(chunk, manhattanDistance);
 		}
-
-		// Check is chunk is on frustum
-		glm::ivec3 chunkPosition = chunk->getPosition();
-		glm::dvec3 chunkWorldPosition = chunkPosition << CHUNK_SIZE_LOG2;
-
-		chunkShape.center = chunkWorldPosition + chunkShape.halfExtents;
-		if (!frustum.checkBox(chunkShape))
-		{
-			continue;
-		}
-
-		glm::ivec3 delta = glm::abs(chunkPosition - cameraChunkPosition);
-
-		unsigned int manhattanDistance = delta.x + delta.y + delta.z;
-		chunksToRender.emplace_back(chunk, manhattanDistance);
 	}
 
-	// TODO: Maybe use radix sort? I doesn't take long now anyway.
-	std::sort(chunksToRender.begin(), chunksToRender.end(),
-		[](const ChunkRenderInfo& a, const ChunkRenderInfo& b)
-		{
-			return a.manhattanDistance < b.manhattanDistance;
-		});
+	{
+		PROFILE_SCOPE("Render: sort chunks", ProfileCategory::Render);
+
+		// TODO: Maybe use radix sort? It doesn't take very long too sort though.
+		std::sort(chunksToRender.begin(), chunksToRender.end(),
+			[](const ChunkRenderInfo& a, const ChunkRenderInfo& b)
+			{
+				return a.manhattanDistance < b.manhattanDistance;
+			});
+	}
 }
 
 void WorldRenderer::renderOpaqueChunks(const std::vector<ChunkRenderInfo>& chunksToRender)
@@ -381,7 +382,7 @@ void WorldRenderer::renderChunks(const Camera& camera, const FrameBuffer& FBO)
 		auto viewMatrix = camera.getViewMatrixModified(glm::dvec3(CHUNK_SIZE));
 		auto projectionMatrix = camera.getProjectionMatrix();
 
-		const Shader* shaders[4] =
+		const Shader* shaders[] =
 		{
 			&alignedOpaqueFaceShader,
 			&alignedTranslucentFaceShader,
@@ -414,6 +415,8 @@ void WorldRenderer::renderChunks(const Camera& camera, const FrameBuffer& FBO)
 
 	// Collect chunks to render
 	std::vector<ChunkRenderInfo> chunksToRender;
+	chunksToRender.reserve(references.chunks.size());
+
 	collectChunksToRenderAndSortThem(chunksToRender, camera);
 
 	renderStats.renderedChunks = chunksToRender.size();
@@ -427,8 +430,12 @@ void WorldRenderer::renderChunks(const Camera& camera, const FrameBuffer& FBO)
 	glDepthFunc(GL_LESS);
 
 	// Render chunks
-	renderOpaqueChunks(chunksToRender);
-	renderTranslucentChunks(chunksToRender);
+	{
+		PROFILE_SCOPE("Render chunks", ProfileCategory::Render);
+
+		renderOpaqueChunks(chunksToRender);
+		renderTranslucentChunks(chunksToRender);
+	}
 }
 
 void WorldRenderer::renderAurora(const Camera& camera, const FrameBuffer& FBO) const
@@ -487,6 +494,8 @@ void WorldRenderer::renderAurora(const Camera& camera, const FrameBuffer& FBO) c
 
 void WorldRenderer::compositePass(const FrameBuffer& FBO) const
 {
+	PROFILE_SCOPE("Render: composite pass", ProfileCategory::Render);
+
 	auto getTextureResult = FBO.getTexture("color");
 	if (!getTextureResult.has_value())
 	{

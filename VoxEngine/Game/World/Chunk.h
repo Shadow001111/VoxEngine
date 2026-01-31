@@ -67,6 +67,7 @@ struct BlockVertexLightData
 
 struct BlockData;
 
+// TODO: Try to reduce copying params in functions
 class Chunk
 {
 public:
@@ -201,10 +202,9 @@ public:
 	void collectAlignedTranslucentRenderData(std::vector<DrawArraysIndirectCommand>& drawCommands, std::vector<glm::ivec3>& positions) const;
 	void collectNonAlignedOpaqueRenderData(std::vector<DrawArraysIndirectCommand>& drawCommands, std::vector<glm::ivec3>& positions) const;
 	void collectNonAlignedTranslucentRenderData(std::vector<DrawArraysIndirectCommand>& drawCommands, std::vector<glm::ivec3>& positions) const;
-	bool canBeRendered() const;
-
-	// Chunk traverse
+	bool canBeRendered() const { return (meshData.alignedCreated || meshData.nonAlignedCreated) && meshData.getRenderFaceCount() > 0; };
 private:
+	// Chunk traverse
 	const Chunk* getChunkAndIndex_checkSideNeighbor(int x, int y, int z, int side, size_t& outIndex) const;
 	Chunk* getChunkAndIndex_checkSideNeighbor(int x, int y, int z, int side, size_t& outIndex);
 

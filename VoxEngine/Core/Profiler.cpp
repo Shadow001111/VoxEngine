@@ -4,11 +4,6 @@
 #include <iomanip>
 #include <algorithm>
 
-double Profiler::ProfileData::getAverageTime() const
-{
-    return callCount > 0 ? totalTime / callCount : 0.0;
-}
-
 void Profiler::ProfileData::addSample(double time)
 {
     totalTime += time;

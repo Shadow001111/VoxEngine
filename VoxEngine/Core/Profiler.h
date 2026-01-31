@@ -31,7 +31,7 @@ class Profiler
         uint64_t callCount = 0;
         ProfileCategory category = ProfileCategory::General;
 
-        double getAverageTime() const;
+        double getAverageTime() const { return callCount > 0 ? totalTime / callCount : 0.0; };
         void addSample(double time);
         void reset();
     };
@@ -80,5 +80,5 @@ public:
 #if PROFILING_ENABLED
     #define PROFILE_SCOPE(name, category) ScopedProfiler _prof(name, category)
 #else
-    #define PROFILE_SCOPE(name) ((void)0)
+    #define PROFILE_SCOPE(name)
 #endif
