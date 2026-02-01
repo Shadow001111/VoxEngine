@@ -48,10 +48,7 @@
     <ClCompile Include="Core\Shapes\Plane.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="Core\Shapes.cpp">
-      <Filter>Исходные файлы</Filter>
-    </ClCompile>
-    <ClCompile Include="Graphics\Frustum.cpp">
+    <ClCompile Include="Core\Shapes\Shapes.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
     <ClCompile Include="Core\StringIndexer.cpp">
@@ -180,6 +177,9 @@
     <ClCompile Include="Core\TimeMeasurer.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
+    <ClCompile Include="Core\Shapes\Frustum.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="WindowManager.h">
@@ -212,10 +212,7 @@
     <ClInclude Include="Core\Shapes\Plane.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="Core\Shapes.h">
-      <Filter>Файлы заголовков</Filter>
-    </ClInclude>
-    <ClInclude Include="Graphics\Frustum.h">
+    <ClInclude Include="Core\Shapes\Shapes.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Core\StringIndexer.h">
@@ -396,6 +393,9 @@
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Core\TimeMeasurer.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\Shapes\Frustum.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
   </ItemGroup>

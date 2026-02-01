@@ -1,6 +1,5 @@
 #pragma once
-#include "Frustum.h"
-
+#include "Core/Shapes/Frustum.h"
 #include "Core/Transform.h"
 
 class Camera
@@ -11,7 +10,7 @@ class Camera
 	mutable glm::dvec3 up;
 	mutable glm::dvec3 right;
 
-	mutable Frustum frustum;
+	mutable LiteFrustum frustum;
 
 	mutable bool vectorsUpdateRequired = true;
 	mutable bool frustumUpdateRequired = true;
@@ -55,6 +54,6 @@ public:
 	glm::dvec3 getForward() const;
 	glm::dvec3 getUp() const;
 	glm::dvec3 getRight() const;
-	const Frustum& getFrustum() const;
+	const LiteFrustum& getFrustum() const;
 };
 

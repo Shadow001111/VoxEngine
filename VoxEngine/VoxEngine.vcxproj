@@ -152,6 +152,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Core\Decoding\UTFDecoder.cpp" />
+    <ClCompile Include="Core\Shapes\Frustum.cpp" />
     <ClCompile Include="Core\TimeMeasurer.cpp" />
     <ClCompile Include="FileLogger.cpp" />
     <ClCompile Include="Game\DataPackManagment\AssetRegistry.cpp" />
@@ -181,10 +182,9 @@
     <ClCompile Include="Core\StringIndexer.cpp" />
     <ClCompile Include="Core\Multithreading\ProcessingFence.cpp" />
     <ClCompile Include="Core\Profiler.cpp" />
-    <ClCompile Include="Core\Shapes.cpp" />
+    <ClCompile Include="Core\Shapes\Shapes.cpp" />
     <ClCompile Include="Core\Multithreading\ThreadPool.cpp" />
     <ClCompile Include="Core\Shapes\Box.cpp" />
-    <ClCompile Include="Graphics\Frustum.cpp" />
     <ClCompile Include="Graphics\Camera.cpp" />
     <ClCompile Include="glad.c" />
     <ClCompile Include="OpenGLWrappers\VertexArray.cpp" />
@@ -210,6 +210,7 @@
   <ItemGroup>
     <ClInclude Include="Core\Decoding\UTFDecoder.h" />
     <ClInclude Include="Core\MemoryAllocation\FixedArenaAllocator.h" />
+    <ClInclude Include="Core\Shapes\Frustum.h" />
     <ClInclude Include="Core\TimeMeasurer.h" />
     <ClInclude Include="FileLogger.h" />
     <ClInclude Include="Game\DataPackManagment\AssetTypes\BlockAsset.h" />
@@ -256,10 +257,9 @@
     <ClInclude Include="Core\Multithreading\ProcessingFence.h" />
     <ClInclude Include="Core\CoreMath.h" />
     <ClInclude Include="Core\Profiler.h" />
-    <ClInclude Include="Core\Shapes.h" />
+    <ClInclude Include="Core\Shapes\Shapes.h" />
     <ClInclude Include="Core\Multithreading\ThreadPool.h" />
     <ClInclude Include="Core\Shapes\Box.h" />
-    <ClInclude Include="Graphics\Frustum.h" />
     <ClInclude Include="Graphics\Camera.h" />
     <ClInclude Include="Graphics\quad_vertices.h" />
     <ClInclude Include="OpenGLWrappers\VertexArray.h" />

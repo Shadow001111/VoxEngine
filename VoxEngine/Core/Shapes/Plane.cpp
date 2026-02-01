@@ -1,5 +1,4 @@
 #include "Plane.h"
-#include <glm/glm.hpp>
 
 Plane::Plane() :
 	center(0.0), normal(0.0)
@@ -11,7 +10,33 @@ Plane::Plane(const glm::dvec3& center, const glm::dvec3& normal) :
 {
 }
 
-float Plane::distanceToPoint(const glm::dvec3& point) const
+
+LitePlane::LitePlane() :
+	normal(0.0), d(0.0)
 {
-	return glm::dot(normal, point - center);
+}
+
+LitePlane::LitePlane(const glm::dvec3& center, const glm::dvec3& normal) :
+	normal(normal), d(-glm::dot(normal, center))
+{
+}
+
+LitePlane::LitePlane(const glm::dvec3& normal, double d) :
+	normal(normal), d(d)
+{
+}
+
+LitePlane toLitePlane(const Plane& plane)
+{
+	return LitePlane(plane.center, plane.normal);
+}
+
+Plane toPlane(const LitePlane& litePlane)
+{
+	const glm::dvec3& normal = litePlane.normal;
+
+	double denom = glm::dot(normal, normal);
+	glm::dvec3 center = (denom != 0.0) ? (-litePlane.d / denom) * normal : glm::dvec3(0.0);
+
+	return Plane(center, normal);
 }
