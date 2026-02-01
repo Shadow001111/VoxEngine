@@ -167,7 +167,7 @@ public:
 
 	// Blocks
 	void buildBlocks();
-	bool hasStructureBlockUpdates() const;
+	bool hasStructureBlockUpdates() const { return structureBlockChangeManager.hasPendingChanges(position); };
 	void updateStructureBlocks();
 private:
 	void generateTree(const glm::ivec3& position);

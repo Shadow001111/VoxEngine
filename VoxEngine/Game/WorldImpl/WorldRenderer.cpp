@@ -173,7 +173,7 @@ void WorldRenderer::initShaders()
 	}
 }
 
-void WorldRenderer::collectChunksToRenderAndSortThem(std::vector<ChunkRenderInfo>& chunksToRender, const Camera& camera) const
+void WorldRenderer::collectAndSortChunksForRendering(const Camera& camera) const
 {
 	{
 		PROFILE_SCOPE("Render: collect chunks", ProfileCategory::Render);
@@ -183,6 +183,9 @@ void WorldRenderer::collectChunksToRenderAndSortThem(std::vector<ChunkRenderInfo
 
 		const glm::dvec3 cameraPosition = camera.getPosition();
 		const glm::ivec3 cameraChunkPosition = glm::ivec3(glm::floor(cameraPosition / (double)CHUNK_SIZE));
+
+		chunksToRender.clear();
+		chunksToRender.reserve(references.chunks.size());
 
 		for (const auto& [chunkPosition, chunk] : references.chunks)
 		{
@@ -219,13 +222,12 @@ void WorldRenderer::collectChunksToRenderAndSortThem(std::vector<ChunkRenderInfo
 	}
 }
 
-void WorldRenderer::renderOpaqueChunks(const std::vector<ChunkRenderInfo>& chunksToRender)
+void WorldRenderer::renderOpaqueChunks()
 {
 	glEnable(GL_CULL_FACE);
 	glDisable(GL_BLEND);
 
 	// Aligned
-	ChunkMeshManager::getInstance().bindAlignedVAO();
 	{
 		PROFILE_SCOPE("Render: collect draw commands", ProfileCategory::Render);
 
@@ -253,12 +255,12 @@ void WorldRenderer::renderOpaqueChunks(const std::vector<ChunkRenderInfo>& chunk
 			chunkPositionSSBO.write(chunkPositions.data(), drawCount * sizeof(glm::ivec3));
 
 			alignedOpaqueFaceShader.use();
+			ChunkMeshManager::getInstance().bindAlignedVAO();
 			glMultiDrawArraysIndirect(GL_TRIANGLE_FAN, NULL, (GLsizei)drawCount, 0);
 		}
 	}
 
 	// Non-aligned
-	ChunkMeshManager::getInstance().bindNonAlignedVAO();
 	{
 		PROFILE_SCOPE("Render: collect draw commands", ProfileCategory::Render);
 
@@ -286,12 +288,13 @@ void WorldRenderer::renderOpaqueChunks(const std::vector<ChunkRenderInfo>& chunk
 			chunkPositionSSBO.write(chunkPositions.data(), drawCount * sizeof(glm::ivec3));
 
 			nonAlignedOpaqueFaceShader.use();
+			ChunkMeshManager::getInstance().bindNonAlignedVAO();
 			glMultiDrawArraysIndirect(GL_TRIANGLE_FAN, NULL, (GLsizei)drawCount, 0);
 		}
 	}
 }
 
-void WorldRenderer::renderTranslucentChunks(const std::vector<ChunkRenderInfo>& chunksToRender)
+void WorldRenderer::renderTranslucentChunks()
 {
 	//glDepthFunc(GL_LEQUAL);
 	glDepthMask(GL_FALSE);
@@ -303,7 +306,6 @@ void WorldRenderer::renderTranslucentChunks(const std::vector<ChunkRenderInfo>& 
 	//glBlendFunci(1, GL_ONE, GL_ONE);	// revealage buffer
 
 	// Aligned
-	ChunkMeshManager::getInstance().bindAlignedVAO();
 	{
 		PROFILE_SCOPE("Render: collect draw commands", ProfileCategory::Render);
 
@@ -331,12 +333,12 @@ void WorldRenderer::renderTranslucentChunks(const std::vector<ChunkRenderInfo>& 
 			chunkPositionSSBO.write(chunkPositions.data(), drawCount * sizeof(glm::ivec3));
 
 			alignedTranslucentFaceShader.use();
+			ChunkMeshManager::getInstance().bindAlignedVAO();
 			glMultiDrawArraysIndirect(GL_TRIANGLE_FAN, NULL, (GLsizei)drawCount, 0);
 		}
 	}
 
 	// Non-aligned
-	ChunkMeshManager::getInstance().bindNonAlignedVAO();
 	{
 		PROFILE_SCOPE("Render: collect draw commands", ProfileCategory::Render);
 
@@ -364,6 +366,7 @@ void WorldRenderer::renderTranslucentChunks(const std::vector<ChunkRenderInfo>& 
 			chunkPositionSSBO.write(chunkPositions.data(), drawCount * sizeof(glm::ivec3));
 
 			nonAlignedTranslucentFaceShader.use();
+			ChunkMeshManager::getInstance().bindNonAlignedVAO();
 			glMultiDrawArraysIndirect(GL_TRIANGLE_FAN, NULL, (GLsizei)drawCount, 0);
 		}
 	}
@@ -414,10 +417,7 @@ void WorldRenderer::renderChunks(const Camera& camera, const FrameBuffer& FBO)
 	}
 
 	// Collect chunks to render
-	std::vector<ChunkRenderInfo> chunksToRender;
-	chunksToRender.reserve(references.chunks.size());
-
-	collectChunksToRenderAndSortThem(chunksToRender, camera);
+	collectAndSortChunksForRendering(camera);
 
 	renderStats.renderedChunks = chunksToRender.size();
 	renderStats.renderedChunkFaceCount = 0;
@@ -433,8 +433,8 @@ void WorldRenderer::renderChunks(const Camera& camera, const FrameBuffer& FBO)
 	{
 		PROFILE_SCOPE("Render chunks", ProfileCategory::Render);
 
-		renderOpaqueChunks(chunksToRender);
-		renderTranslucentChunks(chunksToRender);
+		renderOpaqueChunks();
+		renderTranslucentChunks();
 	}
 }
 

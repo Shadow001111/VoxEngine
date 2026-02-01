@@ -75,8 +75,9 @@ class WorldRenderer
 	Texture tilingPerlinNoise3DTexture;
 
 	// Render data containers
-	std::vector<DrawArraysIndirectCommand> chunkDrawCommands;
-	std::vector<glm::ivec3> chunkPositions;
+	mutable std::vector<ChunkRenderInfo> chunksToRender;
+	mutable std::vector<DrawArraysIndirectCommand> chunkDrawCommands;
+	mutable std::vector<glm::ivec3> chunkPositions;
 
 	// Aurora varaibless
 	static constexpr float AURORA_THRESHOLD = 0.02f;
@@ -88,10 +89,10 @@ class WorldRenderer
 	void initBuffers();
 	void initShaders();
 
-	void collectChunksToRenderAndSortThem(std::vector<ChunkRenderInfo>& chunksToRender, const Camera& camera) const;
+	void collectAndSortChunksForRendering(const Camera& camera) const;
 
-	void renderOpaqueChunks(const std::vector<ChunkRenderInfo>& chunksToRender);
-	void renderTranslucentChunks(const std::vector<ChunkRenderInfo>& chunksToRender);
+	void renderOpaqueChunks();
+	void renderTranslucentChunks();
 	void renderChunks(const Camera& camera, const FrameBuffer& FBO);
 
 	void renderAurora(const Camera& camera, const FrameBuffer& FBO) const;

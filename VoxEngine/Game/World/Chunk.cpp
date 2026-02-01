@@ -372,11 +372,6 @@ void Chunk::buildBlocks()
 	}
 }
 
-bool Chunk::hasStructureBlockUpdates() const
-{
-	return structureBlockChangeManager.hasPendingChanges(position);
-}
-
 void Chunk::updateStructureBlocks()
 {
 	const BlockId airID = AssetRegistry::getBlockNumericalId("core:air");
