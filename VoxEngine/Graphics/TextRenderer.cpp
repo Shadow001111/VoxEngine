@@ -550,7 +550,10 @@ void TextRenderer::setCurrentFont(const std::string& fontName)
 
 
     // Pass texture handle to shader
-    inst.textShader.setHandleui64ARB("glyphTextureArray", inst.currentFont->textureArray.getHandle());
+    if (Texture::getExtensions().bindless)
+    {
+        inst.textShader.setHandleui64ARB("glyphTextureArray", inst.currentFont->textureArray.getHandle());
+    }
     
 	// Make previous font texture non-resident if needed
     //if (previousFont && previousFont != inst.currentFont && Texture::getExtensions().bindless)
