@@ -185,7 +185,7 @@ void Player::update(double deltaTime)
 	{
 		const float mouseSensitivity = 0.002f;
 		
-		auto mouseDelta = input.getMouseDelta();
+		glm::dvec2 mouseDelta = input.getMouseDelta();
 
 		rotate(-mouseDelta.x * mouseSensitivity, -mouseDelta.y * mouseSensitivity);
 	}
@@ -325,7 +325,7 @@ void Player::stopDragging(size_t slot)
 
 void Player::processInventoryInput()
 {
-	auto normalizedMousePos = input.getNormalizedMousePosition();
+	glm::dvec2 normalizedMousePos = input.getNormalizedMousePosition();
 
 	// Start dragging on left click
 	if (input.isMouseButtonJustPressed(GLFW_MOUSE_BUTTON_LEFT))
@@ -350,7 +350,7 @@ void Player::processInventoryInput()
 	}
 }
 
-void Player::interpolateCameraTransform(float factor)
+void Player::interpolateCameraTransform(double factor)
 {
     Transform interpolatedTransform = previousTransform.interpolate(transform, factor);
 	interpolatedTransform.position.y += 1.7 * 0.5 - 0.2;

@@ -24,7 +24,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #ifdef NDEBUG
-constexpr int CHUNK_LOAD_DISTANCE = 24;
+constexpr int CHUNK_LOAD_DISTANCE = 8;
 #else
 constexpr int CHUNK_LOAD_DISTANCE = 3;
 #endif
@@ -519,7 +519,7 @@ int gameFunc()
         SoundManager::getInstance().update();
 
         // World
-        world.setAppTime(time);
+        world.setAppTime((float)time);
         if (worldUpdateTimer.peek())
         {
             glm::dvec3 playerPos = player.getPosition();
@@ -527,7 +527,7 @@ int gameFunc()
 
             while (worldUpdateTimer.shouldUpdate())
             {
-                world.update(worldUpdateTimer.getUpdateInterval());
+                world.update((float)worldUpdateTimer.getUpdateInterval());
             }
 
             if (wnd.isKeyPressed(GLFW_KEY_P))

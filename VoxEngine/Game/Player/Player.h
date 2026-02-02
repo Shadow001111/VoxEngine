@@ -56,7 +56,7 @@ private:
 	void stopDragging(size_t slot);
 	void processInventoryInput();
 public:
-	void interpolateCameraTransform(float factor);
+	void interpolateCameraTransform(double factor);
 
 	void setPosition(const glm::vec3& position);
 	void setYaw(float yaw);

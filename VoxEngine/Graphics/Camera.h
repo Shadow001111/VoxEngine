@@ -6,9 +6,9 @@ class Camera
 {
 	Transform transform;
 
-	mutable glm::dvec3 forward;
-	mutable glm::dvec3 up;
-	mutable glm::dvec3 right;
+	mutable glm::dvec3 forward = {};
+	mutable glm::dvec3 up = {};
+	mutable glm::dvec3 right = {};
 
 	mutable LiteFrustum frustum;
 
