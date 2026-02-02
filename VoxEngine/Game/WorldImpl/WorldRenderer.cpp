@@ -54,8 +54,11 @@ void WorldRenderer::initTextures(const std::vector<std::string>& blockTextureNam
 
 		blockTextureArray.setParameters(GL_NEAREST_MIPMAP_LINEAR, GL_NEAREST, GL_REPEAT, GL_REPEAT);
 
-		blockTextureArray.initHandle();
-		blockTextureArray.makeResident();
+		if (Texture::getExtensions().bindless)
+		{
+			blockTextureArray.initHandle();
+			blockTextureArray.makeResident();
+		}
 	}
 
 	// Perlin noise texture
@@ -73,8 +76,11 @@ void WorldRenderer::initTextures(const std::vector<std::string>& blockTextureNam
 
 		tilingPerlinNoise3DTexture.setParameters(GL_LINEAR, GL_LINEAR, GL_REPEAT, GL_REPEAT);
 
-		tilingPerlinNoise3DTexture.initHandle();
-		tilingPerlinNoise3DTexture.makeResident();
+		if (Texture::getExtensions().bindless)
+		{
+			tilingPerlinNoise3DTexture.initHandle();
+			tilingPerlinNoise3DTexture.makeResident();
+		}
 	}
 }
 
@@ -151,7 +157,11 @@ void WorldRenderer::initShaders()
 			{GL_COMPUTE_SHADER, "res/Shaders/aurora.comp"}
 		};
 		auroraShader.create(sources);
-		auroraShader.setHandleui64ARB("noiseTex", tilingPerlinNoise3DTexture.getHandle());
+
+		if (Texture::getExtensions().bindless)
+		{
+			auroraShader.setHandleui64ARB("noiseTex", tilingPerlinNoise3DTexture.getHandle());
+		}
 	}
 
 	// Set needed uniforms
@@ -164,11 +174,13 @@ void WorldRenderer::initShaders()
 			&nonAlignedTranslucentFaceShader
 		};
 
-		auto blockTextureArrayHandle = blockTextureArray.getHandle();
-
-		for (const Shader* shader : blockFaceShaders)
+		if (Texture::getExtensions().bindless)
 		{
-			shader->setHandleui64ARB("blockTextures", blockTextureArrayHandle);
+			auto blockTextureArrayHandle = blockTextureArray.getHandle();
+			for (const Shader* shader : blockFaceShaders)
+			{
+				shader->setHandleui64ARB("blockTextures", blockTextureArrayHandle);
+			}
 		}
 	}
 }
@@ -424,6 +436,12 @@ void WorldRenderer::renderChunks(const Camera& camera, const FrameBuffer& FBO)
 
 	// Bind indirect buffer to allow indirect rendering
 	chunkDrawCommandBuffer.bind();
+
+	// Bind textures
+	if (!Texture::getExtensions().bindless)
+	{
+		blockTextureArray.bindUnit(0);
+	}
 
 	// Set shared opengl states
 	glEnable(GL_DEPTH_TEST);

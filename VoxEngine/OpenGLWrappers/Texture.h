@@ -26,6 +26,13 @@
 
 class Texture
 {
+	struct Extensions
+	{
+		bool bindless = false;
+	};
+
+	static Extensions extensions;
+
 	GLuint id = 0;
 	GLenum type = 0;
 	GLenum internalFormat = 0;
@@ -55,6 +62,8 @@ public:
 
 	Texture(Texture&& other) noexcept;
 	Texture& operator=(Texture&& other) noexcept;
+
+	static void initExtensions();
 
 	// Texture creation functions for different types
 	void create1D(texture_size width,							  GLenum internalFormat, mip_level mipLevels = 1);
@@ -114,4 +123,6 @@ public:
 	GLenum getFormatFromInternalFormat() const;
 	bool isResident() const { return resident; }
 	GLuint64 getHandle() const { return handle; }
+
+	static const Extensions& getExtensions() { return extensions; }
 };

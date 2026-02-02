@@ -105,7 +105,6 @@ public:
     std::optional<Texture*> getTexture(const std::string& name);
     std::optional<const Texture*> getTexture(const std::string& name) const;
     bool hasTexture(const std::string& name) const;
-    void bindTextureToUnit(const std::string& name, GLuint textureUnit) const;
 
     // Getters
     bool isComplete() const;

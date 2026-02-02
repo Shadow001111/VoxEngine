@@ -25,6 +25,11 @@
 //	}
 //}
 
+#define TEXTURE_EXTENSION_WARNINGS 1
+
+Texture::Extensions Texture::extensions;
+
+
 Texture::~Texture()
 {
 	if (id) glDeleteTextures(1, &id);
@@ -76,6 +81,11 @@ Texture& Texture::operator=(Texture&& other) noexcept
 		other.resident = 0;
 	}
 	return *this;
+}
+
+void Texture::initExtensions()
+{
+	extensions.bindless = GLAD_GL_ARB_bindless_texture;
 }
 
 void Texture::create1D(texture_size width, GLenum internalFormat, mip_level mipLevels)
@@ -526,6 +536,13 @@ void Texture::initHandle()
 {
 	if (handle == 0 && id != 0)
 	{
+#if TEXTURE_EXTENSION_WARNINGS
+		if (!extensions.bindless)
+		{
+			std::cerr << "[Texture][initHandle]: Warning: Initializing texture handle without bindless texture extension support.\n";
+			return;
+		}
+#endif
 		handle = glGetTextureHandleARB(id);
 	}
 }
@@ -534,6 +551,13 @@ void Texture::makeResident()
 {
 	if (handle != 0 && !resident)
 	{
+#if TEXTURE_EXTENSION_WARNINGS
+		if (!extensions.bindless)
+		{
+			std::cerr << "[Texture][makeNonResident]: Warning: Making texture resident without bindless texture extension support.\n";
+			return;
+		}
+#endif
 		glMakeTextureHandleResidentARB(handle);
 		resident = true;
 	}
@@ -543,6 +567,13 @@ void Texture::makeNonResident()
 {
 	if (handle != 0 && resident)
 	{
+#if TEXTURE_EXTENSION_WARNINGS
+		if (!extensions.bindless)
+		{
+			std::cerr << "[Texture][makeNonResident]: Warning: Making texture non-resident without bindless texture extension support.\n";
+			return;
+		}
+#endif
 		glMakeTextureHandleNonResidentARB(handle);
 		resident = false;
 	}
@@ -670,3 +701,5 @@ GLenum Texture::getFormatFromInternalFormat() const
 		return GL_RGBA;
 	}
 }
+
+#undef TEXTURE_EXTENSION_WARNINGS

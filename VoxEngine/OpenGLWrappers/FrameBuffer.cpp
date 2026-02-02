@@ -366,19 +366,6 @@ bool FrameBuffer::hasTexture(const std::string& name) const
     return attachments.find(name) != attachments.end();
 }
 
-void FrameBuffer::bindTextureToUnit(const std::string& name, GLuint textureUnit) const
-{
-    auto it = attachments.find(name);
-    if (it != attachments.end())
-    {
-        it->second.texture.bindUnit(textureUnit);
-    }
-    else
-    {
-        std::cerr << "[OpengGL_FBO][bindTextureToUnit]: Texture/attachment '" << name << "' is not found\n";
-    }
-}
-
 bool FrameBuffer::isComplete() const
 {
     GLenum status = glCheckNamedFramebufferStatus(id, GL_FRAMEBUFFER);

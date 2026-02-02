@@ -24,7 +24,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #ifdef NDEBUG
-constexpr int CHUNK_LOAD_DISTANCE = 24;
+constexpr int CHUNK_LOAD_DISTANCE = 4;
 #else
 constexpr int CHUNK_LOAD_DISTANCE = 3;
 #endif
@@ -394,6 +394,10 @@ void check()
     std::cout << "    GPU Vendor: " << glGetString(GL_VENDOR)       << "\n";
     std::cout << "    Renderer: " << glGetString(GL_RENDERER)       << "\n";
 
+	bool isBindlessSupported = Texture::getExtensions().bindless;
+	std::cout << "Extensions:\n";
+	std::cout << "    Bindless textures: " << (isBindlessSupported ? "Supported" : "Not supported") << "\n";
+
     //std::cout << "Secondary:\n";
     //std::cout << "    Max texture size: " << maxSize << "\n";
 
@@ -413,6 +417,9 @@ int gameFunc()
 
     // Window
     WindowManager wnd({ 1280, 720, "VoxEngine", true, true, true });
+
+    // Init textures
+    Texture::initExtensions();
 
     // Check
     check();
@@ -634,7 +641,7 @@ int gameFunc()
 }
 
 // TODO: Fix terrain generation at far lands
-// TODO: Fix: GUI disappears when window gets resized
+// TODO: Fix: GUI and terrain disappears when window gets resized
 int main()
 {
     std::ios_base::sync_with_stdio(false);
