@@ -492,16 +492,26 @@ bool TextRenderer::loadFont(const std::string& fontName, GLuint fontSize)
     // Load glyphs
     loadGlyphs(face, font);
 
-    // Done
+	// Make bindless if supported
+    if (Texture::getExtensions().bindless)
+    {
+        font.textureArray.initHandle();
+        font.textureArray.makeResident();
+	}
+
+	// Report
     std::cout
         << "[TextRenderer][loadFont]: Loaded font: '" << fontName << "' (" << fontPath << "). Character count: " << font.glyphs.size()
         << ". Max glyph size: (" << font.maxGlyphSize.x << ", " << font.maxGlyphSize.y << ").\n";
 
+	// Free FreeType resources
     FT_Done_Face(face);
     FT_Done_FreeType(ft);
 
+	// Restore alignment
     glPixelStorei(GL_UNPACK_ALIGNMENT, oldAlignment);
 
+	// Store font
     fonts.emplace(fontName, std::move(font));
 
     return true;
@@ -535,7 +545,19 @@ void TextRenderer::setCurrentFont(const std::string& fontName)
         return;
     }
 
+    Font* previousFont = inst.currentFont;
     inst.currentFont = &it->second;
+
+
+    // Pass texture handle to shader
+    inst.textShader.setHandleui64ARB("glyphTextureArray", inst.currentFont->textureArray.getHandle());
+    
+	// Make previous font texture non-resident if needed
+    //if (previousFont && previousFont != inst.currentFont && Texture::getExtensions().bindless)
+    //{
+    //    previousFont->textureArray.makeNonResident();
+    //}
+	previousFont = inst.currentFont;
 }
 
 void TextRenderer::startTextRendering()
@@ -556,7 +578,10 @@ void TextRenderer::startTextRendering()
     glDepthMask(GL_FALSE);
 
     inst.textVAO.bind();
-    font->textureArray.bindUnit(0);
+	if (!Texture::getExtensions().bindless)
+    {
+        font->textureArray.bindUnit(0);
+    }
 
     const auto& textShader = inst.textShader;
     textShader.use();

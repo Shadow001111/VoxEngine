@@ -398,8 +398,8 @@ void check()
 	std::cout << "Extensions:\n";
 	std::cout << "    Bindless textures: " << (isBindlessSupported ? "Supported" : "Not supported") << "\n";
 
-    //std::cout << "Secondary:\n";
-    //std::cout << "    Max texture size: " << maxSize << "\n";
+	std::cout << "Limits:\n";
+    std::cout << "    Max texture size: " << maxSize << "\n";
 
     // Check texture compression available
     //std::cout << std::string(100, '=') << "\n";
