@@ -293,6 +293,9 @@ const World::DebugData& World::getDebugData() const
 {
 	const auto& chunks = chunkManager.getAllChunks();
 
+	// Chunks count
+	debugData.loadedChunksCount = chunks.size();
+
 	// Total chunk block faces
 	debugData.totalFaces = 0;
 	for (const auto& pair : chunks)
@@ -307,12 +310,12 @@ const World::DebugData& World::getDebugData() const
 		ChunkMeshManager::getInstance().getAlignedInstanceVBO().getCapacity() +
 		ChunkMeshManager::getInstance().getNonAlignedInstanceVBO().getCapacity()
 		);
-	
-	// Chunks count
-	debugData.loadedChunksCount = chunks.size();
 
 	// Render info
 	const auto& renderInfo = renderer.getRenderStats();
+
+	debugData.renderedChunks = renderInfo.renderedChunks;
+	debugData.renderedFaceCount = renderInfo.renderedChunkFaceCount;
 	
 	debugData.chunkDrawCommandBufferSizeInBytes = renderInfo.chunkDrawCommandBufferSizeInBytes;
 	debugData.chunkPositionBufferSizeInBytes = renderInfo.chunkPositionBufferSizeInBytes;
