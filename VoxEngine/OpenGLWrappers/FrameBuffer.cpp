@@ -218,6 +218,30 @@ void FrameBuffer::setDrawBuffers(const std::vector<std::string>& attachmentNames
     }
 }
 
+void FrameBuffer::setReadBuffer(const std::string& attachmentName) const
+{
+    auto it = attachments.find(attachmentName);
+    if (it != attachments.end())
+    {
+        // Only COLOR attachments can be read buffers
+        if (it->second.type == AttachmentType::COLOR)
+        {
+            glNamedFramebufferReadBuffer(id, it->second.attachmentPoint);
+        }
+        else
+        {
+            std::cerr << "[FrameBuffer][setReadBuffer]: Attachment '" << attachmentName
+                << "' is not a COLOR attachment (type: " << static_cast<int>(it->second.type)
+                << "). Cannot set as read buffer.\n";
+        }
+    }
+    else
+    {
+        std::cerr << "[FrameBuffer][setReadBuffer]: Attachment '" << attachmentName
+            << "' not found. Cannot set as read buffer.\n";
+	}
+}
+
 void FrameBuffer::resize(int newWidth, int newHeight)
 {
     if (newWidth == width && newHeight == height)

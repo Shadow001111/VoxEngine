@@ -24,7 +24,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #ifdef NDEBUG
-constexpr int CHUNK_LOAD_DISTANCE = 8;
+constexpr int CHUNK_LOAD_DISTANCE = 24;
 #else
 constexpr int CHUNK_LOAD_DISTANCE = 3;
 #endif
@@ -289,7 +289,6 @@ static void renderInventory(const float aspectRatio, const GUIInventory& invento
     }
 }
 
-// TODO: Stop hotbar from drawing itself on other draw buffers
 static void renderHotbarAndInventory(const float aspectRatio, const ContainerUI& c, const Player& player)
 {
     glDisable(GL_DEPTH_TEST);
@@ -433,8 +432,6 @@ int gameFunc()
         framebuffer.createStandaloneTextureAttachment("aurora", GL_RGBA8);
 
         framebuffer.createDepthAttachment("depth", GL_DEPTH_COMPONENT32F);
-
-        framebuffer.setDrawBuffers({ "color", "geometryAlpha", "accumulation", "revealage" });
 
         if (!framebuffer.isComplete())
         {
@@ -582,6 +579,8 @@ int gameFunc()
             // Rendering world
             if (framebuffer.isComplete())
             {
+                framebuffer.setDrawBuffers({ "color", "geometryAlpha", "accumulation", "revealage" });
+
                 world.render(player.getCamera(), framebuffer, player.raycastResult);
 
                 // Update UI metrics with world debug data
@@ -597,12 +596,15 @@ int gameFunc()
                 // Render UI
                 const float aspectRatio = wnd.getAspectRatio();
                 TextRenderer::setCustomCoordinateSpace(-aspectRatio, aspectRatio, -1.0f, 1.0f);
+
+                framebuffer.setDrawBuffers({ "color" });
                 renderUI(aspectRatio, containerUI, player);
 
                 // Render UI text
                 renderDebugData(wnd, player, uiMetrics);
 
                 // Blitting FBO to default FBO
+				framebuffer.setReadBuffer("color");
                 framebuffer.blitToDefaultFramebuffer(wnd.getWidth(), wnd.getHeight());
 
                 // Swap buffers

@@ -90,9 +90,12 @@ public:
     static void unbind(GLenum target);
 
     void setDrawBuffers(const std::vector<std::string>& attachmentNames);
+	void setReadBuffer(const std::string& attachmentName) const;
     void resize(int newWidth, int newHeight);
 
-    void blitTo(const FrameBuffer& dstFBO, GLbitfield mask = GL_COLOR_BUFFER_BIT, GLenum filter = GL_NEAREST) const;
+    // Set read and draw buffers before calling
+	void blitTo(const FrameBuffer& dstFBO, GLbitfield mask = GL_COLOR_BUFFER_BIT, GLenum filter = GL_NEAREST) const;
+    // Set read and draw buffers before calling
     void blitToDefaultFramebuffer(int dstWidth, int dstHeight, GLbitfield mask = GL_COLOR_BUFFER_BIT, GLenum filter = GL_NEAREST) const;
 
     void clearAttachment(const std::string& name, const float* clearValue) const;
