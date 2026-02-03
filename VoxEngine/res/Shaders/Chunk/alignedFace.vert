@@ -3,9 +3,14 @@
 layout(location = 0) in vec2 aPos;
 layout(location = 1) in uvec2 instanceData;
 
-layout(binding = 0) restrict readonly buffer chunkPositionSSBO
+layout(std430, binding = 0) restrict readonly buffer chunkPositionSSBO
 {
 	int chunkPositions[];
+};
+
+layout(std430, binding = 1) restrict readonly buffer chunkNormalSSBO
+{
+	int chunkNormals[];
 };
 
 uniform mat4 view;
@@ -90,6 +95,23 @@ const float INV_LIGHT_SCALE = 1.0 / 15.0;
 const float INV_AO_SCALE = 1.0 / 3.0;
 const float AO_RANGE = 0.9; // [0; 1]
 
+uint getNormal(uint index)
+{
+    // 10 normals of 3 bits are stored in each uint
+    
+    uint uintIndex = index / 10u;
+    uint normalIndexInUint = index - uintIndex * 10u;
+    
+    // Calculate the bit position (3 bits per normal)
+    uint bitPos = normalIndexInUint * 3u;
+    
+    // Extract 3 bits starting from bitPos
+    uint packedNormal = chunkNormals[uintIndex];
+    uint normal = (packedNormal >> bitPos) & 0x7u;
+    
+    return normal;
+}
+
 void main()
 {
     // Extract spatial data
@@ -98,18 +120,18 @@ void main()
     uint z = bitfieldExtract(instanceData.x, 8, 4);
 
     // Extract face orientation
-    uint normal = bitfieldExtract(instanceData.x, 12, 3);
+    uint normal = getNormal(gl_DrawID);
 
     // Extract AO
     vec4 faceAO = vec4(
-        bitfieldExtract(instanceData.x, 15, 2),
-        bitfieldExtract(instanceData.x, 17, 2),
-        bitfieldExtract(instanceData.x, 19, 2),
-        bitfieldExtract(instanceData.x, 21, 2)
+        bitfieldExtract(instanceData.x, 12, 2),
+        bitfieldExtract(instanceData.x, 14, 2),
+        bitfieldExtract(instanceData.x, 16, 2),
+        bitfieldExtract(instanceData.x, 18, 2)
     );
 
     // Extract texture data
-    textureID = bitfieldExtract(instanceData.x, 23, 6);
+    textureID = bitfieldExtract(instanceData.x, 20, 9);
     uint textureTransformation = bitfieldExtract(instanceData.x, 29, 3);
 
     // Extract lighting

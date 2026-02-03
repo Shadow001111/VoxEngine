@@ -1,5 +1,4 @@
 #pragma once
-
 #include "OpenGLWrappers/Shader.h"
 #include "OpenGLWrappers/Buffer.h"
 #include "OpenGLWrappers/ImmutableBuffer.h"
@@ -8,6 +7,8 @@
 #include "../World/VoxelMarkerMesh.h"
 #include "../World/RaycastResult.h"
 #include "../World/WorldVisualSettings.h"
+
+#include "../World/Chunk/ChunkNormalPacker.h"
 
 #include "Graphics/Camera.h"
 
@@ -68,6 +69,7 @@ class WorldRenderer
 
 	Buffer chunkDrawCommandBuffer;
 	Buffer chunkPositionSSBO;
+	Buffer chunkNormalSSBO;
 
 	Shader auroraShader;
 	ImmutableBuffer skyViewRaysUBO;
@@ -78,6 +80,7 @@ class WorldRenderer
 	mutable std::vector<ChunkRenderInfo> chunksToRender;
 	mutable std::vector<DrawArraysIndirectCommand> chunkDrawCommands;
 	mutable std::vector<glm::ivec3> chunkPositions;
+	mutable ChunkNormalPacker chunkNormalPacker;
 
 	// Aurora varaibless
 	static constexpr float AURORA_THRESHOLD = 0.02f;

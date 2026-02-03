@@ -180,6 +180,9 @@
     <ClCompile Include="Core\Shapes\Frustum.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
+    <ClCompile Include="Game\World\Chunk\ChunkNormalPacker.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="WindowManager.h">
@@ -396,6 +399,9 @@
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Core\Shapes\Frustum.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\World\Chunk\ChunkNormalPacker.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
   </ItemGroup>

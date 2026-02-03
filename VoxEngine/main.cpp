@@ -24,7 +24,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #ifdef NDEBUG
-constexpr int CHUNK_LOAD_DISTANCE = 24;
+constexpr int CHUNK_LOAD_DISTANCE = 4;
 #else
 constexpr int CHUNK_LOAD_DISTANCE = 3;
 #endif
@@ -645,6 +645,7 @@ int gameFunc()
 
 // TODO: Fix terrain generation at far lands
 // TODO: Fix: GUI and terrain disappears when window gets resized
+// TODO: Chunk and WorldChunkManager: Better check in manager, then call function, so less stack pollution. I guess?
 int main()
 {
     std::ios_base::sync_with_stdio(false);

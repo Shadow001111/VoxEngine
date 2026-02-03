@@ -3,6 +3,7 @@
 #include "Chunk/Metrics.h"
 #include "Chunk/StructureBlockChanges.h"
 #include "Chunk/ChunkSpecializedQueue.h"
+#include "Chunk/ChunkNormalPacker.h"
 
 #include "Core/Multithreading/ProcessingFence.h"
 #include "Core/AtomicFlags.h"
@@ -200,10 +201,28 @@ public:
 	void updateEnabledMeshSides(const glm::ivec3& cameraChunkPosition);
 
 	// Render
-	void collectAlignedOpaqueRenderData(std::vector<DrawArraysIndirectCommand>& drawCommands, std::vector<glm::ivec3>& positions) const;
-	void collectAlignedTranslucentRenderData(std::vector<DrawArraysIndirectCommand>& drawCommands, std::vector<glm::ivec3>& positions) const;
-	void collectNonAlignedOpaqueRenderData(std::vector<DrawArraysIndirectCommand>& drawCommands, std::vector<glm::ivec3>& positions) const;
-	void collectNonAlignedTranslucentRenderData(std::vector<DrawArraysIndirectCommand>& drawCommands, std::vector<glm::ivec3>& positions) const;
+	void collectAlignedOpaqueRenderData(
+		std::vector<DrawArraysIndirectCommand>& drawCommands,
+		std::vector<glm::ivec3>& positions,
+		ChunkNormalPacker& normalPacker
+	) const;
+
+	void collectAlignedTranslucentRenderData(
+		std::vector<DrawArraysIndirectCommand>& drawCommands,
+		std::vector<glm::ivec3>& positions,
+		ChunkNormalPacker& normalPacker
+	) const;
+
+	void collectNonAlignedOpaqueRenderData(
+		std::vector<DrawArraysIndirectCommand>& drawCommands,
+		std::vector<glm::ivec3>& positions
+	) const;
+
+	void collectNonAlignedTranslucentRenderData(
+		std::vector<DrawArraysIndirectCommand>& drawCommands,
+		std::vector<glm::ivec3>& positions
+	) const;
+
 	bool canBeRendered() const { return (meshData.alignedCreated || meshData.nonAlignedCreated) && meshData.getRenderFaceCount() > 0; };
 private:
 	// Chunk traverse

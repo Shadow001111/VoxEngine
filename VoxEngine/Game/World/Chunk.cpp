@@ -1758,7 +1758,6 @@ void Chunk::updateMesh()
 					auto& instances = textureSlot.isTranslucent ? newInstances.alignedTranslucent[face.normal] : newInstances.alignedOpaque[face.normal];
 					instances.emplace_back(
 						pos.x, pos.y, pos.z,
-						face.normal,
 						ao,
 						textureSlot.textureId,
 						faceTransformation,
@@ -2033,20 +2032,18 @@ void Chunk::updateEnabledMeshSides(const glm::ivec3& cameraChunkPosition)
 	enabledAlignedOpaqueFaceSides[5] = cameraChunkPosition.z >= position.z;
 }
 
-void Chunk::collectAlignedOpaqueRenderData(std::vector<DrawArraysIndirectCommand>& drawCommands, std::vector<glm::ivec3>& positions) const
+void Chunk::collectAlignedOpaqueRenderData(
+	std::vector<DrawArraysIndirectCommand>& drawCommands,
+	std::vector<glm::ivec3>& positions,
+	ChunkNormalPacker& normalPacker
+) const
 {
 	if (!meshData.alignedCreated)
 	{
 		return;
 	}
 
-	const auto& enabledSides = enabledAlignedOpaqueFaceSides;
-
-	// Now the same, but with combining draw calls for enabled neighbor sides
 	size_t offset = meshData.allocatedBlock_alignedFaces.offset;
-	size_t combinedOffset = offset;
-	size_t combinedFaceCount = 0;
-	bool isCombining = false;
 
 	for (int side = 0; side < 6; side++)
 	{
@@ -2055,40 +2052,18 @@ void Chunk::collectAlignedOpaqueRenderData(std::vector<DrawArraysIndirectCommand
 		{
 			continue;
 		}
-
-		if (enabledSides[side])
-		{
-			if (isCombining)
-			{
-				combinedFaceCount += faceCount;
-			}
-			else
-			{
-				isCombining = true;
-				combinedOffset = offset;
-				combinedFaceCount = faceCount;
-			}
-		}
-		else
-		{
-			if (isCombining)
-			{
-				isCombining = false;
-				drawCommands.emplace_back(4, combinedFaceCount, 0, combinedOffset);
-				positions.push_back(position);
-			}
-		}
-
-		offset += faceCount;
-	}
-	if (isCombining)
-	{
-		drawCommands.emplace_back(4, combinedFaceCount, 0, combinedOffset);
+		drawCommands.emplace_back(4, faceCount, 0, offset);
 		positions.push_back(position);
+		normalPacker.addNormal(side);
+		offset += faceCount;
 	}
 }
 
-void Chunk::collectAlignedTranslucentRenderData(std::vector<DrawArraysIndirectCommand>& drawCommands, std::vector<glm::ivec3>& positions) const
+void Chunk::collectAlignedTranslucentRenderData(
+	std::vector<DrawArraysIndirectCommand>& drawCommands,
+	std::vector<glm::ivec3>& positions,
+	ChunkNormalPacker& normalPacker
+) const
 {
 	if (!meshData.alignedCreated)
 	{
@@ -2106,6 +2081,7 @@ void Chunk::collectAlignedTranslucentRenderData(std::vector<DrawArraysIndirectCo
 		}
 		drawCommands.emplace_back(4, faceCount, 0, offset);
 		positions.push_back(position);
+		normalPacker.addNormal(side);
 		offset += faceCount;
 	}
 }

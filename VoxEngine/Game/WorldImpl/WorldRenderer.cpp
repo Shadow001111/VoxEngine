@@ -91,6 +91,9 @@ void WorldRenderer::initBuffers()
 	chunkPositionSSBO.create(GL_SHADER_STORAGE_BUFFER, GL_DYNAMIC_DRAW);
 	chunkPositionSSBO.bindBase(0);
 
+	chunkNormalSSBO.create(GL_SHADER_STORAGE_BUFFER, GL_DYNAMIC_DRAW);
+	chunkNormalSSBO.bindBase(1);
+
 	skyViewRaysUBO.create(GL_UNIFORM_BUFFER);
 	skyViewRaysUBO.allocateStorage(sizeof(ViewRays), GL_DYNAMIC_STORAGE_BIT);
 	skyViewRaysUBO.bindBase(0);
@@ -245,9 +248,10 @@ void WorldRenderer::renderOpaqueChunks()
 
 		chunkDrawCommands.clear();
 		chunkPositions.clear();
+		chunkNormalPacker.clear();
 		for (const auto& info : chunksToRender)
 		{
-			info.chunk->collectAlignedOpaqueRenderData(chunkDrawCommands, chunkPositions);
+			info.chunk->collectAlignedOpaqueRenderData(chunkDrawCommands, chunkPositions, chunkNormalPacker);
 		}
 	}
 
@@ -265,6 +269,10 @@ void WorldRenderer::renderOpaqueChunks()
 
 			chunkPositionSSBO.allocateMemory(drawCount * sizeof(glm::ivec3));
 			chunkPositionSSBO.write(chunkPositions.data(), drawCount * sizeof(glm::ivec3));
+
+			const size_t normalCount = chunkNormalPacker.getSize();
+			chunkNormalSSBO.allocateMemory(normalCount * sizeof(uint32_t));
+			chunkNormalSSBO.write(chunkNormalPacker.getData(), normalCount * sizeof(uint32_t));
 
 			alignedOpaqueFaceShader.use();
 			ChunkMeshManager::getInstance().bindAlignedVAO();
@@ -323,9 +331,10 @@ void WorldRenderer::renderTranslucentChunks()
 
 		chunkDrawCommands.clear();
 		chunkPositions.clear();
+		chunkNormalPacker.clear();
 		for (const auto& info : chunksToRender)
 		{
-			info.chunk->collectAlignedTranslucentRenderData(chunkDrawCommands, chunkPositions);
+			info.chunk->collectAlignedTranslucentRenderData(chunkDrawCommands, chunkPositions, chunkNormalPacker);
 		}
 	}
 
@@ -343,6 +352,10 @@ void WorldRenderer::renderTranslucentChunks()
 
 			chunkPositionSSBO.allocateMemory(drawCount * sizeof(glm::ivec3));
 			chunkPositionSSBO.write(chunkPositions.data(), drawCount * sizeof(glm::ivec3));
+
+			const size_t normalCount = chunkNormalPacker.getSize();
+			chunkNormalSSBO.allocateMemory(normalCount * sizeof(uint32_t));
+			chunkNormalSSBO.write(chunkNormalPacker.getData(), normalCount * sizeof(uint32_t));
 
 			alignedTranslucentFaceShader.use();
 			ChunkMeshManager::getInstance().bindAlignedVAO();
@@ -448,12 +461,8 @@ void WorldRenderer::renderChunks(const Camera& camera, const FrameBuffer& FBO)
 	glDepthFunc(GL_LESS);
 
 	// Render chunks
-	{
-		PROFILE_SCOPE("Render chunks", ProfileCategory::Render);
-
-		renderOpaqueChunks();
-		renderTranslucentChunks();
-	}
+	renderOpaqueChunks();
+	renderTranslucentChunks();
 }
 
 void WorldRenderer::renderAurora(const Camera& camera, const FrameBuffer& FBO) const
