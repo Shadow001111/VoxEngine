@@ -25,3 +25,14 @@ struct LiteFrustum
 	bool checkBox(const Box& box) const;
 };
 
+struct LighterFrustum
+{
+	LitePlane top;
+	LitePlane bottom;
+	LitePlane right;
+	LitePlane left;
+	LitePlane far;
+
+	bool checkBox(const Box& box) const;
+};
+

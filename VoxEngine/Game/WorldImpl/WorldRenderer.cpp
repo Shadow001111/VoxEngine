@@ -193,7 +193,7 @@ void WorldRenderer::collectAndSortChunksForRendering(const Camera& camera) const
 	{
 		PROFILE_SCOPE("Render: collect chunks", ProfileCategory::Render);
 
-		const LiteFrustum& frustum = camera.getFrustum();
+		const auto& frustum = camera.getFrustum();
 		Box chunkShape(glm::dvec3(0.0), glm::dvec3(CHUNK_SIZE >> 1));
 
 		const glm::dvec3 cameraPosition = camera.getPosition();

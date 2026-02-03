@@ -31,10 +31,10 @@ void Camera::updateFrustum() const
 	double halfVSide = (double)farPlane * tanHF;
 	double halfHSide = halfVSide * (double)aspectRatio;
 
-	glm::dvec3 nearMultFwd = (double)nearPlane * forward;
+	//glm::dvec3 nearMultFwd = (double)nearPlane * forward;
 	glm::dvec3 farMultFwd = (double)farPlane * forward;
 
-	frustum.near = LitePlane(transform.position + nearMultFwd, forward);
+	//frustum.near = LitePlane(transform.position + nearMultFwd, forward);
 	frustum.far = LitePlane(transform.position + farMultFwd, -forward);
 
 	frustum.right = LitePlane(transform.position, glm::cross(farMultFwd - right * halfHSide, up));
@@ -156,7 +156,7 @@ glm::dvec3 Camera::getRight() const
 	return right;
 }
 
-const LiteFrustum& Camera::getFrustum() const
+const LighterFrustum& Camera::getFrustum() const
 {
 	updateFrustum();
 	return frustum;
