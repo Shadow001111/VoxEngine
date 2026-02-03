@@ -2035,6 +2035,7 @@ void Chunk::updateEnabledMeshSides(const glm::ivec3& cameraChunkPosition)
 void Chunk::collectAlignedOpaqueRenderData(
 	std::vector<DrawArraysIndirectCommand>& drawCommands,
 	std::vector<glm::ivec3>& positions,
+	std::vector<uint32_t>& positionIndices,
 	ChunkNormalPacker& normalPacker
 ) const
 {
@@ -2047,6 +2048,7 @@ void Chunk::collectAlignedOpaqueRenderData(
 
 	size_t offset = meshData.allocatedBlock_alignedFaces.offset;
 
+	bool anySide = false;
 	for (int side = 0; side < 6; side++)
 	{
 		size_t faceCount = meshData.renderAlignedOpaqueFaceCount[side];
@@ -2058,16 +2060,22 @@ void Chunk::collectAlignedOpaqueRenderData(
 		if (enabledSides[side])
 		{
 			drawCommands.emplace_back(4, faceCount, 0, offset);
-			positions.push_back(position);
+			positionIndices.push_back(positions.size());
 			normalPacker.addNormal(side);
+			anySide = true;
 		}
 		offset += faceCount;
+	}
+	if (anySide)
+	{
+		positions.push_back(position);
 	}
 }
 
 void Chunk::collectAlignedTranslucentRenderData(
 	std::vector<DrawArraysIndirectCommand>& drawCommands,
 	std::vector<glm::ivec3>& positions,
+	std::vector<uint32_t>& positionIndices,
 	ChunkNormalPacker& normalPacker
 ) const
 {
@@ -2078,6 +2086,7 @@ void Chunk::collectAlignedTranslucentRenderData(
 
 	size_t offset = meshData.allocatedBlock_alignedFaces.offset + meshData.getAlignedOpaqueFaceCount();
 
+	bool anySide = false;
 	for (int side = 0; side < 6; side++)
 	{
 		size_t faceCount = meshData.renderAlignedTranslucentFaceCount[side];
@@ -2085,10 +2094,17 @@ void Chunk::collectAlignedTranslucentRenderData(
 		{
 			continue;
 		}
+
 		drawCommands.emplace_back(4, faceCount, 0, offset);
-		positions.push_back(position);
+		positionIndices.push_back(positions.size());
 		normalPacker.addNormal(side);
+		anySide = true;
+
 		offset += faceCount;
+	}
+	if (anySide)
+	{
+		positions.push_back(position);
 	}
 }
 

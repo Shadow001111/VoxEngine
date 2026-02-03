@@ -31,6 +31,7 @@ public:
 
 		size_t chunkDrawCommandBufferSizeInBytes = 0;
 		size_t chunkPositionBufferSizeInBytes = 0;
+		size_t chunkPositionIndexBufferSizeInBytes = 0;
 		size_t chunkNormalBufferSizeInBytes = 0;
 	};
 private:
@@ -70,6 +71,7 @@ private:
 
 	Buffer chunkDrawCommandBuffer;
 	Buffer chunkPositionSSBO;
+	Buffer chunkPositionIndexSSBO;
 	Buffer chunkNormalSSBO;
 
 	Shader auroraShader;
@@ -81,6 +83,7 @@ private:
 	mutable std::vector<ChunkRenderInfo> chunksToRender;
 	mutable std::vector<DrawArraysIndirectCommand> chunkDrawCommands;
 	mutable std::vector<glm::ivec3> chunkPositions;
+	mutable std::vector<uint32_t> chunkPositionIndices;
 	mutable ChunkNormalPacker chunkNormalPacker;
 
 	// Aurora varaibless

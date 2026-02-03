@@ -337,11 +337,12 @@ static void renderDebugData(const WindowManager& wnd, const Player& player, cons
         << ", Rendered: " << formatSize(renderData.renderedChunkFaceCount);
 
     // Meshes
-    ss << "\nChunk meshes: Capacity: " << formatSizeBinary(worldData.totalFaceCapacityInBytes);
+    ss << "\nChunk meshes capacity: " << formatSizeBinary(worldData.totalFaceCapacityInBytes);
 
     // Buffer sizes
     ss << "\nChunk draw command buffer: " << formatSizeBinary(renderData.chunkDrawCommandBufferSizeInBytes);
     ss << "\nChunk position buffer: " << formatSizeBinary(renderData.chunkPositionBufferSizeInBytes);
+    ss << "\nChunk position index buffer: " << formatSizeBinary(renderData.chunkPositionIndexBufferSizeInBytes);
     ss << "\nChunk normal buffer: " << formatSizeBinary(renderData.chunkNormalBufferSizeInBytes);
 
     // TODO: Add textures and font size in bytes

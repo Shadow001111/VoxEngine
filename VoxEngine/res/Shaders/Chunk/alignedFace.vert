@@ -8,9 +8,14 @@ layout(std430, binding = 0) restrict readonly buffer chunkPositionSSBO
 	int chunkPositions[];
 };
 
-layout(std430, binding = 1) restrict readonly buffer chunkNormalSSBO
+layout(std430, binding = 1) restrict readonly buffer chunkPositionIndexSSBO
 {
-	int chunkNormals[];
+	uint chunkPositionIndexes[];
+};
+
+layout(std430, binding = 2) restrict readonly buffer chunkNormalSSBO
+{
+	uint chunkNormals[];
 };
 
 uniform mat4 view;
@@ -160,7 +165,7 @@ void main()
     uv = uvRotations[normal] * aPos + uvOffsets[normal];
 
     // Get chunk position from SSBO
-    const uint posIndex = uint(gl_DrawID) * 3u;
+    const uint posIndex = chunkPositionIndexes[uint(gl_DrawID)] * 3u;
     const ivec3 chunkPosition = ivec3
 	(
 		chunkPositions[posIndex],

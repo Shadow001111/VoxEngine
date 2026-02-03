@@ -204,12 +204,14 @@ public:
 	void collectAlignedOpaqueRenderData(
 		std::vector<DrawArraysIndirectCommand>& drawCommands,
 		std::vector<glm::ivec3>& positions,
+		std::vector<uint32_t>& positionIndices,
 		ChunkNormalPacker& normalPacker
 	) const;
 
 	void collectAlignedTranslucentRenderData(
 		std::vector<DrawArraysIndirectCommand>& drawCommands,
 		std::vector<glm::ivec3>& positions,
+		std::vector<uint32_t>& positionIndices,
 		ChunkNormalPacker& normalPacker
 	) const;
 

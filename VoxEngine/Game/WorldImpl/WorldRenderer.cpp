@@ -88,11 +88,16 @@ void WorldRenderer::initBuffers()
 {
 	chunkDrawCommandBuffer.create(GL_DRAW_INDIRECT_BUFFER, GL_DYNAMIC_DRAW);
 
-	chunkPositionSSBO.create(GL_SHADER_STORAGE_BUFFER, GL_DYNAMIC_DRAW);
-	chunkPositionSSBO.bindBase(0);
+	{
+		chunkPositionSSBO.create(GL_SHADER_STORAGE_BUFFER, GL_DYNAMIC_DRAW);
+		chunkPositionSSBO.bindBase(0);
 
-	chunkNormalSSBO.create(GL_SHADER_STORAGE_BUFFER, GL_DYNAMIC_DRAW);
-	chunkNormalSSBO.bindBase(1);
+		chunkPositionIndexSSBO.create(GL_SHADER_STORAGE_BUFFER, GL_DYNAMIC_DRAW);
+		chunkPositionIndexSSBO.bindBase(1);
+
+		chunkNormalSSBO.create(GL_SHADER_STORAGE_BUFFER, GL_DYNAMIC_DRAW);
+		chunkNormalSSBO.bindBase(2);
+	}
 
 	skyViewRaysUBO.create(GL_UNIFORM_BUFFER);
 	skyViewRaysUBO.allocateStorage(sizeof(ViewRays), GL_DYNAMIC_STORAGE_BIT);
@@ -248,10 +253,11 @@ void WorldRenderer::renderOpaqueChunks()
 
 		chunkDrawCommands.clear();
 		chunkPositions.clear();
+		chunkPositionIndices.clear();
 		chunkNormalPacker.clear();
 		for (const auto& info : chunksToRender)
 		{
-			info.chunk->collectAlignedOpaqueRenderData(chunkDrawCommands, chunkPositions, chunkNormalPacker);
+			info.chunk->collectAlignedOpaqueRenderData(chunkDrawCommands, chunkPositions, chunkPositionIndices, chunkNormalPacker);
 		}
 	}
 
@@ -267,8 +273,13 @@ void WorldRenderer::renderOpaqueChunks()
 			chunkDrawCommandBuffer.allocateMemory(drawCount * sizeof(DrawArraysIndirectCommand));
 			chunkDrawCommandBuffer.write(chunkDrawCommands.data(), drawCount * sizeof(DrawArraysIndirectCommand));
 
-			chunkPositionSSBO.allocateMemory(drawCount * sizeof(glm::ivec3));
-			chunkPositionSSBO.write(chunkPositions.data(), drawCount * sizeof(glm::ivec3));
+			const size_t positionCount = chunkPositions.size();
+			chunkPositionSSBO.allocateMemory(positionCount * sizeof(glm::ivec3));
+			chunkPositionSSBO.write(chunkPositions.data(), positionCount * sizeof(glm::ivec3));
+
+			const size_t positionIndexCount = chunkPositionIndices.size();
+			chunkPositionIndexSSBO.allocateMemory(positionIndexCount * sizeof(uint32_t));
+			chunkPositionIndexSSBO.write(chunkPositionIndices.data(), positionIndexCount * sizeof(uint32_t));
 
 			const size_t normalCount = chunkNormalPacker.getSize();
 			chunkNormalSSBO.allocateMemory(normalCount * sizeof(uint32_t));
@@ -331,10 +342,11 @@ void WorldRenderer::renderTranslucentChunks()
 
 		chunkDrawCommands.clear();
 		chunkPositions.clear();
+		chunkPositionIndices.clear();
 		chunkNormalPacker.clear();
 		for (const auto& info : chunksToRender)
 		{
-			info.chunk->collectAlignedTranslucentRenderData(chunkDrawCommands, chunkPositions, chunkNormalPacker);
+			info.chunk->collectAlignedTranslucentRenderData(chunkDrawCommands, chunkPositions, chunkPositionIndices, chunkNormalPacker);
 		}
 	}
 
@@ -350,8 +362,13 @@ void WorldRenderer::renderTranslucentChunks()
 			chunkDrawCommandBuffer.allocateMemory(drawCount * sizeof(DrawArraysIndirectCommand));
 			chunkDrawCommandBuffer.write(chunkDrawCommands.data(), drawCount * sizeof(DrawArraysIndirectCommand));
 
-			chunkPositionSSBO.allocateMemory(drawCount * sizeof(glm::ivec3));
-			chunkPositionSSBO.write(chunkPositions.data(), drawCount * sizeof(glm::ivec3));
+			const size_t positionCount = chunkPositions.size();
+			chunkPositionSSBO.allocateMemory(positionCount * sizeof(glm::ivec3));
+			chunkPositionSSBO.write(chunkPositions.data(), positionCount * sizeof(glm::ivec3));
+
+			const size_t positionIndexCount = chunkPositionIndices.size();
+			chunkPositionIndexSSBO.allocateMemory(positionIndexCount * sizeof(uint32_t));
+			chunkPositionIndexSSBO.write(chunkPositionIndices.data(), positionIndexCount * sizeof(uint32_t));
 
 			const size_t normalCount = chunkNormalPacker.getSize();
 			chunkNormalSSBO.allocateMemory(normalCount * sizeof(uint32_t));
@@ -713,6 +730,7 @@ void WorldRenderer::render(const Camera& camera, const FrameBuffer& FBO, const R
 	// Set some of render stats
 	renderStats.chunkDrawCommandBufferSizeInBytes = chunkDrawCommandBuffer.getCapacity();
 	renderStats.chunkPositionBufferSizeInBytes = chunkPositionSSBO.getCapacity();
+	renderStats.chunkPositionIndexBufferSizeInBytes = chunkPositionIndexSSBO.getCapacity();
 	renderStats.chunkNormalBufferSizeInBytes = chunkNormalSSBO.getCapacity();
 }
 
