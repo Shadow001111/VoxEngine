@@ -54,18 +54,10 @@ struct ChunkMeshData
 	size_t getAlignedFaceCount() const { return getAlignedOpaqueFaceCount() + getAlignedTranslucentFaceCount(); };
 	size_t getNonAlignedFaceCount() const { return instancesStorage.nonAlignedOpaque.size() + instancesStorage.nonAlignedTranslucent.size(); };
 
-	size_t getAllFaceCount() const {
-		return
-			instancesStorage.alignedOpaque.size() +
-			instancesStorage.alignedTranslucent.size() +
-			instancesStorage.nonAlignedOpaque.size() +
-			instancesStorage.nonAlignedTranslucent.size()
-		;};
+	size_t getAllFaceCount() const { return getAlignedFaceCount() + getNonAlignedFaceCount() ;};
 
 	size_t getRenderFaceCount() const;
 	size_t getAlignedFaceCapacity() const { return allocatedBlock_alignedFaces.size; };
 	size_t getNonAlignedFaceCapacity() const { return allocatedBlock_nonAlignedFaces.size; };
-	size_t getAllFaceCapacity() const {
-		return allocatedBlock_alignedFaces.size + allocatedBlock_nonAlignedFaces.size;
-	};
+	size_t getAllFaceCapacity() const { return allocatedBlock_alignedFaces.size + allocatedBlock_nonAlignedFaces.size; };
 };

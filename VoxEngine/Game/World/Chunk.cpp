@@ -2043,6 +2043,8 @@ void Chunk::collectAlignedOpaqueRenderData(
 		return;
 	}
 
+	const auto& enabledSides = enabledAlignedOpaqueFaceSides;
+
 	size_t offset = meshData.allocatedBlock_alignedFaces.offset;
 
 	for (int side = 0; side < 6; side++)
@@ -2052,9 +2054,13 @@ void Chunk::collectAlignedOpaqueRenderData(
 		{
 			continue;
 		}
-		drawCommands.emplace_back(4, faceCount, 0, offset);
-		positions.push_back(position);
-		normalPacker.addNormal(side);
+
+		if (enabledSides[side])
+		{
+			drawCommands.emplace_back(4, faceCount, 0, offset);
+			positions.push_back(position);
+			normalPacker.addNormal(side);
+		}
 		offset += faceCount;
 	}
 }

@@ -296,6 +296,8 @@ void World::debugMethod()
 
 const World::DebugData& World::getDebugData() const
 {
+	PROFILE_SCOPE("Gather world debug data", ProfileCategory::General);
+
 	const auto& chunks = chunkManager.getAllChunks();
 
 	// Chunks count
@@ -311,19 +313,15 @@ const World::DebugData& World::getDebugData() const
 	}
 
 	// Block face capacity
-	debugData.totalFaceCapacityInBytes = (
-		ChunkMeshManager::getInstance().getAlignedInstanceVBO().getCapacity() +
-		ChunkMeshManager::getInstance().getNonAlignedInstanceVBO().getCapacity()
-		);
+	const size_t alignedFaceCapacity = ChunkMeshManager::getInstance().getAlignedInstanceVBO().getCapacity();
+	const size_t nonAlignedFaceCapacity = ChunkMeshManager::getInstance().getNonAlignedInstanceVBO().getCapacity();
+
+	debugData.totalFaceCapacity = alignedFaceCapacity / sizeof(AlignedBlockFace) + nonAlignedFaceCapacity / sizeof(NonAlignedBlockFace);
+
+	debugData.totalFaceCapacityInBytes = alignedFaceCapacity + nonAlignedFaceCapacity;
 
 	// Render info
-	const auto& renderInfo = renderer.getRenderStats();
-
-	debugData.renderedChunks = renderInfo.renderedChunks;
-	debugData.renderedFaceCount = renderInfo.renderedChunkFaceCount;
-	
-	debugData.chunkDrawCommandBufferSizeInBytes = renderInfo.chunkDrawCommandBufferSizeInBytes;
-	debugData.chunkPositionBufferSizeInBytes = renderInfo.chunkPositionBufferSizeInBytes;
+	debugData.renderStats = renderer.getRenderStats();
 
 	return debugData;
 }

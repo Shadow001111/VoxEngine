@@ -713,6 +713,7 @@ void WorldRenderer::render(const Camera& camera, const FrameBuffer& FBO, const R
 	// Set some of render stats
 	renderStats.chunkDrawCommandBufferSizeInBytes = chunkDrawCommandBuffer.getCapacity();
 	renderStats.chunkPositionBufferSizeInBytes = chunkPositionSSBO.getCapacity();
+	renderStats.chunkNormalBufferSizeInBytes = chunkNormalSSBO.getCapacity();
 }
 
 void WorldRenderer::setRenderDistance(int renderDistanceInChunks)

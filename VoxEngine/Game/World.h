@@ -13,14 +13,12 @@ public:
 	struct DebugData
 	{
 		size_t loadedChunksCount = 0;
-		size_t renderedChunks = 0;
 
 		size_t totalFaces = 0;
+		size_t totalFaceCapacity = 0;
 		size_t totalFaceCapacityInBytes = 0;
-		size_t renderedFaceCount = 0;
 
-		size_t chunkDrawCommandBufferSizeInBytes = 0;
-		size_t chunkPositionBufferSizeInBytes = 0;
+		WorldRenderer::RenderStats renderStats;
 	};
 private:
 	// Settings
