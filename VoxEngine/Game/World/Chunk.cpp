@@ -2028,7 +2028,14 @@ void Chunk::collectAlignedOpaqueRenderData(std::vector<DrawArraysIndirectCommand
 		return;
 	}
 
+	bool enabledSides[6] = { true, true, true, true, true, true };
+
+	// Now the same, but with combining draw calls for enabled neighbor sides
 	size_t offset = meshData.allocatedBlock_alignedFaces.offset;
+	size_t combinedOffset = offset;
+	size_t combinedFaceCount = 0;
+	bool isCombining = false;
+
 	for (int side = 0; side < 6; side++)
 	{
 		size_t faceCount = meshData.renderAlignedOpaqueFaceCount[side];
@@ -2036,9 +2043,36 @@ void Chunk::collectAlignedOpaqueRenderData(std::vector<DrawArraysIndirectCommand
 		{
 			continue;
 		}
-		drawCommands.emplace_back(4, faceCount, 0, offset);
-		positions.push_back(position);
+
+		if (enabledSides[side])
+		{
+			if (isCombining)
+			{
+				combinedFaceCount += faceCount;
+			}
+			else
+			{
+				isCombining = true;
+				combinedOffset = offset;
+				combinedFaceCount = faceCount;
+			}
+		}
+		else
+		{
+			if (isCombining)
+			{
+				isCombining = false;
+				drawCommands.emplace_back(4, combinedFaceCount, 0, combinedOffset);
+				positions.push_back(position);
+			}
+		}
+
 		offset += faceCount;
+	}
+	if (isCombining)
+	{
+		drawCommands.emplace_back(4, combinedFaceCount, 0, combinedOffset);
+		positions.push_back(position);
 	}
 }
 
