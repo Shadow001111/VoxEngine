@@ -1,42 +1,83 @@
 #include "MeshData.h"
 
-ChunkMeshData::ChunkMeshData()
-{
-}
-
-ChunkMeshData::~ChunkMeshData()
-{}
-
 void ChunkMeshData::resetRenderFaceCount()
 {
-	renderAlignedOpaqueFaceCount = 0;
-	renderAlignedTranslucentFaceCount = 0;
+	renderAlignedOpaqueFaceCount.fill(0);
+	renderAlignedTranslucentFaceCount.fill(0);
 	renderNonAlignedOpaqueFaceCount = 0;
 	renderNonAlignedTranslucentFaceCount = 0;
 }
 
 void ChunkMeshData::updateRenderFaceCount()
 {
-	renderAlignedOpaqueFaceCount = instancesStorage.alignedOpaque.size();
-	renderAlignedTranslucentFaceCount = instancesStorage.alignedTranslucent.size();
+	for (size_t i = 0; i < 6; i++)
+	{
+		renderAlignedOpaqueFaceCount[i] = instancesStorage.alignedOpaque[i].size();
+		renderAlignedTranslucentFaceCount[i] = instancesStorage.alignedTranslucent[i].size();
+	}
 	renderNonAlignedOpaqueFaceCount = instancesStorage.nonAlignedOpaque.size();
 	renderNonAlignedTranslucentFaceCount = instancesStorage.nonAlignedTranslucent.size();
 }
 
 void ChunkMeshData::clearInstances()
 {
-	instancesStorage.alignedOpaque.clear();
-	instancesStorage.alignedTranslucent.clear();
+	for (auto& vec : instancesStorage.alignedOpaque)
+	{
+		vec.clear();
+	}
+	for (auto& vec : instancesStorage.alignedTranslucent)
+	{
+		vec.clear();
+	}
 	instancesStorage.nonAlignedOpaque.clear();
 	instancesStorage.nonAlignedTranslucent.clear();
+}
+
+size_t ChunkMeshData::getAlignedOpaqueFaceCount() const
+{
+	size_t count = 0;
+	for (const auto& vec : instancesStorage.alignedOpaque)
+	{
+		count += vec.size();
+	}
+	return count;
+}
+
+size_t ChunkMeshData::getAlignedTranslucentFaceCount() const
+{
+	size_t count = 0;
+	for (const auto& vec : instancesStorage.alignedTranslucent)
+	{
+		count += vec.size();
+	}
+	return count;
+}
+
+size_t ChunkMeshData::getRenderFaceCount() const
+{
+	size_t count = 0;
+	for (const auto& cnt : renderAlignedOpaqueFaceCount)
+	{
+		count += cnt;
+	}
+	for (const auto& cnt : renderAlignedTranslucentFaceCount)
+	{
+		count += cnt;
+	}
+	count += renderNonAlignedOpaqueFaceCount;
+	count += renderNonAlignedTranslucentFaceCount;
+	return count;
 }
 
 ChunkMeshData::InstancesStorage& ChunkMeshData::InstancesStorage::operator=(InstancesStorage&& other) noexcept
 {
 	if (this != &other)
 	{
-		alignedOpaque = std::move(other.alignedOpaque);
-		alignedTranslucent = std::move(other.alignedTranslucent);
+		for (size_t i = 0; i < 6; i++)
+		{
+			alignedOpaque[i] = std::move(other.alignedOpaque[i]);
+			alignedTranslucent[i] = std::move(other.alignedTranslucent[i]);
+		}
 
 		nonAlignedOpaque = std::move(other.nonAlignedOpaque);
 		nonAlignedTranslucent = std::move(other.nonAlignedTranslucent);

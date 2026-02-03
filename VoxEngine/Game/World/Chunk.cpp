@@ -1753,7 +1753,7 @@ void Chunk::updateMesh()
 					uint32_t faceTransformation = hash & transformationBitMasks[(size_t)textureSlot.transformation];
 
 					// Add new face
-					auto& instances = textureSlot.isTranslucent ? newInstances.alignedTranslucent : newInstances.alignedOpaque;
+					auto& instances = textureSlot.isTranslucent ? newInstances.alignedTranslucent[face.normal] : newInstances.alignedOpaque[face.normal];
 					instances.emplace_back(
 						pos.x, pos.y, pos.z,
 						face.normal,
@@ -1931,24 +1931,56 @@ void Chunk::sendMeshesToGPU()
 
 		if (opaqueFaceCount > 0)
 		{
-			alignedInstancesVBO.write(
-				chunkMesh->instancesStorage.alignedOpaque.data(),
-				opaqueFaceCount * sizeof(AlignedBlockFace),
-				chunkMesh->allocatedBlock_alignedFaces.offset * sizeof(AlignedBlockFace)
-			);
+			//alignedInstancesVBO.write(
+			//	chunkMesh->instancesStorage.alignedOpaque.data(),
+			//	opaqueFaceCount * sizeof(AlignedBlockFace),
+			//	chunkMesh->allocatedBlock_alignedFaces.offset * sizeof(AlignedBlockFace)
+			//);
+
+			size_t offset = chunkMesh->allocatedBlock_alignedFaces.offset;
+			for (size_t i = 0; i < 6; i++)
+			{
+				size_t sideFaceCount = chunkMesh->instancesStorage.alignedOpaque[i].size();
+				if (sideFaceCount == 0)
+				{
+					continue;
+				}
+				alignedInstancesVBO.write(
+					chunkMesh->instancesStorage.alignedOpaque[i].data(),
+					sideFaceCount * sizeof(AlignedBlockFace),
+					offset * sizeof(AlignedBlockFace)
+				);
+				offset += sideFaceCount;
+			}
 		}
 
 		if (translucentFaceCount > 0)
 		{
-			alignedInstancesVBO.write(
-				chunkMesh->instancesStorage.alignedTranslucent.data(),
-				translucentFaceCount * sizeof(AlignedBlockFace),
-				(chunkMesh->allocatedBlock_alignedFaces.offset + opaqueFaceCount) * sizeof(AlignedBlockFace)
-			);
+			//alignedInstancesVBO.write(
+			//	chunkMesh->instancesStorage.alignedTranslucent.data(),
+			//	translucentFaceCount * sizeof(AlignedBlockFace),
+			//	(chunkMesh->allocatedBlock_alignedFaces.offset + opaqueFaceCount) * sizeof(AlignedBlockFace)
+			//);
+
+			size_t offset = chunkMesh->allocatedBlock_alignedFaces.offset + opaqueFaceCount;
+			for (size_t i = 0; i < 6; i++)
+			{
+				size_t sideFaceCount = chunkMesh->instancesStorage.alignedTranslucent[i].size();
+				if (sideFaceCount == 0)
+				{
+					continue;
+				}
+				alignedInstancesVBO.write(
+					chunkMesh->instancesStorage.alignedTranslucent[i].data(),
+					sideFaceCount * sizeof(AlignedBlockFace),
+					offset * sizeof(AlignedBlockFace)
+				);
+				offset += sideFaceCount;
+			}
 		}
 	}
 
-	// Write aligned instances data
+	// Write non-aligned instances data
 	for (ChunkMeshData* chunkMesh : pendingMeshUploads)
 	{
 		if (!chunkMesh->nonAlignedCreated)
@@ -1991,24 +2023,45 @@ void Chunk::sendMeshesToGPU()
 
 void Chunk::collectAlignedOpaqueRenderData(std::vector<DrawArraysIndirectCommand>& drawCommands, std::vector<glm::ivec3>& positions) const
 {
-	size_t faceCount = meshData.renderAlignedOpaqueFaceCount;
-	if (!meshData.alignedCreated || faceCount == 0)
+	if (!meshData.alignedCreated)
 	{
 		return;
 	}
-	drawCommands.emplace_back(4, faceCount, 0, meshData.allocatedBlock_alignedFaces.offset);
-	positions.push_back(position);
+
+	size_t offset = meshData.allocatedBlock_alignedFaces.offset;
+	for (int side = 0; side < 6; side++)
+	{
+		size_t faceCount = meshData.renderAlignedOpaqueFaceCount[side];
+		if (faceCount == 0)
+		{
+			continue;
+		}
+		drawCommands.emplace_back(4, faceCount, 0, offset);
+		positions.push_back(position);
+		offset += faceCount;
+	}
 }
 
 void Chunk::collectAlignedTranslucentRenderData(std::vector<DrawArraysIndirectCommand>& drawCommands, std::vector<glm::ivec3>& positions) const
 {
-	size_t faceCount = meshData.renderAlignedTranslucentFaceCount;
-	if (!meshData.alignedCreated || faceCount == 0)
+	if (!meshData.alignedCreated)
 	{
 		return;
 	}
-	drawCommands.emplace_back(4, faceCount, 0, meshData.allocatedBlock_alignedFaces.offset + meshData.renderAlignedOpaqueFaceCount);
-	positions.push_back(position);
+
+	size_t offset = meshData.allocatedBlock_alignedFaces.offset + meshData.getAlignedOpaqueFaceCount();
+
+	for (int side = 0; side < 6; side++)
+	{
+		size_t faceCount = meshData.renderAlignedTranslucentFaceCount[side];
+		if (faceCount == 0)
+		{
+			continue;
+		}
+		drawCommands.emplace_back(4, faceCount, 0, offset);
+		positions.push_back(position);
+		offset += faceCount;
+	}
 }
 
 void Chunk::collectNonAlignedOpaqueRenderData(std::vector<DrawArraysIndirectCommand>& drawCommands, std::vector<glm::ivec3>& positions) const
