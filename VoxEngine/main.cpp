@@ -547,7 +547,7 @@ int gameFunc()
         }
         world.sendChunkMeshesToGPU();
 
-        //
+        // Inventory
         {
             static bool previousInventoryOpened = false;
             bool opened = player.isInventoryOpened();
@@ -582,6 +582,9 @@ int gameFunc()
             // Camera
             player.interpolateCameraTransform(worldUpdateTimer.getAccumulatedTimeInPercent());
             player.getCamera().setAspectRatio(wnd.getAspectRatio());
+
+            // Pre-render update
+            world.preRenderUpdate(player.getCamera());
 
             // Rendering world
             if (framebuffer.isComplete())

@@ -140,6 +140,11 @@ void World::update(float deltaTime)
 	}
 }
 
+void World::preRenderUpdate(const Camera& camera)
+{
+	chunkManager.preRenderUpdate(camera.getPosition());
+}
+
 void World::sendChunkMeshesToGPU()
 {
 	chunkManager.sendChunkMeshesToGPU();

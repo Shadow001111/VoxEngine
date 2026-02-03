@@ -36,6 +36,8 @@ public:
 
     void update();
 
+    void preRenderUpdate(const glm::dvec3& cameraPosition);
+
     void sendChunkMeshesToGPU();
 
     Chunk* getChunkAt(const glm::ivec3& position) const;
@@ -74,6 +76,8 @@ private:
 
     glm::ivec3 lastChunkLoaderPos = { INT_MAX, INT_MAX, INT_MAX };
     int lastChunkLoadingDistance = -1;
+
+    glm::ivec3 lastCameraChunkPos = { INT_MAX, INT_MAX, INT_MAX };
 
     std::vector<std::unique_ptr<BaseChunkLoader>> chunkLoaders;
 };

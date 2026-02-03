@@ -124,6 +124,7 @@ private:
 
 	// Mesh
 	ChunkMeshData meshData;
+	std::array<bool, 6> enabledAlignedOpaqueFaceSides; // TODO: maybe use bitset
 	static std::vector<ChunkMeshData*> pendingMeshUploads;
 
 	// Processing fence. I tried global processing system. It reduces memory usage because chunk doesn't have its own processing fence.
@@ -196,6 +197,7 @@ public:
 	void markMeshDirty();
 	void askForMeshUpload();
 	static void sendMeshesToGPU();
+	void updateEnabledMeshSides(const glm::ivec3& cameraChunkPosition);
 
 	// Render
 	void collectAlignedOpaqueRenderData(std::vector<DrawArraysIndirectCommand>& drawCommands, std::vector<glm::ivec3>& positions) const;

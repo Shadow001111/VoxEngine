@@ -76,6 +76,8 @@ void Chunk::init(const glm::ivec3& position, Chunk** neighbors)
 
 	// Should be separate from meshData.dirty
 	meshDirty = false;
+
+	enabledAlignedOpaqueFaceSides.fill(true);
 	
 	ASSERT(changedBlocks.empty());
 }
@@ -2019,7 +2021,17 @@ void Chunk::sendMeshesToGPU()
 		chunkMesh->processingFence.stopProcessing();
 	}
 	pendingMeshUploads.clear();
-}	 
+}
+
+void Chunk::updateEnabledMeshSides(const glm::ivec3& cameraChunkPosition)
+{
+	enabledAlignedOpaqueFaceSides[0] = cameraChunkPosition.x <= position.x;
+	enabledAlignedOpaqueFaceSides[1] = cameraChunkPosition.x >= position.x;
+	enabledAlignedOpaqueFaceSides[2] = cameraChunkPosition.y <= position.y;
+	enabledAlignedOpaqueFaceSides[3] = cameraChunkPosition.y >= position.y;
+	enabledAlignedOpaqueFaceSides[4] = cameraChunkPosition.z <= position.z;
+	enabledAlignedOpaqueFaceSides[5] = cameraChunkPosition.z >= position.z;
+}
 
 void Chunk::collectAlignedOpaqueRenderData(std::vector<DrawArraysIndirectCommand>& drawCommands, std::vector<glm::ivec3>& positions) const
 {
@@ -2028,7 +2040,7 @@ void Chunk::collectAlignedOpaqueRenderData(std::vector<DrawArraysIndirectCommand
 		return;
 	}
 
-	bool enabledSides[6] = { true, true, true, true, true, true };
+	const auto& enabledSides = enabledAlignedOpaqueFaceSides;
 
 	// Now the same, but with combining draw calls for enabled neighbor sides
 	size_t offset = meshData.allocatedBlock_alignedFaces.offset;

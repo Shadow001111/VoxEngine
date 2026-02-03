@@ -53,6 +53,8 @@ public:
 
 	void update(float deltaTime);
 
+	void preRenderUpdate(const Camera& camera);
+
 	void sendChunkMeshesToGPU();
 
 	void render(const Camera& camera, const FrameBuffer& FBO, const RaycastResult& raycast);

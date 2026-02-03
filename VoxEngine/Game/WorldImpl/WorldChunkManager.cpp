@@ -118,6 +118,24 @@ void WorldChunkManager::update()
 	updateChunkMeshes();
 }
 
+void WorldChunkManager::preRenderUpdate(const glm::dvec3& cameraPosition)
+{
+	// Check if camera chunk position changed
+	glm::ivec3 cameraChunkPos = glm::ivec3(glm::floor(cameraPosition)) >> CHUNK_SIZE_LOG2;
+	if (cameraChunkPos == lastCameraChunkPos)
+	{
+		return;
+	}
+	lastCameraChunkPos = cameraChunkPos;
+
+	// Update each chunk
+	PROFILE_SCOPE("Update chunk mesh sides", ProfileCategory::General);
+	for (auto& [pos, chunk] : chunks)
+	{
+		chunk->updateEnabledMeshSides(cameraChunkPos);
+	}
+}
+
 void WorldChunkManager::sendChunkMeshesToGPU()
 {
 	// Send only dirty meshes
