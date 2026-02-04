@@ -2042,7 +2042,7 @@ void Chunk::collectAlignedOpaqueRenderData(AlignedFaceRenderDataCollectionParams
 	const auto& enabledSides = enabledAlignedOpaqueFaceSides;
 	unsigned int offset = meshData.allocatedBlock_alignedFaces.offset; // TODO: Make block allocator use uint32_t instead of size_t (make it configurable)
 
-	const size_t positionIndex = renderData.positions.size();
+	const unsigned int positionIndex = renderData.positions.size();
 
 	bool anySide = false;
 
@@ -2083,6 +2083,8 @@ void Chunk::collectAlignedTranslucentRenderData(AlignedFaceRenderDataCollectionP
 
 	unsigned int offset = meshData.allocatedBlock_alignedFaces.offset + meshData.getAlignedOpaqueFaceCount();
 
+	const unsigned int positionIndex = renderData.positions.size();
+
 	bool anySide = false;
 	for (int side = 0; side < 6; side++)
 	{
@@ -2098,7 +2100,7 @@ void Chunk::collectAlignedTranslucentRenderData(AlignedFaceRenderDataCollectionP
 			static_cast<unsigned int>(0),
 			offset
 		);
-		renderData.positionIndices.push_back(renderData.positions.size());
+		renderData.positionIndices.push_back(positionIndex);
 		renderData.normalPacker.addNormal(side);
 		anySide = true;
 
