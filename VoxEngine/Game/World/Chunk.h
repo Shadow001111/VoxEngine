@@ -82,6 +82,14 @@ public:
 		BuildingLight,
 		LightsBuilt
 	};
+
+	struct AlignedFaceRenderDataCollectionParams
+	{
+		std::vector<DrawArraysIndirectCommand>& drawCommands;
+		std::vector<glm::ivec3>& positions;
+		std::vector<uint32_t>& positionIndices;
+		ChunkNormalPacker& normalPacker;
+	};
 private:
 	enum Flag : uint8_t
 	{
@@ -105,7 +113,7 @@ private:
 	BlockId blocks[CHUNK_VOLUME];
 	LightLevel lightLevels[CHUNK_VOLUME];
 
-	//  Light propagation
+	// Light propagation
 	ChunkSpecializedQueue<LightNode> blockLightBfsQueue;
 	mutable std::mutex blockLightBfsMutex;
 
@@ -201,19 +209,9 @@ public:
 	void updateEnabledMeshSides(const glm::ivec3& cameraChunkPosition);
 
 	// Render
-	void collectAlignedOpaqueRenderData(
-		std::vector<DrawArraysIndirectCommand>& drawCommands,
-		std::vector<glm::ivec3>& positions,
-		std::vector<uint32_t>& positionIndices,
-		ChunkNormalPacker& normalPacker
-	) const;
+	void collectAlignedOpaqueRenderData(AlignedFaceRenderDataCollectionParams& renderData) const;
 
-	void collectAlignedTranslucentRenderData(
-		std::vector<DrawArraysIndirectCommand>& drawCommands,
-		std::vector<glm::ivec3>& positions,
-		std::vector<uint32_t>& positionIndices,
-		ChunkNormalPacker& normalPacker
-	) const;
+	void collectAlignedTranslucentRenderData(AlignedFaceRenderDataCollectionParams& renderData) const;
 
 	void collectNonAlignedOpaqueRenderData(
 		std::vector<DrawArraysIndirectCommand>& drawCommands,

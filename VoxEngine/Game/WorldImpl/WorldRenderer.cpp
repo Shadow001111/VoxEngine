@@ -255,9 +255,18 @@ void WorldRenderer::renderOpaqueChunks()
 		chunkPositions.clear();
 		chunkPositionIndices.clear();
 		chunkNormalPacker.clear();
+
+		Chunk::AlignedFaceRenderDataCollectionParams renderData =
+		{
+			chunkDrawCommands,
+			chunkPositions,
+			chunkPositionIndices,
+			chunkNormalPacker
+		};
+
 		for (const auto& info : chunksToRender)
 		{
-			info.chunk->collectAlignedOpaqueRenderData(chunkDrawCommands, chunkPositions, chunkPositionIndices, chunkNormalPacker);
+			info.chunk->collectAlignedOpaqueRenderData(renderData);
 		}
 	}
 
@@ -344,9 +353,18 @@ void WorldRenderer::renderTranslucentChunks()
 		chunkPositions.clear();
 		chunkPositionIndices.clear();
 		chunkNormalPacker.clear();
+
+		Chunk::AlignedFaceRenderDataCollectionParams renderData =
+		{
+			chunkDrawCommands,
+			chunkPositions,
+			chunkPositionIndices,
+			chunkNormalPacker
+		};
+
 		for (const auto& info : chunksToRender)
 		{
-			info.chunk->collectAlignedTranslucentRenderData(chunkDrawCommands, chunkPositions, chunkPositionIndices, chunkNormalPacker);
+			info.chunk->collectAlignedTranslucentRenderData(renderData);
 		}
 	}
 
