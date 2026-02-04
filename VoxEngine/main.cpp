@@ -23,12 +23,6 @@
 #include <iomanip>
 #include <glm/gtc/matrix_transform.hpp>
 
-#ifdef NDEBUG
-constexpr int CHUNK_LOAD_DISTANCE = 8;
-#else
-constexpr int CHUNK_LOAD_DISTANCE = 3;
-#endif
-
 
 static std::string formatSize(size_t value)
 {
@@ -415,7 +409,13 @@ void check()
 
 int gameFunc()
 {
-    constexpr float CAMERA_FAR_PLANE = (CHUNK_LOAD_DISTANCE + 0.5f) * CHUNK_SIZE;
+#ifdef NDEBUG
+    const int CHUNK_LOAD_DISTANCE = 24;
+#else
+    const int CHUNK_LOAD_DISTANCE = 3;
+#endif
+
+    const float CAMERA_FAR_PLANE = (CHUNK_LOAD_DISTANCE + 0.5f) * CHUNK_SIZE;
 
     // Window
     WindowManager wnd({ 1280, 720, "VoxEngine", true, true, true });
@@ -489,6 +489,7 @@ int gameFunc()
     UpdateTimer worldUpdateTimer(20.0); worldUpdateTimer.setUpdateToTrue();
     UpdateTimer profilerUpdateTimer(1.0 / 1.0);
     UpdateTimer frequentUIDataUpdateTimer(1.0);
+    UpdateTimer worldUIMetricsUpdateTimer(5.0);
 
     // Frequent UI data
     DebugUIMetrics uiMetrics;
@@ -520,6 +521,7 @@ int gameFunc()
         worldUpdateTimer.addTime(deltaTime);
         profilerUpdateTimer.addTime(deltaTime);
         frequentUIDataUpdateTimer.addTime(deltaTime);
+        worldUIMetricsUpdateTimer.addTime(deltaTime);
 
         // Sounds
         SoundManager::getInstance().update();
@@ -536,16 +538,17 @@ int gameFunc()
                 world.update((float)worldUpdateTimer.getUpdateInterval());
             }
 
-            if (wnd.isKeyPressed(GLFW_KEY_P))
-            {
-                world.rebuildAllChunkMeshes();
-                std::cout << "World: All chunks meshes are rebuild.\n";
-            }
-
-            if (wnd.isKeyPressed(GLFW_KEY_O))
-            {
-                world.debugMethod();
-            }
+			// TODO: Redo with input manager
+            //if (wnd.isKeyPressed(GLFW_KEY_P))
+            //{
+            //    world.rebuildAllChunkMeshes();
+            //    std::cout << "World: All chunks meshes are rebuild.\n";
+            //}
+            //
+            //if (wnd.isKeyPressed(GLFW_KEY_O))
+            //{
+            //    world.debugMethod();
+            //}
         }
         world.sendChunkMeshesToGPU();
 
@@ -591,12 +594,17 @@ int gameFunc()
             // Rendering world
             if (framebuffer.isComplete())
             {
+                // Set draw buffers
                 framebuffer.setDrawBuffers({ "color", "geometryAlpha", "accumulation", "revealage" });
 
+                // Render world
                 world.render(player.getCamera(), framebuffer, player.raycastResult);
 
                 // Update UI metrics with world debug data
-                uiMetrics.worldDebugData = world.getDebugData();
+				if (worldUIMetricsUpdateTimer.shouldUpdate())
+                {
+                    uiMetrics.worldDebugData = world.getDebugData();
+                }
 
                 // Render UI
                 const float aspectRatio = wnd.getAspectRatio();

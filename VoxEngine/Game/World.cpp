@@ -308,7 +308,6 @@ const World::DebugData& World::getDebugData() const
 	for (const auto& pair : chunks)
 	{
 		const Chunk* chunk = pair.second;
-	
 		debugData.totalFaces += chunk->getFaceCount();
 	}
 
