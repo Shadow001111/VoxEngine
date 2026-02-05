@@ -67,7 +67,6 @@ struct BlockVertexLightData
 
 struct BlockData;
 
-// TODO: Try to reduce copying params in functions
 class Chunk
 {
 public:
@@ -150,7 +149,7 @@ public:
 	static std::filesystem::path CHUNK_SAVES_PATH;
 
 	// Constructors, destructors, assigments
-	Chunk();
+	Chunk() = default;
 	~Chunk();
 	Chunk(const Chunk&) = delete;
 	Chunk& operator=(const Chunk&) = delete;
@@ -171,13 +170,13 @@ public:
 	void updateStructureBlocks();
 private:
 	void generateTree(const glm::ivec3& position);
-private:
+
 	// IO
 	void loadBlocks();
 	void saveBlocks();
 
 	bool filterChanges(BlockId BlockId, const std::vector<uint16_t>& indices, const BlockData*& outBlockData) const;
-private:
+
 	// Connectivity
 	bool findFloodFillStartIndex(uint16_t& startIndex, const bool* floodFillMask) const;
 	void computeConnectivity();
@@ -238,7 +237,7 @@ public:
 private:
 	// Mesh?
 	void markBlockMeshDirty(int x, int y, int z);
-private:
+
 	// Mesh building
 	void calculateVertexAmbientOcclusionAndLight(unsigned int& ao, LightLevel& light, LightLevel centerLight, const std::pair<LightLevel, bool>& side1, const std::pair<LightLevel, bool>& side2, const std::pair<LightLevel, bool>& corner) const;
 	void calculateFaceAmbientOcclusionAndLight(unsigned int& ao, unsigned int& light, int x, int y, int z, int normal, LightLevel centerFaceLight) const;

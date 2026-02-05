@@ -260,10 +260,10 @@ void WorldRenderer::renderOpaqueChunks()
 				renderStats.renderedChunkFaceCount += command.instanceCount;
 			}
 
-			chunkDrawCommandBuffer.allocateMemory(drawCount * sizeof(DrawArraysIndirectCommand));
+			chunkDrawCommandBuffer.allocateMemoryIfNeeded(drawCount * sizeof(DrawArraysIndirectCommand));
 			chunkDrawCommandBuffer.write(chunkDrawCommands.data(), drawCount * sizeof(DrawArraysIndirectCommand));
 
-			chunkPositionSSBO.allocateMemory(drawCount * sizeof(glm::ivec3));
+			chunkPositionSSBO.allocateMemoryIfNeeded(drawCount * sizeof(glm::ivec3));
 			chunkPositionSSBO.write(chunkPositions.data(), drawCount * sizeof(glm::ivec3));
 
 			alignedOpaqueFaceShader.use();
@@ -293,10 +293,10 @@ void WorldRenderer::renderOpaqueChunks()
 				renderStats.renderedChunkFaceCount += command.instanceCount;
 			}
 
-			chunkDrawCommandBuffer.allocateMemory(drawCount * sizeof(DrawArraysIndirectCommand));
+			chunkDrawCommandBuffer.allocateMemoryIfNeeded(drawCount * sizeof(DrawArraysIndirectCommand));
 			chunkDrawCommandBuffer.write(chunkDrawCommands.data(), drawCount * sizeof(DrawArraysIndirectCommand));
 
-			chunkPositionSSBO.allocateMemory(drawCount * sizeof(glm::ivec3));
+			chunkPositionSSBO.allocateMemoryIfNeeded(drawCount * sizeof(glm::ivec3));
 			chunkPositionSSBO.write(chunkPositions.data(), drawCount * sizeof(glm::ivec3));
 
 			nonAlignedOpaqueFaceShader.use();
@@ -338,10 +338,10 @@ void WorldRenderer::renderTranslucentChunks()
 				renderStats.renderedChunkFaceCount += command.instanceCount;
 			}
 
-			chunkDrawCommandBuffer.allocateMemory(drawCount * sizeof(DrawArraysIndirectCommand));
+			chunkDrawCommandBuffer.allocateMemoryIfNeeded(drawCount * sizeof(DrawArraysIndirectCommand));
 			chunkDrawCommandBuffer.write(chunkDrawCommands.data(), drawCount * sizeof(DrawArraysIndirectCommand));
 
-			chunkPositionSSBO.allocateMemory(drawCount * sizeof(glm::ivec3));
+			chunkPositionSSBO.allocateMemoryIfNeeded(drawCount * sizeof(glm::ivec3));
 			chunkPositionSSBO.write(chunkPositions.data(), drawCount * sizeof(glm::ivec3));
 
 			alignedTranslucentFaceShader.use();
@@ -371,10 +371,10 @@ void WorldRenderer::renderTranslucentChunks()
 				renderStats.renderedChunkFaceCount += command.instanceCount;
 			}
 
-			chunkDrawCommandBuffer.allocateMemory(drawCount * sizeof(DrawArraysIndirectCommand));
+			chunkDrawCommandBuffer.allocateMemoryIfNeeded(drawCount * sizeof(DrawArraysIndirectCommand));
 			chunkDrawCommandBuffer.write(chunkDrawCommands.data(), drawCount * sizeof(DrawArraysIndirectCommand));
 
-			chunkPositionSSBO.allocateMemory(drawCount * sizeof(glm::ivec3));
+			chunkPositionSSBO.allocateMemoryIfNeeded(drawCount * sizeof(glm::ivec3));
 			chunkPositionSSBO.write(chunkPositions.data(), drawCount * sizeof(glm::ivec3));
 
 			nonAlignedTranslucentFaceShader.use();

@@ -36,6 +36,13 @@ public:
     void copyRangeFrom(const ImmutableBuffer& src, size_t srcOffset, size_t dstOffset, size_t size) const;
     void clearData(GLenum internalFormat, GLenum format, GLenum type, const void* data) const;
 
+    void* map(GLenum access);
+    void* mapRange(GLintptr offset, GLsizeiptr length, GLbitfield access);
+    void* mapPersistent(GLbitfield access, GLsizeiptr size);
+
+    void unmap();
+    void flushMappedRange(GLintptr offset, GLsizeiptr length);
+
     GLuint getID() const { return id; }
     size_t getCapacity() const { return capacity; }
     GLbitfield getFlags() const { return flags; }

@@ -1,9 +1,11 @@
 #include "ImmutableBuffer.h"
 #include <iostream>
 
+#define BUFFER_SAFETY_CHECKS 1
+
 ImmutableBuffer::~ImmutableBuffer()
 {
-    if (id) glDeleteBuffers(1, &id);
+    destroy();
 }
 
 ImmutableBuffer::ImmutableBuffer(ImmutableBuffer&& other) noexcept :
@@ -46,23 +48,27 @@ void ImmutableBuffer::create(GLenum target)
 
 void ImmutableBuffer::destroy()
 {
-    if (id) glDeleteBuffers(1, &id);
+    if (id)
+    {
+        glDeleteBuffers(1, &id);
+        id = 0;
+    }
 }
 
 void ImmutableBuffer::allocateStorage(size_t size, GLbitfield flags, const void* data)
 {
+#if BUFFER_SAFETY_CHECKS
     if (id == 0)
     {
         std::cerr << "[ImmutableBuffer][allocateStorage]: Buffer not created! Call create() first.\n";
         return;
-    }
-
+	}
     if (capacity > 0)
     {
         std::cerr << "[ImmutableBuffer][allocateStorage]: Storage already allocated! Cannot resize immutable buffer.\n";
         return;
     }
-
+#endif
     capacity = size;
     this->flags = flags;
     glNamedBufferStorage(id, capacity, data, flags);
@@ -108,35 +114,46 @@ void ImmutableBuffer::swap(ImmutableBuffer& other) noexcept
 
 void ImmutableBuffer::write(const void* data, size_t dataSize, size_t offset) const
 {
+#if BUFFER_SAFETY_CHECKS
+    if (id == 0)
+    {
+        std::cerr << "[ImmutableBuffer][write]: Buffer not created! Call create() first.\n";
+        return;
+    }
     if (data == nullptr)
     {
-        std::cerr << "[ImmutableBuffer][write]: 'data' is nullptr\n";
+        std::cerr << "[ImmutableBuffer][write]: 'data' is nullptr.\n";
         return;
     }
-    else if (offset + dataSize > capacity)
+    if (offset + dataSize > capacity)
     {
-        std::cerr << "[ImmutableBuffer][write]: Index out of bounds! Attempted write end = "
-            << (offset + dataSize) << ", capacity = " << capacity << "\n";
+		std::cerr << "[ImmutableBuffer][write]: Index out of bounds! Start: " << offset << ", Size: " << dataSize << ", Capacity: " << capacity << ".\n";
         return;
     }
-    else if ((flags & GL_DYNAMIC_STORAGE_BIT) == 0)
-    {
-        std::cerr << "[ImmutableBuffer][write]: Buffer created without GL_DYNAMIC_STORAGE_BIT. Cannot update after creation.\n";
-        return;
-    }
-
+#endif
     glNamedBufferSubData(id, offset, dataSize, data);
 }
 
-// TODO: Add checks for flags
+// TODO: Add more checks for flags
 void ImmutableBuffer::copyRangeFrom(const ImmutableBuffer& src, size_t srcOffset, size_t dstOffset, size_t size) const
 {
-    if (srcOffset + size > src.capacity || dstOffset + size > capacity)
+#if BUFFER_SAFETY_CHECKS
+    if (id == 0)
     {
-        std::cerr << "[ImmutableBuffer][copyRangeFrom]: Range exceeds buffer capacity\n";
+        std::cerr << "[ImmutableBuffer][copyRangeFrom]: Destination buffer not created! Call create() first.\n";
         return;
     }
-
+    if (src.getID() == 0)
+    {
+        std::cerr << "[ImmutableBuffer][copyRangeFrom]: Source buffer not created! Call create() first.\n";
+        return;
+    }
+    if (srcOffset + size > src.capacity || dstOffset + size > capacity)
+    {
+        std::cerr << "[ImmutableBuffer][copyRangeFrom]: Range exceeds buffer capacity.\n";
+        return;
+    }
+#endif
     glCopyNamedBufferSubData(src.getID(), id,
         static_cast<GLintptr>(srcOffset),
         static_cast<GLintptr>(dstOffset),
@@ -146,4 +163,108 @@ void ImmutableBuffer::copyRangeFrom(const ImmutableBuffer& src, size_t srcOffset
 void ImmutableBuffer::clearData(GLenum internalFormat, GLenum format, GLenum type, const void* data) const
 {
     glClearNamedBufferData(id, internalFormat, format, type, data);
+}
+
+void* ImmutableBuffer::map(GLenum access)
+{
+#if BUFFER_SAFETY_CHECKS
+    if (id == 0)
+    {
+        std::cerr << "[ImmutableBuffer][map]: Buffer not created! Call create() first.\n";
+        return nullptr;
+    }
+#endif
+    void* ptr = glMapNamedBuffer(id, access);
+#if BUFFER_SAFETY_CHECKS
+    if (ptr == nullptr)
+    {
+        std::cerr << "[ImmutableBuffer][ImmutableBuffer]: Failed to map buffer.\n";
+    }
+#endif
+    return ptr;
+}
+
+void* ImmutableBuffer::mapRange(GLintptr offset, GLsizeiptr length, GLbitfield access)
+{
+#if BUFFER_SAFETY_CHECKS
+    if (id == 0)
+    {
+        std::cerr << "[ImmutableBuffer][mapRange]: Buffer not created! Call create() first.\n";
+        return nullptr;
+    }
+
+    if (offset + length > capacity)
+    {
+        std::cerr << "[ImmutableBuffer][mapRange]: Index out of bounds! Start: " << offset << ", Size: " << length << ", Capacity: " << capacity << ".\n";
+        return nullptr;
+    }
+#endif
+    void* ptr = glMapNamedBufferRange(id, offset, length, access);
+#if BUFFER_SAFETY_CHECKS
+    if (!ptr)
+    {
+        std::cerr << "[ImmutableBuffer][mapRange]: Failed to map buffer.\n";
+    }
+#endif
+    return ptr;
+}
+
+void* ImmutableBuffer::mapPersistent(GLbitfield access, GLsizeiptr size)
+{
+#if BUFFER_SAFETY_CHECKS
+    if (id == 0)
+    {
+        std::cerr << "[ImmutableBuffer][mapPersistent]: Buffer not created! Call create() first.\n";
+        return nullptr;
+    }
+    if (size > capacity)
+    {
+        std::cerr << "[ImmutableBuffer][mapPersistent]: Size exceeds buffer capacity! Size: " << size << ", Capacity: " << capacity << ".\n";
+        return nullptr;
+    }
+#endif
+
+    void* ptr = glMapNamedBufferRange(id, 0, size, access | GL_MAP_PERSISTENT_BIT);
+    if (!ptr)
+    {
+#if BUFFER_SAFETY_CHECKS
+        std::cerr << "[ImmutableBuffer][mapPersistent]: Failed to map buffer.\n";
+#endif
+    }
+    return ptr;
+}
+
+void ImmutableBuffer::unmap()
+{
+#if BUFFER_SAFETY_CHECKS
+    if (id == 0)
+    {
+        std::cerr << "[ImmutableBuffer][unmap]: Buffer not created! Call create() first.\n";
+        return;
+    }
+#endif
+    GLboolean result = glUnmapNamedBuffer(id);
+#if BUFFER_SAFETY_CHECKS
+    if (result == GL_FALSE)
+    {
+        std::cerr << "[ImmutableBuffer][unmap]: Failed to unmap buffer.\n";
+    }
+#endif
+}
+
+void ImmutableBuffer::flushMappedRange(GLintptr offset, GLsizeiptr length)
+{
+#if BUFFER_SAFETY_CHECKS
+    if (id == 0)
+    {
+        std::cerr << "[ImmutableBuffer][flushMappedRange]: Buffer not created! Call create() first.\n";
+        return;
+    }
+    if (offset + length > capacity)
+    {
+        std::cerr << "[ImmutableBuffer][flushMappedRange]: Index out of bounds! Start: " << offset << ", Size: " << length << ", Capacity: " << capacity << ".\n";
+        return;
+    }
+#endif
+    glFlushMappedNamedBufferRange(id, offset, length);
 }

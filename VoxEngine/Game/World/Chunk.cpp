@@ -21,7 +21,7 @@ std::vector<ChunkMeshData*> Chunk::pendingMeshUploads;
 StructureBlockChangeManager Chunk::structureBlockChangeManager;
 std::filesystem::path Chunk::CHUNK_SAVES_PATH;
 
-int hash3(unsigned x, unsigned y, unsigned z)
+unsigned hash3(unsigned x, unsigned y, unsigned z)
 {
 	unsigned data = x * 0x27d4eb2du + y * 0x165667b1u + z * 0x1b873593u;
 	data ^= data >> 15u;
@@ -30,10 +30,6 @@ int hash3(unsigned x, unsigned y, unsigned z)
 	data *= 0xc2b2ae35u;
 	data ^= data >> 16u;
 	return data;
-}
-
-Chunk::Chunk()
-{
 }
 
 Chunk::~Chunk()
