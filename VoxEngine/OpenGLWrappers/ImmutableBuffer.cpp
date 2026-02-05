@@ -139,6 +139,33 @@ void ImmutableBuffer::write(const void* data, size_t dataSize, size_t offset) co
     glNamedBufferSubData(id, offset, dataSize, data);
 }
 
+void ImmutableBuffer::writePersistentMapped(const void* data, size_t dataSize, size_t offset) const
+{
+#if BUFFER_SAFETY_CHECKS
+    if (id == 0)
+    {
+        std::cerr << "[ImmutableBuffer][writePersistentMapped]: Buffer not created! Call create() first.\n";
+        return;
+    }
+    if (data == nullptr)
+    {
+        std::cerr << "[ImmutableBuffer][writePersistentMapped]: 'data' is nullptr.\n";
+        return;
+    }
+    if (offset + dataSize > capacity)
+    {
+        std::cerr << "[ImmutableBuffer][writePersistentMapped]: Index out of bounds! Start: " << offset << ", Size: " << dataSize << ", Capacity: " << capacity << ".\n";
+        return;
+    }
+    if (!persistentMappedPtr)
+    {
+        std::cerr << "[ImmutableBuffer][writePersistentMapped]: Buffer is not persistently mapped! Call mapPersistent() first.\n";
+        return;
+	}
+#endif
+	std::memcpy(static_cast<char*>(persistentMappedPtr) + offset, data, dataSize);
+}
+
 // TODO: Add more checks for flags
 void ImmutableBuffer::copyRangeFrom(const ImmutableBuffer& src, size_t srcOffset, size_t dstOffset, size_t size) const
 {

@@ -42,7 +42,6 @@ void Buffer::create(GLenum target, GLenum usage)
 	if (id)
 	{
 		glDeleteBuffers(1, &id);
-		persistentMappedPtr = nullptr;
 	}
 	glCreateBuffers(1, &id);
 }
@@ -53,7 +52,6 @@ void Buffer::destroy()
 	{
 		glDeleteBuffers(1, &id);
 		id = 0;
-		persistentMappedPtr = nullptr;
 	}
 }
 
@@ -107,7 +105,6 @@ void Buffer::allocateMemoryIfNeeded(size_t newSize, const void* data)
 	if (newSize > capacity)
 	{
 		capacity = newSize;
-		persistentMappedPtr = nullptr;
 		glNamedBufferData(id, capacity, data, usage);
 	}
 }
@@ -172,11 +169,6 @@ void* Buffer::map(GLenum access)
 		std::cerr << "[Buffer][map]: Buffer not created! Call create() first.\n";
 		return nullptr;
 	}
-	if (persistentMappedPtr)
-	{
-		std::cerr << "[Buffer][map]: Buffer is already persistently mapped! Unmap first before mapping again.\n";
-		return nullptr;
-	}
 #endif
 	void* ptr = glMapNamedBuffer(id, access);
 #if BUFFER_SAFETY_CHECKS
@@ -196,11 +188,6 @@ void* Buffer::mapRange(GLintptr offset, GLsizeiptr length, GLbitfield access)
 		std::cerr << "[Buffer][mapRange]: Buffer not created! Call create() first.\n";
 		return nullptr;
 	}
-	if (persistentMappedPtr)
-	{
-		std::cerr << "[Buffer][mapRange]: Buffer is already persistently mapped! Unmap first before mapping again.\n";
-		return nullptr;
-	}
 	if (offset + length > capacity)
 	{
 		std::cerr << "[Buffer][mapRange]: Index out of bounds! Start: " << offset << ", Size: " << length << ", Capacity: " << capacity << ".\n";
@@ -215,36 +202,6 @@ void* Buffer::mapRange(GLintptr offset, GLsizeiptr length, GLbitfield access)
 	}
 #endif
 	return ptr;
-}
-
-void* Buffer::mapPersistent(GLbitfield access, GLsizeiptr size)
-{
-#if BUFFER_SAFETY_CHECKS
-	if (id == 0)
-	{
-		std::cerr << "[Buffer][mapPersistent]: Buffer not created! Call create() first.\n";
-		return nullptr;
-	}
-	if (size > capacity)
-	{
-		std::cerr << "[Buffer][mapPersistent]: Size exceeds buffer capacity! Size: " << size << ", Capacity: " << capacity << ".\n";
-		return nullptr;
-	}
-	if (persistentMappedPtr)
-	{
-		std::cerr << "[Buffer][mapPersistent]: Buffer is already persistently mapped! Unmap first before mapping again.\n";
-		return nullptr;
-	}
-#endif
-
-	persistentMappedPtr = glMapNamedBufferRange(id, 0, size, access | GL_MAP_PERSISTENT_BIT);
-	if (!persistentMappedPtr)
-	{
-#if BUFFER_SAFETY_CHECKS
-		std::cerr << "[Buffer][mapPersistent]: Failed to map buffer.\n";
-#endif
-	}
-	return persistentMappedPtr;
 }
 
 void Buffer::unmap()
@@ -263,7 +220,6 @@ void Buffer::unmap()
 		std::cerr << "[Buffer][unmap]: Failed to unmap buffer.\n";
 	}
 #endif
-	persistentMappedPtr = nullptr;
 }
 
 void Buffer::flushMappedRange(GLintptr offset, GLsizeiptr length)

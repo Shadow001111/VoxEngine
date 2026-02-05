@@ -7,7 +7,6 @@ class Buffer
 	GLenum usage = 0;
 	GLuint id = 0;
 	size_t capacity = 0;
-	void* persistentMappedPtr = nullptr;
 public:
 	Buffer() = default;
 	~Buffer();
@@ -40,13 +39,11 @@ public:
 
 	void* map(GLenum access);
 	void* mapRange(GLintptr offset, GLsizeiptr length, GLbitfield access);
-	void* mapPersistent(GLbitfield access, GLsizeiptr size);
 
 	void unmap();
 	void flushMappedRange(GLintptr offset, GLsizeiptr length);
 
 	GLuint getID() const { return id; };
 	size_t getCapacity() const { return capacity; };
-	void* getPersistentMappedPtr() const { return persistentMappedPtr; };
 };
 
