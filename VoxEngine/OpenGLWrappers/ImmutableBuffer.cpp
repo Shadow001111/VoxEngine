@@ -141,6 +141,12 @@ void ImmutableBuffer::write(const void* data, size_t dataSize, size_t offset) co
 
 void ImmutableBuffer::writePersistentMapped(const void* data, size_t dataSize, size_t offset) const
 {
+    if (!persistentMappedPtr)
+    {
+		// Fallback to regular write if not persistently mapped
+        write(data, dataSize, offset);
+		return;
+    }
 #if BUFFER_SAFETY_CHECKS
     if (id == 0)
     {
@@ -157,11 +163,6 @@ void ImmutableBuffer::writePersistentMapped(const void* data, size_t dataSize, s
         std::cerr << "[ImmutableBuffer][writePersistentMapped]: Index out of bounds! Start: " << offset << ", Size: " << dataSize << ", Capacity: " << capacity << ".\n";
         return;
     }
-    if (!persistentMappedPtr)
-    {
-        std::cerr << "[ImmutableBuffer][writePersistentMapped]: Buffer is not persistently mapped! Call mapPersistent() first.\n";
-        return;
-	}
 #endif
 	std::memcpy(static_cast<char*>(persistentMappedPtr) + offset, data, dataSize);
 }
