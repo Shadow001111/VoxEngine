@@ -7,6 +7,7 @@ class ImmutableBuffer
     GLbitfield flags = 0;
     GLuint id = 0;
     size_t capacity = 0;
+    void* persistentMappedPtr = nullptr;
 public:
     ImmutableBuffer() = default;
     ~ImmutableBuffer();
@@ -47,4 +48,5 @@ public:
     size_t getCapacity() const { return capacity; }
     GLbitfield getFlags() const { return flags; }
     bool isMappable() const { return (flags & (GL_MAP_READ_BIT | GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT)) != 0; }
+    void* getPersistentMappedPtr() const { return persistentMappedPtr; };
 };

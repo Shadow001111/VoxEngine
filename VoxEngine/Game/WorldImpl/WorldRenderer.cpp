@@ -449,8 +449,6 @@ void WorldRenderer::renderChunks(const Camera& camera, const FrameBuffer& FBO)
 
 	// Render chunks
 	{
-		PROFILE_SCOPE("Render chunks", ProfileCategory::Render);
-
 		renderOpaqueChunks();
 		renderTranslucentChunks();
 	}

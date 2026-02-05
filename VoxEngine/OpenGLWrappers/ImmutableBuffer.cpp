@@ -42,7 +42,11 @@ ImmutableBuffer& ImmutableBuffer::operator=(ImmutableBuffer&& other) noexcept
 void ImmutableBuffer::create(GLenum target)
 {
     this->target = target;
-    if (id) glDeleteBuffers(1, &id);
+    if (id)
+    {
+        glDeleteBuffers(1, &id);
+        persistentMappedPtr = nullptr;
+    }
     glCreateBuffers(1, &id);
 }
 
@@ -52,6 +56,7 @@ void ImmutableBuffer::destroy()
     {
         glDeleteBuffers(1, &id);
         id = 0;
+        persistentMappedPtr = nullptr;
     }
 }
 
@@ -173,6 +178,11 @@ void* ImmutableBuffer::map(GLenum access)
         std::cerr << "[ImmutableBuffer][map]: Buffer not created! Call create() first.\n";
         return nullptr;
     }
+    if (persistentMappedPtr)
+    {
+        std::cerr << "[ImmutableBuffer][map]: Buffer is already persistently mapped! Unmap first before mapping again.\n";
+        return nullptr;
+	}
 #endif
     void* ptr = glMapNamedBuffer(id, access);
 #if BUFFER_SAFETY_CHECKS
@@ -192,7 +202,11 @@ void* ImmutableBuffer::mapRange(GLintptr offset, GLsizeiptr length, GLbitfield a
         std::cerr << "[ImmutableBuffer][mapRange]: Buffer not created! Call create() first.\n";
         return nullptr;
     }
-
+    if (persistentMappedPtr)
+    {
+        std::cerr << "[ImmutableBuffer][mapRange]: Buffer is already persistently mapped! Unmap first before mapping again.\n";
+        return nullptr;
+    }
     if (offset + length > capacity)
     {
         std::cerr << "[ImmutableBuffer][mapRange]: Index out of bounds! Start: " << offset << ", Size: " << length << ", Capacity: " << capacity << ".\n";
@@ -222,6 +236,11 @@ void* ImmutableBuffer::mapPersistent(GLbitfield access, GLsizeiptr size)
         std::cerr << "[ImmutableBuffer][mapPersistent]: Size exceeds buffer capacity! Size: " << size << ", Capacity: " << capacity << ".\n";
         return nullptr;
     }
+    if (persistentMappedPtr)
+    {
+        std::cerr << "[ImmutableBuffer][mapPersistent]: Buffer is already persistently mapped! Unmap first before mapping again.\n";
+        return nullptr;
+	}
 #endif
 
     void* ptr = glMapNamedBufferRange(id, 0, size, access | GL_MAP_PERSISTENT_BIT);

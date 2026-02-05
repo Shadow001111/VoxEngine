@@ -7,6 +7,7 @@ class Buffer
 	GLenum usage = 0;
 	GLuint id = 0;
 	size_t capacity = 0;
+	void* persistentMappedPtr = nullptr;
 public:
 	Buffer() = default;
 	~Buffer();
@@ -46,5 +47,6 @@ public:
 
 	GLuint getID() const { return id; };
 	size_t getCapacity() const { return capacity; };
+	void* getPersistentMappedPtr() const { return persistentMappedPtr; };
 };
 
