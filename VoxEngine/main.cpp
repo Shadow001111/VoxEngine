@@ -24,7 +24,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #ifdef NDEBUG
-constexpr int CHUNK_LOAD_DISTANCE = 4;
+constexpr int CHUNK_LOAD_DISTANCE = 16;
 #else
 constexpr int CHUNK_LOAD_DISTANCE = 3;
 #endif
@@ -89,13 +89,8 @@ struct DebugUIMetrics
 {
     double fps = 0.0;
     double frameTimeMs = 0.0;  // Accumulated milliseconds per frame
-    size_t loadedChunksCount = 0;
-    size_t renderedChunks = 0;
-    size_t totalFaces = 0;
-    size_t totalFaceCapacityInBytes = 0;
-    size_t renderedFaceCount = 0;
-    size_t chunkDrawCommandBufferSizeInBytes = 0;
-    size_t chunkPositionBufferSizeInBytes = 0;
+
+	World::DebugData worldDebugData;
 };
 
 static void setupContainerUI(ContainerUI& c)
@@ -314,6 +309,11 @@ static void renderUI(const float aspectRatio, const ContainerUI& c, const Player
 
 static void renderDebugData(const WindowManager& wnd, const Player& player, const DebugUIMetrics& metrics)
 {
+    // Get data refs
+	const auto& worldData = metrics.worldDebugData;
+	const auto& renderStats = worldData.renderStats;
+
+    //
     const float rowHeight = 0.06f;
 
     std::ostringstream ss;
@@ -328,20 +328,20 @@ static void renderDebugData(const WindowManager& wnd, const Player& player, cons
     }
 
     // Chunks
-    ss << "\nChunks: Loaded: " << formatSize(metrics.loadedChunksCount)
-        << ", Rendered: " << formatSize(metrics.renderedChunks);
+    ss << "\nChunks: Loaded: " << formatSize(worldData.loadedChunksCount)
+        << ", Rendered: " << formatSize(renderStats.renderedChunkCount);
 
     // Faces
-    ss << "\nFaces: " << formatSize(metrics.totalFaces)
-        << "/" << formatSize(metrics.totalFaceCapacityInBytes)
-        << ", Rendered: " << formatSize(metrics.renderedFaceCount);
+    ss << "\nFaces: " << formatSize(worldData.totalChunkFaceCount)
+        << "/" << formatSize(worldData.totalChunkFaceCapacity)
+        << ", Rendered: " << formatSize(renderStats.renderedChunkFaceCount);
 
     // Meshes
-    ss << "\nChunk meshes: Capacity: " << formatSizeBinary(metrics.totalFaceCapacityInBytes);
+    ss << "\nChunk meshes capacity: " << formatSizeBinary(worldData.totalChunkFaceCapacityInBytes);
 
     // Buffer sizes
-    ss << "\nChunk draw command buffer: " << formatSizeBinary(metrics.chunkDrawCommandBufferSizeInBytes);
-    ss << "\nChunk position buffer: " << formatSizeBinary(metrics.chunkPositionBufferSizeInBytes);
+    ss << "\nChunk draw command buffer: " << formatSizeBinary(renderStats.chunkDrawCommandBufferSizeInBytes);
+    ss << "\nChunk position buffer: " << formatSizeBinary(renderStats.chunkPositionBufferSizeInBytes);
 
     // TODO: Add textures and font size in bytes
 
@@ -487,6 +487,7 @@ int gameFunc()
     UpdateTimer worldUpdateTimer(20.0); worldUpdateTimer.setUpdateToTrue();
     UpdateTimer profilerUpdateTimer(1.0 / 1.0);
     UpdateTimer frequentUIDataUpdateTimer(1.0);
+    UpdateTimer worldDebugDataIntenseUpdateTimer(1.0);
 
     // Frequent UI data
     DebugUIMetrics uiMetrics;
@@ -518,6 +519,7 @@ int gameFunc()
         worldUpdateTimer.addTime(deltaTime);
         profilerUpdateTimer.addTime(deltaTime);
         frequentUIDataUpdateTimer.addTime(deltaTime);
+        worldDebugDataIntenseUpdateTimer.addTime(deltaTime);
 
         // Sounds
         SoundManager::getInstance().update();
@@ -591,14 +593,7 @@ int gameFunc()
                 world.render(player.getCamera(), framebuffer, player.raycastResult);
 
                 // Update UI metrics with world debug data
-                const World::DebugData& worldDebug = world.getDebugData();
-                uiMetrics.loadedChunksCount = worldDebug.loadedChunksCount;
-                uiMetrics.renderedChunks = worldDebug.renderedChunks;
-                uiMetrics.totalFaces = worldDebug.totalFaces;
-                uiMetrics.totalFaceCapacityInBytes = worldDebug.totalFaceCapacityInBytes;
-                uiMetrics.renderedFaceCount = worldDebug.renderedFaceCount;
-                uiMetrics.chunkDrawCommandBufferSizeInBytes = worldDebug.chunkDrawCommandBufferSizeInBytes;
-                uiMetrics.chunkPositionBufferSizeInBytes = worldDebug.chunkPositionBufferSizeInBytes;
+                uiMetrics.worldDebugData = world.getDebugData(worldDebugDataIntenseUpdateTimer.shouldUpdate());
 
                 // Render UI
                 const float aspectRatio = wnd.getAspectRatio();

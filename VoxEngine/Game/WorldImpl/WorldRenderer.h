@@ -22,16 +22,16 @@ class WorldRenderer
 
 		ChunkRenderInfo(const Chunk* chunk, unsigned int manhattanDistance);
 	};
-
+public:
 	struct RenderStats
 	{
-		size_t renderedChunks = 0;
+		size_t renderedChunkCount = 0;
 		size_t renderedChunkFaceCount = 0;
 
 		size_t chunkDrawCommandBufferSizeInBytes = 0;
 		size_t chunkPositionBufferSizeInBytes = 0;
 	};
-
+private:
 	// Types
 	using ChunkContainer = robin_hood::unordered_flat_map<glm::ivec3, Chunk*, ivec3Hasher>;
 

@@ -13,14 +13,12 @@ public:
 	struct DebugData
 	{
 		size_t loadedChunksCount = 0;
-		size_t renderedChunks = 0;
 
-		size_t totalFaces = 0;
-		size_t totalFaceCapacityInBytes = 0;
-		size_t renderedFaceCount = 0;
+		size_t totalChunkFaceCount = 0;
+		size_t totalChunkFaceCapacity = 0;
+		size_t totalChunkFaceCapacityInBytes = 0;
 
-		size_t chunkDrawCommandBufferSizeInBytes = 0;
-		size_t chunkPositionBufferSizeInBytes = 0;
+		WorldRenderer::RenderStats renderStats;
 	};
 private:
 	// Settings
@@ -74,7 +72,7 @@ public:
 	void rebuildAllChunkMeshes();
 	void debugMethod();
 
-	const DebugData& getDebugData() const;
+	const DebugData& getDebugData(bool updateIntense) const;
 
 	bool placeBlock(const RaycastResult& raycast, BlockId block);
 	bool breakBlock(const RaycastResult& raycast);

@@ -431,7 +431,7 @@ void WorldRenderer::renderChunks(const Camera& camera, const FrameBuffer& FBO)
 	// Collect chunks to render
 	collectAndSortChunksForRendering(camera);
 
-	renderStats.renderedChunks = chunksToRender.size();
+	renderStats.renderedChunkCount = chunksToRender.size();
 	renderStats.renderedChunkFaceCount = 0;
 
 	// Bind indirect buffer to allow indirect rendering
