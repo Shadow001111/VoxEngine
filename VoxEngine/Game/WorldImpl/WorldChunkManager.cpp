@@ -76,7 +76,10 @@ void WorldChunkManager::update()
 	}
 
 	// Update chunks structure blocks
+	if (Chunk::gHasStructureBlockChanges.load(std::memory_order_acquire))
 	{
+		Chunk::gHasStructureBlockChanges.store(false, std::memory_order_release);
+
 		PROFILE_SCOPE("Update chunk blocks", ProfileCategory::ChunkBlocks);
 
 		for (const auto& pair : chunks)
@@ -121,11 +124,11 @@ void WorldChunkManager::update()
 void WorldChunkManager::sendChunkMeshesToGPU()
 {
 	// Send only dirty meshes
-	if (Chunk::hasPendingMeshUploads.load(std::memory_order_acquire))
+	if (Chunk::gHasPendingMeshUploads.load(std::memory_order_acquire))
 	{
-		PROFILE_SCOPE("Check dirty meshes to send to GPU", ProfileCategory::ChunkMesh);
+		Chunk::gHasPendingMeshUploads.store(false, std::memory_order_release);
 
-		Chunk::hasPendingMeshUploads.store(false, std::memory_order_release);
+		PROFILE_SCOPE("Check dirty meshes to send to GPU", ProfileCategory::ChunkMesh);
 
 		for (auto& pair : chunks)
 		{
@@ -133,11 +136,7 @@ void WorldChunkManager::sendChunkMeshesToGPU()
 			chunk->askForMeshUpload();
 		}
 	}
-	{
-		PROFILE_SCOPE("Send chunk meshes to GPU", ProfileCategory::ChunkMesh);
-
-		Chunk::sendMeshesToGPU();
-	}
+	Chunk::sendMeshesToGPU();
 }
 
 Chunk* WorldChunkManager::getChunkAt(const glm::ivec3& position) const

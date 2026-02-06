@@ -125,7 +125,11 @@ private:
 	ChunkMeshData meshData;
 	static std::vector<ChunkMeshData*> pendingMeshUploads;
 public:
-	static std::atomic<bool> hasPendingMeshUploads;
+	static std::atomic<bool> gHasPendingMeshUploads;
+private:
+	// Other global atomic bools
+public:
+	static std::atomic<bool> gHasStructureBlockChanges; // TODO: Move this to StructureBlockChangeManager.
 private:
 
 	// Processing fence. I tried global processing system. It reduces memory usage because chunk doesn't have its own processing fence.

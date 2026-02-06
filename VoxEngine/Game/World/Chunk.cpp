@@ -17,10 +17,15 @@ thread_local ChunkSpecializedQueue<LightNode> Chunk::localBlockLightBfsQueue;
 thread_local ChunkSpecializedQueue<LightRemovalNode> Chunk::localBlockLightRemovalBfsQueue;
 thread_local ChunkSpecializedQueue<LightNode> Chunk::localSkyLightBfsQueue;
 thread_local ChunkSpecializedQueue<LightRemovalNode> Chunk::localSkyLightRemovalBfsQueue;
+
 std::vector<ChunkMeshData*> Chunk::pendingMeshUploads;
-std::atomic<bool> Chunk::hasPendingMeshUploads{ false };
+std::atomic<bool> Chunk::gHasPendingMeshUploads{ false };
 StructureBlockChangeManager Chunk::structureBlockChangeManager;
+
+std::atomic<bool> Chunk::gHasStructureBlockChanges{ false };
+
 std::filesystem::path Chunk::CHUNK_SAVES_PATH;
+
 
 unsigned hash3(unsigned x, unsigned y, unsigned z)
 {
@@ -411,6 +416,7 @@ void Chunk::generateTree(const glm::ivec3& rootPosition)
 	int leavesStart = rootPosition.y + treeHeight - 2;
 	int leavesEnd = rootPosition.y + treeHeight + 2;
 
+	bool hasReachedOtherChunk = false;
 	for (int ly = leavesStart; ly <= leavesEnd; ly++)
 	{
 		for (int lx = rootPosition.x - 2; lx <= rootPosition.x + 2; lx++)
@@ -456,9 +462,15 @@ void Chunk::generateTree(const glm::ivec3& rootPosition)
 					size_t index = getIndex(nx, ny, nz);
 
 					structureBlockChangeManager.addChange(chunkPos, leavesID, index, true);
+					hasReachedOtherChunk = true;
 				}
 			}
 		}
+	}
+
+	if (hasReachedOtherChunk)
+	{
+		gHasStructureBlockChanges.store(true, std::memory_order_release);
 	}
 }
 
@@ -1855,7 +1867,7 @@ void Chunk::updateMesh()
 		else
 		{
 			meshData.dirty = true;
-			hasPendingMeshUploads.store(true, std::memory_order_release);
+			gHasPendingMeshUploads.store(true, std::memory_order_release);
 		}
 	}
 }
@@ -1879,6 +1891,8 @@ void Chunk::sendMeshesToGPU()
 	{
 		return;
 	}
+
+	PROFILE_SCOPE("Send chunk meshes to GPU", ProfileCategory::ChunkMesh);
 
 	for (ChunkMeshData* chunkMesh : pendingMeshUploads)
 	{
