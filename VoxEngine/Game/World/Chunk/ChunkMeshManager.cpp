@@ -60,22 +60,34 @@ ChunkMeshManager::ChunkMeshManager()
 		nonAlignedMeshAllocator.vao.enableAttribute(0);
 		nonAlignedMeshAllocator.vao.setFloatAttribute(0, 2, 0, 0);
 
-		configureAlignedInstanceVBO();
+		configureNonAlignedInstanceVBO();
 	}
 }
 
 void ChunkMeshManager::configureAlignedInstanceVBO()
 {
-	alignedMeshAllocator.vao.bindVertexBuffer(1, alignedMeshAllocator.instanceVBO.getID(), 0, sizeof(AlignedBlockFace));
+	auto& instanceVBO = alignedMeshAllocator.instanceVBO;
+
+	// Vertex attributes
+	alignedMeshAllocator.vao.bindVertexBuffer(1, instanceVBO.getID(), 0, sizeof(AlignedBlockFace));
 
 	alignedMeshAllocator.vao.enableAttribute(1);
 	alignedMeshAllocator.vao.setIntAttribute(1, 2, 0, 1, GL_UNSIGNED_INT);
 	alignedMeshAllocator.vao.setAttributeDivisor(1, 1);
+
+	// Persistantly map vbo
+	if (instanceVBO.getCapacity() > 0 && instanceVBO.isMappable())
+	{
+		instanceVBO.mapPersistent(GL_MAP_WRITE_BIT);
+	}
 }
 
 void ChunkMeshManager::configureNonAlignedInstanceVBO()
 {
-	nonAlignedMeshAllocator.vao.bindVertexBuffer(1, nonAlignedMeshAllocator.instanceVBO.getID(), 0, sizeof(NonAlignedBlockFace));
+	auto& instanceVBO = nonAlignedMeshAllocator.instanceVBO;
+
+	// Vertex attributes
+	nonAlignedMeshAllocator.vao.bindVertexBuffer(1, instanceVBO.getID(), 0, sizeof(NonAlignedBlockFace));
 
 	// Block position + Us
 	nonAlignedMeshAllocator.vao.enableAttribute(1);
@@ -101,6 +113,12 @@ void ChunkMeshManager::configureNonAlignedInstanceVBO()
 	nonAlignedMeshAllocator.vao.enableAttribute(5);
 	nonAlignedMeshAllocator.vao.setIntAttribute(5, 1, 6 * sizeof(int), 1, GL_UNSIGNED_INT);
 	nonAlignedMeshAllocator.vao.setAttributeDivisor(5, 1);
+
+	// Persistantly map vbo
+	if (instanceVBO.getCapacity() > 0 && instanceVBO.isMappable())
+	{
+		instanceVBO.mapPersistent(GL_MAP_WRITE_BIT);
+	}
 }
 
 ChunkMeshManager& ChunkMeshManager::getInstance()
@@ -179,16 +197,14 @@ void ChunkMeshManager::MeshAllocator::processMeshRequests(std::vector<ChunkMeshD
 	blockAllocator.setCapacity(newCapacity);
 	if (oldCapacity == 0)
 	{
-		instanceVBO.allocateStorage(newCapacity * config.faceSize, GL_DYNAMIC_STORAGE_BIT);
+		instanceVBO.allocateStorage(newCapacity * config.faceSize, INSTANCE_VBO_FLAGS);
 	}
 	else
 	{
 		// Create new buffer
 		ImmutableBuffer newBuffer;
 		newBuffer.create(GL_ARRAY_BUFFER);
-		newBuffer.allocateStorage(newCapacity * config.faceSize, GL_DYNAMIC_STORAGE_BIT);
-
-		std::cout << instanceVBO.getID() << " -> " << newBuffer.getID() << "\n";
+		newBuffer.allocateStorage(newCapacity * config.faceSize, INSTANCE_VBO_FLAGS);
 
 		// Copy data to a new buffer
 		const std::vector<BlockAllocator::Block>& currentBlocks = blockAllocator.getAllAllocations();

@@ -9,6 +9,8 @@
 
 class ChunkMeshManager
 {
+	constexpr static GLbitfield INSTANCE_VBO_FLAGS = GL_DYNAMIC_STORAGE_BIT | GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT;
+
 	struct ProcessorConfig
 	{
 		std::function<void()> configureVBO;

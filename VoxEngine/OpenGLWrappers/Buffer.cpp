@@ -98,7 +98,12 @@ void Buffer::allocateMemoryIfNeeded(size_t newSize, const void* data)
 #if BUFFER_SAFETY_CHECKS
 	if (id == 0)
 	{
-		std::cerr << "[Buffer][write]: Buffer not created! Call create() first.\n";
+		std::cerr << "[Buffer][allocateMemoryIfNeeded]: Buffer not created! Call create() first.\n";
+		return;
+	}
+	if (newSize == 0)
+	{
+		std::cerr << "[Buffer][allocateMemoryIfNeeded]: newSize must be greater than 0.\n";
 		return;
 	}
 #endif
@@ -119,7 +124,12 @@ void Buffer::write(const void* data, size_t dataSize, size_t offset) const
 	}
 	if (data == nullptr)
 	{
-		std::cerr << "[Buffer][write]: 'data' is nullptr\n";
+		std::cerr << "[Buffer][write]: 'data' is nullptr.\n";
+		return;
+	}
+	if (dataSize == 0)
+	{
+		std::cerr << "[Buffer][write]: Size must be greater than 0.\n";
 		return;
 	}
 	if (offset + dataSize > capacity)
@@ -142,6 +152,11 @@ void Buffer::copyRangeFrom(const Buffer& src, size_t srcOffset, size_t dstOffset
 	if (src.getID() == 0)
 	{
 		std::cerr << "[Buffer][copyRangeFrom]: Source buffer not created! Call create() first.\n";
+		return;
+	}
+	if (size == 0)
+	{
+		std::cerr << "[Buffer][copyRangeFrom]: Size must be greater than 0.\n";
 		return;
 	}
 	if (srcOffset + size > src.capacity || dstOffset + size > capacity)
@@ -169,6 +184,11 @@ void* Buffer::map(GLenum access)
 		std::cerr << "[Buffer][map]: Buffer not created! Call create() first.\n";
 		return nullptr;
 	}
+	if (capacity == 0)
+	{
+		std::cerr << "[Buffer][map]: Buffer has zero capacity! Cannot map.\n";
+		return nullptr;
+	}
 #endif
 	void* ptr = glMapNamedBuffer(id, access);
 #if BUFFER_SAFETY_CHECKS
@@ -186,6 +206,11 @@ void* Buffer::mapRange(GLintptr offset, GLsizeiptr length, GLbitfield access)
 	if (id == 0)
 	{
 		std::cerr << "[Buffer][mapRange]: Buffer not created! Call create() first.\n";
+		return nullptr;
+	}
+	if (length <= 0)
+	{
+		std::cerr << "[Buffer][mapRange]: Length must be greater than 0.\n";
 		return nullptr;
 	}
 	if (offset + length > capacity)
@@ -228,6 +253,11 @@ void Buffer::flushMappedRange(GLintptr offset, GLsizeiptr length)
 	if (id == 0)
 	{
 		std::cerr << "[Buffer][flushMappedRange]: Buffer not created! Call create() first.\n";
+		return;
+	}
+	if (length <= 0)
+	{
+		std::cerr << "[Buffer][flushMappedRange]: Length must be greater than 0.\n";
 		return;
 	}
 	if (offset + length > capacity)

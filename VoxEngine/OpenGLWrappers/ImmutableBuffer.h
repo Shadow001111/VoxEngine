@@ -39,11 +39,12 @@ public:
     void clearData(GLenum internalFormat, GLenum format, GLenum type, const void* data) const;
 
     void* map(GLenum access);
-    void* mapRange(GLintptr offset, GLsizeiptr length, GLbitfield access);
-    void* mapPersistent(GLbitfield access, GLsizeiptr size);
+    void* mapRange(GLintptr offset, GLsizeiptr size, GLbitfield access);
+    void* mapPersistent(GLbitfield access, GLsizeiptr size); // TODO: Maybe make it a range method
+    void* mapPersistent(GLbitfield access);
 
     void unmap();
-    void flushMappedRange(GLintptr offset, GLsizeiptr length);
+    void flushMappedRange(GLintptr offset, GLsizeiptr size);
 
     GLuint getID() const { return id; }
     size_t getCapacity() const { return capacity; }
