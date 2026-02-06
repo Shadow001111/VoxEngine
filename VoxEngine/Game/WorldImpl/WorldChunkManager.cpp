@@ -121,12 +121,20 @@ void WorldChunkManager::update()
 void WorldChunkManager::sendChunkMeshesToGPU()
 {
 	// Send only dirty meshes
-	for (auto& pair : chunks)
 	{
-		Chunk* chunk = pair.second;
-		chunk->askForMeshUpload();
+		PROFILE_SCOPE("Check dirty meshes to send to GPU", ProfileCategory::ChunkMesh);
+
+		for (auto& pair : chunks)
+		{
+			Chunk* chunk = pair.second;
+			chunk->askForMeshUpload();
+		}
 	}
-	Chunk::sendMeshesToGPU();
+	{
+		PROFILE_SCOPE("Send chunk meshes to GPU", ProfileCategory::ChunkMesh);
+
+		Chunk::sendMeshesToGPU();
+	}
 }
 
 Chunk* WorldChunkManager::getChunkAt(const glm::ivec3& position) const

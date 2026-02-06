@@ -153,6 +153,40 @@ void ImmutableBuffer::writePersistentMapped(const void* data, size_t dataSize, s
 {
     if (!persistentMappedPtr)
     {
+#if BUFFER_SAFETY_CHECKS
+		std::cerr << "[ImmutableBuffer][writePersistentMapped]: Buffer is not persistently mapped! Call mapPersistent() first.\n";
+#endif
+		return;
+    }
+#if BUFFER_SAFETY_CHECKS
+    if (id == 0)
+    {
+        std::cerr << "[ImmutableBuffer][writePersistentMapped]: Buffer not created! Call create() first.\n";
+        return;
+    }
+    if (data == nullptr)
+    {
+        std::cerr << "[ImmutableBuffer][writePersistentMapped]: 'data' is nullptr.\n";
+        return;
+    }
+    if (dataSize == 0)
+    {
+        std::cerr << "[ImmutableBuffer][writePersistentMapped]: Size must be greater than 0.\n";
+        return;
+    }
+    if (offset + dataSize > capacity)
+    {
+        std::cerr << "[ImmutableBuffer][writePersistentMapped]: Index out of bounds! Start: " << offset << ", Size: " << dataSize << ", Capacity: " << capacity << ".\n";
+        return;
+    }
+#endif
+    std::memcpy(static_cast<char*>(persistentMappedPtr) + offset, data, dataSize);
+}
+
+void ImmutableBuffer::writePersistentMappedWithFallback(const void* data, size_t dataSize, size_t offset) const
+{
+    if (!persistentMappedPtr)
+    {
 		// Fallback to regular write if not persistently mapped
         write(data, dataSize, offset);
 		return;
