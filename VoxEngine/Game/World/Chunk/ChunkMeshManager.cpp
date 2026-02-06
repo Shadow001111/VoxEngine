@@ -198,6 +198,10 @@ void ChunkMeshManager::MeshAllocator::processMeshRequests(std::vector<ChunkMeshD
 	if (oldCapacity == 0)
 	{
 		instanceVBO.allocateStorage(newCapacity * config.faceSize, INSTANCE_VBO_FLAGS);
+		if (instanceVBO.isMappable())
+		{
+			instanceVBO.mapPersistent(GL_MAP_WRITE_BIT);
+		}
 	}
 	else
 	{

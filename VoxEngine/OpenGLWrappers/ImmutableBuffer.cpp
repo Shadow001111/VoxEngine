@@ -12,12 +12,14 @@ ImmutableBuffer::ImmutableBuffer(ImmutableBuffer&& other) noexcept :
     target(other.target),
     id(other.id),
     capacity(other.capacity),
-    flags(other.flags)
+    flags(other.flags),
+	persistentMappedPtr(other.persistentMappedPtr)
 {
     other.id = 0;
     other.capacity = 0;
     other.flags = 0;
     other.target = 0;
+	other.persistentMappedPtr = nullptr;
 }
 
 ImmutableBuffer& ImmutableBuffer::operator=(ImmutableBuffer&& other) noexcept
@@ -30,11 +32,13 @@ ImmutableBuffer& ImmutableBuffer::operator=(ImmutableBuffer&& other) noexcept
         id = other.id;
         capacity = other.capacity;
         flags = other.flags;
+		persistentMappedPtr = other.persistentMappedPtr;
 
         other.id = 0;
         other.capacity = 0;
         other.flags = 0;
         other.target = 0;
+		other.persistentMappedPtr = nullptr;
     }
     return *this;
 }
@@ -349,14 +353,14 @@ void* ImmutableBuffer::mapPersistent(GLbitfield access, GLsizeiptr size)
         return nullptr;
     }
 #endif
-    void* ptr = glMapNamedBufferRange(id, 0, size, access | GL_MAP_PERSISTENT_BIT);
-    if (!ptr)
+    persistentMappedPtr = glMapNamedBufferRange(id, 0, size, access | GL_MAP_PERSISTENT_BIT);
+    if (!persistentMappedPtr)
     {
 #if BUFFER_SAFETY_CHECKS
         std::cerr << "[ImmutableBuffer][mapPersistent]: Failed to map buffer.\n";
 #endif
     }
-    return ptr;
+    return persistentMappedPtr;
 }
 
 void* ImmutableBuffer::mapPersistent(GLbitfield access)
