@@ -18,6 +18,7 @@ thread_local ChunkSpecializedQueue<LightRemovalNode> Chunk::localBlockLightRemov
 thread_local ChunkSpecializedQueue<LightNode> Chunk::localSkyLightBfsQueue;
 thread_local ChunkSpecializedQueue<LightRemovalNode> Chunk::localSkyLightRemovalBfsQueue;
 std::vector<ChunkMeshData*> Chunk::pendingMeshUploads;
+std::atomic<bool> Chunk::hasPendingMeshUploads{ false };
 StructureBlockChangeManager Chunk::structureBlockChangeManager;
 std::filesystem::path Chunk::CHUNK_SAVES_PATH;
 
@@ -1854,6 +1855,7 @@ void Chunk::updateMesh()
 		else
 		{
 			meshData.dirty = true;
+			hasPendingMeshUploads.store(true, std::memory_order_release);
 		}
 	}
 }

@@ -124,6 +124,9 @@ private:
 	// Mesh
 	ChunkMeshData meshData;
 	static std::vector<ChunkMeshData*> pendingMeshUploads;
+public:
+	static std::atomic<bool> hasPendingMeshUploads;
+private:
 
 	// Processing fence. I tried global processing system. It reduces memory usage because chunk doesn't have its own processing fence.
 	// But it increases wait time in average from 4ms to 40ms, trading 1mb for around 7000 chunks. Differences aren't that big.

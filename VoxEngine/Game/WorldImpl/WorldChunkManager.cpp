@@ -121,8 +121,11 @@ void WorldChunkManager::update()
 void WorldChunkManager::sendChunkMeshesToGPU()
 {
 	// Send only dirty meshes
+	if (Chunk::hasPendingMeshUploads.load(std::memory_order_acquire))
 	{
 		PROFILE_SCOPE("Check dirty meshes to send to GPU", ProfileCategory::ChunkMesh);
+
+		Chunk::hasPendingMeshUploads.store(false, std::memory_order_release);
 
 		for (auto& pair : chunks)
 		{
