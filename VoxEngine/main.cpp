@@ -319,8 +319,7 @@ static void renderDebugData(const WindowManager& wnd, const Player& player, cons
     std::ostringstream ss;
     ss << std::fixed << std::setprecision(1);
 
-    ss << "FPS: " << metrics.fps;
-    ss << " (" << metrics.frameTimeMs << " ms)";
+    ss << "FPS: " << metrics.fps << " (" << metrics.frameTimeMs << " ms)";
 
     if (wnd.getVSYNC())
     {
@@ -328,8 +327,11 @@ static void renderDebugData(const WindowManager& wnd, const Player& player, cons
     }
 
     // Chunks
-    ss << "\nChunks: Loaded: " << formatSize(worldData.loadedChunksCount)
+    ss << "\nChunks: Loaded: " << formatSize(worldData.chunkCount)
         << ", Rendered: " << formatSize(renderStats.renderedChunkCount);
+
+    // Chunk regions
+    ss << "\nChunk regions: " << worldData.chunkRegionCount;
 
     // Faces
     ss << "\nFaces: " << formatSize(worldData.totalChunkFaceCount)

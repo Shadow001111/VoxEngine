@@ -12,7 +12,8 @@ class World
 public:
 	struct DebugData
 	{
-		size_t loadedChunksCount = 0;
+		size_t chunkCount = 0;
+		size_t chunkRegionCount = 0;
 
 		size_t totalChunkFaceCount = 0;
 		size_t totalChunkFaceCapacity = 0;

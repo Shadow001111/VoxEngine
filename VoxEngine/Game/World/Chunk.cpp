@@ -41,9 +41,6 @@ unsigned hash3(unsigned x, unsigned y, unsigned z)
 
 Chunk::~Chunk()
 {
-	// Remove from region
-	chunkRegionManager.removeChunk(this);
-
 	saveBlocks();
 }
 
