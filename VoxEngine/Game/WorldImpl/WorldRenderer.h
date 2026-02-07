@@ -89,7 +89,8 @@ private:
 	void initBuffers();
 	void initShaders();
 
-	void collectAndSortChunksForRendering(const Camera& camera) const;
+	void collectChunksForRendering(const Camera& camera) const;
+	void sortChunksForRendering() const;
 
 	void renderOpaqueChunks();
 	void renderTranslucentChunks();

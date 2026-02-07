@@ -185,53 +185,52 @@ void WorldRenderer::initShaders()
 	}
 }
 
-void WorldRenderer::collectAndSortChunksForRendering(const Camera& camera) const
+void WorldRenderer::collectChunksForRendering(const Camera& camera) const
 {
+	PROFILE_SCOPE("Collect chunks for render", ProfileCategory::Render);
+
+	const LiteFrustum& frustum = camera.getFrustum();
+	Box chunkShape(glm::dvec3(0.0), glm::dvec3(CHUNK_SIZE >> 1));
+
+	const glm::dvec3 cameraPosition = camera.getPosition();
+	const glm::ivec3 cameraChunkPosition = glm::ivec3(glm::floor(cameraPosition / (double)CHUNK_SIZE));
+
+	chunksToRender.clear();
+	chunksToRender.reserve(references.chunks.size());
+
+	for (const auto& [chunkPosition, chunk] : references.chunks)
 	{
-		PROFILE_SCOPE("Render: collect chunks", ProfileCategory::Render);
-
-		const LiteFrustum& frustum = camera.getFrustum();
-		Box chunkShape(glm::dvec3(0.0), glm::dvec3(CHUNK_SIZE >> 1));
-
-		const glm::dvec3 cameraPosition = camera.getPosition();
-		const glm::ivec3 cameraChunkPosition = glm::ivec3(glm::floor(cameraPosition / (double)CHUNK_SIZE));
-
-		chunksToRender.clear();
-		chunksToRender.reserve(references.chunks.size());
-
-		for (const auto& [chunkPosition, chunk] : references.chunks)
+		if (!chunk->canBeRendered())
 		{
-			if (!chunk->canBeRendered())
-			{
-				continue;
-			}
-
-			// Check is chunk is on frustum
-			glm::dvec3 chunkWorldPosition = glm::dvec3(chunkPosition) * (double)CHUNK_SIZE;
-
-			chunkShape.center = chunkWorldPosition + chunkShape.halfExtents;
-			if (!frustum.checkBox(chunkShape))
-			{
-				continue;
-			}
-
-			glm::ivec3 delta = glm::abs(chunkPosition - cameraChunkPosition);
-
-			unsigned int manhattanDistance = delta.x + delta.y + delta.z;
-			chunksToRender.emplace_back(chunk, manhattanDistance);
+			continue;
 		}
-	}
 
-	{
-		PROFILE_SCOPE("Render: sort chunks", ProfileCategory::Render);
+		// Check is chunk is on frustum
+		glm::dvec3 chunkWorldPosition = glm::dvec3(chunkPosition) * (double)CHUNK_SIZE;
 
-		// TODO: Maybe use radix sort? It doesn't take very long too sort though.
-		std::sort(chunksToRender.begin(), chunksToRender.end(),
-			[](const ChunkRenderInfo& a, const ChunkRenderInfo& b)
-			{
-				return a.manhattanDistance < b.manhattanDistance;
-			});
+		chunkShape.center = chunkWorldPosition + chunkShape.halfExtents;
+		if (!frustum.checkBox(chunkShape))
+		{
+			continue;
+		}
+
+		glm::ivec3 delta = glm::abs(chunkPosition - cameraChunkPosition);
+
+		unsigned int manhattanDistance = delta.x + delta.y + delta.z;
+		chunksToRender.emplace_back(chunk, manhattanDistance);
 	}
+}
+
+void WorldRenderer::sortChunksForRendering() const
+{
+	PROFILE_SCOPE("Sort chunks for render", ProfileCategory::Render);
+
+	// TODO: Maybe use radix sort? It doesn't take very long too sort though.
+	std::sort(chunksToRender.begin(), chunksToRender.end(),
+		[](const ChunkRenderInfo& a, const ChunkRenderInfo& b)
+		{
+			return a.manhattanDistance < b.manhattanDistance;
+		});
 }
 
 void WorldRenderer::renderOpaqueChunks()
@@ -429,7 +428,8 @@ void WorldRenderer::renderChunks(const Camera& camera, const FrameBuffer& FBO)
 	}
 
 	// Collect chunks to render
-	collectAndSortChunksForRendering(camera);
+	collectChunksForRendering(camera);
+	sortChunksForRendering();
 
 	renderStats.renderedChunkCount = chunksToRender.size();
 	renderStats.renderedChunkFaceCount = 0;
@@ -559,7 +559,7 @@ void WorldRenderer::compositePass(const FrameBuffer& FBO) const
 	int height = colorTex.getHeight();
 
 	// Bind textures
-	glBindImageTexture(0, colorTex.getID(), 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
+	glBindImageTexture(0, colorTex.getID(), 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8); // TODO: Maybe add image handle in future
 	if (Texture::getExtensions().bindless)
 	{
 		compositeShader.setHandleui64ARB("geometryAlphaTex", geometryAlphaTex.getHandle());
