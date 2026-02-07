@@ -429,16 +429,25 @@ int gameFunc()
     {
         framebuffer.create(wnd.getWidth(), wnd.getHeight());
 
-        framebuffer.createColorAttachment("color", GL_RGBA8);
-        framebuffer.createColorAttachment("geometryAlpha", GL_R8);
-        framebuffer.createColorAttachment("accumulation", GL_RGBA16F);
-        framebuffer.createColorAttachment("revealage", GL_R8);
+        const FrameBuffer::AttachmentFilters filters
+        {
+			.minFilter = GL_NEAREST,
+			.magFilter = GL_NEAREST,
+			.wrapS = GL_CLAMP_TO_EDGE,
+			.wrapT = GL_CLAMP_TO_EDGE
+        };
+        const bool bindless = Texture::getExtensions().bindless;
+
+        framebuffer.createColorAttachment("color", GL_RGBA8, filters, bindless);
+        framebuffer.createColorAttachment("geometryAlpha", GL_R8, filters, bindless);
+        framebuffer.createColorAttachment("accumulation", GL_RGBA16F, filters, bindless);
+        framebuffer.createColorAttachment("revealage", GL_R8, filters, bindless);
 
         // TODO: Render aurora in lower resolution
         // Problem: Geometry alpha mask is in higher resolution, meaning we need to sample multiple pixels to check if geometry covers aurora or not.
-        framebuffer.createStandaloneTextureAttachment("aurora", GL_RGBA8);
+        framebuffer.createStandaloneTextureAttachment("aurora", GL_RGBA8, filters, 1.0f, bindless);
 
-        framebuffer.createDepthAttachment("depth", GL_DEPTH_COMPONENT32F);
+        framebuffer.createDepthAttachment("depth", GL_DEPTH_COMPONENT32F, filters);
 
         if (!framebuffer.isComplete())
         {

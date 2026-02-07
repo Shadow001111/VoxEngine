@@ -37,6 +37,14 @@ class FrameBuffer
     robin_hood::unordered_flat_map<std::string, Attachment> attachments;
     std::vector<std::string> drawBuffers;
 public:
+    struct AttachmentFilters
+    {
+        GLenum minFilter = GL_NEAREST;
+        GLenum magFilter = GL_NEAREST;
+        GLenum wrapS = GL_CLAMP_TO_EDGE;
+        GLenum wrapT = GL_CLAMP_TO_EDGE;
+	};
+
     FrameBuffer() = default;
     ~FrameBuffer();
 
@@ -53,31 +61,15 @@ public:
     void destroy();
 
     // Attachment management
-    void createColorAttachment(
-        const std::string& name, GLenum internalFormat = GL_RGBA8,
-        GLenum minFilter = GL_NEAREST, GLenum magFilter = GL_NEAREST,
-        GLenum wrapS = GL_CLAMP_TO_EDGE, GLenum wrapT = GL_CLAMP_TO_EDGE);
+    void createColorAttachment(const std::string& name, GLenum internalFormat, const AttachmentFilters& filters, bool bindless = false);
 
-    void createDepthAttachment(
-        const std::string& name, GLenum internalFormat = GL_DEPTH_COMPONENT32F,
-        GLenum minFilter = GL_NEAREST, GLenum magFilter = GL_NEAREST,
-        GLenum wrapS = GL_CLAMP_TO_EDGE, GLenum wrapT = GL_CLAMP_TO_EDGE);
+    void createDepthAttachment(const std::string& name, GLenum internalFormat, const AttachmentFilters& filters, bool bindless = false);
 
-    void createStencilAttachment(
-        const std::string& name, GLenum internalFormat = GL_STENCIL_INDEX8,
-        GLenum minFilter = GL_NEAREST, GLenum magFilter = GL_NEAREST,
-        GLenum wrapS = GL_CLAMP_TO_EDGE, GLenum wrapT = GL_CLAMP_TO_EDGE);
+    void createStencilAttachment(const std::string& name, GLenum internalFormat, const AttachmentFilters& filters, bool bindless = false);
 
-    void createDepthStencilAttachment(
-        const std::string& name, GLenum internalFormat = GL_DEPTH24_STENCIL8,
-        GLenum minFilter = GL_NEAREST, GLenum magFilter = GL_NEAREST,
-        GLenum wrapS = GL_CLAMP_TO_EDGE, GLenum wrapT = GL_CLAMP_TO_EDGE);
+    void createDepthStencilAttachment(const std::string& name, GLenum internalFormat, const AttachmentFilters& filters, bool bindless = false);
 
-    void createStandaloneTextureAttachment(
-        const std::string& name, GLenum internalFormat = GL_RGBA8,
-        float resolutionFactor = 1.0f,
-        GLenum minFilter = GL_NEAREST, GLenum magFilter = GL_NEAREST,
-        GLenum wrapS = GL_CLAMP_TO_EDGE, GLenum wrapT = GL_CLAMP_TO_EDGE);
+    void createStandaloneTextureAttachment(const std::string& name, GLenum internalFormat, const AttachmentFilters& filters, float resolutionFactor = 1.0f, bool bindless = false);
 
     // Remove attachments
     void removeAttachment(const std::string& name);
@@ -113,10 +105,7 @@ public:
     int getHeight() const { return height; }
 private:
     GLenum getAttachmentPoint(AttachmentType type);
-    void createAndAttachTexture(
-        Attachment& attachment, GLenum internalFormat,
-        GLenum minFilter, GLenum magFilter, GLenum wrapS, GLenum wrapT);
-    void createStandaloneTexture(
-        Attachment& attachment, GLenum internalFormat,
-        GLenum minFilter, GLenum magFilter, GLenum wrapS, GLenum wrapT);
+    void createAndAttachTexture(Attachment& attachment, GLenum internalFormat, const AttachmentFilters& filters);
+    void createStandaloneTexture(Attachment& attachment, GLenum internalFormat, const AttachmentFilters& filters);
+	void makeTextureBindlessIfNeeded(Attachment& attachment, bool bindless);
 };
