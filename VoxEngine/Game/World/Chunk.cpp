@@ -21,6 +21,7 @@ thread_local ChunkSpecializedQueue<LightRemovalNode> Chunk::localSkyLightRemoval
 std::vector<ChunkMeshData*> Chunk::pendingMeshUploads;
 std::atomic<bool> Chunk::gHasPendingMeshUploads{ false };
 StructureBlockChangeManager Chunk::structureBlockChangeManager;
+ChunkRegionManager Chunk::chunkRegionManager;
 
 std::atomic<bool> Chunk::gHasStructureBlockChanges{ false };
 
@@ -40,6 +41,9 @@ unsigned hash3(unsigned x, unsigned y, unsigned z)
 
 Chunk::~Chunk()
 {
+	// Remove from region
+	chunkRegionManager.removeChunk(this);
+
 	saveBlocks();
 }
 
@@ -80,6 +84,9 @@ void Chunk::init(const glm::ivec3& position, Chunk** neighbors)
 	meshDirty = false;
 	
 	ASSERT(changedBlocks.empty());
+
+	// Add to region
+	chunkRegionManager.addChunk(this);
 }
 
 // Cleans up resources
@@ -95,6 +102,9 @@ void Chunk::destroy()
 			neighbors[i] = nullptr;
 		}
 	}
+
+	// Remove from region
+	chunkRegionManager.removeChunk(this);
 
 	//
 	ASSERT(loaderCount == 0);

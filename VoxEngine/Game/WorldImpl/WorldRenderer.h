@@ -90,6 +90,8 @@ private:
 	void initShaders();
 
 	void collectChunksForRendering(const Camera& camera) const;
+	void collectChunksForRenderingBakedRegions(const Camera& camera) const;
+
 	void sortChunksForRendering() const;
 
 	void renderOpaqueChunks();

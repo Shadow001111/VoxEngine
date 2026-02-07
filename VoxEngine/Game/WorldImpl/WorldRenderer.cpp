@@ -190,13 +190,11 @@ void WorldRenderer::collectChunksForRendering(const Camera& camera) const
 	PROFILE_SCOPE("Collect chunks for render", ProfileCategory::Render);
 
 	const LiteFrustum& frustum = camera.getFrustum();
+
 	Box chunkShape(glm::dvec3(0.0), glm::dvec3(CHUNK_SIZE >> 1));
 
 	const glm::dvec3 cameraPosition = camera.getPosition();
 	const glm::ivec3 cameraChunkPosition = glm::ivec3(glm::floor(cameraPosition / (double)CHUNK_SIZE));
-
-	chunksToRender.clear();
-	chunksToRender.reserve(references.chunks.size());
 
 	for (const auto& [chunkPosition, chunk] : references.chunks)
 	{
@@ -205,7 +203,7 @@ void WorldRenderer::collectChunksForRendering(const Camera& camera) const
 			continue;
 		}
 
-		// Check is chunk is on frustum
+		// Check if chunk is on frustum
 		glm::dvec3 chunkWorldPosition = glm::dvec3(chunkPosition) * (double)CHUNK_SIZE;
 
 		chunkShape.center = chunkWorldPosition + chunkShape.halfExtents;
@@ -218,6 +216,56 @@ void WorldRenderer::collectChunksForRendering(const Camera& camera) const
 
 		unsigned int manhattanDistance = delta.x + delta.y + delta.z;
 		chunksToRender.emplace_back(chunk, manhattanDistance);
+	}
+}
+
+void WorldRenderer::collectChunksForRenderingBakedRegions(const Camera& camera) const
+{
+	constexpr int CHUNK_REGION_SIZE_IN_BLOCKS = CHUNK_REGION_SIZE * CHUNK_SIZE;
+
+	PROFILE_SCOPE("Collect chunks for render (baked regions)", ProfileCategory::Render);
+
+	const LiteFrustum& frustum = camera.getFrustum();
+
+	Box chunkShape(glm::dvec3(0.0), glm::dvec3(CHUNK_SIZE >> 1));
+	Box regionShape(glm::dvec3(0.0), glm::dvec3(CHUNK_REGION_SIZE_IN_BLOCKS >> 1));
+
+	const glm::dvec3 cameraPosition = camera.getPosition();
+	const glm::ivec3 cameraChunkPosition = glm::ivec3(glm::floor(cameraPosition / (double)CHUNK_SIZE));
+
+	// Get regions
+	//const auto& mutex = Chunk::chunkRegionManager.getRegionMutex();
+	const auto& regions = Chunk::chunkRegionManager.getRegions();
+
+	for (const auto& [regionPosition, region] : regions)
+	{
+		// Get region world position
+		glm::dvec3 regionWorldPosition = glm::dvec3(regionPosition) * (double)CHUNK_REGION_SIZE_IN_BLOCKS;
+
+		// Check if region is visible
+		regionShape.center = regionWorldPosition + regionShape.halfExtents;
+		if (frustum.checkBox(regionShape))
+		{
+			// Iterate over chunks in region and check if they are visible
+			for (const Chunk* chunk : region->getChunks())
+			{
+				if (chunk == nullptr || !chunk->canBeRendered())
+				{
+					continue;
+				}
+
+				// Check if chunk is visible
+				glm::dvec3 chunkWorldPosition = glm::dvec3(chunk->getPosition()) * (double)CHUNK_SIZE;
+				chunkShape.center = chunkWorldPosition + chunkShape.halfExtents;
+				if (!frustum.checkBox(chunkShape))
+				{
+					continue;
+				}
+				glm::ivec3 delta = glm::abs(chunk->getPosition() - cameraChunkPosition);
+				unsigned int manhattanDistance = delta.x + delta.y + delta.z;
+				chunksToRender.emplace_back(chunk, manhattanDistance);
+			}
+		}
 	}
 }
 
@@ -428,7 +476,10 @@ void WorldRenderer::renderChunks(const Camera& camera, const FrameBuffer& FBO)
 	}
 
 	// Collect chunks to render
-	collectChunksForRendering(camera);
+	chunksToRender.clear();
+	chunksToRender.reserve(references.chunks.size());
+
+	collectChunksForRenderingBakedRegions(camera);
 	sortChunksForRendering();
 
 	renderStats.renderedChunkCount = chunksToRender.size();

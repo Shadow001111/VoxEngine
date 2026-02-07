@@ -3,6 +3,7 @@
 #include "Chunk/Metrics.h"
 #include "Chunk/StructureBlockChanges.h"
 #include "Chunk/ChunkSpecializedQueue.h"
+#include "Chunk/ChunkRegion.h"
 
 #include "Core/Multithreading/ProcessingFence.h"
 #include "Core/AtomicFlags.h"
@@ -140,6 +141,11 @@ private:
 	robin_hood::unordered_flat_map<BlockId, std::vector<uint16_t>> changedBlocks;
 	
 	static StructureBlockChangeManager structureBlockChangeManager;
+
+	// Region manager
+public:
+	static ChunkRegionManager chunkRegionManager;
+private:
 
 	// Helper index functions
 	static size_t getIndex(int x, int y, int z) { return (x << (CHUNK_SIZE_LOG2 << 1)) | (y << CHUNK_SIZE_LOG2) | z; };
