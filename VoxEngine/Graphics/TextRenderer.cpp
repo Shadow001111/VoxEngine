@@ -487,7 +487,17 @@ bool TextRenderer::loadFont(const std::string& fontName, GLuint fontSize)
 
     font.textureArray.create2DArray(font.maxGlyphSize.x, font.maxGlyphSize.y, glyphCount, GL_R8);
 
-    font.textureArray.setParameters(GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
+    {
+        Texture::Parametrs textureParametrs
+        {
+            .minFilter = GL_NEAREST,
+            .magFilter = GL_NEAREST,
+            .wrapS = GL_CLAMP_TO_EDGE,
+            .wrapT = GL_CLAMP_TO_EDGE
+        };
+
+        font.textureArray.setParameters(textureParametrs);
+    }
 
     // Load glyphs
     loadGlyphs(face, font);

@@ -1894,6 +1894,7 @@ void Chunk::askForMeshUpload()
 
 void Chunk::sendMeshesToGPU()
 {
+	// Check if there are any uploads
 	if (pendingMeshUploads.empty())
 	{
 		return;
@@ -1901,12 +1902,13 @@ void Chunk::sendMeshesToGPU()
 
 	PROFILE_SCOPE("Send chunk meshes to GPU", ProfileCategory::ChunkMesh);
 
+	// Mark meshes as being processed
 	for (ChunkMeshData* chunkMesh : pendingMeshUploads)
 	{
 		chunkMesh->processingFence.startProcessing();
 	}
 
-	// Allocate memory for meshes
+	// Collect meshes that need memory allocation
 	std::vector<ChunkMeshData*> allocateMemoryAlignedMeshRequests;
 	allocateMemoryAlignedMeshRequests.reserve(pendingMeshUploads.size() >> 1);
 
@@ -1925,6 +1927,7 @@ void Chunk::sendMeshesToGPU()
 		}
 	}
 
+	// Allocate memory for meshes
 	auto& chunkMeshManager = ChunkMeshManager::getInstance();
 	chunkMeshManager.processMeshRequests(allocateMemoryAlignedMeshRequests, allocateMemoryNonAlignedMeshRequests);
 
@@ -1995,7 +1998,7 @@ void Chunk::sendMeshesToGPU()
 		}
 	}
 
-	//
+	// 
 	for (ChunkMeshData* chunkMesh : pendingMeshUploads)
 	{
 		chunkMesh->updateRenderFaceCount();
@@ -2003,6 +2006,8 @@ void Chunk::sendMeshesToGPU()
 		//chunkMesh->clearInstances(); // Can be cleared, but it won't change anything.
 		chunkMesh->processingFence.stopProcessing();
 	}
+
+	// Clear pending meshes container
 	pendingMeshUploads.clear();
 }	 
 

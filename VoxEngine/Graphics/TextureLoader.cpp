@@ -251,7 +251,7 @@ namespace TextureLoader
     void createTexture2DFromImage(
         Texture& texture,
         const std::filesystem::path& texturePath,
-        const TextureParams& params)
+        const TextureLoadParams& params)
     {
         if (!validateChannels(params.desiredChannels)) return;
 
@@ -297,7 +297,7 @@ namespace TextureLoader
         Texture& texture,
         const fs::path& texturesFolderPath,
         const std::vector<std::string>& textureNames,
-        const TextureParams& params
+        const TextureLoadParams& params
     )
     {
         if (!validateChannels(params.desiredChannels)) return;
@@ -382,7 +382,7 @@ namespace TextureLoader
         if (mipmapLevels > 1) texture.generateMipmaps();
     }
 
-    void createTexture3DFromFloatData(Texture& texture, const std::vector<float>& data, int width, int height, int depth, const TextureParams& params)
+    void createTexture3DFromFloatData(Texture& texture, const std::vector<float>& data, int width, int height, int depth, const TextureLoadParams& params)
     {
         if (!validateChannels(params.desiredChannels)) return;
 

@@ -6,7 +6,7 @@
 
 namespace TextureLoader
 {
-    struct TextureParams
+    struct TextureLoadParams
     {
         int desiredChannels = 4;
         bool createMipmaps = false;
@@ -15,20 +15,20 @@ namespace TextureLoader
     void createTexture2DFromImage(
         Texture& texture,
         const std::filesystem::path& texturePath,
-        const TextureParams& params = TextureParams()
+        const TextureLoadParams& params = TextureLoadParams()
     );
 
     void createTextureArrayFromImages(
         Texture& texture,
         const std::filesystem::path& texturesFolderPath,
         const std::vector<std::string>& textureNames,
-        const TextureParams& params = TextureParams()
+        const TextureLoadParams& params = TextureLoadParams()
     );
 
     void createTexture3DFromFloatData(
         Texture& texture,
         const std::vector<float>& data,
         int width, int height, int depth,
-        const TextureParams& params = TextureParams()
+        const TextureLoadParams& params = TextureLoadParams()
     );
 }

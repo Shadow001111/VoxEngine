@@ -24,7 +24,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #ifdef NDEBUG
-constexpr int CHUNK_LOAD_DISTANCE = 24;
+constexpr int CHUNK_LOAD_DISTANCE = 8;
 #else
 constexpr int CHUNK_LOAD_DISTANCE = 3;
 #endif
@@ -117,23 +117,31 @@ static void setupContainerUI(ContainerUI& c)
         c.hotbarVAO.setFloatAttribute(0, 4, 0);
     }
 
+    TextureLoader::TextureLoadParams textureLoadParametrs;
+
+    Texture::Parametrs textureParametrs
+    {
+        .minFilter = GL_NEAREST,
+        .magFilter = GL_NEAREST,
+        .wrapS = GL_CLAMP_TO_EDGE,
+        .wrapT = GL_CLAMP_TO_EDGE
+    };
+
     {
         std::vector<std::string> itemTextureNames = AssetRegistry::getItemUITextureNames();
 
-        TextureLoader::TextureParams params;
+        {
+            PROFILE_SCOPE("Item ui texture array creation", ProfileCategory::General);
+            TextureLoader::createTextureArrayFromImages(c.itemUITextureArray, "res/ItemUITextures", itemTextureNames, textureLoadParametrs);
+        }
 
-        PROFILE_SCOPE("Item ui texture array creation", ProfileCategory::General);
-        TextureLoader::createTextureArrayFromImages(c.itemUITextureArray, "res/ItemUITextures", itemTextureNames, params);
-
-        c.itemUITextureArray.setParameters(GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
+        c.itemUITextureArray.setParameters(textureParametrs);
     }
 
     {
-        TextureLoader::TextureParams params;
+        TextureLoader::createTextureArrayFromImages(c.hotbarSlotImage, "res/UITextures", { "empty_hotbar_slot", "selected_hotbar_slot" }, textureLoadParametrs);
 
-        TextureLoader::createTextureArrayFromImages(c.hotbarSlotImage, "res/UITextures", { "empty_hotbar_slot", "selected_hotbar_slot" }, params);
-
-        c.hotbarSlotImage.setParameters(GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
+        c.hotbarSlotImage.setParameters(textureParametrs);
     }
 }
 
@@ -386,10 +394,20 @@ static void renderDebugData(const WindowManager& wnd, const Player& player, cons
 
 void check()
 {
-    // Data
-    GLint maxSize;
-    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxSize);
+    // Get data
+    GLint maxTextureSize;
+    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxTextureSize);
 
+    GLint maxArrayTextureLayers;
+    glGetIntegerv(GL_MAX_ARRAY_TEXTURE_LAYERS, &maxArrayTextureLayers);
+
+    GLint maxColorAttachments;
+    glGetIntegerv(GL_MAX_COLOR_ATTACHMENTS, &maxColorAttachments);
+
+    GLint maxComputeTextureUnits;
+    glGetIntegerv(GL_MAX_COMPUTE_TEXTURE_IMAGE_UNITS, &maxComputeTextureUnits);
+
+    // Display
     std::cout << std::string(100, '=') << "\n";
     std::cout << "Data:\n";
     std::cout << "    OpenGL Version: " << glGetString(GL_VERSION)  << "\n";
@@ -400,8 +418,14 @@ void check()
 	std::cout << "Extensions:\n";
 	std::cout << "    Bindless textures: " << (isBindlessSupported ? "Supported" : "Not supported") << "\n";
 
-	std::cout << "Limits:\n";
-    std::cout << "    Max texture size: " << maxSize << "\n";
+	std::cout << "Texture-related:\n";
+    std::cout << "    Max size: " << maxTextureSize << "\n";
+    std::cout << "    Max anisotropy: " << Texture::getGlobalData().maxAnisotropy << "\n";
+    std::cout << "    Max texture array layers: " << maxArrayTextureLayers << "\n";
+    std::cout << "    Max compute texture units: " << maxComputeTextureUnits << "\n";
+
+    std::cout << "Framebuffer-related:\n";
+    std::cout << "    Max color attachment count: " << maxColorAttachments << "\n";
 
     // Check texture compression available
     //std::cout << std::string(100, '=') << "\n";
@@ -421,7 +445,7 @@ int gameFunc()
     WindowManager wnd({ 1280, 720, "VoxEngine", true, true, true });
 
     // Init textures
-    Texture::initExtensions();
+    Texture::initGlobalData();
 
     // Check
     check();
@@ -431,7 +455,7 @@ int gameFunc()
     {
         framebuffer.create(wnd.getWidth(), wnd.getHeight());
 
-        const FrameBuffer::AttachmentFilters filters
+        const Texture::Parametrs params
         {
 			.minFilter = GL_NEAREST,
 			.magFilter = GL_NEAREST,
@@ -440,16 +464,16 @@ int gameFunc()
         };
         const bool bindless = Texture::getExtensions().bindless;
 
-        framebuffer.createColorAttachment("color", GL_RGBA8, filters, bindless);
-        framebuffer.createColorAttachment("geometryAlpha", GL_R8, filters, bindless);
-        framebuffer.createColorAttachment("accumulation", GL_RGBA16F, filters, bindless);
-        framebuffer.createColorAttachment("revealage", GL_R8, filters, bindless);
+        framebuffer.createColorAttachment("color", GL_RGBA8, params, bindless);
+        framebuffer.createColorAttachment("geometryAlpha", GL_R8, params, bindless);
+        framebuffer.createColorAttachment("accumulation", GL_RGBA16F, params, bindless);
+        framebuffer.createColorAttachment("revealage", GL_R8, params, bindless);
 
         // TODO: Render aurora in lower resolution
         // Problem: Geometry alpha mask is in higher resolution, meaning we need to sample multiple pixels to check if geometry covers aurora or not.
-        framebuffer.createStandaloneTextureAttachment("aurora", GL_RGBA8, filters, 1.0f, bindless);
+        framebuffer.createStandaloneTextureAttachment("aurora", GL_RGBA8, params, 1.0f, bindless);
 
-        framebuffer.createDepthAttachment("depth", GL_DEPTH_COMPONENT32F, filters);
+        framebuffer.createDepthAttachment("depth", GL_DEPTH_COMPONENT32F, params);
 
         if (!framebuffer.isComplete())
         {
@@ -496,7 +520,7 @@ int gameFunc()
     // Timers
     double lastTime = glfwGetTime();
     UpdateTimer worldUpdateTimer(20.0); worldUpdateTimer.setUpdateToTrue();
-    UpdateTimer profilerUpdateTimer(1.0 / 1.0);
+    UpdateTimer profilerUpdateTimer(1.0 / 3.0);
     UpdateTimer frequentUIDataUpdateTimer(1.0);
     UpdateTimer worldDebugDataIntenseUpdateTimer(1.0);
 

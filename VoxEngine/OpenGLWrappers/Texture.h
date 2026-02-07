@@ -24,6 +24,7 @@
 //	GLenum getBestCompressedFormat(int channels, GLenum valueType);
 //}
 
+// TODO: Add method to copy GPU data from texture to other texture
 class Texture
 {
 	struct Extensions
@@ -31,17 +32,31 @@ class Texture
 		bool bindless = false;
 	};
 
-	static Extensions extensions;
+	struct GlobalData
+	{
+		Extensions extensions;
+
+		GLfloat maxAnisotropy = 0;
+	};
+public:
+	struct Parametrs
+	{
+		GLenum minFilter = GL_NEAREST;
+		GLenum magFilter = GL_NEAREST;
+		GLenum wrapS = GL_CLAMP_TO_EDGE;
+		GLenum wrapT = GL_CLAMP_TO_EDGE;
+		GLenum wrapR = GL_CLAMP_TO_EDGE;
+
+		float anisotropy = 1.0f;
+	};
+private:
+	static GlobalData globalData;
 
 	GLuint id = 0;
 	GLenum type = 0;
 	GLenum internalFormat = 0;
 
-	GLenum minFilter = GL_NEAREST;
-	GLenum magFilter = GL_NEAREST;
-	GLenum wrapS = GL_CLAMP_TO_EDGE;
-	GLenum wrapT = GL_CLAMP_TO_EDGE;
-	GLenum wrapR = GL_CLAMP_TO_EDGE;
+	Parametrs parametrs;
 
 	using texture_size = uint16_t;
 	using mip_level = uint8_t;
@@ -53,6 +68,8 @@ class Texture
 
 	bool resident = false;
 	GLuint64 handle = 0;
+
+	void applyParametrs() const;
 public:
 	Texture() = default;
 	~Texture();
@@ -63,12 +80,12 @@ public:
 	Texture(Texture&& other) noexcept;
 	Texture& operator=(Texture&& other) noexcept;
 
-	static void initExtensions();
+	static void initGlobalData();
 
 	// Texture creation functions for different types
-	void create1D(texture_size width,							  GLenum internalFormat, mip_level mipLevels = 1);
-	void create2D(texture_size width, texture_size height,				  GLenum internalFormat, mip_level mipLevels = 1);
-	void create3D(texture_size width, texture_size height, texture_size depth,		  GLenum internalFormat, mip_level mipLevels = 1);
+	void create1D(texture_size width, GLenum internalFormat, mip_level mipLevels = 1);
+	void create2D(texture_size width, texture_size height, GLenum internalFormat, mip_level mipLevels = 1);
+	void create3D(texture_size width, texture_size height, texture_size depth, GLenum internalFormat, mip_level mipLevels = 1);
 	void create2DArray(texture_size width, texture_size height, texture_size layers, GLenum internalFormat, mip_level mipLevels = 1);
 
 	// Texture resizing functions (it deletes old texture and creates new, since texture is immutable)
@@ -95,9 +112,7 @@ public:
 	//
 	void generateMipmaps();
 
-	void setParameters(GLenum minFilter_, GLenum magFilter_, GLenum wrapS_);
-	void setParameters(GLenum minFilter_, GLenum magFilter_, GLenum wrapS_, GLenum wrapT_);
-	void setParameters(GLenum minFilter_, GLenum magFilter_, GLenum wrapS_, GLenum wrapT_, GLenum wrapR_);
+	void setParameters(const Parametrs& params);
 
 	void bind() const;
 	void bind(GLenum target) const;
@@ -124,5 +139,6 @@ public:
 	bool isResident() const { return resident; }
 	GLuint64 getHandle() const { return handle; }
 
-	static const Extensions& getExtensions() { return extensions; }
+	static const GlobalData& getGlobalData() { return globalData; }
+	static const Extensions& getExtensions() { return globalData.extensions; }
 };

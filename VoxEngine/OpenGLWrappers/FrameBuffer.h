@@ -37,14 +37,6 @@ class FrameBuffer
     robin_hood::unordered_flat_map<std::string, Attachment> attachments;
     std::vector<std::string> drawBuffers;
 public:
-    struct AttachmentFilters
-    {
-        GLenum minFilter = GL_NEAREST;
-        GLenum magFilter = GL_NEAREST;
-        GLenum wrapS = GL_CLAMP_TO_EDGE;
-        GLenum wrapT = GL_CLAMP_TO_EDGE;
-	};
-
     FrameBuffer() = default;
     ~FrameBuffer();
 
@@ -61,15 +53,15 @@ public:
     void destroy();
 
     // Attachment management
-    void createColorAttachment(const std::string& name, GLenum internalFormat, const AttachmentFilters& filters, bool bindless = false);
+    void createColorAttachment(const std::string& name, GLenum internalFormat, const Texture::Parametrs& params, bool bindless = false);
 
-    void createDepthAttachment(const std::string& name, GLenum internalFormat, const AttachmentFilters& filters, bool bindless = false);
+    void createDepthAttachment(const std::string& name, GLenum internalFormat, const Texture::Parametrs& params, bool bindless = false);
 
-    void createStencilAttachment(const std::string& name, GLenum internalFormat, const AttachmentFilters& filters, bool bindless = false);
+    void createStencilAttachment(const std::string& name, GLenum internalFormat, const Texture::Parametrs& params, bool bindless = false);
 
-    void createDepthStencilAttachment(const std::string& name, GLenum internalFormat, const AttachmentFilters& filters, bool bindless = false);
+    void createDepthStencilAttachment(const std::string& name, GLenum internalFormat, const Texture::Parametrs& params, bool bindless = false);
 
-    void createStandaloneTextureAttachment(const std::string& name, GLenum internalFormat, const AttachmentFilters& filters, float resolutionFactor = 1.0f, bool bindless = false);
+    void createStandaloneTextureAttachment(const std::string& name, GLenum internalFormat, const Texture::Parametrs& params, float resolutionFactor = 1.0f, bool bindless = false);
 
     // Remove attachments
     void removeAttachment(const std::string& name);
@@ -105,7 +97,7 @@ public:
     int getHeight() const { return height; }
 private:
     GLenum getAttachmentPoint(AttachmentType type);
-    void createAndAttachTexture(Attachment& attachment, GLenum internalFormat, const AttachmentFilters& filters);
-    void createStandaloneTexture(Attachment& attachment, GLenum internalFormat, const AttachmentFilters& filters);
+    void createAndAttachTexture(Attachment& attachment, GLenum internalFormat, const Texture::Parametrs& params);
+    void createStandaloneTexture(Attachment& attachment, GLenum internalFormat, const Texture::Parametrs& params);
 	void makeTextureBindlessIfNeeded(Attachment& attachment, bool bindless);
 };

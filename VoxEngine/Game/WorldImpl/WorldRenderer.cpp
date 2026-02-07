@@ -41,18 +41,27 @@ WorldRenderer::ChunkRenderInfo::ChunkRenderInfo(const Chunk* chunk, unsigned int
 	chunk(chunk), manhattanDistance(manhattanDistance)
 {}
 
-
+// TODO: Add anisotropy as graphic settings, not just set the highest available
 void WorldRenderer::initTextures(const std::vector<std::string>& blockTextureNames)
 {
 	{
 		// Load
-		TextureLoader::TextureParams params;
-		params.createMipmaps = true;
+		TextureLoader::TextureLoadParams textureLoadParametrs;
+		textureLoadParametrs.createMipmaps = true;
 
-		PROFILE_SCOPE("Block texture array creation", ProfileCategory::General);
-		TextureLoader::createTextureArrayFromImages(blockTextureArray, "res/BlockTextures", blockTextureNames, params);
+		{
+			PROFILE_SCOPE("Block texture array creation", ProfileCategory::General);
+			TextureLoader::createTextureArrayFromImages(blockTextureArray, "res/BlockTextures", blockTextureNames, textureLoadParametrs);
+		}
 
-		blockTextureArray.setParameters(GL_NEAREST_MIPMAP_LINEAR, GL_NEAREST, GL_REPEAT, GL_REPEAT);
+		Texture::Parametrs textureParametrs
+		{
+			.minFilter = GL_NEAREST_MIPMAP_LINEAR,
+			.magFilter = GL_NEAREST,
+			.anisotropy = 999.0f
+		};
+
+		blockTextureArray.setParameters(textureParametrs);
 
 		if (Texture::getExtensions().bindless)
 		{
@@ -63,18 +72,26 @@ void WorldRenderer::initTextures(const std::vector<std::string>& blockTextureNam
 
 	// Perlin noise texture
 	{
-		TextureLoader::TextureParams params;
-		params.desiredChannels = 1;
+		TextureLoader::TextureLoadParams textureLoadParametrs;
+		textureLoadParametrs.desiredChannels = 1;
 
 		const size_t textureSize = 128;
 
 		std::vector<float> data;
 		SeamlessPerlinNoise::generatePerlinNoise3D(data, textureSize, textureSize, textureSize, 1.0f / 20.0f, 1, 2.0f, true, 0);
 
-		PROFILE_SCOPE("Noise texture creation", ProfileCategory::General);
-		TextureLoader::createTexture3DFromFloatData(tilingPerlinNoise3DTexture, data, textureSize, textureSize, textureSize, params);
+		{
+			PROFILE_SCOPE("Noise texture creation", ProfileCategory::General);
+			TextureLoader::createTexture3DFromFloatData(tilingPerlinNoise3DTexture, data, textureSize, textureSize, textureSize, textureLoadParametrs);
+		}
 
-		tilingPerlinNoise3DTexture.setParameters(GL_LINEAR, GL_LINEAR, GL_REPEAT, GL_REPEAT);
+		Texture::Parametrs textureParametrs
+		{
+			.minFilter = GL_LINEAR,
+			.magFilter = GL_LINEAR
+		};
+
+		tilingPerlinNoise3DTexture.setParameters(textureParametrs);
 
 		if (Texture::getExtensions().bindless)
 		{
@@ -189,7 +206,7 @@ void WorldRenderer::collectChunksForRendering(const Camera& camera) const
 {
 	constexpr int CHUNK_REGION_SIZE_IN_BLOCKS = CHUNK_REGION_SIZE * CHUNK_SIZE;
 
-	PROFILE_SCOPE("Collect chunks for render (baked regions)", ProfileCategory::Render);
+	PROFILE_SCOPE("Collect chunks for render", ProfileCategory::Render);
 
 	const LiteFrustum& frustum = camera.getFrustum();
 

@@ -69,62 +69,62 @@ void FrameBuffer::destroy()
     }
 }
 
-void FrameBuffer::createColorAttachment(const std::string& name, GLenum internalFormat, const AttachmentFilters& filters, bool bindless)
+void FrameBuffer::createColorAttachment(const std::string& name, GLenum internalFormat, const Texture::Parametrs& params, bool bindless)
 {
     Attachment attachment;
     attachment.type = AttachmentType::COLOR;
     attachment.attachmentPoint = getAttachmentPoint(AttachmentType::COLOR);
 
-    createAndAttachTexture(attachment, internalFormat, filters);
+    createAndAttachTexture(attachment, internalFormat, params);
 	makeTextureBindlessIfNeeded(attachment, bindless);
 
     attachments[name] = std::move(attachment);
 }
 
-void FrameBuffer::createDepthAttachment(const std::string& name, GLenum internalFormat, const AttachmentFilters& filters, bool bindless)
+void FrameBuffer::createDepthAttachment(const std::string& name, GLenum internalFormat, const Texture::Parametrs& params, bool bindless)
 {
     Attachment attachment;
     attachment.type = AttachmentType::DEPTH;
     attachment.attachmentPoint = GL_DEPTH_ATTACHMENT; // TODO: Keep track of depth attachment (by pointer), so there will be single depth attachment.
 
-    createAndAttachTexture(attachment, internalFormat, filters);
+    createAndAttachTexture(attachment, internalFormat, params);
     makeTextureBindlessIfNeeded(attachment, bindless);
 
     attachments[name] = std::move(attachment);
 }
 
-void FrameBuffer::createStencilAttachment(const std::string& name, GLenum internalFormat, const AttachmentFilters& filters, bool bindless)
+void FrameBuffer::createStencilAttachment(const std::string& name, GLenum internalFormat, const Texture::Parametrs& params, bool bindless)
 {
     Attachment attachment;
     attachment.type = AttachmentType::STENCIL;
     attachment.attachmentPoint = GL_STENCIL_ATTACHMENT;
 
-    createAndAttachTexture(attachment, internalFormat, filters);
+    createAndAttachTexture(attachment, internalFormat, params);
     makeTextureBindlessIfNeeded(attachment, bindless);
 
     attachments[name] = std::move(attachment);
 }
 
-void FrameBuffer::createDepthStencilAttachment(const std::string& name, GLenum internalFormat, const AttachmentFilters& filters, bool bindless)
+void FrameBuffer::createDepthStencilAttachment(const std::string& name, GLenum internalFormat, const Texture::Parametrs& params, bool bindless)
 {
     Attachment attachment;
     attachment.type = AttachmentType::DEPTH_STENCIL;
     attachment.attachmentPoint = GL_DEPTH_STENCIL_ATTACHMENT;
 
-    createAndAttachTexture(attachment, internalFormat, filters);
+    createAndAttachTexture(attachment, internalFormat, params);
     makeTextureBindlessIfNeeded(attachment, bindless);
 
     attachments[name] = std::move(attachment);
 }
 
-void FrameBuffer::createStandaloneTextureAttachment(const std::string& name, GLenum internalFormat, const AttachmentFilters& filters, float resolutionFactor, bool bindless)
+void FrameBuffer::createStandaloneTextureAttachment(const std::string& name, GLenum internalFormat, const Texture::Parametrs& params, float resolutionFactor, bool bindless)
 {
     Attachment attachment;
     attachment.type = AttachmentType::STANDALONE_TEXTURE;
     attachment.attachmentPoint = -1;
     attachment.resolutionFactor = resolutionFactor;
 
-    createStandaloneTexture(attachment, internalFormat, filters);
+    createStandaloneTexture(attachment, internalFormat, params);
     makeTextureBindlessIfNeeded(attachment, bindless);
 
     attachments[name] = std::move(attachment);
@@ -448,10 +448,10 @@ GLenum FrameBuffer::getAttachmentPoint(AttachmentType type)
     return GL_COLOR_ATTACHMENT0;
 }
 
-void FrameBuffer::createAndAttachTexture(Attachment& attachment, GLenum internalFormat, const AttachmentFilters& filters)
+void FrameBuffer::createAndAttachTexture(Attachment& attachment, GLenum internalFormat, const Texture::Parametrs& params)
 {
     attachment.texture.create2D(width, height, internalFormat);
-    attachment.texture.setParameters(filters.minFilter, filters.magFilter, filters.wrapS, filters.wrapT);
+    attachment.texture.setParameters(params);
 
     if (attachment.attachmentPoint != -1)
     {
@@ -459,12 +459,12 @@ void FrameBuffer::createAndAttachTexture(Attachment& attachment, GLenum internal
     }
 }
 
-void FrameBuffer::createStandaloneTexture(Attachment& attachment, GLenum internalFormat, const AttachmentFilters& filters)
+void FrameBuffer::createStandaloneTexture(Attachment& attachment, GLenum internalFormat, const Texture::Parametrs& params)
 {
     int tWidth = static_cast<int>(width * attachment.resolutionFactor);
     int tHeight = static_cast<int>(height * attachment.resolutionFactor);
     attachment.texture.create2D(tWidth, tHeight, internalFormat);
-    attachment.texture.setParameters(filters.minFilter, filters.magFilter, filters.wrapS, filters.wrapT);
+    attachment.texture.setParameters(params);
 }
 
 void FrameBuffer::makeTextureBindlessIfNeeded(Attachment& attachment, bool bindless)

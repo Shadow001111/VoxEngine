@@ -27,8 +27,18 @@
 
 #define TEXTURE_EXTENSION_WARNINGS 1
 
-Texture::Extensions Texture::extensions;
+Texture::GlobalData Texture::globalData;
 
+
+void Texture::applyParametrs() const
+{
+	glTextureParameteri(id, GL_TEXTURE_MIN_FILTER, parametrs.minFilter);
+	glTextureParameteri(id, GL_TEXTURE_MAG_FILTER, parametrs.magFilter);
+	glTextureParameteri(id, GL_TEXTURE_WRAP_S, parametrs.wrapS);
+	glTextureParameteri(id, GL_TEXTURE_WRAP_T, parametrs.wrapT);
+	glTextureParameteri(id, GL_TEXTURE_WRAP_R, parametrs.wrapR);
+	glTextureParameteri(id, GL_TEXTURE_MAX_ANISOTROPY, parametrs.anisotropy);
+}
 
 Texture::~Texture()
 {
@@ -39,8 +49,7 @@ Texture::Texture(Texture&& other) noexcept :
 	id(other.id), type(other.type),
 	internalFormat(other.internalFormat),
 	width(other.width), height(other.height), depth(other.depth), mipLevels(other.mipLevels),
-	minFilter(other.minFilter), magFilter(other.magFilter),
-	wrapS(other.wrapS), wrapT(other.wrapT), wrapR(other.wrapR),
+	parametrs(other.parametrs),
 	handle(other.handle), resident(other.resident)
 
 {
@@ -66,9 +75,7 @@ Texture& Texture::operator=(Texture&& other) noexcept
 		height = other.height;
 		depth = other.depth;
 		mipLevels = other.mipLevels;
-		wrapS = other.wrapS;
-		wrapT = other.wrapT;
-		wrapR = other.wrapR;
+		parametrs = other.parametrs;
 		handle = other.handle;
 		resident = other.resident;
 
@@ -83,9 +90,13 @@ Texture& Texture::operator=(Texture&& other) noexcept
 	return *this;
 }
 
-void Texture::initExtensions()
+void Texture::initGlobalData()
 {
-	extensions.bindless = GLAD_GL_ARB_bindless_texture;
+	// Extensions
+	globalData.extensions.bindless = GLAD_GL_ARB_bindless_texture;
+
+	// The rest
+	glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY, &globalData.maxAnisotropy);
 }
 
 void Texture::create1D(texture_size width, GLenum internalFormat, mip_level mipLevels)
@@ -219,9 +230,7 @@ void Texture::recreate1D(texture_size width)
 
 	glTextureStorage1D(id, mipLevels, internalFormat, width);
 	
-	glTextureParameteri(id, GL_TEXTURE_MIN_FILTER, minFilter);
-	glTextureParameteri(id, GL_TEXTURE_MAG_FILTER, magFilter);
-	glTextureParameteri(id, GL_TEXTURE_WRAP_S, wrapS);
+	applyParametrs();
 
 	if (id)
 	{
@@ -254,10 +263,7 @@ void Texture::recreate2D(texture_size width, texture_size height)
 
 	glTextureStorage2D(id, mipLevels, internalFormat, width, height);
 
-	glTextureParameteri(id, GL_TEXTURE_MIN_FILTER, minFilter);
-	glTextureParameteri(id, GL_TEXTURE_MAG_FILTER, magFilter);
-	glTextureParameteri(id, GL_TEXTURE_WRAP_S, wrapS);
-	glTextureParameteri(id, GL_TEXTURE_WRAP_T, wrapT);
+	applyParametrs();
 
 	if (id)
 	{
@@ -291,11 +297,7 @@ void Texture::recreate3D(texture_size width, texture_size height, texture_size d
 
 	glTextureStorage3D(id, mipLevels, internalFormat, width, height, depth);
 
-	glTextureParameteri(id, GL_TEXTURE_MIN_FILTER, minFilter);
-	glTextureParameteri(id, GL_TEXTURE_MAG_FILTER, magFilter);
-	glTextureParameteri(id, GL_TEXTURE_WRAP_S, wrapS);
-	glTextureParameteri(id, GL_TEXTURE_WRAP_T, wrapT);
-	glTextureParameteri(id, GL_TEXTURE_WRAP_R, wrapR);
+	applyParametrs();
 
 	if (id)
 	{
@@ -468,43 +470,23 @@ void Texture::generateMipmaps()
 	}
 }
 
-void Texture::setParameters(GLenum minFilter_, GLenum magFilter_, GLenum wrapS_)
+void Texture::setParameters(const Parametrs& params)
 {
-	minFilter = minFilter_;
-	magFilter = magFilter_;
-	wrapS = wrapS_;
+	//// Check what have changed and apply it
+	//if (parametrs.minFilter != params.minFilter)	glTextureParameteri(id, GL_TEXTURE_MIN_FILTER, params.minFilter);
+	//if (parametrs.magFilter != params.magFilter)	glTextureParameteri(id, GL_TEXTURE_MAG_FILTER, params.magFilter);
+	//if (parametrs.wrapS != params.wrapS)			glTextureParameteri(id, GL_TEXTURE_WRAP_S, params.wrapS);
+	//if (parametrs.wrapT != params.wrapT)			glTextureParameteri(id, GL_TEXTURE_WRAP_T, params.wrapT);
+	//if (parametrs.wrapR != params.wrapR)			glTextureParameteri(id, GL_TEXTURE_WRAP_R, params.wrapR);
+	//if (parametrs.anisotropy != params.anisotropy)	glTextureParameteri(id, GL_TEXTURE_MAX_ANISOTROPY, params.anisotropy);
+	//
+	//// Set new parametrs
+	//parametrs = params;
 
-	glTextureParameteri(id, GL_TEXTURE_MIN_FILTER, minFilter);
-	glTextureParameteri(id, GL_TEXTURE_MAG_FILTER, magFilter);
-	glTextureParameteri(id, GL_TEXTURE_WRAP_S, wrapS);
-}
+	parametrs = params;
+	parametrs.anisotropy = fminf(globalData.maxAnisotropy, fmaxf(1.0f, parametrs.anisotropy));
 
-void Texture::setParameters(GLenum minFilter_, GLenum magFilter_, GLenum wrapS_, GLenum wrapT_)
-{
-	minFilter = minFilter_;
-	magFilter = magFilter_;
-	wrapS = wrapS_;
-	wrapT = wrapT_;
-
-	glTextureParameteri(id, GL_TEXTURE_MIN_FILTER, minFilter);
-	glTextureParameteri(id, GL_TEXTURE_MAG_FILTER, magFilter);
-	glTextureParameteri(id, GL_TEXTURE_WRAP_S, wrapS);
-	glTextureParameteri(id, GL_TEXTURE_WRAP_T, wrapT);
-}
-
-void Texture::setParameters(GLenum minFilter_, GLenum magFilter_, GLenum wrapS_, GLenum wrapT_, GLenum wrapR_)
-{
-	minFilter = minFilter_;
-	magFilter = magFilter_;
-	wrapS = wrapS_;
-	wrapT = wrapT_;
-	wrapR = wrapR_;
-
-	glTextureParameteri(id, GL_TEXTURE_MIN_FILTER, minFilter);
-	glTextureParameteri(id, GL_TEXTURE_MAG_FILTER, magFilter);
-	glTextureParameteri(id, GL_TEXTURE_WRAP_S, wrapS);
-	glTextureParameteri(id, GL_TEXTURE_WRAP_T, wrapT);
-	glTextureParameteri(id, GL_TEXTURE_WRAP_R, wrapR);
+	applyParametrs();
 }
 
 void Texture::bind() const
@@ -537,7 +519,7 @@ void Texture::initHandle()
 	if (handle == 0 && id != 0)
 	{
 #if TEXTURE_EXTENSION_WARNINGS
-		if (!extensions.bindless)
+		if (!globalData.extensions.bindless)
 		{
 			std::cerr << "[Texture][initHandle]: Warning: Initializing texture handle without bindless texture extension support.\n";
 			return;
@@ -552,7 +534,7 @@ void Texture::makeResident()
 	if (handle != 0 && !resident)
 	{
 #if TEXTURE_EXTENSION_WARNINGS
-		if (!extensions.bindless)
+		if (!globalData.extensions.bindless)
 		{
 			std::cerr << "[Texture][makeNonResident]: Warning: Making texture resident without bindless texture extension support.\n";
 			return;
@@ -568,7 +550,7 @@ void Texture::makeNonResident()
 	if (handle != 0 && resident)
 	{
 #if TEXTURE_EXTENSION_WARNINGS
-		if (!extensions.bindless)
+		if (!globalData.extensions.bindless)
 		{
 			std::cerr << "[Texture][makeNonResident]: Warning: Making texture non-resident without bindless texture extension support.\n";
 			return;
@@ -701,5 +683,3 @@ GLenum Texture::getFormatFromInternalFormat() const
 		return GL_RGBA;
 	}
 }
-
-#undef TEXTURE_EXTENSION_WARNINGS
