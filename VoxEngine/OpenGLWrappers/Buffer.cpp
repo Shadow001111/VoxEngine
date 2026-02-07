@@ -39,6 +39,8 @@ void Buffer::create(GLenum target, GLenum usage)
 {
 	this->target = target;
 	this->usage = usage;
+	this->capacity = 0;
+
 	if (id)
 	{
 		glDeleteBuffers(1, &id);
@@ -48,6 +50,10 @@ void Buffer::create(GLenum target, GLenum usage)
 
 void Buffer::destroy()
 {
+	this->target = target;
+	this->usage = usage;
+	this->capacity = 0;
+
 	if (id)
 	{
 		glDeleteBuffers(1, &id);

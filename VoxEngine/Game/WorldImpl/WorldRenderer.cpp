@@ -103,10 +103,10 @@ void WorldRenderer::initTextures(const std::vector<std::string>& blockTextureNam
 
 void WorldRenderer::initBuffers()
 {
-	chunkDrawCommandBuffer.create(GL_DRAW_INDIRECT_BUFFER, GL_DYNAMIC_DRAW);
-
-	chunkPositionSSBO.create(GL_SHADER_STORAGE_BUFFER, GL_DYNAMIC_DRAW);
-	chunkPositionSSBO.bindBase(0);
+	//chunkDrawCommandBuffer.create(GL_DRAW_INDIRECT_BUFFER);
+	//
+	//chunkPositionSSBO.create(GL_SHADER_STORAGE_BUFFER);
+	//chunkPositionSSBO.bindBase(0);
 
 	skyViewRaysUBO.create(GL_UNIFORM_BUFFER);
 	skyViewRaysUBO.allocateStorage(sizeof(ViewRays), GL_DYNAMIC_STORAGE_BIT);
@@ -268,6 +268,42 @@ void WorldRenderer::sortChunksForRendering() const
 		});
 }
 
+void WorldRenderer::ensureCapacityForChunkRenderBuffers(size_t drawCount)
+{
+	// Draw commands
+	const size_t drawCommandBufferRequiredCapacity = drawCount * sizeof(DrawArraysIndirectCommand);
+	if (chunkDrawCommandBuffer.getCapacity() < drawCommandBufferRequiredCapacity)
+	{
+		chunkDrawCommandBuffer.create(GL_DRAW_INDIRECT_BUFFER);
+		chunkDrawCommandBuffer.allocateStorage(drawCommandBufferRequiredCapacity, GL_DYNAMIC_STORAGE_BIT);
+
+		// Bind indirect buffer to allow indirect rendering
+		chunkDrawCommandBuffer.bind();
+	}
+
+	// Chunk positions
+	const size_t chunkPositionBufferRequiredCapacity = drawCount * sizeof(glm::ivec3);
+	if (chunkPositionSSBO.getCapacity() < chunkPositionBufferRequiredCapacity)
+	{
+		chunkPositionSSBO.create(GL_SHADER_STORAGE_BUFFER);
+		chunkPositionSSBO.allocateStorage(chunkPositionBufferRequiredCapacity, GL_DYNAMIC_STORAGE_BIT);
+
+		// Bind SSBO
+		chunkPositionSSBO.bindBase(0);
+	}
+}
+
+void WorldRenderer::passDataToChunkRenderBuffers(size_t drawCount)
+{
+	// Draw commands
+	const size_t drawCommandBufferRequiredCapacity = drawCount * sizeof(DrawArraysIndirectCommand);
+	chunkDrawCommandBuffer.write(chunkDrawCommands.data(), drawCommandBufferRequiredCapacity);
+
+	// Chunk positions
+	const size_t chunkPositionBufferRequiredCapacity = drawCount * sizeof(glm::ivec3);
+	chunkPositionSSBO.write(chunkPositions.data(), chunkPositionBufferRequiredCapacity);
+}
+
 void WorldRenderer::renderOpaqueChunks()
 {
 	glEnable(GL_CULL_FACE);
@@ -294,11 +330,8 @@ void WorldRenderer::renderOpaqueChunks()
 				renderStats.renderedChunkFaceCount += command.instanceCount;
 			}
 
-			chunkDrawCommandBuffer.allocateMemoryIfNeeded(drawCount * sizeof(DrawArraysIndirectCommand));
-			chunkDrawCommandBuffer.write(chunkDrawCommands.data(), drawCount * sizeof(DrawArraysIndirectCommand));
-
-			chunkPositionSSBO.allocateMemoryIfNeeded(drawCount * sizeof(glm::ivec3));
-			chunkPositionSSBO.write(chunkPositions.data(), drawCount * sizeof(glm::ivec3));
+			ensureCapacityForChunkRenderBuffers(drawCount);
+			passDataToChunkRenderBuffers(drawCount);
 
 			alignedOpaqueFaceShader.use();
 			ChunkMeshManager::getInstance().bindAlignedVAO();
@@ -327,11 +360,8 @@ void WorldRenderer::renderOpaqueChunks()
 				renderStats.renderedChunkFaceCount += command.instanceCount;
 			}
 
-			chunkDrawCommandBuffer.allocateMemoryIfNeeded(drawCount * sizeof(DrawArraysIndirectCommand));
-			chunkDrawCommandBuffer.write(chunkDrawCommands.data(), drawCount * sizeof(DrawArraysIndirectCommand));
-
-			chunkPositionSSBO.allocateMemoryIfNeeded(drawCount * sizeof(glm::ivec3));
-			chunkPositionSSBO.write(chunkPositions.data(), drawCount * sizeof(glm::ivec3));
+			ensureCapacityForChunkRenderBuffers(drawCount);
+			passDataToChunkRenderBuffers(drawCount);
 
 			nonAlignedOpaqueFaceShader.use();
 			ChunkMeshManager::getInstance().bindNonAlignedVAO();
@@ -372,11 +402,8 @@ void WorldRenderer::renderTranslucentChunks()
 				renderStats.renderedChunkFaceCount += command.instanceCount;
 			}
 
-			chunkDrawCommandBuffer.allocateMemoryIfNeeded(drawCount * sizeof(DrawArraysIndirectCommand));
-			chunkDrawCommandBuffer.write(chunkDrawCommands.data(), drawCount * sizeof(DrawArraysIndirectCommand));
-
-			chunkPositionSSBO.allocateMemoryIfNeeded(drawCount * sizeof(glm::ivec3));
-			chunkPositionSSBO.write(chunkPositions.data(), drawCount * sizeof(glm::ivec3));
+			ensureCapacityForChunkRenderBuffers(drawCount);
+			passDataToChunkRenderBuffers(drawCount);
 
 			alignedTranslucentFaceShader.use();
 			ChunkMeshManager::getInstance().bindAlignedVAO();
@@ -405,11 +432,8 @@ void WorldRenderer::renderTranslucentChunks()
 				renderStats.renderedChunkFaceCount += command.instanceCount;
 			}
 
-			chunkDrawCommandBuffer.allocateMemoryIfNeeded(drawCount * sizeof(DrawArraysIndirectCommand));
-			chunkDrawCommandBuffer.write(chunkDrawCommands.data(), drawCount * sizeof(DrawArraysIndirectCommand));
-
-			chunkPositionSSBO.allocateMemoryIfNeeded(drawCount * sizeof(glm::ivec3));
-			chunkPositionSSBO.write(chunkPositions.data(), drawCount * sizeof(glm::ivec3));
+			ensureCapacityForChunkRenderBuffers(drawCount);
+			passDataToChunkRenderBuffers(drawCount);
 
 			nonAlignedTranslucentFaceShader.use();
 			ChunkMeshManager::getInstance().bindNonAlignedVAO();
@@ -471,9 +495,6 @@ void WorldRenderer::renderChunks(const Camera& camera, const FrameBuffer& FBO)
 
 	renderStats.renderedChunkCount = chunksToRender.size();
 	renderStats.renderedChunkFaceCount = 0;
-
-	// Bind indirect buffer to allow indirect rendering
-	chunkDrawCommandBuffer.bind();
 
 	// Bind textures
 	if (!Texture::getExtensions().bindless)

@@ -66,8 +66,8 @@ private:
 
 	Texture blockTextureArray;
 
-	Buffer chunkDrawCommandBuffer;
-	Buffer chunkPositionSSBO;
+	ImmutableBuffer chunkDrawCommandBuffer;
+	ImmutableBuffer chunkPositionSSBO;
 
 	Shader auroraShader;
 	ImmutableBuffer skyViewRaysUBO;
@@ -92,6 +92,9 @@ private:
 	void collectChunksForRendering(const Camera& camera) const;
 
 	void sortChunksForRendering() const;
+
+	void ensureCapacityForChunkRenderBuffers(size_t drawCount);
+	void passDataToChunkRenderBuffers(size_t drawCount);
 
 	void renderOpaqueChunks();
 	void renderTranslucentChunks();

@@ -46,21 +46,28 @@ ImmutableBuffer& ImmutableBuffer::operator=(ImmutableBuffer&& other) noexcept
 void ImmutableBuffer::create(GLenum target)
 {
     this->target = target;
+    this->flags = 0;
+    this->capacity = 0;
+    this->persistentMappedPtr = nullptr;
+
     if (id)
     {
         glDeleteBuffers(1, &id);
-        persistentMappedPtr = nullptr;
     }
     glCreateBuffers(1, &id);
 }
 
 void ImmutableBuffer::destroy()
 {
+    this->target = target;
+    this->flags = 0;
+    this->capacity = 0;
+    this->persistentMappedPtr = nullptr;
+
     if (id)
     {
         glDeleteBuffers(1, &id);
         id = 0;
-        persistentMappedPtr = nullptr;
     }
 }
 
