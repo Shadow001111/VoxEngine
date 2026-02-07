@@ -512,6 +512,7 @@ void WorldRenderer::compositePass(const FrameBuffer& FBO) const
 {
 	PROFILE_SCOPE("Render: composite pass", ProfileCategory::Render);
 
+#pragma region GetTextures
 	auto getTextureResult = FBO.getTexture("color");
 	if (!getTextureResult.has_value())
 	{
@@ -551,6 +552,7 @@ void WorldRenderer::compositePass(const FrameBuffer& FBO) const
 		return;
 	}
 	const Texture& auroraTex = *getTextureResult.value();
+#pragma endregion
 
 	// Get texture dimensions
 	int width = colorTex.getWidth();
@@ -558,10 +560,20 @@ void WorldRenderer::compositePass(const FrameBuffer& FBO) const
 
 	// Bind textures
 	glBindImageTexture(0, colorTex.getID(), 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
-	geometryAlphaTex.bindUnit(1);
-	accumulationTex.bindUnit(2);
-	revealageTex.bindUnit(3);
-	auroraTex.bindUnit(4);
+	if (Texture::getExtensions().bindless)
+	{
+		compositeShader.setHandleui64ARB("geometryAlphaTex", geometryAlphaTex.getHandle());
+		compositeShader.setHandleui64ARB("accumulationTex", accumulationTex.getHandle());
+		compositeShader.setHandleui64ARB("revealageTex", revealageTex.getHandle());
+		compositeShader.setHandleui64ARB("auroraTex", auroraTex.getHandle());
+	}
+	else
+	{
+		geometryAlphaTex.bindUnit(1);
+		accumulationTex.bindUnit(2);
+		revealageTex.bindUnit(3);
+		auroraTex.bindUnit(4);
+	}
 
 	// Set uniforms
 	compositeShader.use();
