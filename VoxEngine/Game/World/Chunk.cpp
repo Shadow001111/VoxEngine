@@ -1941,7 +1941,7 @@ void Chunk::sendMeshesToGPU()
 
 		if (opaqueFaceCount > 0)
 		{
-			alignedInstancesVBO.writePersistentMappedWithFallback(
+			alignedInstancesVBO.write(
 				chunkMesh->instancesStorage.alignedOpaque.data(),
 				opaqueFaceCount * sizeof(AlignedBlockFace),
 				chunkMesh->allocatedBlock_alignedFaces.offset * sizeof(AlignedBlockFace)
@@ -1950,7 +1950,7 @@ void Chunk::sendMeshesToGPU()
 
 		if (translucentFaceCount > 0)
 		{
-			alignedInstancesVBO.writePersistentMappedWithFallback(
+			alignedInstancesVBO.write(
 				chunkMesh->instancesStorage.alignedTranslucent.data(),
 				translucentFaceCount * sizeof(AlignedBlockFace),
 				(chunkMesh->allocatedBlock_alignedFaces.offset + opaqueFaceCount) * sizeof(AlignedBlockFace)
@@ -1971,7 +1971,7 @@ void Chunk::sendMeshesToGPU()
 
 		if (opaqueFaceCount > 0)
 		{
-			nonAlignedInstancesVBO.writePersistentMappedWithFallback(
+			nonAlignedInstancesVBO.write(
 				chunkMesh->instancesStorage.nonAlignedOpaque.data(),
 				opaqueFaceCount * sizeof(NonAlignedBlockFace),
 				chunkMesh->allocatedBlock_nonAlignedFaces.offset * sizeof(NonAlignedBlockFace)
@@ -1980,7 +1980,7 @@ void Chunk::sendMeshesToGPU()
 
 		if (translucentFaceCount > 0)
 		{
-			nonAlignedInstancesVBO.writePersistentMappedWithFallback(
+			nonAlignedInstancesVBO.write(
 				chunkMesh->instancesStorage.nonAlignedTranslucent.data(),
 				translucentFaceCount * sizeof(NonAlignedBlockFace),
 				(chunkMesh->allocatedBlock_nonAlignedFaces.offset + opaqueFaceCount) * sizeof(NonAlignedBlockFace)

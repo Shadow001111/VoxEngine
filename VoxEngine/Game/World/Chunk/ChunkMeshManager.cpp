@@ -74,12 +74,6 @@ void ChunkMeshManager::configureAlignedInstanceVBO()
 	alignedMeshAllocator.vao.enableAttribute(1);
 	alignedMeshAllocator.vao.setIntAttribute(1, 2, 0, 1, GL_UNSIGNED_INT);
 	alignedMeshAllocator.vao.setAttributeDivisor(1, 1);
-
-	// Persistantly map vbo
-	if (instanceVBO.getCapacity() > 0 && instanceVBO.isMappable())
-	{
-		instanceVBO.mapPersistent(GL_MAP_WRITE_BIT);
-	}
 }
 
 void ChunkMeshManager::configureNonAlignedInstanceVBO()
@@ -113,12 +107,6 @@ void ChunkMeshManager::configureNonAlignedInstanceVBO()
 	nonAlignedMeshAllocator.vao.enableAttribute(5);
 	nonAlignedMeshAllocator.vao.setIntAttribute(5, 1, 6 * sizeof(int), 1, GL_UNSIGNED_INT);
 	nonAlignedMeshAllocator.vao.setAttributeDivisor(5, 1);
-
-	// Persistantly map vbo
-	if (instanceVBO.getCapacity() > 0 && instanceVBO.isMappable())
-	{
-		instanceVBO.mapPersistent(GL_MAP_WRITE_BIT);
-	}
 }
 
 ChunkMeshManager& ChunkMeshManager::getInstance()
@@ -198,10 +186,6 @@ void ChunkMeshManager::MeshAllocator::processMeshRequests(std::vector<ChunkMeshD
 	if (oldCapacity == 0)
 	{
 		instanceVBO.allocateStorage(newCapacity * config.faceSize, INSTANCE_VBO_FLAGS);
-		if (instanceVBO.isMappable())
-		{
-			instanceVBO.mapPersistent(GL_MAP_WRITE_BIT);
-		}
 	}
 	else
 	{
