@@ -6,7 +6,7 @@
 
 #include <glm/glm.hpp>
 #include <array>
-#include <mutex>
+//#include <mutex>
 
 class Chunk;
 
@@ -15,6 +15,7 @@ class ChunkRegion
 	friend class ChunkRegionManager;
 
 	std::array<Chunk*, CHUNK_REGION_VOLUME> chunks{};
+	uint32_t chunkCount = 0; // Number of chunks currently in region. Used to determine if region is empty and can be removed.
 public:
 	ChunkRegion() = default;
 	~ChunkRegion() = default;
@@ -24,7 +25,7 @@ public:
 	ChunkRegion& operator=(ChunkRegion&&) = delete;
 
 	const auto& getChunks() const { return chunks; };
-	const size_t getChunkCount() const;
+	const size_t getChunkCount() const { return chunkCount; };
 };
 
 class ChunkRegionManager

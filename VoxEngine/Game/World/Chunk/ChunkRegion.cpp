@@ -1,18 +1,6 @@
 #include "ChunkRegion.h"
 #include "../Chunk.h"
-
-const size_t ChunkRegion::getChunkCount() const
-{
-	size_t count = 0;
-	for (const auto* chunk : chunks)
-	{
-		if (chunk != nullptr)
-		{
-			count++;
-		}
-	}
-	return count;
-}
+#include "Core/Assert.h"
 
 glm::ivec3 ChunkRegionManager::getRegionPosition(const glm::ivec3& chunkPosition) const
 {
@@ -30,27 +18,35 @@ void ChunkRegionManager::addChunk(Chunk* chunk)
 	// Get region position
 	glm::ivec3 regionPos = getRegionPosition(chunk->getPosition());
 
-	// If region doesn't exist, create it
+	// Check if region already exists
 	//std::lock_guard<std::mutex> lock(regionsMutex);
-
 	ChunkRegion* region;
-	if (regions.contains(regionPos))
+	auto it = regions.find(regionPos);
+	if (it != regions.end())
 	{
-		region = regions[regionPos];
+		// Region already exists, use it
+		region = it->second;
 	}
 	else
 	{
+		// Region doesn't exist, create it
 		// Aquire region from pool
 		region = regionPool.acquire();
 
-		regions[regionPos] = region;
+		// Add region to map
+		regions.emplace(regionPos, region);
 	}
 
 	// Get chunk index in region
 	size_t index = getChunkIndexInRegion(chunk->getPosition());
 
 	// Add chunk to region
+	ASSERT(region->chunks[index] == nullptr);
 	region->chunks[index] = chunk;
+
+	// Increase chunk count in region
+	region->chunkCount++;
+	ASSERT(region->chunkCount <= CHUNK_REGION_VOLUME);
 }
 
 void ChunkRegionManager::removeChunk(Chunk* chunk)
@@ -58,24 +54,34 @@ void ChunkRegionManager::removeChunk(Chunk* chunk)
 	// Get region position
 	glm::ivec3 regionPos = getRegionPosition(chunk->getPosition());
 
-	// Get region
+	// Check if region exists
 	//std::lock_guard<std::mutex> lock(regionsMutex);
-
-	if (!regions.contains(regionPos))
+	auto it = regions.find(regionPos);
+	if (it == regions.end())
 	{
 		return;
 	}
 
-	ChunkRegion* region = regions[regionPos];
+	// Region exists
+	ChunkRegion* region = it->second;
 
 	// Get chunk index in region
 	size_t index = getChunkIndexInRegion(chunk->getPosition());
 
 	// Remove chunk from region
+	ASSERT(region->chunks[index] == chunk);
 	region->chunks[index] = nullptr;
 
-	// TODO: If region is empty, remove it from map
-	// Return region to pool if it's empty
+	// Decrease chunk count in region
+	region->chunkCount--;
+	ASSERT(region->chunkCount <= CHUNK_REGION_VOLUME);
+
+	// If region is empty, remove it from map and return to the pool
+	if (region->chunkCount == 0)
+	{
+		regions.erase(it);
+		regionPool.release(region);
+	}
 }
 
 size_t ChunkRegionManager::getRegionCount() const
