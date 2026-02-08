@@ -1,9 +1,6 @@
 #include "WorldRenderer.h"
 
 #include "../World/Chunk.h"
-#include "../World/Chunk/ChunkMeshManager.h"
-
-#include "Core/Profiler.h"
 
 #include "Graphics/TextureLoader.h"
 
@@ -276,9 +273,13 @@ void WorldRenderer::ensureCapacityForChunkRenderBuffers(size_t drawCount)
 	{
 		chunkDrawCommandBuffer.create(GL_DRAW_INDIRECT_BUFFER);
 		chunkDrawCommandBuffer.allocateStorage(drawCommandBufferRequiredCapacity, GL_DYNAMIC_STORAGE_BIT);
+		//chunkDrawCommandBuffer.allocateStorage(drawCommandBufferRequiredCapacity, GL_DYNAMIC_STORAGE_BIT | GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT);
 
 		// Bind indirect buffer to allow indirect rendering
 		chunkDrawCommandBuffer.bind();
+
+		// Map buffer
+		//chunkDrawCommandBuffer.mapPersistent(GL_MAP_WRITE_BIT);
 	}
 
 	// Chunk positions
@@ -287,9 +288,13 @@ void WorldRenderer::ensureCapacityForChunkRenderBuffers(size_t drawCount)
 	{
 		chunkPositionSSBO.create(GL_SHADER_STORAGE_BUFFER);
 		chunkPositionSSBO.allocateStorage(chunkPositionBufferRequiredCapacity, GL_DYNAMIC_STORAGE_BIT);
+		//chunkPositionSSBO.allocateStorage(chunkPositionBufferRequiredCapacity, GL_DYNAMIC_STORAGE_BIT | GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT);
 
 		// Bind SSBO
 		chunkPositionSSBO.bindBase(0);
+
+		// Map buffer
+		//chunkPositionSSBO.mapPersistent(GL_MAP_WRITE_BIT);
 	}
 }
 
@@ -304,144 +309,24 @@ void WorldRenderer::passDataToChunkRenderBuffers(size_t drawCount)
 	chunkPositionSSBO.write(chunkPositions.data(), chunkPositionBufferRequiredCapacity);
 }
 
-void WorldRenderer::renderOpaqueChunks()
+void WorldRenderer::renderAlignedOpaqueChunks()
 {
-	glEnable(GL_CULL_FACE);
-	glDisable(GL_BLEND);
-
-	// Aligned
-	{
-		PROFILE_SCOPE("Render: collect draw commands", ProfileCategory::Render);
-
-		chunkDrawCommands.clear();
-		chunkPositions.clear();
-		for (const auto& info : chunksToRender)
-		{
-			info.chunk->collectAlignedOpaqueRenderData(chunkDrawCommands, chunkPositions);
-		}
-	}
-
-	{
-		const size_t drawCount = chunkDrawCommands.size();
-		if (drawCount > 0)
-		{
-			for (const auto& command : chunkDrawCommands)
-			{
-				renderStats.renderedChunkFaceCount += command.instanceCount;
-			}
-
-			ensureCapacityForChunkRenderBuffers(drawCount);
-			passDataToChunkRenderBuffers(drawCount);
-
-			alignedOpaqueFaceShader.use();
-			ChunkMeshManager::getInstance().bindAlignedVAO();
-			glMultiDrawArraysIndirect(GL_TRIANGLE_FAN, NULL, (GLsizei)drawCount, 0);
-		}
-	}
-
-	// Non-aligned
-	{
-		PROFILE_SCOPE("Render: collect draw commands", ProfileCategory::Render);
-
-		chunkDrawCommands.clear();
-		chunkPositions.clear();
-		for (const auto& info : chunksToRender)
-		{
-			info.chunk->collectNonAlignedOpaqueRenderData(chunkDrawCommands, chunkPositions);
-		}
-	}
-
-	{
-		const size_t drawCount = chunkDrawCommands.size();
-		if (drawCount > 0)
-		{
-			for (const auto& command : chunkDrawCommands)
-			{
-				renderStats.renderedChunkFaceCount += command.instanceCount;
-			}
-
-			ensureCapacityForChunkRenderBuffers(drawCount);
-			passDataToChunkRenderBuffers(drawCount);
-
-			nonAlignedOpaqueFaceShader.use();
-			ChunkMeshManager::getInstance().bindNonAlignedVAO();
-			glMultiDrawArraysIndirect(GL_TRIANGLE_FAN, NULL, (GLsizei)drawCount, 0);
-		}
-	}
+	renderChunksGeneral<&Chunk::collectAlignedOpaqueRenderData, &ChunkMeshManager::bindAlignedVAO>(alignedOpaqueFaceShader);
 }
 
-void WorldRenderer::renderTranslucentChunks()
+void WorldRenderer::renderNonAlignedOpaqueChunks()
 {
-	//glDepthFunc(GL_LEQUAL);
-	glDepthMask(GL_FALSE);
-	glDisable(GL_CULL_FACE);
-	glEnable(GL_BLEND);
-	glBlendEquation(GL_FUNC_ADD);
-	glBlendFunc(GL_ONE, GL_ONE);
-	//glBlendFunci(0, GL_ONE, GL_ONE);	// accumulation buffer
-	//glBlendFunci(1, GL_ONE, GL_ONE);	// revealage buffer
+	renderChunksGeneral<&Chunk::collectNonAlignedOpaqueRenderData, &ChunkMeshManager::bindNonAlignedVAO>(nonAlignedOpaqueFaceShader);
+}
 
-	// Aligned
-	{
-		PROFILE_SCOPE("Render: collect draw commands", ProfileCategory::Render);
+void WorldRenderer::renderAlignedTranslucentChunks()
+{
+	renderChunksGeneral<&Chunk::collectAlignedTranslucentRenderData, &ChunkMeshManager::bindAlignedVAO>(alignedTranslucentFaceShader);
+}
 
-		chunkDrawCommands.clear();
-		chunkPositions.clear();
-		for (const auto& info : chunksToRender)
-		{
-			info.chunk->collectAlignedTranslucentRenderData(chunkDrawCommands, chunkPositions);
-		}
-	}
-
-	{
-		const size_t drawCount = chunkDrawCommands.size();
-		if (drawCount > 0)
-		{
-			for (const auto& command : chunkDrawCommands)
-			{
-				renderStats.renderedChunkFaceCount += command.instanceCount;
-			}
-
-			ensureCapacityForChunkRenderBuffers(drawCount);
-			passDataToChunkRenderBuffers(drawCount);
-
-			alignedTranslucentFaceShader.use();
-			ChunkMeshManager::getInstance().bindAlignedVAO();
-			glMultiDrawArraysIndirect(GL_TRIANGLE_FAN, NULL, (GLsizei)drawCount, 0);
-		}
-	}
-
-	// Non-aligned
-	{
-		PROFILE_SCOPE("Render: collect draw commands", ProfileCategory::Render);
-
-		chunkDrawCommands.clear();
-		chunkPositions.clear();
-		for (const auto& info : chunksToRender)
-		{
-			info.chunk->collectNonAlignedTranslucentRenderData(chunkDrawCommands, chunkPositions);
-		}
-	}
-
-	{
-		const size_t drawCount = chunkDrawCommands.size();
-		if (drawCount > 0)
-		{
-			for (const auto& command : chunkDrawCommands)
-			{
-				renderStats.renderedChunkFaceCount += command.instanceCount;
-			}
-
-			ensureCapacityForChunkRenderBuffers(drawCount);
-			passDataToChunkRenderBuffers(drawCount);
-
-			nonAlignedTranslucentFaceShader.use();
-			ChunkMeshManager::getInstance().bindNonAlignedVAO();
-			glMultiDrawArraysIndirect(GL_TRIANGLE_FAN, NULL, (GLsizei)drawCount, 0);
-		}
-	}
-
-	glDepthMask(GL_TRUE);
+void WorldRenderer::renderNonAlignedTranslucentChunks()
+{
+	renderChunksGeneral<&Chunk::collectNonAlignedTranslucentRenderData, &ChunkMeshManager::bindNonAlignedVAO>(nonAlignedTranslucentFaceShader);
 }
 
 void WorldRenderer::renderChunks(const Camera& camera, const FrameBuffer& FBO)
@@ -506,9 +391,20 @@ void WorldRenderer::renderChunks(const Camera& camera, const FrameBuffer& FBO)
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
 
-	// Render chunks
-	renderOpaqueChunks();
-	renderTranslucentChunks();
+	// Render opaque chunks
+	glEnable(GL_CULL_FACE);
+	glDisable(GL_BLEND);
+	renderAlignedOpaqueChunks();
+	renderNonAlignedOpaqueChunks();
+
+	// Render translucent chunks
+	glDepthMask(GL_FALSE);
+	glDisable(GL_CULL_FACE);
+	glEnable(GL_BLEND);
+	glBlendEquation(GL_FUNC_ADD);
+	glBlendFunc(GL_ONE, GL_ONE);
+	renderAlignedTranslucentChunks();
+	renderNonAlignedTranslucentChunks();
 }
 
 void WorldRenderer::renderAurora(const Camera& camera, const FrameBuffer& FBO) const

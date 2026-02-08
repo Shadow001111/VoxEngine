@@ -1,13 +1,15 @@
 #pragma once
+#include "Core/Profiler.h"
 
 #include "OpenGLWrappers/Shader.h"
-#include "OpenGLWrappers/Buffer.h"
+#include "OpenGLWrappers/VertexArray.h"
 #include "OpenGLWrappers/ImmutableBuffer.h"
 #include "OpenGLWrappers/FrameBuffer.h"
 
 #include "../World/VoxelMarkerMesh.h"
 #include "../World/RaycastResult.h"
 #include "../World/WorldVisualSettings.h"
+#include "../World/Chunk/ChunkMeshManager.h"
 
 #include "Graphics/Camera.h"
 
@@ -22,6 +24,9 @@ class WorldRenderer
 
 		ChunkRenderInfo(const Chunk* chunk, unsigned int manhattanDistance);
 	};
+
+	using ChunkCollectFunc = void (Chunk::*)(BufferStreamWriter<DrawArraysIndirectCommand>&, BufferStreamWriter<glm::ivec3>&) const;
+	using ChunkMeshManagerBindVAOFunc = void (ChunkMeshManager::*)() const;
 public:
 	struct RenderStats
 	{
@@ -96,8 +101,14 @@ private:
 	void ensureCapacityForChunkRenderBuffers(size_t drawCount);
 	void passDataToChunkRenderBuffers(size_t drawCount);
 
-	void renderOpaqueChunks();
-	void renderTranslucentChunks();
+	template<ChunkCollectFunc CollectMethod, ChunkMeshManagerBindVAOFunc BindVAOMethod>
+	void renderChunksGeneral(const Shader& shader);
+
+	void renderAlignedOpaqueChunks();
+	void renderNonAlignedOpaqueChunks();
+	void renderAlignedTranslucentChunks();
+	void renderNonAlignedTranslucentChunks();
+
 	void renderChunks(const Camera& camera, const FrameBuffer& FBO);
 
 	void renderAurora(const Camera& camera, const FrameBuffer& FBO) const;
@@ -125,3 +136,42 @@ public:
 	const RenderStats& getRenderStats() const { return renderStats; }
 };
 
+template<WorldRenderer::ChunkCollectFunc CollectMethod, WorldRenderer::ChunkMeshManagerBindVAOFunc BindVAOMethod>
+inline void WorldRenderer::renderChunksGeneral(const Shader& shader)
+{
+	size_t drawCount;
+	{
+		PROFILE_SCOPE("Render: collect draw commands", ProfileCategory::Render);
+
+		const size_t capacity = chunksToRender.size();
+		chunkDrawCommands.reserve(capacity);
+		chunkPositions.reserve(capacity);
+
+		BufferStreamWriter<DrawArraysIndirectCommand> drawCommandsWriter(chunkDrawCommands.data());
+		BufferStreamWriter<glm::ivec3> chunkPositionsWriter(chunkPositions.data());
+
+		for (const auto& info : chunksToRender)
+		{
+			(info.chunk->*CollectMethod)(drawCommandsWriter, chunkPositionsWriter);
+		}
+
+		drawCount = drawCommandsWriter.getDestination() - chunkDrawCommands.data();
+	}
+
+	if (drawCount == 0)
+	{
+		return;
+	}
+
+	for (size_t i = 0; i < drawCount; i++)
+	{
+		renderStats.renderedChunkFaceCount += chunkDrawCommands[i].instanceCount;
+	}
+
+	ensureCapacityForChunkRenderBuffers(drawCount);
+	passDataToChunkRenderBuffers(drawCount);
+
+	shader.use();
+	(ChunkMeshManager::getInstance().*BindVAOMethod)();
+	glMultiDrawArraysIndirect(GL_TRIANGLE_FAN, NULL, (GLsizei)drawCount, 0);
+}

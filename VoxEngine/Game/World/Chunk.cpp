@@ -2011,48 +2011,52 @@ void Chunk::sendMeshesToGPU()
 	pendingMeshUploads.clear();
 }	 
 
-void Chunk::collectAlignedOpaqueRenderData(std::vector<DrawArraysIndirectCommand>& drawCommands, std::vector<glm::ivec3>& positions) const
+void Chunk::collectAlignedOpaqueRenderData(BufferStreamWriter<DrawArraysIndirectCommand>& drawCommands, BufferStreamWriter<glm::ivec3>& positions) const
 {
 	size_t faceCount = meshData.renderAlignedOpaqueFaceCount;
 	if (!meshData.alignedCreated || faceCount == 0)
 	{
 		return;
 	}
-	drawCommands.emplace_back(4, faceCount, 0, meshData.allocatedBlock_alignedFaces.offset);
-	positions.push_back(position);
+	DrawArraysIndirectCommand command(4, faceCount, 0, meshData.allocatedBlock_alignedFaces.offset);
+	drawCommands.writeSingle(command);
+	positions.writeSingle(position);
 }
 
-void Chunk::collectAlignedTranslucentRenderData(std::vector<DrawArraysIndirectCommand>& drawCommands, std::vector<glm::ivec3>& positions) const
+void Chunk::collectAlignedTranslucentRenderData(BufferStreamWriter<DrawArraysIndirectCommand>& drawCommands, BufferStreamWriter<glm::ivec3>& positions) const
 {
 	size_t faceCount = meshData.renderAlignedTranslucentFaceCount;
 	if (!meshData.alignedCreated || faceCount == 0)
 	{
 		return;
 	}
-	drawCommands.emplace_back(4, faceCount, 0, meshData.allocatedBlock_alignedFaces.offset + meshData.renderAlignedOpaqueFaceCount);
-	positions.push_back(position);
+	DrawArraysIndirectCommand command(4, faceCount, 0, meshData.allocatedBlock_alignedFaces.offset + meshData.renderAlignedOpaqueFaceCount);
+	drawCommands.writeSingle(command);
+	positions.writeSingle(position);
 }
 
-void Chunk::collectNonAlignedOpaqueRenderData(std::vector<DrawArraysIndirectCommand>& drawCommands, std::vector<glm::ivec3>& positions) const
+void Chunk::collectNonAlignedOpaqueRenderData(BufferStreamWriter<DrawArraysIndirectCommand>& drawCommands, BufferStreamWriter<glm::ivec3>& positions) const
 {
 	size_t faceCount = meshData.renderNonAlignedOpaqueFaceCount;
 	if (!meshData.nonAlignedCreated || faceCount == 0)
 	{
 		return;
 	}
-	drawCommands.emplace_back(4, faceCount, 0, meshData.allocatedBlock_nonAlignedFaces.offset);
-	positions.push_back(position);
+	DrawArraysIndirectCommand command(4, faceCount, 0, meshData.allocatedBlock_nonAlignedFaces.offset);
+	drawCommands.writeSingle(command);
+	positions.writeSingle(position);
 }
 
-void Chunk::collectNonAlignedTranslucentRenderData(std::vector<DrawArraysIndirectCommand>& drawCommands, std::vector<glm::ivec3>& positions) const
+void Chunk::collectNonAlignedTranslucentRenderData(BufferStreamWriter<DrawArraysIndirectCommand>& drawCommands, BufferStreamWriter<glm::ivec3>& positions) const
 {
 	size_t faceCount = meshData.renderNonAlignedTranslucentFaceCount;
 	if (!meshData.nonAlignedCreated || faceCount == 0)
 	{
 		return;
 	}
-	drawCommands.emplace_back(4, faceCount, 0, meshData.allocatedBlock_nonAlignedFaces.offset + meshData.renderNonAlignedOpaqueFaceCount);
-	positions.push_back(position);
+	DrawArraysIndirectCommand command(4, faceCount, 0, meshData.allocatedBlock_nonAlignedFaces.offset + meshData.renderNonAlignedOpaqueFaceCount);
+	drawCommands.writeSingle(command);
+	positions.writeSingle(position);
 }
 
 const Chunk* Chunk::getChunkAndIndex_checkSideNeighbor(int x, int y, int z, int side, size_t& outIndex) const
