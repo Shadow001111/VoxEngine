@@ -16,9 +16,48 @@ WindowManager::WindowManager(const WindowParams& params)
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_RESIZABLE, params.resizable);
     glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, params.openglDebug);
+    glfwWindowHint(GLFW_DECORATED, !params.bolderlessFullscreen);
 
     // Create window
-    window = glfwCreateWindow(params.width, params.height, params.title.c_str(), nullptr, nullptr);
+    int choosenWidth, choosenHeight;
+    if (params.nativeFullscreen)
+    {
+        GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+
+        const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+
+        glfwWindowHint(GLFW_RED_BITS, mode->redBits);
+        glfwWindowHint(GLFW_GREEN_BITS, mode->greenBits);
+        glfwWindowHint(GLFW_BLUE_BITS, mode->blueBits);
+        glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
+
+        choosenWidth = mode->width;
+        choosenHeight = mode->height;
+
+        window = glfwCreateWindow(choosenWidth, choosenHeight, params.title.c_str(), monitor, nullptr);
+    }
+    else if (params.bolderlessFullscreen)
+    {
+        GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+
+        const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+
+        glfwWindowHint(GLFW_RED_BITS, mode->redBits);
+        glfwWindowHint(GLFW_GREEN_BITS, mode->greenBits);
+        glfwWindowHint(GLFW_BLUE_BITS, mode->blueBits);
+        glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
+
+        choosenWidth = mode->width;
+        choosenHeight = mode->height;
+        window = glfwCreateWindow(choosenWidth, choosenHeight, params.title.c_str(), nullptr, nullptr);
+    }
+    else
+    {
+        choosenWidth = params.width;
+        choosenHeight = params.height;
+        window = glfwCreateWindow(choosenWidth, choosenHeight, params.title.c_str(), nullptr, nullptr);
+    }
+
     if (!window)
     {
         std::cerr << "[WindowManager]: Failed to create GLFW window\n";
@@ -47,6 +86,9 @@ WindowManager::WindowManager(const WindowParams& params)
     glfwSetMouseButtonCallback(window, mouseButtonStaticCallback);
     glfwSetScrollCallback(window, scrollStaticCallback);
 
+    // Set viewport
+    glViewport(0, 0, choosenWidth, choosenHeight);
+
     // vsync
     glfwSwapInterval(params.vsync);
 
@@ -64,11 +106,17 @@ WindowManager::WindowManager(const WindowParams& params)
         glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_NOTIFICATION, 0, nullptr, GL_FALSE);
     }
 
-    //
-	width = params.width;
-	height = params.height;
+    // Set window size, aspect ratio and the rest
+	width = choosenWidth;
+	height = choosenHeight;
 	aspectRatio = static_cast<float>(width) / static_cast<float>(height);
     vsync = params.vsync;
+
+    // Aspect ratio constraint
+    if (params.strictAspectRatio)
+    {
+        glfwSetWindowAspectRatio(window, width, height);
+    }
 }
 
 WindowManager::~WindowManager()
@@ -252,16 +300,9 @@ void WindowManager::onResize(int width, int height)
     {
         glViewport(0, 0, width, height);
 
-        FrameBuffer* lastFramebuffer = nullptr;
         for (auto* framebuffer : linkedFramebuffers)
         {
-            framebuffer->bind();
             framebuffer->resize(width, height);
-            lastFramebuffer = framebuffer;
-        }
-        if (lastFramebuffer)
-        {
-            lastFramebuffer->unbind();
         }
     }
 }

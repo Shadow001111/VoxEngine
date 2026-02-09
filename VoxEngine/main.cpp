@@ -24,7 +24,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #ifdef NDEBUG
-constexpr int CHUNK_LOAD_DISTANCE = 30;
+constexpr int CHUNK_LOAD_DISTANCE = 8;
 #else
 constexpr int CHUNK_LOAD_DISTANCE = 3;
 #endif
@@ -442,7 +442,17 @@ int gameFunc()
     constexpr float CAMERA_FAR_PLANE = (CHUNK_LOAD_DISTANCE + 0.5f) * CHUNK_SIZE;
 
     // Window
-    WindowManager wnd({ 1280, 720, "VoxEngine", true, true, true });
+    WindowManager wnd({
+        .width = 1920 / 2,
+        .height = 1080 / 3,
+        .title = "VoxEngine",
+        .nativeFullscreen = false,
+        .bolderlessFullscreen = false,
+        .resizable = true,
+        .vsync = true,
+        .openglDebug = true,
+        .strictAspectRatio = true
+        });
 
     // Init textures
     Texture::initGlobalData();

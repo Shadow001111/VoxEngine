@@ -8,9 +8,12 @@ struct WindowParams
     int width = 800;
     int height = 600;
     std::string title = "OpenGL Window";
+    bool nativeFullscreen = false;
+    bool bolderlessFullscreen = false;
     bool resizable = false;
     bool vsync = false;
     bool openglDebug = false;
+    bool strictAspectRatio = false;
 };
 
 class WindowManager
