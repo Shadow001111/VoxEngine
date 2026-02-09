@@ -179,7 +179,6 @@
     <ClCompile Include="Game\Inventory\GUIInventory.cpp" />
     <ClCompile Include="Input\InputManager.cpp" />
     <ClCompile Include="Game\Inventory\Inventory.cpp" />
-    <ClCompile Include="OpenGLWrappers\Buffer.cpp" />
     <ClCompile Include="Graphics\TextureLoader.cpp" />
     <ClCompile Include="Core\StringIndexer.cpp" />
     <ClCompile Include="Core\Multithreading\ProcessingFence.cpp" />
@@ -255,7 +254,6 @@
     <ClInclude Include="Game\Inventory\GUIInventory.h" />
     <ClInclude Include="Input\InputManager.h" />
     <ClInclude Include="Game\Inventory\Inventory.h" />
-    <ClInclude Include="OpenGLWrappers\Buffer.h" />
     <ClInclude Include="Graphics\TextureLoader.h" />
     <ClInclude Include="Core\StringIndexer.h" />
     <ClInclude Include="Core\Multithreading\ProcessingFence.h" />
