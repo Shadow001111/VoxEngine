@@ -11,13 +11,13 @@ ImmutableBuffer::~ImmutableBuffer()
 ImmutableBuffer::ImmutableBuffer(ImmutableBuffer&& other) noexcept :
     target(other.target),
     id(other.id),
-    capacity(other.capacity),
     flags(other.flags),
+    capacity(other.capacity),
 	persistentMappedPtr(other.persistentMappedPtr)
 {
     other.id = 0;
-    other.capacity = 0;
     other.flags = 0;
+    other.capacity = 0;
     other.target = 0;
 	other.persistentMappedPtr = nullptr;
 }
@@ -30,13 +30,13 @@ ImmutableBuffer& ImmutableBuffer::operator=(ImmutableBuffer&& other) noexcept
 
         target = other.target;
         id = other.id;
-        capacity = other.capacity;
         flags = other.flags;
+        capacity = other.capacity;
 		persistentMappedPtr = other.persistentMappedPtr;
 
         other.id = 0;
-        other.capacity = 0;
         other.flags = 0;
+        other.capacity = 0;
         other.target = 0;
 		other.persistentMappedPtr = nullptr;
     }
@@ -59,7 +59,7 @@ void ImmutableBuffer::create(GLenum target)
 
 void ImmutableBuffer::destroy()
 {
-    this->target = target;
+    this->target = 0;
     this->flags = 0;
     this->capacity = 0;
     this->persistentMappedPtr = nullptr;
@@ -128,9 +128,10 @@ void ImmutableBuffer::bindBase(GLenum target, GLuint index) const
 void ImmutableBuffer::swap(ImmutableBuffer& other) noexcept
 {
     std::swap(target, other.target);
+    std::swap(flags, other.flags);
     std::swap(id, other.id);
     std::swap(capacity, other.capacity);
-    std::swap(flags, other.flags);
+    std::swap(persistentMappedPtr, other.persistentMappedPtr);
 }
 
 void ImmutableBuffer::write(const void* data, size_t dataSize, size_t offset) const
@@ -292,7 +293,7 @@ void* ImmutableBuffer::map(GLenum access)
     return ptr;
 }
 
-void* ImmutableBuffer::mapRange(GLintptr offset, GLsizeiptr size, GLbitfield access)
+void* ImmutableBuffer::mapRange(GLbitfield access, GLsizeiptr size, GLintptr offset)
 {
 #if BUFFER_SAFETY_CHECKS
     if (id == 0)
@@ -331,7 +332,7 @@ void* ImmutableBuffer::mapRange(GLintptr offset, GLsizeiptr size, GLbitfield acc
     return ptr;
 }
 
-void* ImmutableBuffer::mapPersistent(GLbitfield access, GLsizeiptr size)
+void* ImmutableBuffer::mapPersistentRange(GLbitfield access, GLsizeiptr size, GLintptr offset)
 {
 #if BUFFER_SAFETY_CHECKS
     if (id == 0)
@@ -372,7 +373,7 @@ void* ImmutableBuffer::mapPersistent(GLbitfield access, GLsizeiptr size)
 
 void* ImmutableBuffer::mapPersistent(GLbitfield access)
 {
-	return mapPersistent(access, capacity);
+	return mapPersistentRange(access, capacity, 0);
 }
 
 void ImmutableBuffer::unmap()
@@ -393,7 +394,7 @@ void ImmutableBuffer::unmap()
 #endif
 }
 
-void ImmutableBuffer::flushMappedRange(GLintptr offset, GLsizeiptr size)
+void ImmutableBuffer::flushMappedRange(GLsizeiptr size, GLintptr offset)
 {
 #if BUFFER_SAFETY_CHECKS
     if (id == 0)
