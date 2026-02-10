@@ -236,6 +236,7 @@ void FrameBuffer::setReadBuffer(const std::string& attachmentName) const
     }
     else
     {
+        glNamedFramebufferReadBuffer(id, GL_NONE);
         std::cerr << "[FrameBuffer][setReadBuffer]: Attachment '" << attachmentName
             << "' not found. Cannot set as read buffer.\n";
 	}

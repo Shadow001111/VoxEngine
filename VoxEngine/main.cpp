@@ -24,7 +24,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #ifdef NDEBUG
-constexpr int CHUNK_LOAD_DISTANCE = 8;
+constexpr int CHUNK_LOAD_DISTANCE = 15;
 #else
 constexpr int CHUNK_LOAD_DISTANCE = 3;
 #endif
@@ -77,12 +77,20 @@ static void setupOpenGLStates()
 
 struct ContainerUI
 {
+    FrameBuffer* fbo = nullptr;
+
+    // Inventory
     Shader hotbarShader;
     Texture hotbarSlotImage;
     VertexArray hotbarVAO;
     ImmutableBuffer hotbarVBO;
 
     Texture itemUITextureArray;
+
+    // Depth-buffer display
+    VertexArray dbdVAO;
+    ImmutableBuffer dbdVBO;
+    Shader dbdShader;
 };
 
 struct DebugUIMetrics
@@ -95,6 +103,7 @@ struct DebugUIMetrics
 
 static void setupContainerUI(ContainerUI& c)
 {
+    // Hotbar
     {
         std::vector<Shader::ShaderSource> sources =
         {
@@ -142,6 +151,29 @@ static void setupContainerUI(ContainerUI& c)
         TextureLoader::createTextureArrayFromImages(c.hotbarSlotImage, "res/UITextures", { "empty_hotbar_slot", "selected_hotbar_slot" }, textureLoadParametrs);
 
         c.hotbarSlotImage.setParameters(textureParametrs);
+    }
+
+    // Depth-buffer display
+    {
+        std::vector<Shader::ShaderSource> sources =
+        {
+            {GL_VERTEX_SHADER, "res/Shaders/quad.vert"},
+            {GL_FRAGMENT_SHADER, "res/Shaders/depthBufferDisplay.frag"}
+        };
+        c.dbdShader.create(sources);
+        c.dbdShader.setInt("sampleTexture", 0);
+    }
+
+    {
+        c.dbdVAO.create();
+
+        c.dbdVBO.create(GL_ARRAY_BUFFER);
+        c.dbdVBO.allocateStorage(sizeof(quadVertices), 0, quadVertices);
+
+        c.dbdVAO.bindVertexBuffer(0, c.dbdVBO.getID(), 0, 4 * sizeof(float));
+
+        c.dbdVAO.enableAttribute(0);
+        c.dbdVAO.setFloatAttribute(0, 4, 0);
     }
 }
 
@@ -294,21 +326,65 @@ static void renderInventory(const float aspectRatio, const GUIInventory& invento
 
 static void renderHotbarAndInventory(const float aspectRatio, const ContainerUI& c, const Player& player)
 {
-    glDisable(GL_DEPTH_TEST);
-    glDepthMask(GL_FALSE);
-
     renderInventory(aspectRatio, player.getHotbar(), c); // TODO: Add rendering choosen slot
     if (player.isInventoryOpened())
     {
         renderInventory(aspectRatio, player.getInventory(), c);
     }
+}
 
-    glDepthMask(GL_TRUE);
+static void renderDepthBuffer(const float aspectRatio, const ContainerUI& c, const Player& player)
+{
+    c.dbdVAO.bind();
+    c.dbdShader.use();
+
+    auto textureOpt = c.fbo->getTexture("depth");
+    if (!textureOpt.has_value())
+    {
+        return;
+    }
+
+    const auto* texture = textureOpt.value();
+
+    if (Texture::getExtensions().bindless)
+    {
+        c.dbdShader.setHandleui64ARB("sampleTexture", texture->getHandle());
+    }
+    else
+    {
+        texture->bindUnit(0);
+    }
+
+    const float scale = 0.3f;
+    
+    float newWidth = aspectRatio * scale;
+    float quadRightBorder = newWidth;
+    float translateXBy = (aspectRatio - quadRightBorder);
+    float translateYBy = 1.0f - scale;
+
+    glm::mat4 model = glm::identity<glm::mat4>();
+    model = glm::translate(model, glm::vec3(translateXBy, translateYBy, 0.0f));
+    model = glm::scale(model, glm::vec3(aspectRatio * scale, scale, 1.0f));
+
+    glm::mat4 proj = glm::ortho(-aspectRatio, aspectRatio, -1.0f, 1.0f);
+
+    c.dbdShader.setMat4("model", model);
+    c.dbdShader.setMat4("projection", proj);
+
+    const auto& camera = player.getCamera();
+    float near = camera.getNear();
+    float far = camera.getFar();
+
+    c.dbdShader.setVec2("nearFar", near, far);
+
+    glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
 }
 
 static void renderUI(const float aspectRatio, const ContainerUI& c, const Player& player)
 {
-    glDisable(GL_DEPTH_TEST);
+    //glDisable(GL_BLEND);
+    //renderDepthBuffer(aspectRatio, c, player);
+
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
@@ -443,12 +519,12 @@ int gameFunc()
 
     // Window
     WindowManager wnd({
-        .width = 1920 / 2,
-        .height = 1080 / 3,
+        .width = 1600,
+        .height = 900,
         .title = "VoxEngine",
         .nativeFullscreen = false,
         .bolderlessFullscreen = false,
-        .resizable = true,
+        .resizable = false,
         .vsync = true,
         .openglDebug = true,
         .strictAspectRatio = true
@@ -483,7 +559,7 @@ int gameFunc()
         // Problem: Geometry alpha mask is in higher resolution, meaning we need to sample multiple pixels to check if geometry covers aurora or not.
         framebuffer.createStandaloneTextureAttachment("aurora", GL_RGBA8, params, 1.0f, bindless);
 
-        framebuffer.createDepthAttachment("depth", GL_DEPTH_COMPONENT32F, params);
+        framebuffer.createDepthAttachment("depth", GL_DEPTH_COMPONENT32F, params, bindless);
 
         if (!framebuffer.isComplete())
         {
@@ -541,6 +617,7 @@ int gameFunc()
 
     // Container UI
     ContainerUI containerUI;
+    containerUI.fbo = &framebuffer;
     setupContainerUI(containerUI);
 
     // Main loop
@@ -645,6 +722,10 @@ int gameFunc()
                 TextRenderer::setCustomCoordinateSpace(-aspectRatio, aspectRatio, -1.0f, 1.0f);
 
                 framebuffer.setDrawBuffers({ "color" });
+
+                glDisable(GL_DEPTH_TEST);
+                glDepthMask(GL_FALSE);
+
                 renderUI(aspectRatio, containerUI, player);
 
                 // Render UI text
@@ -681,7 +762,6 @@ int gameFunc()
 }
 
 // TODO: Fix terrain generation at far lands
-// TODO: Fix: GUI and terrain disappears when window gets resized
 int main()
 {
     std::ios_base::sync_with_stdio(false);

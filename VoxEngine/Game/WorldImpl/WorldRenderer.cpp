@@ -390,6 +390,7 @@ void WorldRenderer::renderChunks(const Camera& camera, const FrameBuffer& FBO)
 	// Set shared opengl states
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
+	glDepthMask(GL_TRUE);
 
 	// Render opaque chunks
 	glEnable(GL_CULL_FACE);
@@ -633,13 +634,18 @@ void WorldRenderer::render(const Camera& camera, const FrameBuffer& FBO, const R
 {
 	// Clear buffers
 	{
+		//const float color[] = { 0.0f, 0.0f, 0.0f, 1.0f };
+		//FBO.clearDrawBuffer("color", color);
+
 		const float geometryAlpha[] = { 0.0 };
-		float accumulation[] = { 0.0f, 0.0f, 0.0f, 0.0f };
-		float revealage[] = { 0.0f };
-		float aurora[] = { 0.0f, 0.0f, 0.0f, 0.0f };
+		const float accumulation[] = { 0.0f, 0.0f, 0.0f, 0.0f };
+		const float revealage[] = { 0.0f };
+		const float aurora[] = { 0.0f, 0.0f, 0.0f, 0.0f };
+
 		FBO.clearDrawBuffer("geometryAlpha", geometryAlpha);
 		FBO.clearDrawBuffer("accumulation", accumulation);
 		FBO.clearDrawBuffer("revealage", revealage);
+
 		if (auroraAlpha > AURORA_THRESHOLD)
 		{
 			FBO.clearAttachment("aurora", aurora);
