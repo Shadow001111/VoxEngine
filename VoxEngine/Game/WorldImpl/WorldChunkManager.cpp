@@ -124,9 +124,9 @@ void WorldChunkManager::update()
 void WorldChunkManager::sendChunkMeshesToGPU()
 {
 	// Send only dirty meshes
-	if (Chunk::gHasPendingMeshUploads.load(std::memory_order_acquire))
+	if (ChunkMesh::getHasPendingMeshUploads())
 	{
-		Chunk::gHasPendingMeshUploads.store(false, std::memory_order_release);
+		ChunkMesh::setHasPendingMeshUploads(false);
 
 		PROFILE_SCOPE("Check dirty meshes to send to GPU", ProfileCategory::ChunkMesh);
 
@@ -136,7 +136,7 @@ void WorldChunkManager::sendChunkMeshesToGPU()
 			chunk->askForMeshUpload();
 		}
 	}
-	Chunk::sendMeshesToGPU();
+	ChunkMesh::sendMeshesToGPU();
 }
 
 Chunk* WorldChunkManager::getChunkAt(const glm::ivec3& position) const

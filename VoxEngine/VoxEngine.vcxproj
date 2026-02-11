@@ -152,6 +152,8 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Game\World\Chunk\ChunkIO.cpp" />
+    <ClCompile Include="Game\World\Chunk\ChunkMesh.cpp" />
     <ClCompile Include="Game\World\Chunk\ChunkRegion.cpp" />
     <ClCompile Include="Core\Decoding\UTFDecoder.cpp" />
     <ClCompile Include="Core\Shapes\Frustum.cpp" />
@@ -166,8 +168,9 @@
     <ClCompile Include="Game\World\ChunkLoaders\BaseChunkLoader.cpp" />
     <ClCompile Include="Game\World\ChunkLoaders\SphericalChunkLoader.cpp" />
     <ClCompile Include="Game\World\ChunkPool.cpp" />
-    <ClCompile Include="Game\World\Chunk\ChunkMeshManager.cpp" />
-    <ClCompile Include="Game\World\Chunk\MeshData.cpp" />
+    <ClCompile Include="Game\World\Chunk\ChunkInstancedMeshAllocator.cpp" />
+    <ClCompile Include="Game\World\Chunk\Light.cpp" />
+    <ClCompile Include="Game\World\Chunk\ChunkInstancedMeshFaceStorage.cpp" />
     <ClCompile Include="Game\World\Chunk\MeshTemplates\AlignedBlockFace.cpp" />
     <ClCompile Include="Game\World\Chunk\MeshTemplates\NonAlignedBlockFace.cpp" />
     <ClCompile Include="Game\World\Chunk\StructureBlockChanges.cpp" />
@@ -177,6 +180,7 @@
     <ClCompile Include="Game\World\VoxelMarkerMesh.cpp" />
     <ClCompile Include="Game\World\WorldVisualSettings.cpp" />
     <ClCompile Include="Game\Inventory\GUIInventory.cpp" />
+    <ClCompile Include="Graphics\DrawCommands.cpp" />
     <ClCompile Include="Input\InputManager.cpp" />
     <ClCompile Include="Game\Inventory\Inventory.cpp" />
     <ClCompile Include="Graphics\TextureLoader.cpp" />
@@ -209,6 +213,8 @@
     <ClCompile Include="Game\WorldImpl\WorldRenderer.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Game\World\Chunk\ChunkIO.h" />
+    <ClInclude Include="Game\World\Chunk\ChunkMesh.h" />
     <ClInclude Include="Game\World\Chunk\BufferStreamWriter.h" />
     <ClInclude Include="Game\World\Chunk\ChunkRegion.h" />
     <ClInclude Include="Core\Decoding\UTFDecoder.h" />
@@ -237,9 +243,10 @@
     <ClInclude Include="Game\World\ChunkLoaders\BaseChunkLoader.h" />
     <ClInclude Include="Game\World\ChunkLoaders\SphericalChunkLoader.h" />
     <ClInclude Include="Game\World\ChunkPool.h" />
-    <ClInclude Include="Game\World\Chunk\ChunkMeshManager.h" />
+    <ClInclude Include="Game\World\Chunk\ChunkInstancedMeshAllocator.h" />
     <ClInclude Include="Game\World\Chunk\ChunkSpecializedQueue.h" />
-    <ClInclude Include="Game\World\Chunk\MeshData.h" />
+    <ClInclude Include="Game\World\Chunk\Light.h" />
+    <ClInclude Include="Game\World\Chunk\ChunkInstancedMeshFaceStorage.h" />
     <ClInclude Include="Game\World\Chunk\MeshTemplates\AlignedBlockFace.h" />
     <ClInclude Include="Game\World\Chunk\MeshTemplates\NonAlignedBlockFace.h" />
     <ClInclude Include="Game\World\Chunk\Metrics.h" />
@@ -252,6 +259,7 @@
     <ClInclude Include="Game\World\WorldVisualSettings.h" />
     <ClInclude Include="Core\MemoryAllocation\FixedArenaObjectPool.h" />
     <ClInclude Include="Game\Inventory\GUIInventory.h" />
+    <ClInclude Include="Graphics\DrawCommands.h" />
     <ClInclude Include="Input\InputManager.h" />
     <ClInclude Include="Game\Inventory\Inventory.h" />
     <ClInclude Include="Graphics\TextureLoader.h" />

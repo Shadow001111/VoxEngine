@@ -2,23 +2,23 @@
 #include "OpenGLWrappers/ImmutableBuffer.h"
 #include "OpenGLWrappers/VertexArray.h"
 
-#include "MeshData.h"
+#include "ChunkInstancedMeshFaceStorage.h"
 
 #include <vector>
 #include <functional>
 
-class ChunkMeshManager
+class ChunkInstancedMeshAllocator
 {
 	constexpr static GLbitfield INSTANCE_VBO_FLAGS = GL_DYNAMIC_STORAGE_BIT;
 
 	struct ProcessorConfig
 	{
 		std::function<void()> configureVBO;
-		std::function<size_t(ChunkMeshData*)> getFaceCount;
-		std::function<bool(ChunkMeshData*)> isCreated;
-		std::function<BlockAllocator::Block& (ChunkMeshData*)> getAllocatedBlock;
-		std::function<void(ChunkMeshData*, bool)> setCreated;
-		std::function<void(ChunkMeshData*, BlockAllocator::Block)> setAllocatedBlock;
+		std::function<size_t(ChunkInstancedMeshFaceStorage*)> getFaceCount;
+		std::function<bool(ChunkInstancedMeshFaceStorage*)> isCreated;
+		std::function<BlockAllocator::Block& (ChunkInstancedMeshFaceStorage*)> getAllocatedBlock;
+		std::function<void(ChunkInstancedMeshFaceStorage*, bool)> setCreated;
+		std::function<void(ChunkInstancedMeshFaceStorage*, BlockAllocator::Block)> setAllocatedBlock;
 		size_t faceSize;
 		std::string debugName;
 	};
@@ -31,11 +31,11 @@ class ChunkMeshManager
 		ProcessorConfig config;
 
 		MeshAllocator();
-		~MeshAllocator();
+		~MeshAllocator() = default;
 
 		void init(const ProcessorConfig& config);
 
-		void processMeshRequests(std::vector<ChunkMeshData*>& meshRequests);
+		void processMeshRequests(const std::vector<ChunkInstancedMeshFaceStorage*>& meshRequests);
 	};
 	
 	ImmutableBuffer vbo;
@@ -43,15 +43,18 @@ class ChunkMeshManager
 	MeshAllocator alignedMeshAllocator;
 	MeshAllocator nonAlignedMeshAllocator;
 
-	ChunkMeshManager();
-	~ChunkMeshManager() = default;
+	ChunkInstancedMeshAllocator();
+	~ChunkInstancedMeshAllocator() = default;
 
 	void configureAlignedInstanceVBO();
 	void configureNonAlignedInstanceVBO();
 public:
-	static ChunkMeshManager& getInstance();
+	static ChunkInstancedMeshAllocator& getInstance();
 
-	void processMeshRequests(std::vector<ChunkMeshData*>& alignedMeshRequests, std::vector<ChunkMeshData*>& nonAlignedMeshRequests);
+	void processMeshAllocationRequests(
+		const std::vector<ChunkInstancedMeshFaceStorage*>& alignedMeshRequests,
+		const std::vector<ChunkInstancedMeshFaceStorage*>& nonAlignedMeshRequests
+	);
 public:
 	ImmutableBuffer& getAlignedInstanceVBO() { return alignedMeshAllocator.instanceVBO; };
 	ImmutableBuffer& getNonAlignedInstanceVBO() { return nonAlignedMeshAllocator.instanceVBO; };

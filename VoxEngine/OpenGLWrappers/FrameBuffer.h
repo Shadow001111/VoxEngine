@@ -53,15 +53,15 @@ public:
     void destroy();
 
     // Attachment management
-    void createColorAttachment(const std::string& name, GLenum internalFormat, const Texture::Parametrs& params, bool bindless = false);
+    void createColorAttachment(const std::string& name, GLenum internalFormat, const Texture::Parameters& params, bool bindless = false);
 
-    void createDepthAttachment(const std::string& name, GLenum internalFormat, const Texture::Parametrs& params, bool bindless = false);
+    void createDepthAttachment(const std::string& name, GLenum internalFormat, const Texture::Parameters& params, bool bindless = false);
 
-    void createStencilAttachment(const std::string& name, GLenum internalFormat, const Texture::Parametrs& params, bool bindless = false);
+    void createStencilAttachment(const std::string& name, GLenum internalFormat, const Texture::Parameters& params, bool bindless = false);
 
-    void createDepthStencilAttachment(const std::string& name, GLenum internalFormat, const Texture::Parametrs& params, bool bindless = false);
+    void createDepthStencilAttachment(const std::string& name, GLenum internalFormat, const Texture::Parameters& params, bool bindless = false);
 
-    void createStandaloneTextureAttachment(const std::string& name, GLenum internalFormat, const Texture::Parametrs& params, float resolutionFactor = 1.0f, bool bindless = false);
+    void createStandaloneTextureAttachment(const std::string& name, GLenum internalFormat, const Texture::Parameters& params, float resolutionFactor = 1.0f, bool bindless = false);
 
     // Remove attachments
     void removeAttachment(const std::string& name);
@@ -97,7 +97,7 @@ public:
     int getHeight() const { return height; }
 private:
     GLenum getAttachmentPoint(AttachmentType type);
-    void createAndAttachTexture(Attachment& attachment, GLenum internalFormat, const Texture::Parametrs& params);
-    void createStandaloneTexture(Attachment& attachment, GLenum internalFormat, const Texture::Parametrs& params);
+    void createAndAttachTexture(Attachment& attachment, GLenum internalFormat, const Texture::Parameters& params);
+    void createStandaloneTexture(Attachment& attachment, GLenum internalFormat, const Texture::Parameters& params);
 	void makeTextureBindlessIfNeeded(Attachment& attachment, bool bindless);
 };

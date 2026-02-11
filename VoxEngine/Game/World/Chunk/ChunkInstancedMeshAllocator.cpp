@@ -1,10 +1,10 @@
-#include "ChunkMeshManager.h"
+#include "ChunkInstancedMeshAllocator.h"
 
 #include <iostream>
 
 #include "Core/Assert.h"
 
-ChunkMeshManager::ChunkMeshManager()
+ChunkInstancedMeshAllocator::ChunkInstancedMeshAllocator()
 {
 	// VBO
 	const float vertices[8] = // CCW order
@@ -21,11 +21,11 @@ ChunkMeshManager::ChunkMeshManager()
 	{
 		ProcessorConfig config = {
 			[this]() { configureAlignedInstanceVBO(); },
-			[](ChunkMeshData* mesh) { return mesh->getAlignedFaceCount(); },
-			[](ChunkMeshData* mesh) { return mesh->alignedCreated; },
-			[](ChunkMeshData* mesh) -> BlockAllocator::Block& { return mesh->allocatedBlock_alignedFaces; },
-			[](ChunkMeshData* mesh, bool created) { mesh->alignedCreated = created; },
-			[](ChunkMeshData* mesh, BlockAllocator::Block block) { mesh->allocatedBlock_alignedFaces = block; },
+			[](ChunkInstancedMeshFaceStorage* mesh) { return mesh->getAlignedFaceCount(); },
+			[](ChunkInstancedMeshFaceStorage* mesh) { return mesh->alignedCreated; },
+			[](ChunkInstancedMeshFaceStorage* mesh) -> BlockAllocator::Block& { return mesh->allocatedBlock_alignedFaces; },
+			[](ChunkInstancedMeshFaceStorage* mesh, bool created) { mesh->alignedCreated = created; },
+			[](ChunkInstancedMeshFaceStorage* mesh, BlockAllocator::Block block) { mesh->allocatedBlock_alignedFaces = block; },
 			sizeof(AlignedBlockFace),
 			"processAlignedMeshRequests"
 		};
@@ -34,11 +34,11 @@ ChunkMeshManager::ChunkMeshManager()
 	{
 		ProcessorConfig config = {
 			[this]() { configureNonAlignedInstanceVBO(); },
-			[](ChunkMeshData* mesh) { return mesh->getNonAlignedFaceCount(); },
-			[](ChunkMeshData* mesh) { return mesh->nonAlignedCreated; },
-			[](ChunkMeshData* mesh) -> BlockAllocator::Block& { return mesh->allocatedBlock_nonAlignedFaces; },
-			[](ChunkMeshData* mesh, bool created) { mesh->nonAlignedCreated = created; },
-			[](ChunkMeshData* mesh, BlockAllocator::Block block) { mesh->allocatedBlock_nonAlignedFaces = block; },
+			[](ChunkInstancedMeshFaceStorage* mesh) { return mesh->getNonAlignedFaceCount(); },
+			[](ChunkInstancedMeshFaceStorage* mesh) { return mesh->nonAlignedCreated; },
+			[](ChunkInstancedMeshFaceStorage* mesh) -> BlockAllocator::Block& { return mesh->allocatedBlock_nonAlignedFaces; },
+			[](ChunkInstancedMeshFaceStorage* mesh, bool created) { mesh->nonAlignedCreated = created; },
+			[](ChunkInstancedMeshFaceStorage* mesh, BlockAllocator::Block block) { mesh->allocatedBlock_nonAlignedFaces = block; },
 			sizeof(NonAlignedBlockFace),
 			"processNonAlignedMeshRequests"
 		};
@@ -64,7 +64,7 @@ ChunkMeshManager::ChunkMeshManager()
 	}
 }
 
-void ChunkMeshManager::configureAlignedInstanceVBO()
+void ChunkInstancedMeshAllocator::configureAlignedInstanceVBO()
 {
 	auto& instanceVBO = alignedMeshAllocator.instanceVBO;
 
@@ -76,7 +76,7 @@ void ChunkMeshManager::configureAlignedInstanceVBO()
 	alignedMeshAllocator.vao.setAttributeDivisor(1, 1);
 }
 
-void ChunkMeshManager::configureNonAlignedInstanceVBO()
+void ChunkInstancedMeshAllocator::configureNonAlignedInstanceVBO()
 {
 	auto& instanceVBO = nonAlignedMeshAllocator.instanceVBO;
 
@@ -109,40 +109,40 @@ void ChunkMeshManager::configureNonAlignedInstanceVBO()
 	nonAlignedMeshAllocator.vao.setAttributeDivisor(5, 1);
 }
 
-ChunkMeshManager& ChunkMeshManager::getInstance()
+ChunkInstancedMeshAllocator& ChunkInstancedMeshAllocator::getInstance()
 {
-	static ChunkMeshManager instance;
+	static ChunkInstancedMeshAllocator instance;
 	return instance;
 }
 
-void ChunkMeshManager::processMeshRequests(std::vector<ChunkMeshData*>& alignedMeshRequests, std::vector<ChunkMeshData*>& nonAlignedMeshRequests)
+void ChunkInstancedMeshAllocator::processMeshAllocationRequests(
+	const std::vector<ChunkInstancedMeshFaceStorage*>& alignedMeshRequests,
+	const std::vector<ChunkInstancedMeshFaceStorage*>& nonAlignedMeshRequests
+)
 {
 	alignedMeshAllocator.processMeshRequests(alignedMeshRequests);
 	nonAlignedMeshAllocator.processMeshRequests(nonAlignedMeshRequests);
 }
 
-ChunkMeshManager::MeshAllocator::MeshAllocator() :
+ChunkInstancedMeshAllocator::MeshAllocator::MeshAllocator() :
 	blockAllocator(0)
 {
 	vao.create();
 	instanceVBO.create(GL_ARRAY_BUFFER);
 }
 
-ChunkMeshManager::MeshAllocator::~MeshAllocator()
-{}
-
-void ChunkMeshManager::MeshAllocator::init(const ProcessorConfig& config)
+void ChunkInstancedMeshAllocator::MeshAllocator::init(const ProcessorConfig& config)
 {
 	this->config = config;
 }
 
-void ChunkMeshManager::MeshAllocator::processMeshRequests(std::vector<ChunkMeshData*>& meshRequests)
+void ChunkInstancedMeshAllocator::MeshAllocator::processMeshRequests(const std::vector<ChunkInstancedMeshFaceStorage*>& meshRequests)
 {
 	// Store old capacity
 	size_t oldCapacity = blockAllocator.getCapacity();
 
 	// Free blocks
-	for (ChunkMeshData* chunkMesh : meshRequests)
+	for (ChunkInstancedMeshFaceStorage* chunkMesh : meshRequests)
 	{
 		if (!chunkMesh->nonAlignedCreated)
 		{
@@ -154,7 +154,7 @@ void ChunkMeshManager::MeshAllocator::processMeshRequests(std::vector<ChunkMeshD
 
 	// Allocate blocks
 	size_t stopIndex = 0;
-	for (ChunkMeshData* chunkMesh : meshRequests)
+	for (ChunkInstancedMeshFaceStorage* chunkMesh : meshRequests)
 	{
 		size_t faceCount = config.getFaceCount(chunkMesh);
 
@@ -213,13 +213,13 @@ void ChunkMeshManager::MeshAllocator::processMeshRequests(std::vector<ChunkMeshD
 	// Allocate the rest of blocks
 	for (size_t i = stopIndex; i < meshRequests.size(); i++)
 	{
-		ChunkMeshData* chunkMesh = meshRequests[i];
+		ChunkInstancedMeshFaceStorage* chunkMesh = meshRequests[i];
 		size_t faceCount = config.getFaceCount(chunkMesh);
 
 		auto result = blockAllocator.allocate(faceCount);
 		if (!result.has_value())
 		{
-			std::cerr << "[ChunkMeshManager]: " << config.debugName << ": mesh wasn't created.\n";
+			std::cerr << "[ChunkInstancedMeshAllocator]: " << config.debugName << ": mesh wasn't created.\n";
 			break;
 		}
 

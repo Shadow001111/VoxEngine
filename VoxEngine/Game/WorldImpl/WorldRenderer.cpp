@@ -51,7 +51,7 @@ void WorldRenderer::initTextures(const std::vector<std::string>& blockTextureNam
 			TextureLoader::createTextureArrayFromImages(blockTextureArray, "res/BlockTextures", blockTextureNames, textureLoadParametrs);
 		}
 
-		Texture::Parametrs textureParametrs
+		Texture::Parameters textureParametrs
 		{
 			.minFilter = GL_NEAREST_MIPMAP_LINEAR,
 			.magFilter = GL_NEAREST,
@@ -82,7 +82,7 @@ void WorldRenderer::initTextures(const std::vector<std::string>& blockTextureNam
 			TextureLoader::createTexture3DFromFloatData(tilingPerlinNoise3DTexture, data, textureSize, textureSize, textureSize, textureLoadParametrs);
 		}
 
-		Texture::Parametrs textureParametrs
+		Texture::Parameters textureParametrs
 		{
 			.minFilter = GL_LINEAR,
 			.magFilter = GL_LINEAR
@@ -311,22 +311,22 @@ void WorldRenderer::passDataToChunkRenderBuffers(size_t drawCount)
 
 void WorldRenderer::renderAlignedOpaqueChunks()
 {
-	renderChunksGeneral<&Chunk::collectAlignedOpaqueRenderData, &ChunkMeshManager::bindAlignedVAO>(alignedOpaqueFaceShader);
+	renderChunksGeneral<&Chunk::collectAlignedOpaqueRenderData, &ChunkInstancedMeshAllocator::bindAlignedVAO>(alignedOpaqueFaceShader);
 }
 
 void WorldRenderer::renderNonAlignedOpaqueChunks()
 {
-	renderChunksGeneral<&Chunk::collectNonAlignedOpaqueRenderData, &ChunkMeshManager::bindNonAlignedVAO>(nonAlignedOpaqueFaceShader);
+	renderChunksGeneral<&Chunk::collectNonAlignedOpaqueRenderData, &ChunkInstancedMeshAllocator::bindNonAlignedVAO>(nonAlignedOpaqueFaceShader);
 }
 
 void WorldRenderer::renderAlignedTranslucentChunks()
 {
-	renderChunksGeneral<&Chunk::collectAlignedTranslucentRenderData, &ChunkMeshManager::bindAlignedVAO>(alignedTranslucentFaceShader);
+	renderChunksGeneral<&Chunk::collectAlignedTranslucentRenderData, &ChunkInstancedMeshAllocator::bindAlignedVAO>(alignedTranslucentFaceShader);
 }
 
 void WorldRenderer::renderNonAlignedTranslucentChunks()
 {
-	renderChunksGeneral<&Chunk::collectNonAlignedTranslucentRenderData, &ChunkMeshManager::bindNonAlignedVAO>(nonAlignedTranslucentFaceShader);
+	renderChunksGeneral<&Chunk::collectNonAlignedTranslucentRenderData, &ChunkInstancedMeshAllocator::bindNonAlignedVAO>(nonAlignedTranslucentFaceShader);
 }
 
 void WorldRenderer::renderChunks(const Camera& camera, const FrameBuffer& FBO)

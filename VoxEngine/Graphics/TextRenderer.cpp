@@ -488,7 +488,7 @@ bool TextRenderer::loadFont(const std::string& fontName, GLuint fontSize)
     font.textureArray.create2DArray(font.maxGlyphSize.x, font.maxGlyphSize.y, glyphCount, GL_R8);
 
     {
-        Texture::Parametrs textureParametrs
+        Texture::Parameters textureParametrs
         {
             .minFilter = GL_NEAREST,
             .magFilter = GL_NEAREST,

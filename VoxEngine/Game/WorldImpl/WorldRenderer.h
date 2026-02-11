@@ -9,9 +9,10 @@
 #include "../World/VoxelMarkerMesh.h"
 #include "../World/RaycastResult.h"
 #include "../World/WorldVisualSettings.h"
-#include "../World/Chunk/ChunkMeshManager.h"
+#include "../World/Chunk/ChunkInstancedMeshAllocator.h"
 
 #include "Graphics/Camera.h"
+#include "Graphics/DrawCommands.h"
 
 class Chunk;
 
@@ -26,7 +27,7 @@ class WorldRenderer
 	};
 
 	using ChunkCollectFunc = void (Chunk::*)(BufferStreamWriter<DrawArraysIndirectCommand>&, BufferStreamWriter<glm::ivec3>&) const;
-	using ChunkMeshManagerBindVAOFunc = void (ChunkMeshManager::*)() const;
+	using ChunkInstancedMeshAllocatorBindVAOFunc = void (ChunkInstancedMeshAllocator::*)() const;
 public:
 	struct RenderStats
 	{
@@ -101,7 +102,7 @@ private:
 	void ensureCapacityForChunkRenderBuffers(size_t drawCount);
 	void passDataToChunkRenderBuffers(size_t drawCount);
 
-	template<ChunkCollectFunc CollectMethod, ChunkMeshManagerBindVAOFunc BindVAOMethod>
+	template<ChunkCollectFunc CollectMethod, ChunkInstancedMeshAllocatorBindVAOFunc BindVAOMethod>
 	void renderChunksGeneral(const Shader& shader);
 
 	void renderAlignedOpaqueChunks();
@@ -136,7 +137,7 @@ public:
 	const RenderStats& getRenderStats() const { return renderStats; }
 };
 
-template<WorldRenderer::ChunkCollectFunc CollectMethod, WorldRenderer::ChunkMeshManagerBindVAOFunc BindVAOMethod>
+template<WorldRenderer::ChunkCollectFunc CollectMethod, WorldRenderer::ChunkInstancedMeshAllocatorBindVAOFunc BindVAOMethod>
 inline void WorldRenderer::renderChunksGeneral(const Shader& shader)
 {
 	size_t drawCount;
@@ -172,6 +173,6 @@ inline void WorldRenderer::renderChunksGeneral(const Shader& shader)
 	passDataToChunkRenderBuffers(drawCount);
 
 	shader.use();
-	(ChunkMeshManager::getInstance().*BindVAOMethod)();
+	(ChunkInstancedMeshAllocator::getInstance().*BindVAOMethod)();
 	glMultiDrawArraysIndirect(GL_TRIANGLE_FAN, NULL, (GLsizei)drawCount, 0);
 }

@@ -1,13 +1,6 @@
-#include "MeshData.h"
+#include "ChunkInstancedMeshFaceStorage.h"
 
-ChunkMeshData::ChunkMeshData()
-{
-}
-
-ChunkMeshData::~ChunkMeshData()
-{}
-
-void ChunkMeshData::resetRenderFaceCount()
+void ChunkInstancedMeshFaceStorage::resetRenderFaceCount()
 {
 	renderAlignedOpaqueFaceCount = 0;
 	renderAlignedTranslucentFaceCount = 0;
@@ -15,7 +8,7 @@ void ChunkMeshData::resetRenderFaceCount()
 	renderNonAlignedTranslucentFaceCount = 0;
 }
 
-void ChunkMeshData::updateRenderFaceCount()
+void ChunkInstancedMeshFaceStorage::updateRenderFaceCount()
 {
 	renderAlignedOpaqueFaceCount = instancesStorage.alignedOpaque.size();
 	renderAlignedTranslucentFaceCount = instancesStorage.alignedTranslucent.size();
@@ -23,7 +16,7 @@ void ChunkMeshData::updateRenderFaceCount()
 	renderNonAlignedTranslucentFaceCount = instancesStorage.nonAlignedTranslucent.size();
 }
 
-void ChunkMeshData::clearInstances()
+void ChunkInstancedMeshFaceStorage::clearInstances()
 {
 	instancesStorage.alignedOpaque.clear();
 	instancesStorage.alignedTranslucent.clear();
@@ -31,7 +24,7 @@ void ChunkMeshData::clearInstances()
 	instancesStorage.nonAlignedTranslucent.clear();
 }
 
-ChunkMeshData::InstancesStorage& ChunkMeshData::InstancesStorage::operator=(InstancesStorage&& other) noexcept
+ChunkInstancedMeshFaceStorage::InstancesStorage& ChunkInstancedMeshFaceStorage::InstancesStorage::operator=(InstancesStorage&& other) noexcept
 {
 	if (this != &other)
 	{

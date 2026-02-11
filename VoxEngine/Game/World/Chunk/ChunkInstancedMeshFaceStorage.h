@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <vector>
 
-struct ChunkMeshData
+struct ChunkInstancedMeshFaceStorage
 {
 	struct InstancesStorage
 	{
@@ -38,8 +38,8 @@ struct ChunkMeshData
 
 	ProcessingFence processingFence;
 
-	ChunkMeshData();
-	~ChunkMeshData();
+	ChunkInstancedMeshFaceStorage() = default;
+	~ChunkInstancedMeshFaceStorage() = default;
 
 	void resetRenderFaceCount();
 	void updateRenderFaceCount();

@@ -1,7 +1,7 @@
 #include "World.h"
 
 #include "World/Chunk/TerrainGenerator.h"
-#include "World/Chunk/ChunkMeshManager.h"
+#include "World/Chunk/ChunkInstancedMeshAllocator.h"
 
 #include "DataPackManagment/DataPackManager.h"
 #include "DataPackManagment/AssetRegistry.h"
@@ -65,7 +65,7 @@ World::World() :
 			}
 		}
 
-		Chunk::CHUNK_SAVES_PATH = chunkSavesPath;
+		ChunkIO::CHUNK_SAVES_PATH = chunkSavesPath;
 	}
 	catch (const std::filesystem::filesystem_error& e)
 	{
@@ -104,7 +104,7 @@ void World::preparation()
 	chunkManager.preparation(chunkCount);
 
 	/*size_t maxFacesCount = chunkCount * size_t(CHUNK_VOLUME * 6);
-	ChunkMeshManager::getInstance().preallocateMemory(maxFacesCount);
+	ChunkInstancedMeshAllocator::getInstance().preallocateMemory(maxFacesCount);
 
 	chunkDrawCommandBuffer->allocateMemory(chunkCount * sizeof(DrawArraysIndirectCommand));
 	chunkPositionSSBO->allocateMemory(chunkCount * sizeof(glm::vec3));*/
@@ -314,8 +314,8 @@ const World::DebugData& World::getDebugData(bool updateIntense) const
 	}
 
 	// Chunk face capacity
-	const size_t alignedCapacity = ChunkMeshManager::getInstance().getAlignedInstanceVBO().getCapacity();
-	const size_t nonAlignedCapacity = ChunkMeshManager::getInstance().getNonAlignedInstanceVBO().getCapacity();
+	const size_t alignedCapacity = ChunkInstancedMeshAllocator::getInstance().getAlignedInstanceVBO().getCapacity();
+	const size_t nonAlignedCapacity = ChunkInstancedMeshAllocator::getInstance().getNonAlignedInstanceVBO().getCapacity();
 
 	debugData.totalChunkFaceCapacity = alignedCapacity / sizeof(AlignedBlockFace) + nonAlignedCapacity / sizeof(NonAlignedBlockFace);
 

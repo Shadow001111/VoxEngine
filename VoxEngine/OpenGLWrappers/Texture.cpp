@@ -470,7 +470,7 @@ void Texture::generateMipmaps()
 	}
 }
 
-void Texture::setParameters(const Parametrs& params)
+void Texture::setParameters(const Parameters& params)
 {
 	//// Check what have changed and apply it
 	//if (parametrs.minFilter != params.minFilter)	glTextureParameteri(id, GL_TEXTURE_MIN_FILTER, params.minFilter);

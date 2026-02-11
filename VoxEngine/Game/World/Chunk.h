@@ -1,65 +1,25 @@
 #pragma once
-#include "Chunk/MeshData.h"
+#include "Chunk/ChunkMesh.h"
 #include "Chunk/Metrics.h"
 #include "Chunk/StructureBlockChanges.h"
 #include "Chunk/ChunkSpecializedQueue.h"
 #include "Chunk/ChunkRegion.h"
 #include "Chunk/BufferStreamWriter.h"
+#include "Chunk/Light.h"
+#include "Chunk/ChunkIO.h"
 
 #include "Core/Multithreading/ProcessingFence.h"
 #include "Core/AtomicFlags.h"
 
-#include "Game/DataPackManagment/DataPackManager.h"
-#include "Game/DataPackManagment/DataTypes/BlockData.h"
+//#include "Game/DataPackManagment/DataPackManager.h"
+
+#include "Graphics/DrawCommands.h"
 
 #include <vector>
 #include <mutex>
 #include <atomic>
 #include <cstdint>
 #include <glm/glm.hpp>
-#include <filesystem>
-
-union LightLevel
-{
-	struct
-	{
-		uint8_t blockLight : 4;
-		uint8_t skyLight : 4;
-	};
-
-	uint8_t fullByte;
-
-	LightLevel();
-	LightLevel(uint8_t blockLight, uint8_t skyLight);
-
-	LightLevel(const LightLevel& other);
-	LightLevel& operator=(const LightLevel& other);
-};
-
-struct LightNode
-{
-	uint8_t x : 4, y : 4, z : 4;
-
-	LightNode(int x, int y, int z);
-};
-
-struct LightRemovalNode
-{
-	uint8_t x : 4, y : 4, z : 4, lightLevel : 4;
-
-	LightRemovalNode(int x, int y, int z, uint8_t lightLevel);
-};
-
-struct DrawArraysIndirectCommand
-{
-	unsigned int count;        // Number of vertices per instance
-	unsigned int instanceCount;// Number of instances to draw
-	unsigned int first;        // Starting vertex index in the vertex array
-	unsigned int baseInstance; // Base instance ID
-
-	DrawArraysIndirectCommand() = default;
-	DrawArraysIndirectCommand(unsigned int count, unsigned int instanceCount, unsigned int first, unsigned int baseInstance);
-};
 
 struct BlockVertexLightData
 {
@@ -71,6 +31,12 @@ struct BlockData;
 
 class Chunk
 {
+	enum Flag : uint8_t
+	{
+		IsLoadedInWorld = 0,
+		IsLoadedChunkColumnData,
+		IsMeshDirty
+	};
 public:
 	enum class State : uint8_t
 	{
@@ -83,13 +49,6 @@ public:
 		LightsBuilt
 	};
 private:
-	enum Flag : uint8_t
-	{
-		IsLoadedInWorld = 0,
-		IsLoadedChunkColumnData,
-		IsMeshDirty
-	};
-	
 	// Chunk coordinates
 	glm::ivec3 position;
 
@@ -105,7 +64,7 @@ private:
 	BlockId blocks[CHUNK_VOLUME];
 	LightLevel lightLevels[CHUNK_VOLUME];
 
-	//  Light propagation
+	// Light propagation
 	ChunkSpecializedQueue<LightNode> blockLightBfsQueue;
 	mutable std::mutex blockLightBfsMutex;
 
@@ -124,30 +83,22 @@ private:
 	static thread_local ChunkSpecializedQueue<LightRemovalNode> localSkyLightRemovalBfsQueue;
 
 	// Mesh
-	ChunkMeshData meshData;
-	static std::vector<ChunkMeshData*> pendingMeshUploads;
-public:
-	static std::atomic<bool> gHasPendingMeshUploads;
-private:
-	// Other global atomic bools
+	ChunkMesh mesh;
 public:
 	static std::atomic<bool> gHasStructureBlockChanges; // TODO: Move this to StructureBlockChangeManager.
 private:
-
 	// Processing fence. I tried global processing system. It reduces memory usage because chunk doesn't have its own processing fence.
-	// But it increases wait time in average from 4ms to 40ms, trading 1mb for around 7000 chunks. Differences aren't that big.
+	// But it increases wait time in average from 4ms to 40ms, trading 1mb for around 7000 chunks. Benefits aren't that big.
 	ProcessingFence processingFence;
 	
 	// Changed blocks
-	robin_hood::unordered_flat_map<BlockId, std::vector<uint16_t>> changedBlocks;
+	ChunkIO::BlockChanges changedBlocks;
 	
 	static StructureBlockChangeManager structureBlockChangeManager;
-
-	// Region manager
 public:
+	// Region manager
 	static ChunkRegionManager chunkRegionManager;
 private:
-
 	// Helper index functions
 	static size_t getIndex(int x, int y, int z) { return (x << (CHUNK_SIZE_LOG2 << 1)) | (y << CHUNK_SIZE_LOG2) | z; };
 	static glm::ivec3 getPositionFromIndex(size_t index) {
@@ -159,8 +110,6 @@ private:
 	};
 public:
 	Chunk* neighbors[6] = { nullptr, nullptr, nullptr, nullptr, nullptr, nullptr }; // Pointers to neighboring chunks for easier access
-	
-	static std::filesystem::path CHUNK_SAVES_PATH;
 
 	// Constructors, destructors, assigments
 	Chunk() = default;
@@ -171,7 +120,7 @@ public:
 	Chunk& operator=(Chunk&&) = delete;
 
 	// Operators
-	bool operator==(const Chunk& other) const;
+	bool operator==(const Chunk& other) const noexcept { return position == other.position; };
 
 	// Init/destroy
 	void init(const glm::ivec3& position, Chunk** neighbors);
@@ -186,10 +135,8 @@ private:
 	void generateTree(const glm::ivec3& position);
 
 	// IO
-	void loadBlocks();
-	void saveBlocks();
-
-	bool filterChanges(BlockId BlockId, const std::vector<uint16_t>& indices, const BlockData*& outBlockData) const;
+	void loadBlocks() { ChunkIO::loadBlocks(changedBlocks, position, blocks); }
+	void saveBlocks() { ChunkIO::saveBlocks(changedBlocks, position, blocks); }
 
 	// Connectivity
 	bool findFloodFillStartIndex(uint16_t& startIndex, const bool* floodFillMask) const;
@@ -208,10 +155,9 @@ public:
 	bool shouldMeshBeUpdated() const { return meshDirty&& isLightBuilt(); };
 	void markMeshDirty();
 	void askForMeshUpload();
-	static void sendMeshesToGPU();
 
 	// Render
-	bool canBeRendered() const { return (meshData.alignedCreated || meshData.nonAlignedCreated) && meshData.getRenderFaceCount() > 0; };
+	bool canBeRendered() const { return (mesh.faceStorage.alignedCreated || mesh.faceStorage.nonAlignedCreated) && mesh.faceStorage.getRenderFaceCount() > 0; };
 
 	void collectAlignedOpaqueRenderData(BufferStreamWriter<DrawArraysIndirectCommand>& drawCommands, BufferStreamWriter<glm::ivec3>& positions) const;
 	void collectAlignedTranslucentRenderData(BufferStreamWriter<DrawArraysIndirectCommand>& drawCommands, BufferStreamWriter<glm::ivec3>& positions) const;
@@ -219,11 +165,17 @@ public:
 	void collectNonAlignedTranslucentRenderData(BufferStreamWriter<DrawArraysIndirectCommand>& drawCommands, BufferStreamWriter<glm::ivec3>& positions) const;
 private:
 	// Chunk traverse
-	const Chunk* getChunkAndIndex_checkSideNeighbor(int x, int y, int z, int side, size_t& outIndex) const;
-	Chunk* getChunkAndIndex_checkSideNeighbor(int x, int y, int z, int side, size_t& outIndex);
+	const Chunk* traverseToSideNeighbor(int x, int y, int z, int side, size_t& outIndex) const;
+	Chunk* traverseToSideNeighbor(int x, int y, int z, int side, size_t& outIndex)
+	{
+		return const_cast<Chunk*>(const_cast<const Chunk*>(this)->traverseToSideNeighbor(x, y, z, side, outIndex)); 
+	}
 
-	const Chunk* getChunkAndIndex_checkNeighborsTraverse(int x, int y, int z, size_t& outIndex) const;
-	Chunk* getChunkAndIndex_checkNeighborsTraverse(int x, int y, int z, size_t& outIndex);
+	const Chunk* traverseThroughNeighbors(int x, int y, int z, size_t& outIndex) const;
+	Chunk* traverseThroughNeighbors(int x, int y, int z, size_t& outIndex)
+	{
+		return const_cast<Chunk*>(const_cast<const Chunk*>(this)->traverseThroughNeighbors(x, y, z, outIndex));
+	}
 public:
 	// Grid getters
 	BlockId getBlockAt(int x, int y, int z) const;
@@ -250,7 +202,7 @@ public:
 	void addSkyLightNodeToQueue(int x, int y, int z);
 	void addSkyLightRemovalNodeToQueue(int x, int y, int z, uint8_t lightLevel);
 private:
-	// Mesh?
+	// Mesh
 	void markBlockMeshDirty(int x, int y, int z);
 
 	// Mesh building
@@ -261,7 +213,7 @@ private:
 public:
 	// Chunk data getters
 	glm::ivec3 getPosition() const { return position; };
-	size_t getFaceCount() const { return meshData.getAllFaceCount(); };
+	size_t getFaceCount() const { return mesh.faceStorage.getAllFaceCount(); };
 
 	// Getters and setters for states and flags
 	State getState() const { return state.load(std::memory_order_acquire); };
@@ -275,7 +227,7 @@ public:
 	bool isLightBuilt() const { return getState() >= State::LightsBuilt; };
 
 	// Getters and setters for loaderCount
-	void addLoader();
-	void removeLoader();
+	void addLoader() { loaderCount++; }
+	void removeLoader() { loaderCount--; }
 	uint8_t getLoaderCount() const { return loaderCount; };
 };

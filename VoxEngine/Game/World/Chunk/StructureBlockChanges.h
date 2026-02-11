@@ -22,11 +22,9 @@ struct StructureBlockChange
 
 class StructureBlockChangeManager
 {
-private:
     // Map of chunk position to pending changes
     robin_hood::unordered_flat_map<glm::ivec3, std::vector<StructureBlockChange>, ivec3Hasher> pendingChanges;
     mutable std::mutex changesMutex;
-
 public:
     StructureBlockChangeManager() = default;
     ~StructureBlockChangeManager() = default;

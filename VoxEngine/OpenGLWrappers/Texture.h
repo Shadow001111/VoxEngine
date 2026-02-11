@@ -39,7 +39,7 @@ class Texture
 		GLfloat maxAnisotropy = 0;
 	};
 public:
-	struct Parametrs
+	struct Parameters
 	{
 		GLenum minFilter = GL_NEAREST;
 		GLenum magFilter = GL_NEAREST;
@@ -56,7 +56,7 @@ private:
 	GLenum type = 0;
 	GLenum internalFormat = 0;
 
-	Parametrs parametrs;
+	Parameters parametrs;
 
 	using texture_size = uint16_t;
 	using mip_level = uint8_t;
@@ -112,7 +112,7 @@ public:
 	//
 	void generateMipmaps();
 
-	void setParameters(const Parametrs& params);
+	void setParameters(const Parameters& params);
 
 	void bind() const;
 	void bind(GLenum target) const;

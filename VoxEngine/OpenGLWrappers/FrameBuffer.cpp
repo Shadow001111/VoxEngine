@@ -69,7 +69,7 @@ void FrameBuffer::destroy()
     }
 }
 
-void FrameBuffer::createColorAttachment(const std::string& name, GLenum internalFormat, const Texture::Parametrs& params, bool bindless)
+void FrameBuffer::createColorAttachment(const std::string& name, GLenum internalFormat, const Texture::Parameters& params, bool bindless)
 {
     Attachment attachment;
     attachment.type = AttachmentType::COLOR;
@@ -81,7 +81,7 @@ void FrameBuffer::createColorAttachment(const std::string& name, GLenum internal
     attachments[name] = std::move(attachment);
 }
 
-void FrameBuffer::createDepthAttachment(const std::string& name, GLenum internalFormat, const Texture::Parametrs& params, bool bindless)
+void FrameBuffer::createDepthAttachment(const std::string& name, GLenum internalFormat, const Texture::Parameters& params, bool bindless)
 {
     Attachment attachment;
     attachment.type = AttachmentType::DEPTH;
@@ -93,7 +93,7 @@ void FrameBuffer::createDepthAttachment(const std::string& name, GLenum internal
     attachments[name] = std::move(attachment);
 }
 
-void FrameBuffer::createStencilAttachment(const std::string& name, GLenum internalFormat, const Texture::Parametrs& params, bool bindless)
+void FrameBuffer::createStencilAttachment(const std::string& name, GLenum internalFormat, const Texture::Parameters& params, bool bindless)
 {
     Attachment attachment;
     attachment.type = AttachmentType::STENCIL;
@@ -105,7 +105,7 @@ void FrameBuffer::createStencilAttachment(const std::string& name, GLenum intern
     attachments[name] = std::move(attachment);
 }
 
-void FrameBuffer::createDepthStencilAttachment(const std::string& name, GLenum internalFormat, const Texture::Parametrs& params, bool bindless)
+void FrameBuffer::createDepthStencilAttachment(const std::string& name, GLenum internalFormat, const Texture::Parameters& params, bool bindless)
 {
     Attachment attachment;
     attachment.type = AttachmentType::DEPTH_STENCIL;
@@ -117,7 +117,7 @@ void FrameBuffer::createDepthStencilAttachment(const std::string& name, GLenum i
     attachments[name] = std::move(attachment);
 }
 
-void FrameBuffer::createStandaloneTextureAttachment(const std::string& name, GLenum internalFormat, const Texture::Parametrs& params, float resolutionFactor, bool bindless)
+void FrameBuffer::createStandaloneTextureAttachment(const std::string& name, GLenum internalFormat, const Texture::Parameters& params, float resolutionFactor, bool bindless)
 {
     Attachment attachment;
     attachment.type = AttachmentType::STANDALONE_TEXTURE;
@@ -449,7 +449,7 @@ GLenum FrameBuffer::getAttachmentPoint(AttachmentType type)
     return GL_COLOR_ATTACHMENT0;
 }
 
-void FrameBuffer::createAndAttachTexture(Attachment& attachment, GLenum internalFormat, const Texture::Parametrs& params)
+void FrameBuffer::createAndAttachTexture(Attachment& attachment, GLenum internalFormat, const Texture::Parameters& params)
 {
     attachment.texture.create2D(width, height, internalFormat);
     attachment.texture.setParameters(params);
@@ -460,7 +460,7 @@ void FrameBuffer::createAndAttachTexture(Attachment& attachment, GLenum internal
     }
 }
 
-void FrameBuffer::createStandaloneTexture(Attachment& attachment, GLenum internalFormat, const Texture::Parametrs& params)
+void FrameBuffer::createStandaloneTexture(Attachment& attachment, GLenum internalFormat, const Texture::Parameters& params)
 {
     int tWidth = static_cast<int>(width * attachment.resolutionFactor);
     int tHeight = static_cast<int>(height * attachment.resolutionFactor);

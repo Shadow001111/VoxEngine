@@ -1,31 +1,23 @@
 #include "Chunk.h"
 #include "Chunk/TerrainGenerator.h"
-#include "Chunk/ChunkMeshManager.h"
 
 #include "Game/DataPackManagment/AssetRegistry.h"
 
 #include "Core/Profiler.h"
 #include "Core/ASSERT.h"
 #include "Core/Hashes/ivec2Hasher.h"
-#include "Core/MemoryFileReader.h"
-#include "Core/MemoryFileWriter.h"
 
 #include <vector>
-#include <format>
 
 thread_local ChunkSpecializedQueue<LightNode> Chunk::localBlockLightBfsQueue;
 thread_local ChunkSpecializedQueue<LightRemovalNode> Chunk::localBlockLightRemovalBfsQueue;
 thread_local ChunkSpecializedQueue<LightNode> Chunk::localSkyLightBfsQueue;
 thread_local ChunkSpecializedQueue<LightRemovalNode> Chunk::localSkyLightRemovalBfsQueue;
 
-std::vector<ChunkMeshData*> Chunk::pendingMeshUploads;
-std::atomic<bool> Chunk::gHasPendingMeshUploads{ false };
 StructureBlockChangeManager Chunk::structureBlockChangeManager;
 ChunkRegionManager Chunk::chunkRegionManager;
 
 std::atomic<bool> Chunk::gHasStructureBlockChanges{ false };
-
-std::filesystem::path Chunk::CHUNK_SAVES_PATH;
 
 
 unsigned hash3(unsigned x, unsigned y, unsigned z)
@@ -42,11 +34,6 @@ unsigned hash3(unsigned x, unsigned y, unsigned z)
 Chunk::~Chunk()
 {
 	saveBlocks();
-}
-
-inline bool Chunk::operator==(const Chunk& other) const
-{
-	return position == other.position;
 }
 
 // Prepares chunk for use
@@ -74,10 +61,9 @@ void Chunk::init(const glm::ivec3& position, Chunk** neighbors)
 	chunkFlags.reset();
 	chunkFlags.set(Flag::IsLoadedInWorld, true);
 
-	meshData.resetRenderFaceCount();
-	meshData.dirty = false;
+	mesh.faceStorage.resetRenderFaceCount();
+	mesh.faceStorage.dirty = false;
 
-	// Should be separate from meshData.dirty
 	meshDirty = false;
 	
 	ASSERT(changedBlocks.empty());
@@ -111,7 +97,7 @@ void Chunk::destroy()
 
 	//
 	chunkFlags.set(Flag::IsLoadedInWorld, false);
-	meshData.clearInstances();
+	mesh.faceStorage.clearInstances();
 
 	// Release chunk column data
 	if (chunkFlags.read(Flag::IsLoadedChunkColumnData))
@@ -479,390 +465,6 @@ void Chunk::generateTree(const glm::ivec3& rootPosition)
 	{
 		gHasStructureBlockChanges.store(true, std::memory_order_release);
 	}
-}
-
-void Chunk::loadBlocks()
-{
-	PROFILE_SCOPE("Load chunk blocks", ProfileCategory::ChunkBlocks);
-
-	namespace fs = std::filesystem;
-	std::string name = std::format("{}_{}_{}.bin", position.x, position.y, position.z);
-	fs::path filepath = CHUNK_SAVES_PATH / name;
-
-	if (!fs::exists(filepath) || !fs::is_regular_file(filepath))
-	{
-		return;
-	}
-
-	constexpr size_t MAX_PACKS = CHUNK_VOLUME;
-	constexpr size_t MIN_FILE_SIZE = 2 + 2 + 1 + 1 + 1 + 1 + 2 + 2;
-	constexpr size_t MAX_FILE_SIZE = 2 + (MAX_PACKS * (2 + 1 + 64)) +
-		CHUNK_VOLUME * (1 + 64 + 2 + 2);
-
-	MemoryFileReader file;
-	auto loadResult = file.loadFile(filepath, MAX_FILE_SIZE);
-	if (loadResult != MemoryFileReader::Result::Success)
-	{
-		std::cerr << "[Chunk][loadBlocks]: Failed to open file.\n";
-		return;
-	}
-
-	// Check file size
-	if (file.getSize() < MIN_FILE_SIZE)
-	{
-		std::cerr << "[Chunk][loadBlocks]: File too small.\n";
-		return;
-	}
-
-	// Get air block ID
-	const BlockId AIR_BLOCK_ID = AssetRegistry::getBlockNumericalId("core:air");
-
-	// Read pack count
-	uint16_t packCount = 0;
-	auto readResult = file.read(&packCount);
-	if (readResult != MemoryFileReader::Result::Success)
-	{
-		std::cerr << "[Chunk][loadBlocks]: Read error.\n";
-		return;
-	}
-	else if (packCount == 0 || packCount > MAX_PACKS)
-	{
-		std::cerr << "[Chunk][loadBlocks]: Pack count is invalid.\n";
-		return;
-	}
-
-	// Clear existing changes
-	changedBlocks.clear();
-
-	// Read all packs, blocks, and their indices
-	for (uint16_t packIndex = 0; packIndex < packCount; packIndex++)
-	{
-		// Read block count for this pack
-		uint16_t packBlockCount = 0;
-		readResult = file.read(&packBlockCount);
-		if (readResult != MemoryFileReader::Result::Success)
-		{
-			std::cerr << "[Chunk][loadBlocks]: Read error.\n";
-			changedBlocks.clear();
-			return;
-		}
-		else if (packBlockCount == 0 || packBlockCount > CHUNK_VOLUME)
-		{
-			std::cerr << "[Chunk][loadBlocks]: Block count in pack is invalid.\n";
-			changedBlocks.clear();
-			return;
-		}
-
-		// Read pack name
-		uint8_t packNameLen = 0;
-		readResult = file.read(&packNameLen);
-		if (readResult != MemoryFileReader::Result::Success)
-		{
-			std::cerr << "[Chunk][loadBlocks]: Read error.\n";
-			changedBlocks.clear();
-			return;
-		}
-		else if (packNameLen < 1 || packNameLen > 64)
-		{
-			std::cerr << "[Chunk][loadBlocks]: Pack name length is invalid.\n";
-			changedBlocks.clear();
-			return;
-		}
-
-		std::string packName(packNameLen, '\0');
-		readResult = file.read(&packName[0], packNameLen);
-		if (readResult != MemoryFileReader::Result::Success)
-		{
-			std::cerr << "[Chunk][loadBlocks]: Read error.\n";
-			changedBlocks.clear();
-			return;
-		}
-
-		// Read all blocks in this pack (with their indices immediately following)
-		for (uint16_t blockIndex = 0; blockIndex < packBlockCount; blockIndex++)
-		{
-			// Read block name length
-			uint8_t blockNameLen = 0;
-			readResult = file.read(&blockNameLen);
-			if (readResult != MemoryFileReader::Result::Success)
-			{
-				std::cerr << "[Chunk][loadBlocks]: Read error.\n";
-				changedBlocks.clear();
-				return;
-			}
-			else if (blockNameLen < 1 || blockNameLen > 64)
-			{
-				std::cerr << "[Chunk][loadBlocks]: Block name length is invalid.\n";
-				changedBlocks.clear();
-				return;
-			}
-
-			// Read block name
-			std::string blockName(blockNameLen, '\0');
-			readResult = file.read(&blockName[0], blockNameLen);
-			if (readResult != MemoryFileReader::Result::Success)
-			{
-				std::cerr << "[Chunk][loadBlocks]: Read error.\n";
-				changedBlocks.clear();
-				return;
-			}
-
-			// Construct full block name
-			std::string fullName = std::format("{}:{}", packName, blockName);
-
-			// Convert to global BlockId
-			BlockId globalID = AssetRegistry::getBlockNumericalId(fullName);
-			if (globalID == (BlockId)-1)
-			{
-				// Block no longer exists - fallback to air
-				globalID = AIR_BLOCK_ID;
-				std::cerr << "[Chunk][loadBlocks]: Block '" << fullName << "' is not found. Replaced with air.\n";
-			}
-
-			// Read indices count for this block
-			uint16_t indicesCount = 0;
-			readResult = file.read(&indicesCount);
-			if (readResult != MemoryFileReader::Result::Success)
-			{
-				std::cerr << "[Chunk][loadBlocks]: Read error.\n";
-				changedBlocks.clear();
-				return;
-			}
-			else if (indicesCount == 0 || indicesCount > CHUNK_VOLUME)
-			{
-				std::cerr << "[Chunk][loadBlocks]: Indices count is invalid.\n";
-				changedBlocks.clear();
-				return;
-			}
-
-			// Read indices (empty count is allowed for removed blocks)
-			std::vector<uint16_t> indices;
-			indices.resize(indicesCount);
-			readResult = file.read(indices.data(), indicesCount);
-			if (readResult != MemoryFileReader::Result::Success)
-			{
-				std::cerr << "[Chunk][loadBlocks]: Read error.\n";
-				changedBlocks.clear();
-				return;
-			}
-
-			// Store in changedBlocks map
-			changedBlocks[globalID] = std::move(indices);
-		}
-	}
-
-	if (changedBlocks.empty())
-	{
-		std::cerr << "[Chunk][loadBlocks]: No blocks loaded.\n";
-		return;
-	}
-
-	// Verify we read the entire file
-	if (!file.isEndOfFile())
-	{
-		std::cerr << "[Chunk][loadBlocks]: File size mismatch. Possible corruption.\n";
-		changedBlocks.clear();
-		return;
-	}
-
-	// Apply loaded data to blocks array
-	for (auto it = changedBlocks.begin(); it != changedBlocks.end();)
-	{
-		BlockId block = it->first;
-		auto& indices = it->second;
-
-		size_t writeIndex = 0;
-		for (uint16_t index : indices)
-		{
-			if (index >= CHUNK_VOLUME || blocks[index] == block)
-			{
-				continue;
-			}
-
-			// Apply the change
-			blocks[index] = block;
-			indices[writeIndex++] = index;
-		}
-
-		if (writeIndex == 0)
-		{
-			// No valid indices left, erase this block type entirely
-			it = changedBlocks.erase(it);
-		}
-		else
-		{
-			indices.resize(writeIndex);
-			++it;
-		}
-	}
-}
-
-void Chunk::saveBlocks()
-{
-	if (changedBlocks.empty())
-	{
-		return;
-	}
-	else if (changedBlocks.size() > CHUNK_VOLUME)
-	{
-		std::cerr << "[Chunk][saveBlocks]: ChangedBlocks map size is invalid.\n";
-		return;
-	}
-
-	PROFILE_SCOPE("Save chunk blocks", ProfileCategory::ChunkBlocks);
-
-	namespace fs = std::filesystem;
-	std::string name = std::format("{}_{}_{}.bin", position.x, position.y, position.z);
-	fs::path filepath = CHUNK_SAVES_PATH / name;
-
-	constexpr size_t MAX_PACKS = CHUNK_VOLUME;
-	constexpr size_t MAX_FILE_SIZE = 2 + (MAX_PACKS * (2 + 1 + 64)) +
-		CHUNK_VOLUME * (1 + 64 + 2 + 2);
-
-	MemoryFileWriter file;
-	auto initResult = file.initialize(MAX_FILE_SIZE);
-	if (initResult != MemoryFileWriter::Result::Success)
-	{
-		std::cerr << "[Chunk][saveBlocks]: MemoryFileWriter failed to initialize.\n";
-		return;
-	}
-
-	// Filter valid changes and collect block names
-	std::map<BlockId, std::string> idToString;
-	{
-		const BlockData* blockData = nullptr;
-		auto it = changedBlocks.begin();
-		while (it != changedBlocks.end())
-		{
-			if (filterChanges(it->first, it->second, blockData))
-			{
-				it = changedBlocks.erase(it);
-			}
-			else
-			{
-				idToString[it->first] = blockData->stringId;
-				++it;
-			}
-		}
-	}
-	ASSERT(idToString.size() == changedBlocks.size());
-	if (idToString.empty())
-	{
-		return;
-	}
-
-	// Extract pack information from block names
-	struct PackInfo
-	{
-		std::string name;
-		std::vector<std::pair<BlockId, std::string>> blocks; // globalID -> blockName
-	};
-
-	robin_hood::unordered_flat_map<std::string, PackInfo> packMap;
-	packMap.reserve(idToString.size());
-	for (const auto& [globalID, fullName] : idToString)
-	{
-		size_t colonPos = fullName.find(':'); // Should be found, since we filtered out invalid cases
-
-		std::string packName = fullName.substr(0, colonPos);
-		std::string blockName = fullName.substr(colonPos + 1);
-
-		auto& pack = packMap[packName];
-		pack.name = packName;
-		pack.blocks.emplace_back(globalID, blockName);
-	}
-
-	// Create sorted list of packs
-	std::vector<PackInfo> packs;
-	packs.reserve(packMap.size());
-	for (auto& [name, pack] : packMap)
-	{
-		// Sort blocks within each pack for consistent ordering
-		std::sort(pack.blocks.begin(), pack.blocks.end(),
-			[](const auto& a, const auto& b) { return a.first < b.first; });
-		packs.push_back(std::move(pack));
-	}
-
-	// Sort packs by name for consistent ordering
-	std::sort(packs.begin(), packs.end(),
-		[](const auto& a, const auto& b) { return a.name < b.name; });
-
-	// Write pack count
-	uint16_t packCount = static_cast<uint16_t>(packs.size());
-	file.write(&packCount);
-
-	// Write each pack and its blocks with indices immediately after each block
-	for (const auto& pack : packs)
-	{
-		// Write block count for this pack
-		uint16_t blockCount = static_cast<uint16_t>(pack.blocks.size());
-		file.write(&blockCount);
-
-		// Write pack name
-		uint8_t packNameLen = static_cast<uint8_t>(pack.name.size());
-		file.write(&packNameLen);
-		file.writeBytes(pack.name.data(), packNameLen);
-
-		// Write each block in pack
-		for (const auto& [globalID, blockName] : pack.blocks)
-		{
-			// Write block name
-			uint8_t blockNameLen = static_cast<uint8_t>(blockName.size());
-			file.write(&blockNameLen);
-			file.writeBytes(blockName.data(), blockNameLen);
-
-			// Write indices for this block
-			const auto& indices = changedBlocks.at(globalID);
-			uint16_t indicesCount = static_cast<uint16_t>(indices.size());
-			file.write(&indicesCount);
-			if (indicesCount > 0)
-			{
-				file.write(indices.data(), indicesCount);
-			}
-		}
-	}
-
-	// Save file
-	auto saveResult = file.saveToFile(filepath);
-	if (saveResult != MemoryFileWriter::Result::Success)
-	{
-		std::cerr << "[Chunk][saveBlocks]: Failed to save file: " << static_cast<int>(saveResult)<< "\n";
-		return;
-	}
-}
-
-bool Chunk::filterChanges(BlockId BlockId, const std::vector<uint16_t>& indices, const BlockData*& outBlockData) const
-{
-	// Check indices range
-	if (indices.size() == 0 || indices.size() > CHUNK_VOLUME)
-	{
-		return true;
-	}
-	// Get block data
-	outBlockData = AssetRegistry::getBlockData(BlockId);
-	if (!outBlockData)
-	{
-		return true;
-	}
-	// Check name length
-	const auto& name = outBlockData->stringId;
-	if (name.size() < 3 || name.size() > 64)
-	{
-		return true;
-	}
-	// Check for ':' symbol
-	size_t colonPos = name.find(':');
-	if (colonPos == std::string::npos)
-	{
-		return true;
-	}
-	size_t leftSize = colonPos;
-	size_t rightSize = name.size() - 1 - colonPos;
-	if (leftSize < 1 || leftSize > 64 || rightSize < 1 || rightSize > 64)
-	{
-		return true;
-	}
-	return false;
 }
 
 bool Chunk::findFloodFillStartIndex(uint16_t& startIndex, const bool* floodFillMask) const
@@ -1273,7 +875,7 @@ void Chunk::buildLight()
 				int nz = data.z + dz[i];
 
 				size_t neighborIndex;
-				Chunk* neighborChunk = getChunkAndIndex_checkSideNeighbor(nx, ny, nz, i, neighborIndex);
+				Chunk* neighborChunk = traverseToSideNeighbor(nx, ny, nz, i, neighborIndex);
 				if (!neighborChunk)
 				{
 					continue;
@@ -1332,7 +934,7 @@ void Chunk::buildLight()
 				int nz = data.z + dz[i];
 
 				size_t neighborIndex;
-				Chunk* neighborChunk = getChunkAndIndex_checkSideNeighbor(nx, ny, nz, i, neighborIndex);
+				Chunk* neighborChunk = traverseToSideNeighbor(nx, ny, nz, i, neighborIndex);
 				if (!neighborChunk)
 				{
 					continue;
@@ -1427,7 +1029,7 @@ void Chunk::updateLight()
 			int nz = data.z + dz[i];
 
 			size_t neighborIndex;
-			Chunk* neighborChunk = getChunkAndIndex_checkSideNeighbor(nx, ny, nz, i, neighborIndex);
+			Chunk* neighborChunk = traverseToSideNeighbor(nx, ny, nz, i, neighborIndex);
 			if (!neighborChunk)
 			{
 				continue;
@@ -1498,7 +1100,7 @@ void Chunk::updateLight()
 			int nz = data.z + dz[i];
 
 			size_t neighborIndex;
-			Chunk* neighborChunk = getChunkAndIndex_checkSideNeighbor(nx, ny, nz, i, neighborIndex);
+			Chunk* neighborChunk = traverseToSideNeighbor(nx, ny, nz, i, neighborIndex);
 			if (!neighborChunk)
 			{
 				continue;
@@ -1548,7 +1150,7 @@ void Chunk::updateLight()
 			int nz = data.z + dz[i];
 
 			size_t neighborIndex;
-			Chunk* neighborChunk = getChunkAndIndex_checkSideNeighbor(nx, ny, nz, i, neighborIndex);
+			Chunk* neighborChunk = traverseToSideNeighbor(nx, ny, nz, i, neighborIndex);
 			if (!neighborChunk)
 			{
 				continue;
@@ -1619,7 +1221,7 @@ void Chunk::updateLight()
 			int nz = data.z + dz[i];
 
 			size_t neighborIndex;
-			Chunk* neighborChunk = getChunkAndIndex_checkSideNeighbor(nx, ny, nz, i, neighborIndex);
+			Chunk* neighborChunk = traverseToSideNeighbor(nx, ny, nz, i, neighborIndex);
 			if (!neighborChunk)
 			{
 				continue;
@@ -1694,8 +1296,8 @@ void Chunk::updateMesh()
 
 		static const BlockData::TextureSlot fallbackTextureSlot(0, BlockData::TextureSlot::TextureTransformation::None, false);
 
-		ChunkMeshData::InstancesStorage newInstances; // TODO: Maybe it should be static thread_local?
-		// Ofcourse we can just clear and then fill meshData.instacesStorage directly, but then processing fence should be activated before it, which I don't want to.
+		ChunkInstancedMeshFaceStorage::InstancesStorage newInstances; // TODO: Maybe it should be static thread_local?
+		// Ofcourse we can just clear and then fill mesh.meshData.instacesStorage directly, but then processing fence should be activated before it, which I don't want to.
 		// Maybe there's a way without processing fence.
 		const int globalChunkX = position.x * CHUNK_SIZE;
 		const int globalChunkY = position.y * CHUNK_SIZE;
@@ -1739,7 +1341,7 @@ void Chunk::updateMesh()
 					int nz = pos.z + dz[face.normal];
 
 					size_t neighborIndex;
-					const Chunk* neighborChunk = getChunkAndIndex_checkSideNeighbor(nx, ny, nz, face.normal, neighborIndex);
+					const Chunk* neighborChunk = traverseToSideNeighbor(nx, ny, nz, face.normal, neighborIndex);
 					if (!neighborChunk)
 					{
 						continue;
@@ -1859,22 +1461,22 @@ void Chunk::updateMesh()
 		}
 
 		// Set mesh data
-		ScopedProcessingFence scopedMeshFence(meshData.processingFence);
+		ScopedProcessingFence scopedMeshFence(mesh.faceStorage.processingFence);
 
-		meshData.instancesStorage = std::move(newInstances);
+		mesh.faceStorage.instancesStorage = std::move(newInstances);
 
-		size_t faceCount = meshData.getAllFaceCount();
+		size_t faceCount = mesh.faceStorage.getAllFaceCount();
 		if (faceCount == 0)
 		{
-			meshData.dirty = false;
+			mesh.faceStorage.dirty = false;
 
 			// Update render face count if no changes (means no faces at all)
-			meshData.updateRenderFaceCount();
+			mesh.faceStorage.updateRenderFaceCount();
 		}
 		else
 		{
-			meshData.dirty = true;
-			gHasPendingMeshUploads.store(true, std::memory_order_release);
+			mesh.faceStorage.dirty = true;
+			mesh.hasPendingMeshUploads.store(true, std::memory_order_release);
 		}
 	}
 }
@@ -1886,180 +1488,61 @@ void Chunk::markMeshDirty()
 
 void Chunk::askForMeshUpload()
 {
-	if (meshData.dirty)
+	if (mesh.faceStorage.dirty)
 	{
-		pendingMeshUploads.push_back(&meshData);
+		mesh.pendingMeshUploads.push_back(&mesh.faceStorage);
 	}
-}
-
-void Chunk::sendMeshesToGPU()
-{
-	// Check if there are any uploads
-	if (pendingMeshUploads.empty())
-	{
-		return;
-	}
-
-	PROFILE_SCOPE("Send chunk meshes to GPU", ProfileCategory::ChunkMesh);
-
-	// Mark meshes as being processed
-	for (ChunkMeshData* chunkMesh : pendingMeshUploads)
-	{
-		chunkMesh->processingFence.startProcessing();
-	}
-
-	// Collect meshes that need memory allocation
-	std::vector<ChunkMeshData*> allocateMemoryAlignedMeshRequests;
-	allocateMemoryAlignedMeshRequests.reserve(pendingMeshUploads.size() >> 1);
-
-	std::vector<ChunkMeshData*> allocateMemoryNonAlignedMeshRequests;
-	allocateMemoryNonAlignedMeshRequests.reserve(pendingMeshUploads.size() >> 1);
-
-	for (ChunkMeshData* chunkMesh : pendingMeshUploads)
-	{
-		if (chunkMesh->getAlignedFaceCount() > chunkMesh->getAlignedFaceCapacity())
-		{
-			allocateMemoryAlignedMeshRequests.push_back(chunkMesh);
-		}
-		if (chunkMesh->getNonAlignedFaceCount() > chunkMesh->getNonAlignedFaceCapacity())
-		{
-			allocateMemoryNonAlignedMeshRequests.push_back(chunkMesh);
-		}
-	}
-
-	// Allocate memory for meshes
-	auto& chunkMeshManager = ChunkMeshManager::getInstance();
-	chunkMeshManager.processMeshRequests(allocateMemoryAlignedMeshRequests, allocateMemoryNonAlignedMeshRequests);
-
-	// Write meshes data
-	auto& alignedInstancesVBO = chunkMeshManager.getAlignedInstanceVBO();
-	auto& nonAlignedInstancesVBO = chunkMeshManager.getNonAlignedInstanceVBO();
-
-	// Potential bug: If meshData.opaqueDirty and it will require more data then it was previously, then it will overwrite previous transparent data
-	// But for now, both opaque and transparent parts are dirty, so this bug won't happen
-
-	// Write aligned instances data
-	for (ChunkMeshData* chunkMesh : pendingMeshUploads)
-	{
-		if (!chunkMesh->alignedCreated)
-		{
-			continue;
-		}
-
-		size_t opaqueFaceCount = chunkMesh->getAlignedOpaqueFaceCount();
-		size_t translucentFaceCount = chunkMesh->getAlignedTranslucentFaceCount();
-
-		if (opaqueFaceCount > 0)
-		{
-			alignedInstancesVBO.write(
-				chunkMesh->instancesStorage.alignedOpaque.data(),
-				opaqueFaceCount * sizeof(AlignedBlockFace),
-				chunkMesh->allocatedBlock_alignedFaces.offset * sizeof(AlignedBlockFace)
-			);
-		}
-
-		if (translucentFaceCount > 0)
-		{
-			alignedInstancesVBO.write(
-				chunkMesh->instancesStorage.alignedTranslucent.data(),
-				translucentFaceCount * sizeof(AlignedBlockFace),
-				(chunkMesh->allocatedBlock_alignedFaces.offset + opaqueFaceCount) * sizeof(AlignedBlockFace)
-			);
-		}
-	}
-
-	// Write aligned instances data
-	for (ChunkMeshData* chunkMesh : pendingMeshUploads)
-	{
-		if (!chunkMesh->nonAlignedCreated)
-		{
-			continue;
-		}
-
-		size_t opaqueFaceCount = chunkMesh->getNonAlignedOpaqueFaceCount();
-		size_t translucentFaceCount = chunkMesh->getNonAlignedTranslucentFaceCount();
-
-		if (opaqueFaceCount > 0)
-		{
-			nonAlignedInstancesVBO.write(
-				chunkMesh->instancesStorage.nonAlignedOpaque.data(),
-				opaqueFaceCount * sizeof(NonAlignedBlockFace),
-				chunkMesh->allocatedBlock_nonAlignedFaces.offset * sizeof(NonAlignedBlockFace)
-			);
-		}
-
-		if (translucentFaceCount > 0)
-		{
-			nonAlignedInstancesVBO.write(
-				chunkMesh->instancesStorage.nonAlignedTranslucent.data(),
-				translucentFaceCount * sizeof(NonAlignedBlockFace),
-				(chunkMesh->allocatedBlock_nonAlignedFaces.offset + opaqueFaceCount) * sizeof(NonAlignedBlockFace)
-			);
-		}
-	}
-
-	// 
-	for (ChunkMeshData* chunkMesh : pendingMeshUploads)
-	{
-		chunkMesh->updateRenderFaceCount();
-		chunkMesh->dirty = false;
-		//chunkMesh->clearInstances(); // Can be cleared, but it won't change anything.
-		chunkMesh->processingFence.stopProcessing();
-	}
-
-	// Clear pending meshes container
-	pendingMeshUploads.clear();
-}	 
+} 
 
 void Chunk::collectAlignedOpaqueRenderData(BufferStreamWriter<DrawArraysIndirectCommand>& drawCommands, BufferStreamWriter<glm::ivec3>& positions) const
 {
-	size_t faceCount = meshData.renderAlignedOpaqueFaceCount;
-	if (!meshData.alignedCreated || faceCount == 0)
+	size_t faceCount = mesh.faceStorage.renderAlignedOpaqueFaceCount;
+	if (!mesh.faceStorage.alignedCreated || faceCount == 0)
 	{
 		return;
 	}
-	DrawArraysIndirectCommand command(4, faceCount, 0, meshData.allocatedBlock_alignedFaces.offset);
+	DrawArraysIndirectCommand command(4, faceCount, 0, mesh.faceStorage.allocatedBlock_alignedFaces.offset);
 	drawCommands.writeSingle(command);
 	positions.writeSingle(position);
 }
 
 void Chunk::collectAlignedTranslucentRenderData(BufferStreamWriter<DrawArraysIndirectCommand>& drawCommands, BufferStreamWriter<glm::ivec3>& positions) const
 {
-	size_t faceCount = meshData.renderAlignedTranslucentFaceCount;
-	if (!meshData.alignedCreated || faceCount == 0)
+	size_t faceCount = mesh.faceStorage.renderAlignedTranslucentFaceCount;
+	if (!mesh.faceStorage.alignedCreated || faceCount == 0)
 	{
 		return;
 	}
-	DrawArraysIndirectCommand command(4, faceCount, 0, meshData.allocatedBlock_alignedFaces.offset + meshData.renderAlignedOpaqueFaceCount);
+	DrawArraysIndirectCommand command(4, faceCount, 0, mesh.faceStorage.allocatedBlock_alignedFaces.offset + mesh.faceStorage.renderAlignedOpaqueFaceCount);
 	drawCommands.writeSingle(command);
 	positions.writeSingle(position);
 }
 
 void Chunk::collectNonAlignedOpaqueRenderData(BufferStreamWriter<DrawArraysIndirectCommand>& drawCommands, BufferStreamWriter<glm::ivec3>& positions) const
 {
-	size_t faceCount = meshData.renderNonAlignedOpaqueFaceCount;
-	if (!meshData.nonAlignedCreated || faceCount == 0)
+	size_t faceCount = mesh.faceStorage.renderNonAlignedOpaqueFaceCount;
+	if (!mesh.faceStorage.nonAlignedCreated || faceCount == 0)
 	{
 		return;
 	}
-	DrawArraysIndirectCommand command(4, faceCount, 0, meshData.allocatedBlock_nonAlignedFaces.offset);
+	DrawArraysIndirectCommand command(4, faceCount, 0, mesh.faceStorage.allocatedBlock_nonAlignedFaces.offset);
 	drawCommands.writeSingle(command);
 	positions.writeSingle(position);
 }
 
 void Chunk::collectNonAlignedTranslucentRenderData(BufferStreamWriter<DrawArraysIndirectCommand>& drawCommands, BufferStreamWriter<glm::ivec3>& positions) const
 {
-	size_t faceCount = meshData.renderNonAlignedTranslucentFaceCount;
-	if (!meshData.nonAlignedCreated || faceCount == 0)
+	size_t faceCount = mesh.faceStorage.renderNonAlignedTranslucentFaceCount;
+	if (!mesh.faceStorage.nonAlignedCreated || faceCount == 0)
 	{
 		return;
 	}
-	DrawArraysIndirectCommand command(4, faceCount, 0, meshData.allocatedBlock_nonAlignedFaces.offset + meshData.renderNonAlignedOpaqueFaceCount);
+	DrawArraysIndirectCommand command(4, faceCount, 0, mesh.faceStorage.allocatedBlock_nonAlignedFaces.offset + mesh.faceStorage.renderNonAlignedOpaqueFaceCount);
 	drawCommands.writeSingle(command);
 	positions.writeSingle(position);
 }
 
-const Chunk* Chunk::getChunkAndIndex_checkSideNeighbor(int x, int y, int z, int side, size_t& outIndex) const
+const Chunk* Chunk::traverseToSideNeighbor(int x, int y, int z, int side, size_t& outIndex) const
 {
 	int check = (x | y | z) & CHUNK_UPPER_BITS_MASK;
 	if (check == 0)
@@ -2078,12 +1561,7 @@ const Chunk* Chunk::getChunkAndIndex_checkSideNeighbor(int x, int y, int z, int 
 	return nullptr;
 }
 
-Chunk* Chunk::getChunkAndIndex_checkSideNeighbor(int x, int y, int z, int side, size_t& outIndex)
-{
-	return const_cast<Chunk*>(const_cast<const Chunk*>(this)->getChunkAndIndex_checkSideNeighbor(x, y, z, side, outIndex));
-}
-
-const Chunk* Chunk::getChunkAndIndex_checkNeighborsTraverse(int x, int y, int z, size_t& outIndex) const
+const Chunk* Chunk::traverseThroughNeighbors(int x, int y, int z, size_t& outIndex) const
 {
 	int nx = x & CHUNK_UPPER_BITS_MASK;
 	int ny = y & CHUNK_UPPER_BITS_MASK;
@@ -2121,11 +1599,6 @@ const Chunk* Chunk::getChunkAndIndex_checkNeighborsTraverse(int x, int y, int z,
 
 	outIndex = getIndex(x & CHUNK_LOWER_BITS_MASK, y & CHUNK_LOWER_BITS_MASK, z & CHUNK_LOWER_BITS_MASK);
 	return neighbor;
-}
-
-Chunk* Chunk::getChunkAndIndex_checkNeighborsTraverse(int x, int y, int z, size_t& outIndex)
-{
-	return const_cast<Chunk*>(const_cast<const Chunk*>(this)->getChunkAndIndex_checkNeighborsTraverse(x, y, z, outIndex));
 }
 
 BlockId Chunk::getBlockAt(int x, int y, int z) const
@@ -2201,7 +1674,7 @@ void Chunk::setBlockAt(int x, int y, int z, BlockId block, bool saveBlockChanges
 			int nz = z + dz[i];
 
 			size_t neighborIndex;
-			Chunk* neighborChunk = getChunkAndIndex_checkSideNeighbor(nx, ny, nz, i, neighborIndex);
+			Chunk* neighborChunk = traverseToSideNeighbor(nx, ny, nz, i, neighborIndex);
 			if (!neighborChunk)
 			{
 				continue;
@@ -2443,16 +1916,16 @@ void Chunk::calculateVertexAmbientOcclusionAndLight(
 	const std::pair<LightLevel, bool>& corner
 ) const
 {
-	unsigned int blockLightSum = centerLight.blockLight;
-	unsigned int skyLightSum = centerLight.skyLight;
-	unsigned int count = 1;
-
 	if (side1.second && side2.second)
 	{
 		ao = 0;
 		light = centerLight;
 		return;
 	}
+
+	unsigned int blockLightSum = centerLight.blockLight;
+	unsigned int skyLightSum = centerLight.skyLight;
+	unsigned int count = 1;
 
 	if (!side1.second)
 	{
@@ -2496,7 +1969,7 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(unsigned int& ao, unsigned int
 	auto getSafe = [this, &neighborData, normal](size_t dataIdx, int x_, int y_, int z_)
 		{
 			size_t idx;
-			const Chunk* c = getChunkAndIndex_checkNeighborsTraverse(x_, y_, z_, idx);
+			const Chunk* c = traverseThroughNeighbors(x_, y_, z_, idx);
 
 			neighborData[dataIdx].second = true;
 			if (c)
@@ -2700,63 +2173,3 @@ void Chunk::setState(State newState)
 {
 	state.store(newState, std::memory_order_release);
 }
-
-void Chunk::addLoader()
-{
-	loaderCount++;
-}
-
-void Chunk::removeLoader()
-{
-	loaderCount--;
-}
-
-//============================================================================
-//LightLevel
-
-LightLevel::LightLevel() :
-	fullByte(0)
-{
-}
-
-LightLevel::LightLevel(uint8_t blockLight, uint8_t skyLight) :
-	blockLight(blockLight), skyLight(skyLight)
-{
-}
-
-LightLevel::LightLevel(const LightLevel& other) :
-	fullByte(other.fullByte)
-{
-}
-
-LightLevel& LightLevel::operator=(const LightLevel& other)
-{
-	fullByte = other.fullByte;
-	return *this;
-}
-
-//============================================================================
-//LightNode
-
-LightNode::LightNode(int x, int y, int z) :
-	x(x), y(y), z(z)
-{
-}
-
-//============================================================================
-//LightNode
-
-LightRemovalNode::LightRemovalNode(int x, int y, int z, uint8_t lightLevel) :
-	x(x), y(y), z(z), lightLevel(lightLevel)
-{
-}
-
-//============================================================================
-//DrawArraysIndirectCommand
-
-DrawArraysIndirectCommand::DrawArraysIndirectCommand(unsigned int count, unsigned int instanceCount, unsigned int first, unsigned int baseInstance) :
-	count(count), instanceCount(instanceCount), first(first), baseInstance(baseInstance)
-{
-}
-
-//============================================================================

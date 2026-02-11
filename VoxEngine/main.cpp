@@ -24,7 +24,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #ifdef NDEBUG
-constexpr int CHUNK_LOAD_DISTANCE = 15;
+constexpr int CHUNK_LOAD_DISTANCE = 24;
 #else
 constexpr int CHUNK_LOAD_DISTANCE = 3;
 #endif
@@ -33,11 +33,11 @@ constexpr int CHUNK_LOAD_DISTANCE = 3;
 static std::string formatSize(size_t value)
 {
     static const char* suffixes[] = { "", "k", "M", "G", "T", "P", "E" };
-    constexpr size_t sufffixCount = sizeof(suffixes) / sizeof(suffixes[0]);
+    constexpr size_t suffixCount = sizeof(suffixes) / sizeof(suffixes[0]);
     double scaled = static_cast<double>(value);
     size_t suffixIndex = 0;
 
-    while (scaled >= 1000.0 && suffixIndex < sufffixCount - 1)
+    while (scaled >= 1000.0 && suffixIndex < suffixCount - 1)
     {
         scaled /= 1000.0;
         ++suffixIndex;
@@ -52,11 +52,11 @@ static std::string formatSize(size_t value)
 static std::string formatSizeBinary(size_t value)
 {
     static const char* suffixes[] = { "B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB" };
-    constexpr size_t sufffixCount = sizeof(suffixes) / sizeof(suffixes[0]);
+    constexpr size_t suffixCount = sizeof(suffixes) / sizeof(suffixes[0]);
     double scaled = static_cast<double>(value);
     size_t suffixIndex = 0;
 
-    while (scaled >= 1024.0 && suffixIndex < sufffixCount - 1)
+    while (scaled >= 1024.0 && suffixIndex < suffixCount - 1)
     {
         scaled /= 1024.0;
         ++suffixIndex;
@@ -128,7 +128,7 @@ static void setupContainerUI(ContainerUI& c)
 
     TextureLoader::TextureLoadParams textureLoadParametrs;
 
-    Texture::Parametrs textureParametrs
+    Texture::Parameters textureParametrs
     {
         .minFilter = GL_NEAREST,
         .magFilter = GL_NEAREST,
@@ -541,7 +541,7 @@ int gameFunc()
     {
         framebuffer.create(wnd.getWidth(), wnd.getHeight());
 
-        const Texture::Parametrs params
+        const Texture::Parameters params
         {
 			.minFilter = GL_NEAREST,
 			.magFilter = GL_NEAREST,
