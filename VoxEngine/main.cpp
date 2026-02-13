@@ -18,6 +18,8 @@
 
 #include "FileLogger.h"
 
+#include "NvidiaGPUUsage/NvidiaGPUUsage.h"
+
 #include <iostream>
 #include <sstream>
 #include <iomanip>
@@ -93,12 +95,20 @@ struct ContainerUI
     Shader dbdShader;
 };
 
+struct GPUUsageMetrics
+{
+    bool enabled;
+    uint64_t memoryUsage;
+    float gpuUtilization;
+};
+
 struct DebugUIMetrics
 {
     double fps = 0.0;
     double frameTimeMs = 0.0;  // Accumulated milliseconds per frame
 
 	World::DebugData worldDebugData;
+    GPUUsageMetrics gpuUsageMetrics;
 };
 
 static void setupContainerUI(ContainerUI& c)
@@ -396,6 +406,7 @@ static void renderDebugData(const WindowManager& wnd, const Player& player, cons
     // Get data refs
 	const auto& worldData = metrics.worldDebugData;
 	const auto& renderStats = worldData.renderStats;
+    const auto& gpuUsageData = metrics.gpuUsageMetrics;
 
     //
     const float rowHeight = 0.06f;
@@ -457,6 +468,14 @@ static void renderDebugData(const WindowManager& wnd, const Player& player, cons
         }
     }
     ss << "\nView direction: " << facingDir;
+
+    // GPU usage
+    if (gpuUsageData.enabled)
+    {
+        ss << "\nGPU utilization: " << gpuUsageData.gpuUtilization << "%";
+        ss << "\nGPU memory usage: " << formatSizeBinary(gpuUsageData.memoryUsage);
+        std::cout << (gpuUsageData.memoryUsage >> 20) << "\n";
+    }
 
     // Render text
 
@@ -529,6 +548,9 @@ int gameFunc()
         .openglDebug = true,
         .strictAspectRatio = true
         });
+
+    // NVML
+    NvidiaGPUUsage nvidiaGPUUsage;
 
     // Init textures
     Texture::initGlobalData();
@@ -612,6 +634,7 @@ int gameFunc()
 
     // Frequent UI data
     DebugUIMetrics uiMetrics;
+    uiMetrics.gpuUsageMetrics.enabled = false;// nvidiaGPUUsage.isNVMLAvailable();
     double accumulatedTime = 0.0f;
     int accumulatedFrames = 0;
 
@@ -656,17 +679,6 @@ int gameFunc()
             while (worldUpdateTimer.shouldUpdate())
             {
                 world.update((float)worldUpdateTimer.getUpdateInterval());
-            }
-
-            if (wnd.isKeyPressed(GLFW_KEY_P))
-            {
-                world.rebuildAllChunkMeshes();
-                std::cout << "World: All chunks meshes are rebuild.\n";
-            }
-
-            if (wnd.isKeyPressed(GLFW_KEY_O))
-            {
-                world.debugMethod();
             }
         }
         world.sendChunkMeshesToGPU();
@@ -751,6 +763,12 @@ int gameFunc()
             uiMetrics.frameTimeMs = accumulatedTime / accumulatedFrames * 1000.0;
             accumulatedTime = 0.0;
             accumulatedFrames = 0;
+
+            if (uiMetrics.gpuUsageMetrics.enabled)
+            {
+                uiMetrics.gpuUsageMetrics.memoryUsage = nvidiaGPUUsage.getProcessGPUMemory().value_or(0);
+                uiMetrics.gpuUsageMetrics.gpuUtilization = nvidiaGPUUsage.getOverallGPUUtilization().value_or(0);
+            }
         }
 
         if (profilerUpdateTimer.shouldUpdate())

@@ -192,6 +192,7 @@
     <ClCompile Include="Core\Shapes\Box.cpp" />
     <ClCompile Include="Graphics\Camera.cpp" />
     <ClCompile Include="glad.c" />
+    <ClCompile Include="NvidiaGPUUsage\NvidiaGPUUsage.cpp" />
     <ClCompile Include="OpenGLWrappers\VertexArray.cpp" />
     <ClCompile Include="OpenGLWrappers\Shader.cpp" />
     <ClCompile Include="Core\Hashes\ivec3Hasher.cpp" />
@@ -272,6 +273,7 @@
     <ClInclude Include="Core\Shapes\Box.h" />
     <ClInclude Include="Graphics\Camera.h" />
     <ClInclude Include="Graphics\quad_vertices.h" />
+    <ClInclude Include="NvidiaGPUUsage\NvidiaGPUUsage.h" />
     <ClInclude Include="OpenGLWrappers\VertexArray.h" />
     <ClInclude Include="OpenGLWrappers\Shader.h" />
     <ClInclude Include="Core\UpdateTimer.h" />

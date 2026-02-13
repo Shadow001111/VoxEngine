@@ -274,10 +274,6 @@ void WorldChunkManager::startBuildingChunkLights()
 			pool.enqueue([this, chunk]()
 				{
 					chunk->buildLight();
-					if (!chunk->getIsLoadedInWorld())
-					{
-						return;
-					}
 				});
 		}
 	}

@@ -48,13 +48,13 @@ public:
 public:
 	void preparation();
 
-	void loadChunks(const glm::dvec3& playerPos);
+	void loadChunks(const glm::dvec3& playerPos) { chunkManager.loadChunks(playerPos, chunkLoadingDistance); }
 
 	void update(float deltaTime);
 
-	void sendChunkMeshesToGPU();
+	void sendChunkMeshesToGPU() { chunkManager.sendChunkMeshesToGPU(); }
 
-	void render(const Camera& camera, const FrameBuffer& FBO, const RaycastResult& raycast);
+	void render(const Camera& camera, const FrameBuffer& FBO, const RaycastResult& raycast) { renderer.render(camera, FBO, raycast); }
 
 	RaycastResult raycast(const glm::dvec3& origin, const glm::dvec3& direction, float maxDistance = 100.0f) const;
 
@@ -70,8 +70,7 @@ public:
 	}
 
 	// Debug
-	void rebuildAllChunkMeshes();
-	void debugMethod();
+	void rebuildAllChunkMeshes() { chunkManager.rebuildAllChunkMeshes(); }
 
 	const DebugData& getDebugData(bool updateIntense) const;
 

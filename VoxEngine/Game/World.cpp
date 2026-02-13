@@ -102,17 +102,6 @@ void World::preparation()
 	}
 
 	chunkManager.preparation(chunkCount);
-
-	/*size_t maxFacesCount = chunkCount * size_t(CHUNK_VOLUME * 6);
-	ChunkInstancedMeshAllocator::getInstance().preallocateMemory(maxFacesCount);
-
-	chunkDrawCommandBuffer->allocateMemory(chunkCount * sizeof(DrawArraysIndirectCommand));
-	chunkPositionSSBO->allocateMemory(chunkCount * sizeof(glm::vec3));*/
-}
-
-void World::loadChunks(const glm::dvec3& playerPos)
-{
-	chunkManager.loadChunks(playerPos, chunkLoadingDistance);
 }
 
 void World::update(float deltaTime)
@@ -138,16 +127,6 @@ void World::update(float deltaTime)
 		auto& entity = pair.second;
 		entity->update(deltaTime);
 	}
-}
-
-void World::sendChunkMeshesToGPU()
-{
-	chunkManager.sendChunkMeshesToGPU();
-}
-
-void World::render(const Camera& camera, const FrameBuffer& FBO, const RaycastResult& raycast)
-{
-	renderer.render(camera, FBO, raycast);
 }
 
 // TODO: Make raycast undependable of float precision. Or do the same for voxel marker rendering.
@@ -277,16 +256,6 @@ RaycastResult World::raycast(const glm::dvec3& origin, const glm::dvec3& directi
 	}
 
 	return result; // No hit
-}
-
-void World::rebuildAllChunkMeshes()
-{
-	chunkManager.rebuildAllChunkMeshes();
-}
-
-void World::debugMethod()
-{
-	
 }
 
 const World::DebugData& World::getDebugData(bool updateIntense) const
