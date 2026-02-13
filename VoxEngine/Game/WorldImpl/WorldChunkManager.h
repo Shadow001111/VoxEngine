@@ -23,7 +23,6 @@ class WorldChunkManager
     };
 
     ChunkPool chunkPool;
-    robin_hood::unordered_flat_map<glm::ivec3, Chunk*, ivec3Hasher> chunks;
     
     FixedArenaObjectPool<ChunkRegion, 4> chunkRegionPool;
     robin_hood::unordered_flat_map<glm::ivec3, ChunkRegion*, ivec3Hasher> chunkRegions;
@@ -53,7 +52,7 @@ public:
 
     Chunk* getChunkAt(const glm::ivec3& position) const;
     bool chunkExistsAt(const glm::ivec3& position) const;
-    size_t getLoadedChunksCount() const { return chunks.size(); };
+    size_t getLoadedChunksCount() const { return 0; }; // TODO: IMPLEMENT THAT!!!
 
     void startBuildingChunkBlocks();
     void startBuildingChunkLights();
@@ -63,7 +62,6 @@ public:
 
     void rebuildAllChunkMeshes();
 
-    const auto& getAllChunks() const { return chunks; }
     const auto& getAllChunkRegions() const { return chunkRegions; }
     size_t getRegionCount() const { return chunkRegions.size(); }
 private:

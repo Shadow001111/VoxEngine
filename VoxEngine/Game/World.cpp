@@ -17,7 +17,6 @@
 World::World() :
 	// Passing references to sub-systems
 	renderer({
-			chunkManager.getAllChunks(),
 			chunkManager.getAllChunkRegions(),
 			dayNightCycleValue,
 			skyLightSub,
@@ -263,10 +262,10 @@ const World::DebugData& World::getDebugData(bool updateIntense) const
 {
 	PROFILE_SCOPE("World debug data collection", ProfileCategory::General);
 
-	const auto& chunks = chunkManager.getAllChunks();
+	//const auto& chunks = chunkManager.getAllChunks();
 
 	// Chunks count
-	debugData.chunkCount = chunks.size();
+	//debugData.chunkCount = chunks.size(); // TODO: IMPLEMENT THAT!!!
 
 	// Chunk region count
 	debugData.chunkRegionCount = chunkManager.getRegionCount();
@@ -274,13 +273,14 @@ const World::DebugData& World::getDebugData(bool updateIntense) const
 	// Total chunk block face count
 	if (updateIntense)
 	{
-		debugData.totalChunkFaceCount = 0;
-		for (const auto& pair : chunks)
-		{
-			const Chunk* chunk = pair.second;
-
-			debugData.totalChunkFaceCount += chunk->getFaceCount();
-		}
+		// TODO: IMPLEMENT THAT!!!
+		//debugData.totalChunkFaceCount = 0;
+		//for (const auto& pair : chunks)
+		//{
+		//	const Chunk* chunk = pair.second;
+		//
+		//	debugData.totalChunkFaceCount += chunk->getFaceCount();
+		//}
 	}
 
 	// Chunk face capacity

@@ -374,7 +374,7 @@ void WorldRenderer::renderChunks(const Camera& camera, const FrameBuffer& FBO)
 
 	// Collect chunks to render
 	chunksToRender.clear();
-	chunksToRender.reserve(references.chunks.size());
+	chunksToRender.reserve(references.chunkRegions.size() * CHUNK_REGION_VOLUME);
 
 	collectChunksForRendering(camera);
 	sortChunksForRendering();

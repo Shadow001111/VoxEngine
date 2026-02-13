@@ -46,7 +46,6 @@ private:
 	// References
 	struct ReferencesFromWorld
 	{
-		const ChunkContainer& chunks;
 		const ChunkRegionContainer& chunkRegions;
 		const float& dayNightCycleValue;
 		const float& skyLightSub;
