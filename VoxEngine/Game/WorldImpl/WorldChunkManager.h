@@ -1,5 +1,6 @@
 #pragma once
 #include "../World/ChunkPool.h"
+#include "../World/ChunkRegion.h"
 #include "../World/ChunkLoaders/BaseChunkLoader.h"
 
 #include "Core/Hashes/ivec3Hasher.h"
@@ -10,7 +11,6 @@
 
 class WorldChunkManager
 {
-public:
     struct BuildContainers
     {
         robin_hood::unordered_flat_set<Chunk*> blocks;
@@ -22,6 +22,18 @@ public:
         std::vector<Chunk*> lightUpdateB;
     };
 
+    ChunkPool chunkPool;
+    robin_hood::unordered_flat_map<glm::ivec3, Chunk*, ivec3Hasher> chunks;
+    
+    ChunkRegionManager chunkRegionManager;
+
+    BuildContainers buildContainers;
+
+    glm::ivec3 lastChunkLoaderPos = { INT_MAX, INT_MAX, INT_MAX };
+    int lastChunkLoadingDistance = -1;
+
+    std::vector<std::unique_ptr<BaseChunkLoader>> chunkLoaders;
+public:
     WorldChunkManager();
     ~WorldChunkManager() = default;
 
@@ -51,6 +63,8 @@ public:
     void rebuildAllChunkMeshes();
 
     const auto& getAllChunks() const { return chunks; }
+    const auto& getAllChunkRegions() const { return chunkRegionManager.getRegions(); }
+    size_t getRegionCount() const { return chunkRegionManager.getRegionCount(); }
 private:
     void loadChunk(const glm::ivec3& position);
     void unloadChunk(const glm::ivec3& position);
@@ -66,14 +80,4 @@ private:
         chunkLoaders.push_back(std::move(chl));
         return raw;
     }
-private:
-    ChunkPool chunkPool;
-    robin_hood::unordered_flat_map<glm::ivec3, Chunk*, ivec3Hasher> chunks;
-
-    BuildContainers buildContainers;
-
-    glm::ivec3 lastChunkLoaderPos = { INT_MAX, INT_MAX, INT_MAX };
-    int lastChunkLoadingDistance = -1;
-
-    std::vector<std::unique_ptr<BaseChunkLoader>> chunkLoaders;
 };

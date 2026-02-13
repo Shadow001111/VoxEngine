@@ -1,5 +1,5 @@
 #include "ChunkRegion.h"
-#include "../Chunk.h"
+#include "Chunk.h"
 #include "Core/Assert.h"
 
 glm::ivec3 ChunkRegionManager::getRegionPosition(const glm::ivec3& chunkPosition) const

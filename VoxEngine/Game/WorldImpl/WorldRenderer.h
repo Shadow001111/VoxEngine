@@ -15,6 +15,7 @@
 #include "Graphics/DrawCommands.h"
 
 class Chunk;
+class ChunkRegion;
 
 class WorldRenderer
 {
@@ -40,11 +41,13 @@ public:
 private:
 	// Types
 	using ChunkContainer = robin_hood::unordered_flat_map<glm::ivec3, Chunk*, ivec3Hasher>;
+	using ChunkRegionContainer = robin_hood::unordered_flat_map<glm::ivec3, ChunkRegion*, ivec3Hasher>;
 
 	// References
 	struct ReferencesFromWorld
 	{
 		const ChunkContainer& chunks;
+		const ChunkRegionContainer& chunkRegions;
 		const float& dayNightCycleValue;
 		const float& skyLightSub;
 		const float& appTime;

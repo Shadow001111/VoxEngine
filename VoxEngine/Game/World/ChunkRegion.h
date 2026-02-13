@@ -1,6 +1,6 @@
 #pragma once
 #include "robin_hood.h"
-#include "Metrics.h"
+#include "Chunk/Metrics.h"
 #include "Core/MemoryAllocation/FixedArenaObjectPool.h"
 #include "Core/Hashes/ivec3Hasher.h"
 

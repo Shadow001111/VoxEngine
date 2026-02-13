@@ -15,7 +15,6 @@ thread_local ChunkSpecializedQueue<LightNode> Chunk::localSkyLightBfsQueue;
 thread_local ChunkSpecializedQueue<LightRemovalNode> Chunk::localSkyLightRemovalBfsQueue;
 
 StructureBlockChangeManager Chunk::structureBlockChangeManager;
-ChunkRegionManager Chunk::chunkRegionManager;
 
 std::atomic<bool> Chunk::gHasStructureBlockChanges{ false };
 
@@ -67,9 +66,6 @@ void Chunk::init(const glm::ivec3& position, Chunk** neighbors)
 	meshDirty = false;
 	
 	ASSERT(changedBlocks.empty());
-
-	// Add to region
-	chunkRegionManager.addChunk(this);
 }
 
 // Cleans up resources
@@ -85,9 +81,6 @@ void Chunk::destroy()
 			neighbors[i] = nullptr;
 		}
 	}
-
-	// Remove from region
-	chunkRegionManager.removeChunk(this);
 
 	//
 	ASSERT(loaderCount == 0);

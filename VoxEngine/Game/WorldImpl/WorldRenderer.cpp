@@ -1,6 +1,7 @@
 #include "WorldRenderer.h"
 
 #include "../World/Chunk.h"
+#include "../World/ChunkRegion.h"
 
 #include "Graphics/TextureLoader.h"
 
@@ -214,8 +215,8 @@ void WorldRenderer::collectChunksForRendering(const Camera& camera) const
 	const glm::ivec3 cameraChunkPosition = glm::ivec3(glm::floor(cameraPosition / (double)CHUNK_SIZE));
 
 	// Get regions
-	//const auto& mutex = Chunk::chunkRegionManager.getRegionMutex();
-	const auto& regions = Chunk::chunkRegionManager.getRegions();
+	//const auto& mutex = chunkRegionManager.getRegionMutex();
+	const auto& regions = references.chunkRegions;
 
 	for (const auto& [regionPosition, region] : regions)
 	{

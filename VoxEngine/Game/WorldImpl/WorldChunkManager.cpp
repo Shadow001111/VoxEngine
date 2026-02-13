@@ -365,6 +365,7 @@ void WorldChunkManager::loadChunk(const glm::ivec3& position)
 	Chunk* chunk = chunkPool.acquire();
 	chunk->addLoader();
 	chunk->init(position, neighbors);
+	chunkRegionManager.addChunk(chunk);
 
 	{
 		std::lock_guard<std::mutex> lock(buildContainers.blocksMutex);
@@ -381,7 +382,14 @@ void WorldChunkManager::unloadChunk(const glm::ivec3& position)
 	{
 		return;
 	}
-	it->second->removeLoader();
-	chunkPool.release(std::move(it->second));
+	Chunk* chunk = it->second;
+
+	chunk->removeLoader();
+
+	chunkRegionManager.removeChunk(chunk);
+
+	chunkPool.release(std::move(chunk));
+
 	chunks.erase(it);
+
 }

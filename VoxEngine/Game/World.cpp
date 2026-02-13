@@ -18,6 +18,7 @@ World::World() :
 	// Passing references to sub-systems
 	renderer({
 			chunkManager.getAllChunks(),
+			chunkManager.getAllChunkRegions(),
 			dayNightCycleValue,
 			skyLightSub,
 			appTime
@@ -268,7 +269,7 @@ const World::DebugData& World::getDebugData(bool updateIntense) const
 	debugData.chunkCount = chunks.size();
 
 	// Chunk region count
-	debugData.chunkRegionCount = Chunk::chunkRegionManager.getRegionCount();
+	debugData.chunkRegionCount = chunkManager.getRegionCount();
 
 	// Total chunk block face count
 	if (updateIntense)

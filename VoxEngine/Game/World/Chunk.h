@@ -3,7 +3,6 @@
 #include "Chunk/Metrics.h"
 #include "Chunk/StructureBlockChanges.h"
 #include "Chunk/ChunkSpecializedQueue.h"
-#include "Chunk/ChunkRegion.h"
 #include "Chunk/BufferStreamWriter.h"
 #include "Chunk/Light.h"
 #include "Chunk/ChunkIO.h"
@@ -95,10 +94,7 @@ private:
 	ChunkIO::BlockChanges changedBlocks;
 	
 	static StructureBlockChangeManager structureBlockChangeManager;
-public:
-	// Region manager
-	static ChunkRegionManager chunkRegionManager;
-private:
+
 	// Helper index functions
 	static size_t getIndex(int x, int y, int z) { return (x << (CHUNK_SIZE_LOG2 << 1)) | (y << CHUNK_SIZE_LOG2) | z; };
 	static glm::ivec3 getPositionFromIndex(size_t index) {

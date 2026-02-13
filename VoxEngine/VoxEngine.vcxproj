@@ -154,7 +154,7 @@
   <ItemGroup>
     <ClCompile Include="Game\World\Chunk\ChunkIO.cpp" />
     <ClCompile Include="Game\World\Chunk\ChunkMesh.cpp" />
-    <ClCompile Include="Game\World\Chunk\ChunkRegion.cpp" />
+    <ClCompile Include="Game\World\ChunkRegion.cpp" />
     <ClCompile Include="Core\Decoding\UTFDecoder.cpp" />
     <ClCompile Include="Core\Shapes\Frustum.cpp" />
     <ClCompile Include="Core\TimeMeasurer.cpp" />
@@ -217,7 +217,7 @@
     <ClInclude Include="Game\World\Chunk\ChunkIO.h" />
     <ClInclude Include="Game\World\Chunk\ChunkMesh.h" />
     <ClInclude Include="Game\World\Chunk\BufferStreamWriter.h" />
-    <ClInclude Include="Game\World\Chunk\ChunkRegion.h" />
+    <ClInclude Include="Game\World\ChunkRegion.h" />
     <ClInclude Include="Core\Decoding\UTFDecoder.h" />
     <ClInclude Include="Core\MemoryAllocation\FixedArenaAllocator.h" />
     <ClInclude Include="Core\Shapes\Frustum.h" />

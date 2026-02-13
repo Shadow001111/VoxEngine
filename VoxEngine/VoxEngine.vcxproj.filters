@@ -177,7 +177,7 @@
     <ClCompile Include="Core\Shapes\Frustum.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="Game\World\Chunk\ChunkRegion.cpp">
+    <ClCompile Include="Game\World\ChunkRegion.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
     <ClCompile Include="Game\World\Chunk\Light.cpp">
@@ -410,7 +410,7 @@
     <ClInclude Include="Core\Shapes\Frustum.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="Game\World\Chunk\ChunkRegion.h">
+    <ClInclude Include="Game\World\ChunkRegion.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Game\World\Chunk\BufferStreamWriter.h">
