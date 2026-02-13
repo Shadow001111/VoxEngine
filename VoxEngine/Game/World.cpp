@@ -262,25 +262,26 @@ const World::DebugData& World::getDebugData(bool updateIntense) const
 {
 	PROFILE_SCOPE("World debug data collection", ProfileCategory::General);
 
-	//const auto& chunks = chunkManager.getAllChunks();
-
-	// Chunks count
-	//debugData.chunkCount = chunks.size(); // TODO: IMPLEMENT THAT!!!
+	const auto& chunkRegions = chunkManager.getAllChunkRegions();
 
 	// Chunk region count
-	debugData.chunkRegionCount = chunkManager.getRegionCount();
+	debugData.chunkRegionCount = chunkRegions.size();
 
-	// Total chunk block face count
+	// Chunk count and block face count
 	if (updateIntense)
 	{
-		// TODO: IMPLEMENT THAT!!!
-		//debugData.totalChunkFaceCount = 0;
-		//for (const auto& pair : chunks)
-		//{
-		//	const Chunk* chunk = pair.second;
-		//
-		//	debugData.totalChunkFaceCount += chunk->getFaceCount();
-		//}
+		debugData.chunkCount = 0;
+		debugData.totalChunkFaceCount = 0;
+		for (const auto& [_, chunkRegion] : chunkRegions)
+		{
+			for (Chunk* chunk : chunkRegion->getChunks())
+			{
+				if (!chunk) continue;
+
+				debugData.chunkCount++;
+				debugData.totalChunkFaceCount += chunk->getFaceCount();
+			}
+		}
 	}
 
 	// Chunk face capacity

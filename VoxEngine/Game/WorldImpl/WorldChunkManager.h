@@ -52,7 +52,6 @@ public:
 
     Chunk* getChunkAt(const glm::ivec3& position) const;
     bool chunkExistsAt(const glm::ivec3& position) const;
-    size_t getLoadedChunksCount() const { return 0; }; // TODO: IMPLEMENT THAT!!!
 
     void startBuildingChunkBlocks();
     void startBuildingChunkLights();
