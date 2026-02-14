@@ -19,13 +19,11 @@ LightLevel& LightLevel::operator=(const LightLevel& other)
 }
 
 
-LightNode::LightNode(int x, int y, int z) :
+LightNode::LightNode(uint8_t x, uint8_t y, uint8_t z) :
 	x(x), y(y), z(z)
-{
-}
+{}
 
 
-LightRemovalNode::LightRemovalNode(int x, int y, int z, uint8_t lightLevel) :
+LightRemovalNode::LightRemovalNode(uint8_t x, uint8_t y, uint8_t z, uint8_t lightLevel) :
 	x(x), y(y), z(z), lightLevel(lightLevel)
-{
-}
+{}

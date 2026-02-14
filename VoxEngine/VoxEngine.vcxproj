@@ -161,8 +161,6 @@
     <ClCompile Include="FileLogger.cpp" />
     <ClCompile Include="Game\DataPackManagment\AssetRegistry.cpp" />
     <ClCompile Include="Core\BlockAllocator.cpp" />
-    <ClCompile Include="Core\MemoryFileReader.cpp" />
-    <ClCompile Include="Core\MemoryFileWriter.cpp" />
     <ClCompile Include="Game\World.cpp" />
     <ClCompile Include="Game\World\Chunk.cpp" />
     <ClCompile Include="Game\World\ChunkLoaders\BaseChunkLoader.cpp" />
@@ -209,6 +207,8 @@
     <ClCompile Include="Random.cpp" />
     <ClCompile Include="SoundManager.cpp" />
     <ClCompile Include="SeamlessPerlinNoise\Perlin.cpp" />
+    <ClCompile Include="Core\Stream\StreamReader.cpp" />
+    <ClCompile Include="Core\Stream\StreamWriter.cpp" />
     <ClCompile Include="WindowManager.cpp" />
     <ClCompile Include="Game\WorldImpl\WorldChunkManager.cpp" />
     <ClCompile Include="Game\WorldImpl\WorldRenderer.cpp" />
@@ -233,8 +233,6 @@
     <ClInclude Include="Core\AtomicFlags.h" />
     <ClInclude Include="Core\SymmetricBitMatrix.h" />
     <ClInclude Include="Core\BlockAllocator.h" />
-    <ClInclude Include="Core\MemoryFileReader.h" />
-    <ClInclude Include="Core\MemoryFileWriter.h" />
     <ClInclude Include="Game\DataPackManagment\DataTypes\ItemData.h" />
     <ClInclude Include="Game\DataPackManagment\DataTypes\ItemModelData.h" />
     <ClInclude Include="Game\DataPackManagment\ObjectTypes.h" />
@@ -289,6 +287,8 @@
     <ClInclude Include="Random.h" />
     <ClInclude Include="SoundManager.h" />
     <ClInclude Include="SeamlessPerlinNoise\Perlin.h" />
+    <ClInclude Include="Core\Stream\StreamReader.h" />
+    <ClInclude Include="Core\Stream\StreamWriter.h" />
     <ClInclude Include="WindowManager.h" />
     <ClInclude Include="Game\WorldImpl\WorldChunkManager.h" />
     <ClInclude Include="Game\WorldImpl\WorldRenderer.h" />
