@@ -76,10 +76,18 @@ private:
 	ChunkSpecializedQueue<LightRemovalNode> skyLightRemovalBfsQueue;
 	mutable std::mutex skyLightRemovalBfsMutex;
 
-	static thread_local ChunkSpecializedQueue<LightNode> localBlockLightBfsQueue;
-	static thread_local ChunkSpecializedQueue<LightRemovalNode> localBlockLightRemovalBfsQueue;
-	static thread_local ChunkSpecializedQueue<LightNode> localSkyLightBfsQueue;
-	static thread_local ChunkSpecializedQueue<LightRemovalNode> localSkyLightRemovalBfsQueue;
+	using LightNodeQueue = ChunkSpecializedQueue<LightNode>;
+	using LightRemovalNodeQueue = ChunkSpecializedQueue<LightRemovalNode>;
+	static thread_local LightNodeQueue localBlockLightBfsQueue;
+	static thread_local LightRemovalNodeQueue localBlockLightRemovalBfsQueue;
+	static thread_local LightNodeQueue localSkyLightBfsQueue;
+	static thread_local LightRemovalNodeQueue localSkyLightRemovalBfsQueue;
+
+	using LightNodeBulkUpdatesContainer = std::vector<LightNodeBulkUpdate>;
+	static thread_local LightNodeBulkUpdatesContainer localBlockLightBulkUpdates[6];
+	//static thread_local ChunkSpecializedQueue<LightRemovalNodeBulkUpdate> localBlockLightRemovalBfsQueue;
+	static thread_local LightNodeBulkUpdatesContainer localSkyLightBulkUpdates[6];
+	//static thread_local ChunkSpecializedQueue<LightRemovalNodeBulkUpdate> localSkyLightRemovalBfsQueue;
 
 	// Mesh
 	ChunkMesh mesh;
@@ -197,6 +205,9 @@ public:
 	void addBlockLightRemovalNodeToQueue(int x, int y, int z, uint8_t lightLevel);
 	void addSkyLightNodeToQueue(int x, int y, int z);
 	void addSkyLightRemovalNodeToQueue(int x, int y, int z, uint8_t lightLevel);
+
+	void applyBlockLightBulkUpdates(const LightNodeBulkUpdatesContainer& bulkUpdates);
+	void applySkyLightBulkUpdates(const LightNodeBulkUpdatesContainer& bulkUpdates);
 private:
 	// Mesh
 	void markBlockMeshDirty(int x, int y, int z);

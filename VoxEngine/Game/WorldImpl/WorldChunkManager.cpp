@@ -15,7 +15,7 @@ void WorldChunkManager::preparation(size_t chunkCount)
 {
 	chunkPool.allocate(chunkCount + 10);
 
-	size_t regionCount = (chunkCount * 2) / CHUNK_REGION_VOLUME + 1;
+	size_t regionCount = (chunkCount + chunkCount / 2) / CHUNK_REGION_VOLUME + 1;
 	chunkRegions.reserve(regionCount);
 	chunkRegionPool.allocate(regionCount);
 }

@@ -9,10 +9,13 @@
 
 #include <vector>
 
-thread_local ChunkSpecializedQueue<LightNode> Chunk::localBlockLightBfsQueue;
-thread_local ChunkSpecializedQueue<LightRemovalNode> Chunk::localBlockLightRemovalBfsQueue;
-thread_local ChunkSpecializedQueue<LightNode> Chunk::localSkyLightBfsQueue;
-thread_local ChunkSpecializedQueue<LightRemovalNode> Chunk::localSkyLightRemovalBfsQueue;
+thread_local Chunk::LightNodeQueue Chunk::localBlockLightBfsQueue;
+thread_local Chunk::LightRemovalNodeQueue Chunk::localBlockLightRemovalBfsQueue;
+thread_local Chunk::LightNodeQueue Chunk::localSkyLightBfsQueue;
+thread_local Chunk::LightRemovalNodeQueue Chunk::localSkyLightRemovalBfsQueue;
+
+thread_local Chunk::LightNodeBulkUpdatesContainer Chunk::localBlockLightBulkUpdates[6];
+thread_local Chunk::LightNodeBulkUpdatesContainer Chunk::localSkyLightBulkUpdates[6];
 
 StructureBlockChangeManager Chunk::structureBlockChangeManager;
 
@@ -637,6 +640,7 @@ void Chunk::buildLight()
 
 	// Step 1: Collect block light sources
 	{
+		localBlockLightBfsQueue.clear();
 		for (int x = 0; x < CHUNK_SIZE; x++)
 		{
 			for (int y = 0; y < CHUNK_SIZE; y++)
@@ -666,6 +670,7 @@ void Chunk::buildLight()
 
 	// Step 2: Collect sky light sources
 	{
+		localSkyLightBfsQueue.clear();
 		if (top && top->isLightBuilt())
 		{
 			// Propagate from top neighbor
@@ -847,6 +852,10 @@ void Chunk::buildLight()
 
 	// Step 4: Propagate block light using flood-fill
 	{
+		for (int i = 0; i < 6; i++)
+		{
+			localBlockLightBulkUpdates[i].clear();
+		}
 		while (!localBlockLightBfsQueue.empty())
 		{
 			// Get node data
@@ -898,8 +907,7 @@ void Chunk::buildLight()
 					int neighborNY = ny & CHUNK_LOWER_BITS_MASK;
 					int neighborNZ = nz & CHUNK_LOWER_BITS_MASK;
 
-					neighborChunk->setBlockLightAt(neighborIndex, lightToSet);
-					neighborChunk->addBlockLightNodeToQueue(neighborNX, neighborNY, neighborNZ);
+					localBlockLightBulkUpdates[i].emplace_back(neighborNX, neighborNY, neighborNZ, lightToSet);
 				}
 			}
 		}
@@ -907,6 +915,10 @@ void Chunk::buildLight()
 
 	// Step 5: Propagate sky light using flood-fill
 	{
+		for (int i = 0; i < 6; i++)
+		{
+			localSkyLightBulkUpdates[i].clear();
+		}
 		while (!localSkyLightBfsQueue.empty())
 		{
 			// Get node data
@@ -962,11 +974,36 @@ void Chunk::buildLight()
 					int neighborNY = ny & CHUNK_LOWER_BITS_MASK;
 					int neighborNZ = nz & CHUNK_LOWER_BITS_MASK;
 
-					neighborChunk->setSkyLightAt(neighborIndex, lightToSet);
-					neighborChunk->addSkyLightNodeToQueue(neighborNX, neighborNY, neighborNZ);
+					localSkyLightBulkUpdates[i].emplace_back(neighborNX, neighborNY, neighborNZ, lightToSet);
 				}
 			}
 		}
+	}
+
+	// Step 6: Apply bulk updates to neighbors
+	for (int i = 0; i < 6; i++)
+	{
+		// Check if neighbor exists
+		Chunk* neighbor = neighbors[i];
+		if (!neighbor) continue;
+
+		// Get updates for neighbor 
+		auto& blockLightUpdates = localBlockLightBulkUpdates[i];
+		auto& skyLightUpdates = localSkyLightBulkUpdates[i];
+
+		// Apply updates
+		if (!blockLightUpdates.empty())
+		{
+			neighbor->applyBlockLightBulkUpdates(blockLightUpdates);
+		}
+		if (!skyLightUpdates.empty())
+		{
+			neighbor->applySkyLightBulkUpdates(skyLightUpdates);
+		}
+
+		// Clear updates
+		blockLightUpdates.clear();
+		skyLightUpdates.clear();
 	}
 
 	setState(State::LightsBuilt);
@@ -981,6 +1018,12 @@ void Chunk::updateLight()
 	{
 		return;
 	}
+
+	// Clear queues (though it's unnecessary, because they are always empty when chunk is done using it)
+	localBlockLightBfsQueue.clear();
+	localBlockLightRemovalBfsQueue.clear();
+	localSkyLightBfsQueue.clear();
+	localSkyLightRemovalBfsQueue.clear();
 
 	{
 		std::lock_guard<std::mutex> lock(blockLightBfsMutex);
@@ -1799,6 +1842,28 @@ void Chunk::addSkyLightRemovalNodeToQueue(int x, int y, int z, uint8_t lightLeve
 {
 	std::lock_guard<std::mutex> lock(skyLightRemovalBfsMutex);
 	skyLightRemovalBfsQueue.emplace(x, y, z, lightLevel);
+}
+
+void Chunk::applyBlockLightBulkUpdates(const LightNodeBulkUpdatesContainer& bulkUpdates)
+{
+	std::lock_guard<std::mutex> lock(blockLightBfsMutex);
+
+	for (const auto& update : bulkUpdates)
+	{
+		setBlockLightAt(getIndex(update.x, update.y, update.z), update.lightToSet);
+		blockLightBfsQueue.emplace(update.x, update.y, update.z);
+	}
+}
+
+void Chunk::applySkyLightBulkUpdates(const LightNodeBulkUpdatesContainer& bulkUpdates)
+{
+	std::lock_guard<std::mutex> lock(skyLightBfsMutex);
+
+	for (const auto& update : bulkUpdates)
+	{
+		setSkyLightAt(getIndex(update.x, update.y, update.z), update.lightToSet);
+		skyLightBfsQueue.emplace(update.x, update.y, update.z);
+	}
 }
 
 void Chunk::markBlockMeshDirty(int x, int y, int z)
