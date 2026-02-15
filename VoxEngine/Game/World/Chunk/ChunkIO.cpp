@@ -1,17 +1,29 @@
 #include "ChunkIO.h"
 
 #include "Core/Profiler.h"
-#include "Core/Stream/StreamReader.h"
-#include "Core/Stream/StreamWriter.h"
 
 #include "Game/DataPackManagment/AssetRegistry.h"
 
-#include <map>
+#include "Core/Stream/StreamReader.h"
+#include "Core/Stream/StreamWriter.h"
+
 #include <format>
 
 namespace fs = std::filesystem;
 
 fs::path ChunkIO::CHUNK_SAVES_PATH;
+
+
+fs::path ChunkIO::getFilePath(const glm::ivec3 chunkPosition)
+{
+	std::string name = std::format("{}_{}_{}.bin", chunkPosition.x, chunkPosition.y, chunkPosition.z);
+	return CHUNK_SAVES_PATH / name;
+}
+
+bool ChunkIO::doesFileExist(const std::filesystem::path& path)
+{
+	return fs::exists(path) && fs::is_regular_file(path);
+}
 
 uint64_t ChunkIO::computeHash(const BlockChanges& blockChanges)
 {
@@ -51,53 +63,162 @@ uint64_t ChunkIO::computeHash(const BlockChanges& blockChanges)
 	return hash;
 }
 
-bool ChunkIO::filterChanges(BlockId BlockId, const std::vector<uint16_t>& indices, const BlockData*& outBlockData)
+bool ChunkIO::areChangesValid(BlockId BlockId, const std::vector<uint16_t>& indices, const BlockData*& outBlockData)
 {
 	// Check indices range
 	if (indices.size() == 0 || indices.size() > CHUNK_VOLUME)
 	{
-		return true;
+		return false;
 	}
+
 	// Get block data
 	outBlockData = AssetRegistry::getBlockData(BlockId);
 	if (!outBlockData)
 	{
-		return true;
+		return false;
 	}
-	// Check name length
-	const auto& name = outBlockData->stringId;
-	if (name.size() < 3 || name.size() > 64)
+
+	// Check stringId length
+	const auto& stringId = outBlockData->stringId;
+	if (stringId.size() < 3 || stringId.size() > MAX_OBJECT_NAME_SIZE * 2 + 1)
 	{
-		return true;
+		return false;
 	}
+
 	// Check for ':' symbol
-	size_t colonPos = name.find(':');
+	size_t colonPos = stringId.find(':');
 	if (colonPos == std::string::npos)
 	{
-		return true;
+		return false;
 	}
+
+	// Check lengths of left and right parts
 	size_t leftSize = colonPos;
-	size_t rightSize = name.size() - 1 - colonPos;
-	if (leftSize < 1 || leftSize > 64 || rightSize < 1 || rightSize > 64)
+	size_t rightSize = stringId.size() - 1 - colonPos;
+	if (leftSize < 1 || leftSize > MAX_OBJECT_NAME_SIZE || rightSize < 1 || rightSize > MAX_OBJECT_NAME_SIZE)
 	{
-		return true;
+		return false;
 	}
-	return false;
+	return true;
 }
 
-void ChunkIO::loadBlocks(BlockChanges& blockChanges, const glm::ivec3 chunkPosition, BlockId* blocks)
+bool ChunkIO::readPackCount(StreamReader& reader, uint16_t& packCount)
 {
-	PROFILE_SCOPE("Load chunk blocks", ProfileCategory::ChunkBlocks);
-
-	std::string name = std::format("{}_{}_{}.bin", chunkPosition.x, chunkPosition.y, chunkPosition.z);
-	fs::path filepath = CHUNK_SAVES_PATH / name;
-
-	// Check if file exists
-	if (!fs::exists(filepath) || !fs::is_regular_file(filepath))
+	if (!reader.read(&packCount))
 	{
-		return;
+		std::cerr << "[ChunkIO][loadBlocks]: Read error for pack count.\n";
+		return false;
 	}
 
+	if (packCount == 0 || packCount > MAX_PACKS)
+	{
+		std::cerr << "[ChunkIO][loadBlocks]: Pack count is invalid.\n";
+		return false;
+	}
+
+	return true;
+}
+
+bool ChunkIO::readPackBlockCount(StreamReader& reader, uint16_t& packBlockCount)
+{
+	if (!reader.read(&packBlockCount))
+	{
+		std::cerr << "[ChunkIO][loadBlocks]: Read error for pack block count.\n";
+		return false;
+	}
+
+	if (packBlockCount == 0 || packBlockCount > CHUNK_VOLUME)
+	{
+		std::cerr << "[ChunkIO][loadBlocks]: Block count in pack is invalid.\n";
+		return false;
+	}
+
+	return true;
+}
+
+bool ChunkIO::readPackName(StreamReader& reader, std::string& packName)
+{
+	uint8_t packNameLen = 0;
+	if (!reader.read(&packNameLen))
+	{
+		std::cerr << "[ChunkIO][loadBlocks]: Read error for pack name length.\n";
+		return false;
+	}
+
+	if (packNameLen < 1 || packNameLen > 64)
+	{
+		std::cerr << "[ChunkIO][loadBlocks]: Pack name length is invalid.\n";
+		return false;
+	}
+
+	std::string packName_(packNameLen, '\0');
+	if (!reader.readBytes(&packName_[0], packNameLen))
+	{
+		std::cerr << "[ChunkIO][loadBlocks]: Read error for pack name.\n";
+		return false;
+	}
+
+	packName = std::move(packName_);
+	return true;
+}
+
+bool ChunkIO::readBlockName(StreamReader& reader, std::string& blockName)
+{
+	// Read block name length
+	uint8_t blockNameLen = 0;
+	if (!reader.read(&blockNameLen))
+	{
+		std::cerr << "[ChunkIO][loadBlocks]: Read error for block name length.\n";
+		return false;
+	}
+
+	if (blockNameLen < 1 || blockNameLen > 64)
+	{
+		std::cerr << "[ChunkIO][loadBlocks]: Block name length is invalid.\n";
+		return false;
+	}
+
+	// Read block name
+	std::string blockName_(blockNameLen, '\0');
+	if (!reader.readBytes(&blockName_[0], blockNameLen))
+	{
+		std::cerr << "[ChunkIO][loadBlocks]: Read error for block name.\n";
+		return false;
+	}
+
+	blockName = std::move(blockName_);
+	return true;
+}
+
+bool ChunkIO::readIndices(StreamReader& reader, std::vector<uint16_t>& indices)
+{
+	// Read indices count for this block
+	uint16_t indicesCount = 0;
+	if (!reader.read(&indicesCount))
+	{
+		std::cerr << "[ChunkIO][loadBlocks]: Read error for indices count.\n";
+		return false;
+	}
+
+	if (indicesCount == 0 || indicesCount > CHUNK_VOLUME)
+	{
+		std::cerr << "[ChunkIO][loadBlocks]: Indices count is invalid.\n";
+		return false;
+	}
+
+	// Read indices
+	indices.resize(indicesCount);
+	if (!reader.read(indices.data(), indicesCount))
+	{
+		std::cerr << "[ChunkIO][loadBlocks]: Read error for indices.\n";
+		return false;
+	}
+
+	return true;
+}
+
+void ChunkIO::loadBlockChanges(const std::filesystem::path& filepath, BlockChanges& blockChanges)
+{
 	// Load file
 	StreamReader reader(filepath);
 	if (!reader)
@@ -118,17 +239,7 @@ void ChunkIO::loadBlocks(BlockChanges& blockChanges, const glm::ivec3 chunkPosit
 
 	// Read pack count
 	uint16_t packCount = 0;
-	if (!reader.read(&packCount))
-	{
-		std::cerr << "[ChunkIO][loadBlocks]: Read error for pack count.\n";
-		return;
-	}
-	
-	if (packCount == 0 || packCount > MAX_PACKS)
-	{
-		std::cerr << "[ChunkIO][loadBlocks]: Pack count is invalid.\n";
-		return;
-	}
+	readPackCount(reader, packCount);
 
 	// Clear existing changes
 	blockChanges.clear();
@@ -138,40 +249,16 @@ void ChunkIO::loadBlocks(BlockChanges& blockChanges, const glm::ivec3 chunkPosit
 	{
 		// Read block count for this pack
 		uint16_t packBlockCount = 0;
-		if (!reader.read(&packBlockCount))
+		if (!readPackBlockCount(reader, packBlockCount))
 		{
-			std::cerr << "[ChunkIO][loadBlocks]: Read error for pack block count.\n";
-			blockChanges.clear();
-			return;
-		}
-
-		if (packBlockCount == 0 || packBlockCount > CHUNK_VOLUME)
-		{
-			std::cerr << "[ChunkIO][loadBlocks]: Block count in pack is invalid.\n";
 			blockChanges.clear();
 			return;
 		}
 
 		// Read pack name
-		uint8_t packNameLen = 0;
-		if (!reader.read(&packNameLen))
+		std::string packName;
+		if (!readPackName(reader, packName))
 		{
-			std::cerr << "[ChunkIO][loadBlocks]: Read error for pack name length.\n";
-			blockChanges.clear();
-			return;
-		}
-		
-		if (packNameLen < 1 || packNameLen > 64)
-		{
-			std::cerr << "[ChunkIO][loadBlocks]: Pack name length is invalid.\n";
-			blockChanges.clear();
-			return;
-		}
-
-		std::string packName(packNameLen, '\0');
-		if (!reader.readBytes(&packName[0], packNameLen))
-		{
-			std::cerr << "[ChunkIO][loadBlocks]: Read error for pack name.\n";
 			blockChanges.clear();
 			return;
 		}
@@ -179,27 +266,10 @@ void ChunkIO::loadBlocks(BlockChanges& blockChanges, const glm::ivec3 chunkPosit
 		// Read all blocks in this pack (with their indices immediately following)
 		for (uint16_t blockIndex = 0; blockIndex < packBlockCount; blockIndex++)
 		{
-			// Read block name length
-			uint8_t blockNameLen = 0;
-			if (!reader.read(&blockNameLen))
-			{
-				std::cerr << "[ChunkIO][loadBlocks]: Read error for block name length.\n";
-				blockChanges.clear();
-				return;
-			}
-			
-			if (blockNameLen < 1 || blockNameLen > 64)
-			{
-				std::cerr << "[ChunkIO][loadBlocks]: Block name length is invalid.\n";
-				blockChanges.clear();
-				return;
-			}
-
 			// Read block name
-			std::string blockName(blockNameLen, '\0');
-			if (!reader.readBytes(&blockName[0], blockNameLen))
+			std::string blockName;
+			if (!readBlockName(reader, blockName))
 			{
-				std::cerr << "[ChunkIO][loadBlocks]: Read error for block name.\n";
 				blockChanges.clear();
 				return;
 			}
@@ -216,28 +286,10 @@ void ChunkIO::loadBlocks(BlockChanges& blockChanges, const glm::ivec3 chunkPosit
 				std::cerr << "[ChunkIO][loadBlocks]: Block '" << fullName << "' is not found. Replaced with air.\n";
 			}
 
-			// Read indices count for this block
-			uint16_t indicesCount = 0;
-			if (!reader.read(&indicesCount))
-			{
-				std::cerr << "[ChunkIO][loadBlocks]: Read error for indices count.\n";
-				blockChanges.clear();
-				return;
-			}
-			
-			if (indicesCount == 0 || indicesCount > CHUNK_VOLUME)
-			{
-				std::cerr << "[ChunkIO][loadBlocks]: Indices count is invalid.\n";
-				blockChanges.clear();
-				return;
-			}
-
 			// Read indices
 			std::vector<uint16_t> indices;
-			indices.resize(indicesCount);
-			if (!reader.read(indices.data(), indicesCount))
+			if (!readIndices(reader, indices))
 			{
-				std::cerr << "[ChunkIO][loadBlocks]: Read error for indices.\n";
 				blockChanges.clear();
 				return;
 			}
@@ -252,8 +304,10 @@ void ChunkIO::loadBlocks(BlockChanges& blockChanges, const glm::ivec3 chunkPosit
 		std::cerr << "[ChunkIO][loadBlocks]: No blocks loaded.\n";
 		return;
 	}
+}
 
-	// Apply loaded data to blocks array
+void ChunkIO::applyBlockChanges(BlockChanges& blockChanges, BlockId* blocks)
+{
 	for (auto it = blockChanges.begin(); it != blockChanges.end();)
 	{
 		BlockId block = it->first;
@@ -285,7 +339,107 @@ void ChunkIO::loadBlocks(BlockChanges& blockChanges, const glm::ivec3 chunkPosit
 	}
 }
 
-void ChunkIO::saveBlocks(BlockChanges& blockChanges, const glm::ivec3 chunkPosition, const BlockId* blocks)
+bool ChunkIO::checkIfShouldBeSaved(const std::filesystem::path& filepath, uint64_t hashValue)
+{
+	// Check if file exists
+	if (!doesFileExist(filepath))
+	{
+		return true; // If it doesn't exist, create it
+	}
+
+	// Open file for reading
+	StreamReader reader(filepath);
+	if (!reader)
+	{
+		std::cerr << "[ChunkIO][saveBlocks]: Failed to open file.\n";
+		return true; // Let writer try to open it
+	}
+	
+	// Read hash value
+	uint64_t storedHasValue;
+	if (!reader.read(&storedHasValue))
+	{
+		std::cerr << "[ChunkIO][saveBlocks]: Read error for hash value.\n";
+		return true;
+	}
+
+	// Compare hash value
+	return hashValue != storedHasValue; // Write to file only if hash values are different
+}
+
+robin_hood::unordered_flat_map<BlockId, std::string> ChunkIO::collectBlockIdStrings(const BlockChanges& blockChanges)
+{
+	robin_hood::unordered_flat_map<BlockId, std::string> idToString;
+
+	const BlockData* blockData = nullptr;
+	for (const auto& [blockId, indices] : blockChanges)
+	{
+		if (areChangesValid(blockId, indices, blockData))
+		{
+			idToString.emplace(blockId, blockData->stringId);
+		}
+	}
+
+	return idToString;
+}
+
+robin_hood::unordered_flat_map<std::string, ChunkIO::PackInfo> ChunkIO::transformBlockDataIntoPackData(const robin_hood::unordered_flat_map<BlockId, std::string>& blockIdToString)
+{
+	robin_hood::unordered_flat_map<std::string, PackInfo> packMap;
+	packMap.reserve(blockIdToString.size());
+	for (const auto& [globalID, fullName] : blockIdToString)
+	{
+		size_t colonPos = fullName.find(':'); // Should be found, since we filtered out invalid cases
+
+		std::string packName = fullName.substr(0, colonPos);
+		std::string blockName = fullName.substr(colonPos + 1);
+
+		auto& pack = packMap[packName]; // Fine pack by packName
+		pack.name = packName;
+		pack.blocks.emplace_back(globalID, blockName);
+	}
+	return packMap;
+}
+
+std::vector<ChunkIO::PackInfo> ChunkIO::transformPackDataMapToSortedVector(const robin_hood::unordered_flat_map<std::string, PackInfo>& packDataMap)
+{
+	// Create vector of packs
+	std::vector<PackInfo> packs;
+	packs.reserve(packDataMap.size());
+	for (auto& [name, pack] : packDataMap)
+	{
+		auto& packFromVector = packs.emplace_back(pack);
+
+		// Sort blocks within each pack for consistent ordering
+		std::sort(packFromVector.blocks.begin(), packFromVector.blocks.end(),
+			[](const auto& a, const auto& b) { return a.first < b.first; });
+	}
+
+	// Sort packs by name for consistent ordering
+	std::sort(packs.begin(), packs.end(),
+		[](const auto& a, const auto& b) { return a.name < b.name; });
+
+	return packs;
+}
+
+void ChunkIO::loadBlocks(BlockChanges& blockChanges, const glm::ivec3& chunkPosition, BlockId* blocks)
+{
+	PROFILE_SCOPE("Load chunk blocks", ProfileCategory::ChunkBlocks);
+
+	fs::path filepath = getFilePath(chunkPosition);
+
+	// Check if file exists
+	if (!doesFileExist(filepath))
+	{
+		return;
+	}
+
+	// Load and apply changes
+	loadBlockChanges(filepath, blockChanges);
+	applyBlockChanges(blockChanges, blocks);
+}
+
+void ChunkIO::saveBlocks(const BlockChanges& blockChanges, const glm::ivec3& chunkPosition, const BlockId* blocks)
 {
 	if (blockChanges.empty())
 	{
@@ -302,36 +456,11 @@ void ChunkIO::saveBlocks(BlockChanges& blockChanges, const glm::ivec3 chunkPosit
 	// Compute hash value
 	uint64_t hashValue = computeHash(blockChanges);
 
-	std::string name = std::format("{}_{}_{}.bin", chunkPosition.x, chunkPosition.y, chunkPosition.z);
-	fs::path filepath = CHUNK_SAVES_PATH / name;
+	fs::path filepath = getFilePath(chunkPosition);
 
+	if (!checkIfShouldBeSaved(filepath, hashValue))
 	{
-		// Check if file exists
-		if (fs::exists(filepath) && fs::is_regular_file(filepath))
-		{
-			// Open file for reading
-			StreamReader reader(filepath);
-			if (!reader)
-			{
-				std::cerr << "[ChunkIO][saveBlocks]: Failed to open file.\n";
-			}
-			else
-			{
-				// Read hash value
-				uint64_t storedHasValue;
-				if (!reader.read(&storedHasValue))
-				{
-					std::cerr << "[ChunkIO][saveBlocks]: Read error for hash value.\n";
-					return;
-				}
-
-				// Compare hash value
-				if (hashValue == storedHasValue)
-				{
-					return;
-				}
-			}
-		}
+		return;
 	}
 
 	// Open file for writing
@@ -343,64 +472,19 @@ void ChunkIO::saveBlocks(BlockChanges& blockChanges, const glm::ivec3 chunkPosit
 	}
 
 	// Filter valid changes and collect block names
-	std::map<BlockId, std::string> idToString;
-	{
-		const BlockData* blockData = nullptr;
-		auto it = blockChanges.begin();
-		while (it != blockChanges.end())
-		{
-			if (filterChanges(it->first, it->second, blockData))
-			{
-				it = blockChanges.erase(it);
-			}
-			else
-			{
-				idToString[it->first] = blockData->stringId;
-				++it;
-			}
-		}
-	}
+	robin_hood::unordered_flat_map<BlockId, std::string> idToString = collectBlockIdStrings(blockChanges); // TODO: Use sorted vector instead of std::map
 	
+	// Check if any block id strings were collected
 	if (idToString.empty())
 	{
-		return;
+		return; // All changes were discarded
 	}
 
 	// Extract pack information from block names
-	struct PackInfo
-	{
-		std::string name;
-		std::vector<std::pair<BlockId, std::string>> blocks; // globalID -> blockName
-	};
-
-	robin_hood::unordered_flat_map<std::string, PackInfo> packMap;
-	packMap.reserve(idToString.size());
-	for (const auto& [globalID, fullName] : idToString)
-	{
-		size_t colonPos = fullName.find(':'); // Should be found, since we filtered out invalid cases
-
-		std::string packName = fullName.substr(0, colonPos);
-		std::string blockName = fullName.substr(colonPos + 1);
-
-		auto& pack = packMap[packName];
-		pack.name = packName;
-		pack.blocks.emplace_back(globalID, blockName);
-	}
+	robin_hood::unordered_flat_map<std::string, PackInfo> packMap = transformBlockDataIntoPackData(idToString);
 
 	// Create sorted list of packs
-	std::vector<PackInfo> packs;
-	packs.reserve(packMap.size());
-	for (auto& [name, pack] : packMap)
-	{
-		// Sort blocks within each pack for consistent ordering
-		std::sort(pack.blocks.begin(), pack.blocks.end(),
-			[](const auto& a, const auto& b) { return a.first < b.first; });
-		packs.push_back(std::move(pack));
-	}
-
-	// Sort packs by name for consistent ordering
-	std::sort(packs.begin(), packs.end(),
-		[](const auto& a, const auto& b) { return a.name < b.name; });
+	std::vector<PackInfo> packs = transformPackDataMapToSortedVector(packMap);
 
 	// Write hash value
 	if (!writer.write(&hashValue))
