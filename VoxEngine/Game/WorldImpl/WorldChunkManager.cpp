@@ -145,8 +145,9 @@ void WorldChunkManager::sendChunkMeshesToGPU()
 				chunk->askForMeshUpload();
 			}
 		}
+
+		ChunkMesh::sendMeshesToGPU();
 	}
-	ChunkMesh::sendMeshesToGPU();
 }
 
 Chunk* WorldChunkManager::getChunkAt(const glm::ivec3& position) const

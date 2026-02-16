@@ -35,6 +35,10 @@ ViewRays computeViewRays(const Camera& cam)
 }
 
 
+WorldRenderer::ChunkRenderInfo::ChunkRenderInfo() :
+	chunk(nullptr), manhattanDistance(0)
+{}
+
 WorldRenderer::ChunkRenderInfo::ChunkRenderInfo(const Chunk* chunk, unsigned int manhattanDistance) :
 	chunk(chunk), manhattanDistance(manhattanDistance)
 {}
@@ -258,12 +262,43 @@ void WorldRenderer::sortChunksForRendering() const
 {
 	PROFILE_SCOPE("Sort chunks for render", ProfileCategory::Render);
 
-	// TODO: Maybe use radix sort? It doesn't take very long too sort though.
-	std::sort(chunksToRender.begin(), chunksToRender.end(),
-		[](const ChunkRenderInfo& a, const ChunkRenderInfo& b)
-		{
-			return a.manhattanDistance < b.manhattanDistance;
-		});
+	// Find max distance
+	unsigned int maxDistance = 0;
+	for (const auto& info : chunksToRender)
+	{
+		maxDistance = std::max(maxDistance, info.manhattanDistance);
+	}
+
+	// Create array of count
+	const size_t bucketCount = maxDistance + 1;
+	sortingCountArray.resize(bucketCount);
+	std::fill(sortingCountArray.begin(), sortingCountArray.end(), 0);
+
+	// Count occurrences of each distance
+	for (const auto& info : chunksToRender)
+	{
+		sortingCountArray[info.manhattanDistance]++;
+	}
+
+	// Calculate prefix sums (positions)
+	size_t total = 0;
+	for (size_t i = 0; i < bucketCount; i++)
+	{
+		auto temp = sortingCountArray[i];
+		sortingCountArray[i] = total;
+		total += temp;
+	}
+
+	// Output
+	sortingChunkOutputArray.resize(chunksToRender.size());
+
+	for (const auto& info : chunksToRender)
+	{
+		auto priority = info.manhattanDistance;
+		sortingChunkOutputArray[sortingCountArray[priority]++].chunk = info.chunk; // Move pointer only. It doesn't break anything, since we don't use distance further in render.
+	}
+		
+	chunksToRender.swap(sortingChunkOutputArray);
 }
 
 void WorldRenderer::ensureCapacityForChunkRenderBuffers(size_t drawCount)

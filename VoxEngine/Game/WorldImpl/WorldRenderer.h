@@ -24,6 +24,7 @@ class WorldRenderer
 		const Chunk* chunk;
 		unsigned int manhattanDistance;
 
+		ChunkRenderInfo();
 		ChunkRenderInfo(const Chunk* chunk, unsigned int manhattanDistance);
 	};
 
@@ -86,6 +87,9 @@ private:
 	mutable std::vector<ChunkRenderInfo> chunksToRender;
 	mutable std::vector<DrawArraysIndirectCommand> chunkDrawCommands;
 	mutable std::vector<glm::ivec3> chunkPositions;
+
+	mutable std::vector<size_t> sortingCountArray;
+	mutable std::vector<ChunkRenderInfo> sortingChunkOutputArray;
 
 	// Aurora varaibless
 	static constexpr float AURORA_THRESHOLD = 0.02f;
