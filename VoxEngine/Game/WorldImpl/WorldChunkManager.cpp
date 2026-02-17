@@ -347,7 +347,7 @@ void WorldChunkManager::collectChunksNeedingLightUpdate()
 void WorldChunkManager::updateChunkLights()
 {
 	// Using parallelForEach because it will assure that all tasks are done before returning
-	// Update chunks in two separate passes in checkboard pattern to avoid racing conditions
+	// Update chunks in two separate passes in checkboard pattern to avoid racing conditions (at least between this updateLight group, not including buildLight)
 	ParallelUtils::parallelForEach(buildContainers.lightUpdateA, 1, [](Chunk* chunk)
 		{
 			chunk->updateLight();

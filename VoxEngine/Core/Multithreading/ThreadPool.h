@@ -99,6 +99,9 @@ public:
 
     template<typename Container, typename Func>
     static void parallelForEach(Container& container, size_t minChunkSize, Func func);
+
+    template<typename T, typename Func>
+    static void parallelForEachInRange(T* array, size_t range, size_t minChunkSize, Func func);
 private:
     static size_t calculateOptimalChunkCount(size_t totalItems, size_t minChunkSize);
 };
@@ -154,5 +157,14 @@ void ParallelUtils::parallelForEach(Container& container, size_t minChunkSize, F
     parallelFor(0, container.size(), minChunkSize, [&container, func](size_t i)
         {
         func(container[i]);
+        });
+}
+
+template<typename T, typename Func>
+void ParallelUtils::parallelForEachInRange(T* array, size_t range, size_t minChunkSize, Func func)
+{
+    parallelFor(0, range, minChunkSize, [&array, func](size_t i)
+        {
+            func(array[i]);
         });
 }
