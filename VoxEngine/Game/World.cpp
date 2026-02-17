@@ -17,7 +17,6 @@
 World::World() :
 	// Passing references to sub-systems
 	renderer({
-			chunkManager.getAllChunkRegions(),
 			dayNightCycleValue,
 			skyLightSub,
 			appTime
@@ -262,7 +261,7 @@ const World::DebugData& World::getDebugData(bool updateIntense) const
 {
 	PROFILE_SCOPE("World debug data collection", ProfileCategory::General);
 
-	const auto& chunkRegions = chunkManager.getAllChunkRegions();
+	const auto& chunkRegions = Chunk::chunkRegionManagerInstance.getRegionMap();
 
 	// Chunk region count
 	debugData.chunkRegionCount = chunkRegions.size();

@@ -14,9 +14,9 @@ thread_local ChunkSpecializedQueue<LightRemovalNode> Chunk::localBlockLightRemov
 thread_local ChunkSpecializedQueue<LightNode> Chunk::localSkyLightBfsQueue;
 thread_local ChunkSpecializedQueue<LightRemovalNode> Chunk::localSkyLightRemovalBfsQueue;
 
-StructureBlockChangeManager Chunk::structureBlockChangeManager;
-
 std::atomic<bool> Chunk::gHasStructureBlockChanges{ false };
+ChunkRegionManager Chunk::chunkRegionManagerInstance;
+StructureBlockChangeManager Chunk::structureBlockChangeManager;
 
 
 unsigned hash3(unsigned x, unsigned y, unsigned z)

@@ -1,9 +1,6 @@
 #pragma once
 #include "../World/ChunkPool.h"
-#include "../World/ChunkRegion.h"
 #include "../World/ChunkLoaders/BaseChunkLoader.h"
-
-#include "Core/Hashes/ivec3Hasher.h"
 
 #include <memory>
 #include <mutex>
@@ -23,9 +20,6 @@ class WorldChunkManager
     };
 
     ChunkPool chunkPool;
-    
-    FixedArenaObjectPool<ChunkRegion, 4> chunkRegionPool;
-    robin_hood::unordered_flat_map<glm::ivec3, ChunkRegion*, ivec3Hasher> chunkRegions;
 
     BuildContainers buildContainers;
 
@@ -60,9 +54,6 @@ public:
     void updateChunkMeshes();
 
     void rebuildAllChunkMeshes();
-
-    const auto& getAllChunkRegions() const { return chunkRegions; }
-    size_t getRegionCount() const { return chunkRegions.size(); }
 private:
     void loadChunk(const glm::ivec3& position);
     void unloadChunk(const glm::ivec3& position);

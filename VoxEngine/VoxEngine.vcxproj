@@ -152,6 +152,7 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Game\World\ChunkRegionManager.cpp" />
     <ClCompile Include="Game\World\Chunk\ChunkIO.cpp" />
     <ClCompile Include="Game\World\Chunk\ChunkMesh.cpp" />
     <ClCompile Include="Game\World\ChunkRegion.cpp" />
@@ -214,6 +215,7 @@
     <ClCompile Include="Game\WorldImpl\WorldRenderer.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Game\World\ChunkRegionManager.h" />
     <ClInclude Include="Game\World\Chunk\ChunkIO.h" />
     <ClInclude Include="Game\World\Chunk\ChunkMesh.h" />
     <ClInclude Include="Game\World\Chunk\BufferStreamWriter.h" />

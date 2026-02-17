@@ -5,6 +5,8 @@
 
 #include "../World/ChunkLoaders/SphericalChunkLoader.h"
 
+#include "../World/ChunkRegionManager.h"
+
 WorldChunkManager::WorldChunkManager()
 {
 	// Chunk loaders
@@ -16,8 +18,7 @@ void WorldChunkManager::preparation(size_t chunkCount)
 	chunkPool.allocate(chunkCount + 10);
 
 	size_t regionCount = (chunkCount * 2) / CHUNK_REGION_VOLUME + 1;
-	chunkRegions.reserve(regionCount);
-	chunkRegionPool.allocate(regionCount);
+	Chunk::chunkRegionManagerInstance.preparation(regionCount);
 }
 
 void WorldChunkManager::loadChunks(const glm::dvec3& playerPos, int chunkLoadingDistance)
@@ -85,7 +86,7 @@ void WorldChunkManager::update()
 
 		PROFILE_SCOPE("Update chunk blocks", ProfileCategory::ChunkBlocks);
 
-		for (const auto& [_, chunkRegion] : chunkRegions)
+		for (const auto& [_, chunkRegion] : Chunk::chunkRegionManagerInstance.getRegionMap())
 		{
 			for (Chunk* chunk : chunkRegion->chunks)
 			{
@@ -136,7 +137,7 @@ void WorldChunkManager::sendChunkMeshesToGPU()
 
 		PROFILE_SCOPE("Check dirty meshes to send to GPU", ProfileCategory::ChunkMesh);
 
-		for (const auto& [_, chunkRegion] : chunkRegions)
+		for (const auto& [_, chunkRegion] : Chunk::chunkRegionManagerInstance.getRegionMap())
 		{
 			for (Chunk* chunk : chunkRegion->chunks)
 			{
@@ -153,17 +154,14 @@ void WorldChunkManager::sendChunkMeshesToGPU()
 Chunk* WorldChunkManager::getChunkAt(const glm::ivec3& position) const
 {
 	// Get region position
-	glm::ivec3 regionPos = ChunkRegion::getRegionPosition(position);
+	glm::ivec3 regionPosition = ChunkRegion::getRegionPosition(position);
 
-	// Check if region exists
-	auto it = chunkRegions.find(regionPos);
-	if (it == chunkRegions.end())
+	// Get chunk region if exists
+	ChunkRegion* chunkRegion = Chunk::chunkRegionManagerInstance.getRegion(regionPosition);
+	if (!chunkRegion)
 	{
 		return nullptr;
 	}
-
-	// Region exists
-	ChunkRegion* chunkRegion = it->second;
 
 	// Get chunk index in region
 	size_t index = ChunkRegion::getChunkIndexInRegion(position);
@@ -175,17 +173,14 @@ Chunk* WorldChunkManager::getChunkAt(const glm::ivec3& position) const
 bool WorldChunkManager::chunkExistsAt(const glm::ivec3& position) const
 {
 	// Get region position
-	glm::ivec3 regionPos = ChunkRegion::getRegionPosition(position);
+	glm::ivec3 regionPosition = ChunkRegion::getRegionPosition(position);
 
-	// Check if region exists
-	auto it = chunkRegions.find(regionPos);
-	if (it == chunkRegions.end())
+	// Get chunk region if exists
+	const ChunkRegion* chunkRegion = Chunk::chunkRegionManagerInstance.getRegion(regionPosition);
+	if (!chunkRegion)
 	{
 		return false;
 	}
-
-	// Region exists
-	ChunkRegion* chunkRegion = it->second;
 
 	// Get chunk index in region
 	size_t index = ChunkRegion::getChunkIndexInRegion(position);
@@ -327,7 +322,7 @@ void WorldChunkManager::collectChunksNeedingLightUpdate()
 	buildContainers.lightUpdateA.clear();
 	buildContainers.lightUpdateB.clear();
 
-	for (const auto& [_, chunkRegion] : chunkRegions)
+	for (const auto& [_, chunkRegion] : Chunk::chunkRegionManagerInstance.getRegionMap())
 	{
 		for (Chunk* chunk : chunkRegion->chunks)
 		{
@@ -366,7 +361,7 @@ void WorldChunkManager::updateChunkLights()
 void WorldChunkManager::updateChunkMeshes()
 {
 	ThreadPool& pool = ParallelUtils::getGlobalThreadPool();
-	for (const auto& [_, chunkRegion] : chunkRegions)
+	for (const auto& [_, chunkRegion] : Chunk::chunkRegionManagerInstance.getRegionMap())
 	{
 		for (Chunk* chunk : chunkRegion->chunks)
 		{
@@ -385,7 +380,7 @@ void WorldChunkManager::updateChunkMeshes()
 
 void WorldChunkManager::rebuildAllChunkMeshes()
 {
-	for (const auto& [_, chunkRegion] : chunkRegions)
+	for (const auto& [_, chunkRegion] : Chunk::chunkRegionManagerInstance.getRegionMap())
 	{
 		for (Chunk* chunk : chunkRegion->chunks)
 		{
@@ -399,25 +394,10 @@ void WorldChunkManager::rebuildAllChunkMeshes()
 void WorldChunkManager::loadChunk(const glm::ivec3& position)
 {
 	// Get region position
-	glm::ivec3 regionPos = ChunkRegion::getRegionPosition(position);
+	glm::ivec3 regionPosition = ChunkRegion::getRegionPosition(position);
 
-	// Check if region already exists
-	ChunkRegion* region;
-	auto it = chunkRegions.find(regionPos);
-	if (it != chunkRegions.end())
-	{
-		// Region already exists, use it
-		region = it->second;
-	}
-	else
-	{
-		// Region doesn't exist, create it
-		// Aquire region from pool
-		region = chunkRegionPool.acquire();
-
-		// Add region to map
-		chunkRegions.emplace(regionPos, region);
-	}
+	// Get region at position
+	ChunkRegion* region = Chunk::chunkRegionManagerInstance.getOrCreateRegion(regionPosition);
 
 	// Get chunk index in region
 	size_t index = ChunkRegion::getChunkIndexInRegion(position);
@@ -461,17 +441,14 @@ void WorldChunkManager::loadChunk(const glm::ivec3& position)
 void WorldChunkManager::unloadChunk(const glm::ivec3& position)
 {
 	// Get region position
-	glm::ivec3 regionPos = ChunkRegion::getRegionPosition(position);
+	glm::ivec3 regionPosition = ChunkRegion::getRegionPosition(position);
 
-	// Check if region exists
-	auto it = chunkRegions.find(regionPos);
-	if (it == chunkRegions.end())
+	// Get chunk region if exists
+	ChunkRegion* chunkRegion = Chunk::chunkRegionManagerInstance.getRegion(position);
+	if (!chunkRegion)
 	{
 		return;
 	}
-
-	// Region exists
-	ChunkRegion* chunkRegion = it->second;
 
 	// Get chunk index in region
 	size_t index = ChunkRegion::getChunkIndexInRegion(position);
@@ -499,7 +476,6 @@ void WorldChunkManager::unloadChunk(const glm::ivec3& position)
 	// If region is empty, remove it from map and return to the pool
 	if (chunkRegion->chunkCount == 0)
 	{
-		chunkRegions.erase(it);
-		chunkRegionPool.release(chunkRegion);
+		Chunk::chunkRegionManagerInstance.destroyChunkRegion(regionPosition);
 	}
 }

@@ -220,7 +220,7 @@ void WorldRenderer::collectChunksForRendering(const Camera& camera) const
 
 	// Get regions
 	//const auto& mutex = chunkRegionManager.getRegionMutex();
-	const auto& regions = references.chunkRegions;
+	const auto& regions = Chunk::chunkRegionManagerInstance.getRegionMap();
 
 	for (const auto& [regionPosition, region] : regions)
 	{
@@ -409,7 +409,7 @@ void WorldRenderer::renderChunks(const Camera& camera, const FrameBuffer& FBO)
 
 	// Collect chunks to render
 	chunksToRender.clear();
-	chunksToRender.reserve(references.chunkRegions.size() * CHUNK_REGION_VOLUME);
+	chunksToRender.reserve(Chunk::chunkRegionManagerInstance.getRegionMap().size() * CHUNK_REGION_VOLUME);
 
 	collectChunksForRendering(camera);
 	sortChunksForRendering();

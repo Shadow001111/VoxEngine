@@ -21,6 +21,8 @@ public:
 	ChunkRegion(ChunkRegion&&) = delete;
 	ChunkRegion& operator=(ChunkRegion&&) = delete;
 
+	void init();
+
 	const auto& getChunks() const { return chunks; };
 	const size_t getChunkCount() const { return chunkCount; };
 

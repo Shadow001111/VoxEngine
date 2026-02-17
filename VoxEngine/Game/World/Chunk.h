@@ -7,6 +7,8 @@
 #include "Chunk/Light.h"
 #include "Chunk/ChunkIO.h"
 
+#include "ChunkRegionManager.h"
+
 #include "Core/Multithreading/ProcessingFence.h"
 #include "Core/AtomicFlags.h"
 
@@ -30,12 +32,6 @@ struct BlockData;
 
 class Chunk
 {
-	enum Flag : uint8_t
-	{
-		IsLoadedInWorld = 0,
-		IsLoadedChunkColumnData,
-		IsMeshDirty
-	};
 public:
 	enum class State : uint8_t
 	{
@@ -47,7 +43,17 @@ public:
 		BuildingLight,
 		LightsBuilt
 	};
+
+	static std::atomic<bool> gHasStructureBlockChanges; // TODO: Move this to StructureBlockChangeManager.
+	static ChunkRegionManager chunkRegionManagerInstance;
 private:
+	enum Flag : uint8_t
+	{
+		IsLoadedInWorld = 0,
+		IsLoadedChunkColumnData,
+		IsMeshDirty
+	};
+
 	// Chunk coordinates
 	glm::ivec3 position;
 
@@ -83,9 +89,7 @@ private:
 
 	// Mesh
 	ChunkMesh mesh;
-public:
-	static std::atomic<bool> gHasStructureBlockChanges; // TODO: Move this to StructureBlockChangeManager.
-private:
+
 	// Processing fence. I tried global processing system. It reduces memory usage because chunk doesn't have its own processing fence.
 	// But it increases wait time in average from 4ms to 40ms, trading 1mb for around 7000 chunks. Benefits aren't that big.
 	ProcessingFence processingFence;
@@ -99,12 +103,20 @@ private:
 	static size_t getIndex(int x, int y, int z) { return (x << (CHUNK_SIZE_LOG2 << 1)) | (y << CHUNK_SIZE_LOG2) | z; };
 	//static size_t getIndex(uint8_t x, uint8_t y, uint8_t z) { return ((size_t)x << (CHUNK_SIZE_LOG2 << 1)) | ((size_t)y << CHUNK_SIZE_LOG2) | (size_t)z; };
 
-	static glm::ivec3 getPositionFromIndex(size_t index) {
+	static glm::ivec3 getPositionFromIndex(size_t index) // Took 'size_t', but now takes 'int' because think it will be cheaper (less casts)
+	{
 		return {
 			(index >> (CHUNK_SIZE_LOG2 << 1)) & CHUNK_LOWER_BITS_MASK,
 			(index >> CHUNK_SIZE_LOG2) & CHUNK_LOWER_BITS_MASK,
 			index & CHUNK_LOWER_BITS_MASK
 		};
+
+		// Cleaner version, idk about perfomance
+		//return glm::ivec3(
+		//	index >> (CHUNK_SIZE_LOG2 << 1),
+		//	index >> CHUNK_SIZE_LOG2,
+		//	index
+		//) & CHUNK_LOWER_BITS_MASK;
 	};
 public:
 	Chunk* neighbors[6] = { nullptr, nullptr, nullptr, nullptr, nullptr, nullptr }; // Pointers to neighboring chunks for easier access
