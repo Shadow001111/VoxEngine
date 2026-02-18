@@ -1293,19 +1293,18 @@ void Chunk::updateMesh()
 			// Generate new faces for this block
 			BlockId block = blocks[currentBlockIndex];
 			const BlockData* blockData = AssetRegistry::getBlockData(block);
-			if (!blockData || !blockData->hasFaces)
+			if (!(blockData && blockData->hasFaces))
 			{
 				continue;
 			}
 
-			const auto& modelID = blockData->modelId;
-			const auto& textureSlots = blockData->textureSlots;
-			
-			const auto* model = AssetRegistry::getBlockModelData(modelID);
+			const auto* model = AssetRegistry::getBlockModelData(blockData->modelId);
 			if (!model)
 			{
 				continue;
 			}
+
+			const auto& textureSlots = blockData->textureSlots;
 
 			// TODO: Maybe translucent faces shouldn't be culled. Maybe they should be drawn using GL_LEQUAL for depth test.
 

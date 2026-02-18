@@ -49,6 +49,8 @@ class AssetRegistry
 
 	// Data objects are used directly in game
 	static std::vector<BlockData> blockDataStorage;
+	static size_t blockDataStorageSize;
+
 	static std::vector<BlockModelData> blockModelDataStorage;
 	static std::vector<ItemData> itemDataStorage;
 	static std::vector<ItemModelData> itemModelDataStorage;
@@ -65,7 +67,7 @@ class AssetRegistry
 	// Fallback ids
 	static BlockId FALLBACK_BLOCK_ID;
 	static ModelId FALLBACK_BLOCK_MODEL_ID;
-	static BlockId FALLBACK_ITEM_ID;
+	static ItemId FALLBACK_ITEM_ID;
 	static ModelId FALLBACK_ITEM_MODEL_ID;
 public:
 	//

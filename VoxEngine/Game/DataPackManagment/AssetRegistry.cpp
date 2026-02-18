@@ -7,6 +7,8 @@ std::vector<BlockAsset> AssetRegistry::blockAssetStorage;
 std::vector<ItemAsset> AssetRegistry::itemAssetStorage;
 
 std::vector<BlockData> AssetRegistry::blockDataStorage;
+size_t AssetRegistry::blockDataStorageSize = 0;
+
 std::vector<BlockModelData> AssetRegistry::blockModelDataStorage;
 std::vector<ItemData> AssetRegistry::itemDataStorage;
 std::vector<ItemModelData> AssetRegistry::itemModelDataStorage;
@@ -21,7 +23,7 @@ StringIndexer AssetRegistry::itemUITextureIndexer;
 
 BlockId AssetRegistry::FALLBACK_BLOCK_ID;
 ModelId AssetRegistry::FALLBACK_BLOCK_MODEL_ID;
-BlockId AssetRegistry::FALLBACK_ITEM_ID;
+ItemId AssetRegistry::FALLBACK_ITEM_ID;
 ModelId AssetRegistry::FALLBACK_ITEM_MODEL_ID;
 
 // Object name validation
@@ -330,6 +332,9 @@ bool AssetRegistry::linkAssets()
 		return false;
 	}
 
+	//
+	blockDataStorageSize = blockDataStorage.size();
+
 	// End
 	blockAssetStorage.clear();
 	itemAssetStorage.clear();
@@ -469,11 +474,13 @@ const BlockData* AssetRegistry::getBlockDataSafe(BlockId numericalId)
 
 const BlockData* AssetRegistry::getBlockData(BlockId numericalId)
 {
-	return numericalId < blockDataStorage.size() ? &blockDataStorage[numericalId] : nullptr;
+	//return numericalId < blockDataStorage.size() ? &blockDataStorage[numericalId] : nullptr;
+	return numericalId < blockDataStorageSize ? blockDataStorage.data() + numericalId : nullptr;
 }
 
 const BlockModelData* AssetRegistry::getBlockModelData(ModelId numericalId)
 {
+	// TODO: Use something faster than vector.size()
 	return numericalId < blockModelDataStorage.size() ? &blockModelDataStorage[numericalId] : nullptr;
 }
 
