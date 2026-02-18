@@ -20,6 +20,7 @@
 #include <mutex>
 #include <atomic>
 #include <cstdint>
+#include <array>
 #include <glm/glm.hpp>
 
 struct BlockVertexLightData
@@ -103,23 +104,16 @@ private:
 	static size_t getIndex(int x, int y, int z) { return (x << (CHUNK_SIZE_LOG2 << 1)) | (y << CHUNK_SIZE_LOG2) | z; };
 	//static size_t getIndex(uint8_t x, uint8_t y, uint8_t z) { return ((size_t)x << (CHUNK_SIZE_LOG2 << 1)) | ((size_t)y << CHUNK_SIZE_LOG2) | (size_t)z; };
 
-	static glm::ivec3 getPositionFromIndex(size_t index) // Took 'size_t', but now takes 'int' because think it will be cheaper (less casts)
+	static glm::ivec3 getPositionFromIndex(int index) // Took 'size_t', but now takes 'int' because think it will be cheaper (less casts)
 	{
 		return {
 			(index >> (CHUNK_SIZE_LOG2 << 1)) & CHUNK_LOWER_BITS_MASK,
 			(index >> CHUNK_SIZE_LOG2) & CHUNK_LOWER_BITS_MASK,
 			index & CHUNK_LOWER_BITS_MASK
 		};
-
-		// Cleaner version, idk about perfomance
-		//return glm::ivec3(
-		//	index >> (CHUNK_SIZE_LOG2 << 1),
-		//	index >> CHUNK_SIZE_LOG2,
-		//	index
-		//) & CHUNK_LOWER_BITS_MASK;
 	};
 public:
-	Chunk* neighbors[6] = { nullptr, nullptr, nullptr, nullptr, nullptr, nullptr }; // Pointers to neighboring chunks for easier access
+	std::array<Chunk*, 6> neighbors{ nullptr }; // Pointers to neighboring chunks for easier access
 
 	// Constructors, destructors, assigments
 	Chunk() = default;
@@ -133,7 +127,7 @@ public:
 	bool operator==(const Chunk& other) const noexcept { return position == other.position; };
 
 	// Init/destroy
-	void init(const glm::ivec3& position, Chunk** neighbors);
+	void init(const glm::ivec3& position, const std::array<Chunk*, 6>& newNeighbors);
 	void destroy();
 	static void globalInit();
 
@@ -158,7 +152,14 @@ public:
 	// Light
 	void buildLight();
 	void updateLight();
-	bool hasLightUpdates() const;
+	bool hasLightUpdates() const
+	{
+		return
+			!blockLightBfsQueue.empty() ||
+			!blockLightRemovalBfsQueue.empty() ||
+			!skyLightBfsQueue.empty() ||
+			!skyLightRemovalBfsQueue.empty();
+	}
 
 	// Mesh
 	void updateMesh();
@@ -175,26 +176,17 @@ public:
 	void collectNonAlignedTranslucentRenderData(BufferStreamWriter<DrawArraysIndirectCommand>& drawCommands, BufferStreamWriter<glm::ivec3>& positions) const;
 private:
 	// Chunk traverse
-	const Chunk* traverseToSideNeighbor(int x, int y, int z, int side, size_t& outIndex) const;
-	Chunk* traverseToSideNeighbor(int x, int y, int z, int side, size_t& outIndex)
-	{
-		return const_cast<Chunk*>(const_cast<const Chunk*>(this)->traverseToSideNeighbor(x, y, z, side, outIndex)); 
-	}
-
-	const Chunk* traverseThroughNeighbors(int x, int y, int z, size_t& outIndex) const;
-	Chunk* traverseThroughNeighbors(int x, int y, int z, size_t& outIndex)
-	{
-		return const_cast<Chunk*>(const_cast<const Chunk*>(this)->traverseThroughNeighbors(x, y, z, outIndex));
-	}
+	Chunk* traverseToSideNeighbor(int x, int y, int z, int side, size_t& outIndex) const;
+	Chunk* traverseThroughNeighbors(int x, int y, int z, size_t& outIndex) const;
 public:
 	// Grid getters
-	BlockId getBlockAt(int x, int y, int z) const;
-	LightLevel getLightAt(int x, int y, int z) const;
+	BlockId getBlockAt(int x, int y, int z) const { return blocks[getIndex(x, y, z)]; }
+	LightLevel getLightAt(int x, int y, int z) const { return lightLevels[getIndex(x, y, z)]; }
 	std::pair<BlockId, LightLevel> getBlockAndLightAt(int x, int y, int z) const;
 
-	BlockId getBlockAt(size_t index) const;
-	LightLevel getLightAt(size_t index) const;
-	std::pair<BlockId, LightLevel> getBlockAndLightAt(size_t index) const;
+	BlockId getBlockAt(size_t index) const { return blocks[index]; }
+	LightLevel getLightAt(size_t index) const { return lightLevels[index]; }
+	std::pair<BlockId, LightLevel> getBlockAndLightAt(size_t index) const { return std::make_pair(blocks[index], lightLevels[index]); }
 
 	// Grid setters
 	void setBlockAt(int x, int y, int z, BlockId block, bool saveBlockChanges = true);

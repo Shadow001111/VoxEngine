@@ -108,7 +108,7 @@ void WorldChunkManager::update()
 
 	// Update chunks lights
 	// Sometimes loops forever. Because of sky light propagation.
-	// If not limited, it goes forever. But when limited to 20 iterations, next fame iteration count is low and less than 20. STRANGE.
+	// If not limited, it goes forever. But when limited to 20 iterations, next frame iteration count is low and less than 20. STRANGE.
 	{
 		size_t iterations = 0;
 		collectChunksNeedingLightUpdate();
@@ -317,8 +317,7 @@ void WorldChunkManager::startBuildingChunkLights()
 void WorldChunkManager::collectChunksNeedingLightUpdate()
 {
 	PROFILE_SCOPE("Collect chunks needing light update", ProfileCategory::ChunkLight);
-	// TODO: Have single container, but add chunks from different ends, depending on group
-
+	
 	buildContainers.lightUpdateA.clear();
 	buildContainers.lightUpdateB.clear();
 
@@ -326,20 +325,15 @@ void WorldChunkManager::collectChunksNeedingLightUpdate()
 	{
 		for (Chunk* chunk : chunkRegion->chunks)
 		{
-			if (!chunk) continue;
+			if (!(chunk && chunk->hasLightUpdates())) continue;
 
-			if (chunk->hasLightUpdates())
-			{
-				const auto& chunkPosition = chunk->getPosition();
-				if ((chunkPosition.x ^ chunkPosition.y ^ chunkPosition.z) & 1)
-				{
-					buildContainers.lightUpdateA.push_back(chunk);
-				}
-				else
-				{
-					buildContainers.lightUpdateB.push_back(chunk);
-				}
-			}
+			glm::ivec3 chunkPosition = chunk->getPosition();
+
+			bool sector = (chunkPosition.x ^ chunkPosition.y ^ chunkPosition.z) & 1;
+
+			auto& updateGroupVector = sector ? buildContainers.lightUpdateA : buildContainers.lightUpdateB;
+
+			updateGroupVector.push_back(chunk);
 		}
 	}
 }
@@ -410,7 +404,7 @@ void WorldChunkManager::loadChunk(const glm::ivec3& position)
 	}
 
 	// Find existing neighbors
-	Chunk* neighbors[6] = {
+	std::array<Chunk*, 6> neighbors = {
 		getChunkAt({ position.x - 1, position.y,	 position.z		}),
 		getChunkAt({ position.x + 1, position.y,	 position.z		}),
 		getChunkAt({ position.x,	 position.y - 1, position.z		}),

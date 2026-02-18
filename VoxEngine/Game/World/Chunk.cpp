@@ -36,16 +36,16 @@ Chunk::~Chunk()
 }
 
 // Prepares chunk for use
-void Chunk::init(const glm::ivec3& position, Chunk** neighbors)
+void Chunk::init(const glm::ivec3& position, const std::array<Chunk*, 6>& newNeighbors)
 {
 	// Set position
 	this->position = position;
 
-	// Set neighbours
+	// Set neighbors
+	this->neighbors = newNeighbors;
 	for (int i = 0; i < 6; i++)
 	{
-		Chunk* neighbor = neighbors[i];
-		this->neighbors[i] = neighbor;
+		Chunk* neighbor = this->neighbors[i];
 		if (neighbor)
 		{
 			neighbor->neighbors[i ^ 1] = this;
@@ -1255,15 +1255,6 @@ void Chunk::updateLight()
 	}
 }
 
-bool Chunk::hasLightUpdates() const
-{
-	return
-		!blockLightBfsQueue.empty() ||
-		!blockLightRemovalBfsQueue.empty() ||
-		!skyLightBfsQueue.empty() ||
-		!skyLightRemovalBfsQueue.empty();
-}
-
 void Chunk::updateMesh()
 {
 	if (
@@ -1297,7 +1288,7 @@ void Chunk::updateMesh()
 		const int globalChunkZ = position.z * CHUNK_SIZE;
 		for (size_t currentBlockIndex = 0; currentBlockIndex < CHUNK_VOLUME; currentBlockIndex++)
 		{
-			glm::ivec3 pos = getPositionFromIndex(currentBlockIndex);
+			glm::ivec3 currentBlockPosition = getPositionFromIndex(currentBlockIndex);
 
 			// Generate new faces for this block
 			BlockId block = blocks[currentBlockIndex];
@@ -1322,16 +1313,16 @@ void Chunk::updateMesh()
 			if (!model->alignedFaces.empty())
 			{
 				const uint32_t hash = hash3(
-					globalChunkX + pos.x,
-					globalChunkY + pos.y,
-					globalChunkZ + pos.z
+					globalChunkX + currentBlockPosition.x,
+					globalChunkY + currentBlockPosition.y,
+					globalChunkZ + currentBlockPosition.z
 				);
 				const uint32_t transformationBitMasks[3] = { 0u, 0b11u, 0b111u };
 				for (const auto& face : model->alignedFaces)
 				{
-					int nx = pos.x + dx[face.normal];
-					int ny = pos.y + dy[face.normal];
-					int nz = pos.z + dz[face.normal];
+					int nx = currentBlockPosition.x + dx[face.normal];
+					int ny = currentBlockPosition.y + dy[face.normal];
+					int nz = currentBlockPosition.z + dz[face.normal];
 
 					size_t neighborIndex;
 					const Chunk* neighborChunk = traverseToSideNeighbor(nx, ny, nz, face.normal, neighborIndex);
@@ -1355,7 +1346,7 @@ void Chunk::updateMesh()
 					// Calculate shading
 					LightLevel neighborLight = neighborChunk->getLightAt(neighborIndex);
 					unsigned int ao, light;
-					calculateFaceAmbientOcclusionAndLight(ao, light, pos.x, pos.y, pos.z, face.normal, neighborLight);
+					calculateFaceAmbientOcclusionAndLight(ao, light, currentBlockPosition.x, currentBlockPosition.y, currentBlockPosition.z, face.normal, neighborLight);
 
 					// Get texture
 					const auto& textureSlot = face.textureSlot < textureSlots.size() ? textureSlots[face.textureSlot] : fallbackTextureSlot;
@@ -1366,7 +1357,7 @@ void Chunk::updateMesh()
 					// Add new face
 					auto& instances = textureSlot.isTranslucent ? newInstances.alignedTranslucent : newInstances.alignedOpaque;
 					instances.emplace_back(
-						pos.x, pos.y, pos.z,
+						currentBlockPosition.x, currentBlockPosition.y, currentBlockPosition.z,
 						face.normal,
 						ao,
 						textureSlot.textureId,
@@ -1381,12 +1372,12 @@ void Chunk::updateMesh()
 			if (!model->nonAlignedFaces.empty())
 			{
 				BlockVertexLightData lightData;
-				calculateBlockVertexLight(lightData, pos.x, pos.y, pos.z);
+				calculateBlockVertexLight(lightData, currentBlockPosition.x, currentBlockPosition.y, currentBlockPosition.z);
 
 				NonAlignedBlockFace instance;
-				instance.blockX = pos.x;
-				instance.blockY = pos.y;
-				instance.blockZ = pos.z;
+				instance.blockX = currentBlockPosition.x;
+				instance.blockY = currentBlockPosition.y;
+				instance.blockZ = currentBlockPosition.z;
 
 				instance.light0 = lightData.light[0].fullByte;
 				instance.light1 = lightData.light[1].fullByte;
@@ -1535,26 +1526,54 @@ void Chunk::collectNonAlignedTranslucentRenderData(BufferStreamWriter<DrawArrays
 	positions.writeSingle(position);
 }
 
-const Chunk* Chunk::traverseToSideNeighbor(int x, int y, int z, int side, size_t& outIndex) const
+Chunk* Chunk::traverseToSideNeighbor(int x, int y, int z, int side, size_t& outIndex) const
 {
-	int check = (x | y | z) & CHUNK_UPPER_BITS_MASK;
+	// Version 1
+	//int check = (x | y | z) & CHUNK_UPPER_BITS_MASK;
+	//if (check == 0)
+	//{
+	//	outIndex = getIndex(x, y, z);
+	//	return const_cast<Chunk*>(this);
+	//}
+	//
+	//Chunk* neighbor = neighbors[side];
+	//if (neighbor)
+	//{
+	//	outIndex = getIndex(x & CHUNK_LOWER_BITS_MASK, y & CHUNK_LOWER_BITS_MASK, z & CHUNK_LOWER_BITS_MASK);
+	//	return neighbor;
+	//}
+	//
+	//return nullptr;
+
+	// Version 2
+	const int check = (x | y | z) & CHUNK_UPPER_BITS_MASK;
 	if (check == 0)
 	{
 		outIndex = getIndex(x, y, z);
-		return this;
+		return const_cast<Chunk*>(this);
 	}
+	
+	outIndex = getIndex(x & CHUNK_LOWER_BITS_MASK, y & CHUNK_LOWER_BITS_MASK, z & CHUNK_LOWER_BITS_MASK);
+	
+	return neighbors[side];
 
-	const Chunk* neighbor = neighbors[side];
-	if (neighbor)
-	{
-		outIndex = getIndex(x & CHUNK_LOWER_BITS_MASK, y & CHUNK_LOWER_BITS_MASK, z & CHUNK_LOWER_BITS_MASK);
-		return neighbor;
-	}
+	// Version 3
+	//const int check = (x | y | z) & CHUNK_UPPER_BITS_MASK;
+	//outIndex = getIndex(x & CHUNK_LOWER_BITS_MASK, y & CHUNK_LOWER_BITS_MASK, z & CHUNK_LOWER_BITS_MASK);
+	//
+	//Chunk* returnPtr = const_cast<Chunk*>(this);
+	//if (check != 0)
+	//{
+	//	returnPtr = neighbors[side];
+	//}
+	//return returnPtr;
 
-	return nullptr;
+	// Version 4
+	//outIndex = getIndex(x & CHUNK_LOWER_BITS_MASK, y & CHUNK_LOWER_BITS_MASK, z & CHUNK_LOWER_BITS_MASK);
+	//return ((x | y | z) & CHUNK_UPPER_BITS_MASK) == 0 ? const_cast<Chunk*>(this) : neighbors[side];
 }
 
-const Chunk* Chunk::traverseThroughNeighbors(int x, int y, int z, size_t& outIndex) const
+Chunk* Chunk::traverseThroughNeighbors(int x, int y, int z, size_t& outIndex) const
 {
 	int nx = x & CHUNK_UPPER_BITS_MASK;
 	int ny = y & CHUNK_UPPER_BITS_MASK;
@@ -1563,14 +1582,14 @@ const Chunk* Chunk::traverseThroughNeighbors(int x, int y, int z, size_t& outInd
 	if (nx == 0 && ny == 0 && nz == 0)
 	{
 		outIndex = getIndex(x, y, z);
-		return this;
+		return const_cast<Chunk*>(this);
 	}
 
-	int dirX = (nx < 0) ? 0 : ((nx > 0) ? 1 : -1);
-	int dirY = (ny < 0) ? 2 : ((ny > 0) ? 3 : -1);
-	int dirZ = (nz < 0) ? 4 : ((nz > 0) ? 5 : -1);
+	int dirX = (nx == 0) ? -1 : 0 + (nx > 0); //(nx < 0) ? 0 : ((nx > 0) ? 1 : -1);
+	int dirY = (ny == 0) ? -1 : 2 + (ny > 0); //(ny < 0) ? 2 : ((ny > 0) ? 3 : -1);
+	int dirZ = (nz == 0) ? -1 : 4 + (nz > 0); //(nz < 0) ? 4 : ((nz > 0) ? 5 : -1);
 
-	const Chunk* neighbor = this;
+	Chunk* neighbor = const_cast<Chunk*>(this);
 
 	if (dirX != -1)
 	{
@@ -1594,34 +1613,9 @@ const Chunk* Chunk::traverseThroughNeighbors(int x, int y, int z, size_t& outInd
 	return neighbor;
 }
 
-BlockId Chunk::getBlockAt(int x, int y, int z) const
-{
-	return blocks[getIndex(x, y, z)];
-}
-
-LightLevel Chunk::getLightAt(int x, int y, int z) const
-{
-	return lightLevels[getIndex(x, y, z)];
-}
-
 std::pair<BlockId, LightLevel> Chunk::getBlockAndLightAt(int x, int y, int z) const
 {
 	size_t index = getIndex(x, y, z);
-	return std::make_pair(blocks[index], lightLevels[index]);
-}
-
-BlockId Chunk::getBlockAt(size_t index) const
-{
-	return blocks[index];
-}
-
-LightLevel Chunk::getLightAt(size_t index) const
-{
-	return lightLevels[index];
-}
-
-std::pair<BlockId, LightLevel> Chunk::getBlockAndLightAt(size_t index) const
-{
 	return std::make_pair(blocks[index], lightLevels[index]);
 }
 
