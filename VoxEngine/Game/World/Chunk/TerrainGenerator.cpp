@@ -136,22 +136,12 @@ void TerrainGenerator::ChunkColumnDataPool::release(ChunkColumnData* chunkColumn
 //TerrainGenerator
 
 int TerrainGenerator::seed = 0;
-thread_local FastNoise::SmartNode<FastNoise::Simplex> TerrainGenerator::simplexNoise;
-thread_local DynamicArray<float> TerrainGenerator::internalLayeredNoiseArray;
-thread_local DynamicArray<float> TerrainGenerator::caveNoiseArray;
+thread_local TerrainGenerator::ThreadLocalData TerrainGenerator::threadLocalData;
 
 TerrainGenerator& TerrainGenerator::getInstance()
 {
 	static TerrainGenerator instance;
 	return instance;
-}
-
-void TerrainGenerator::initThread()
-{
-	simplexNoise = FastNoise::New<FastNoise::Simplex>();
-	internalLayeredNoiseArray.resize(CHUNK_VOLUME);
-	caveNoiseArray.resize(CHUNK_VOLUME);
-	std::this_thread::sleep_for(std::chrono::milliseconds(10)); // This sleep makes sure values will initialize. For some reason program crashes if not wait.
 }
 
 const ChunkColumnData* TerrainGenerator::loadChunkColumnData(int chunkX, int chunkZ)
@@ -277,11 +267,13 @@ void TerrainGenerator::computeCaveMask(bool* outArray, int chunkX, int chunkY, i
 	// TODO: Try computing low-resolution noise array and interpolate it
 	PROFILE_SCOPE("Compute cave mask", ProfileCategory::TerrainGeneration);
 
+	float* caveNoiseArray = threadLocalData.resources->caveNoiseArray.data();;
+
 	{
 		NoiseParams params;
 		params.frequency = 0.01f;
 		params.layerCount = 3;
-		computeLayeredNoise_3D(caveNoiseArray.data(), chunkX, chunkY, chunkZ, params);
+		computeLayeredNoise_3D(caveNoiseArray, chunkX, chunkY, chunkZ, params);
 	}
 
 	for (int x = 0; x < CHUNK_SIZE; x++)
@@ -421,12 +413,14 @@ void TerrainGenerator::computeLayeredNoise_2D(float* outArray, int chunkX, int c
 	const int xStart = chunkX * CHUNK_SIZE;
 	const int zStart = chunkZ * CHUNK_SIZE;
 
+	float* tempNoiseArray = threadLocalData.resources->tempNoiseArray.data();
+	const auto& simplexNoise = threadLocalData.resources->simplexNoise;
 	for (int i = 0; i < params.layerCount; i++)
 	{
-		simplexNoise->GenUniformGrid2D(internalLayeredNoiseArray.data(), xStart, zStart, CHUNK_SIZE, CHUNK_SIZE, layerFrequency, seed);
+		simplexNoise->GenUniformGrid2D(tempNoiseArray, xStart, zStart, CHUNK_SIZE, CHUNK_SIZE, layerFrequency, seed);
 		for (int index = 0; index < CHUNK_AREA; index++)
 		{
-			outArray[index] += internalLayeredNoiseArray[index] * layerAmplitude;
+			outArray[index] += tempNoiseArray[index] * layerAmplitude;
 		}
 		amplitudeSum += layerAmplitude;
 		layerAmplitude *= params.amplitudeFactor;
@@ -459,12 +453,14 @@ void TerrainGenerator::computeLayeredNoise_3D(float* outArray, int chunkX, int c
 	const int yStart = chunkY * CHUNK_SIZE;
 	const int zStart = chunkZ * CHUNK_SIZE;
 
+	float* tempNoiseArray = threadLocalData.resources->tempNoiseArray.data();
+	const auto& simplexNoise = threadLocalData.resources->simplexNoise;
 	for (int i = 0; i < params.layerCount; i++)
 	{
-		simplexNoise->GenUniformGrid3D(outArray, xStart, yStart, zStart, CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE, layerFrequency, seed);
+		simplexNoise->GenUniformGrid3D(tempNoiseArray, xStart, yStart, zStart, CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE, layerFrequency, seed);
 		for (int index = 0; index < CHUNK_VOLUME; index++)
 		{
-			outArray[index] += internalLayeredNoiseArray[index] * layerAmplitude;
+			outArray[index] += tempNoiseArray[index] * layerAmplitude;
 		}
 		amplitudeSum += layerAmplitude;
 		layerAmplitude *= params.amplitudeFactor;
@@ -479,6 +475,15 @@ void TerrainGenerator::computeLayeredNoise_3D(float* outArray, int chunkX, int c
 			outArray[i] *= factor;
 		}
 	}
+}
+
+//============================================================================
+// ThreadLocalData
+
+TerrainGenerator::ThreadLocalData::ThreadLocalData() :
+	resources(std::make_unique<Resources>())
+{
+	resources->simplexNoise = FastNoise::New<FastNoise::Simplex>();
 }
 
 //============================================================================

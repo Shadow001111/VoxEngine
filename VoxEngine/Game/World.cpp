@@ -33,18 +33,6 @@ World::World() :
 	// Init WorldRenderer
 	renderer.init(blockTextureNames);
 
-	// Terrain generator
-	{
-		auto futures = ParallelUtils::getGlobalThreadPool().broadcast([]()
-			{
-				TerrainGenerator::initThread();
-			});
-		for (auto& future : futures)
-		{
-			future.wait();
-		}
-	}
-
 	// Chunks
 	Chunk::globalInit();
 

@@ -6,10 +6,10 @@
 
 #include "Core/MemoryAllocation/FixedArenaObjectPool.h"
 #include "Core/Hashes/ivec2Hasher.h"
-#include "Core/DynamicArray.h"
 
 #include "robin_hood.h"
 #include <mutex>
+#include <array>
 #include <condition_variable>
 
 class ChunkColumnData
@@ -61,9 +61,22 @@ class TerrainGenerator
 	mutable std::mutex dataMutex; // Protects chunkColumnData map
 	
 	static int seed;
-	static thread_local FastNoise::SmartNode<FastNoise::Simplex> simplexNoise;
-	static thread_local DynamicArray<float> internalLayeredNoiseArray; // TODO: Use allocated std::array
-	static thread_local DynamicArray<float> caveNoiseArray;
+
+	struct ThreadLocalData
+	{
+		struct Resources
+		{
+			FastNoise::SmartNode<FastNoise::Simplex> simplexNoise;
+			std::array<float, CHUNK_VOLUME> tempNoiseArray;
+			std::array<float, CHUNK_VOLUME> caveNoiseArray;
+		};
+
+		std::unique_ptr<Resources> resources;
+
+		ThreadLocalData();
+	};
+
+	static thread_local ThreadLocalData threadLocalData;
 
 	TerrainGenerator() = default;
 	~TerrainGenerator() = default;

@@ -1,12 +1,13 @@
 #include "ThreadPool.h"
 
-ThreadPool::ThreadPool(size_t numThreads) : stop(false)
+ThreadPool::ThreadPool(size_t numThreads)
 {
     if (numThreads == 0)
     {
         numThreads = std::max(1u, std::thread::hardware_concurrency());
     }
 
+    workers.reserve(numThreads);
     for (size_t i = 0; i < numThreads; i++)
     {
         workers.emplace_back(&ThreadPool::workerThread, this);
@@ -42,26 +43,66 @@ void ThreadPool::waitForCompletion()
 {
     std::unique_lock<std::mutex> lock(queueMutex);
     condition.wait(lock, [this] { return tasks.empty(); });
+
+    // TODO: If tasks are empty, it doesn't mean tasks aren't being executed
 }
 
 void ThreadPool::workerThread()
 {
-    while(true)
+    //constexpr size_t BATCH_SIZE = 2;
+    //
+    //std::vector<Task> taskBatch;
+    //taskBatch.reserve(BATCH_SIZE);
+    //
+    //while (true)
+    //{
+    //    {
+    //        auto waitStart = std::chrono::steady_clock::now();
+    //
+    //        std::unique_lock<std::mutex> lock(queueMutex);
+    //        condition.wait(lock, [this] { return !tasks.empty() || stop.load(std::memory_order_relaxed); });
+    //
+    //        if (stop.load(std::memory_order_relaxed))
+    //        {
+    //            break;
+    //        }
+    //
+    //        auto waitEnd = std::chrono::steady_clock::now();
+    //
+    //        const size_t taskCount = tasks.size();
+    //        size_t tasksToTake = std::min(BATCH_SIZE, taskCount);
+    //
+    //        for (size_t i = 0; i < tasksToTake; i++)
+    //        {
+    //            taskBatch.push_back(std::move(tasks.front()));
+    //            tasks.pop();
+    //        }
+    //    }
+    //
+    //    for (auto& task : taskBatch)
+    //    {
+    //        task(); // TODO: Add exception
+    //    }
+    //    taskBatch.clear();
+    //}
+
+    while (true)
     {
-        std::function<void()> task;
+        Task task;
         {
             std::unique_lock<std::mutex> lock(queueMutex);
-            condition.wait(lock, [this] { return stop || !tasks.empty(); });
+            condition.wait(lock, [this] { return !tasks.empty() || stop.load(std::memory_order_relaxed); });
 
             if (stop.load(std::memory_order_relaxed))
             {
-                return;
+                break;
             }
 
             task = std::move(tasks.front());
             tasks.pop();
         }
-        task();
+
+        task(); // TODO: Add exception handling
     }
 }
 

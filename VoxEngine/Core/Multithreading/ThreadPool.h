@@ -10,11 +10,13 @@
 
 class ThreadPool
 {
+    using Task = std::function<void()>;
+
 	std::vector<std::thread> workers;
-	std::queue<std::function<void()>> tasks; // TODO: Maybe use something better, like vector as cicular queue
+	std::queue<Task> tasks; // TODO: Maybe use something better, like vector as cicular queue
 	std::mutex queueMutex;
 	std::condition_variable condition;
-	std::atomic<bool> stop;
+    std::atomic<bool> stop{ false };
 public:
 	ThreadPool(size_t numThreads = 0);
 	~ThreadPool();
@@ -25,9 +27,6 @@ public:
 	template<class F, class... Args>
 	auto enqueue(F&& f, Args&&... args)
 		-> std::future<typename std::invoke_result<F, Args...>::type>;
-
-    template<class F, class... Args>
-    auto broadcast(F&& f, Args&&... args);
 
     void shutdown();
 
@@ -58,34 +57,6 @@ inline auto ThreadPool::enqueue(F&& f, Args && ...args) -> std::future<typename 
     }
     condition.notify_one();
     return res;
-}
-
-template<class F, class... Args>
-inline auto ThreadPool::broadcast(F&& f, Args&&... args)
-{
-    std::vector<std::future<void>> futures;
-
-    if (stop.load(std::memory_order_acquire))
-    {
-        return futures;
-    }
-
-    {
-        std::unique_lock<std::mutex> lock(queueMutex);
-
-        for (size_t i = 0; i < workers.size(); i++)
-        {
-            auto task = std::make_shared<std::packaged_task<void()>>(
-                std::bind(std::forward<F>(f), std::forward<Args>(args)...)
-            );
-
-            futures.emplace_back(task->get_future());
-            tasks.emplace([task]() { (*task)(); });
-        }
-    }
-
-    condition.notify_all(); // wake all threads to grab the tasks
-    return futures;
 }
 
 // Parallel execution utilities
