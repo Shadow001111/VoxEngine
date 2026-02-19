@@ -4,6 +4,8 @@
 #include <string>
 #include "../ObjectTypes.h"
 
+#include "Core/DynamicArray.h"
+
 struct BlockData
 {
 	struct TextureSlot
@@ -33,7 +35,7 @@ struct BlockData
 
 	// Visuals
 	ModelId modelId = 0;
-	std::vector<TextureSlot> textureSlots;
+	DynamicArray<TextureSlot> textureSlots;
 
 	// Sounds
 	// TODO: Keep ids only

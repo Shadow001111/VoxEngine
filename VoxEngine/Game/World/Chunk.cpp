@@ -1527,24 +1527,7 @@ void Chunk::collectNonAlignedTranslucentRenderData(BufferStreamWriter<DrawArrays
 
 Chunk* Chunk::traverseToSideNeighbor(int x, int y, int z, int side, size_t& outIndex) const
 {
-	// Version 1
-	//int check = (x | y | z) & CHUNK_UPPER_BITS_MASK;
-	//if (check == 0)
-	//{
-	//	outIndex = getIndex(x, y, z);
-	//	return const_cast<Chunk*>(this);
-	//}
-	//
-	//Chunk* neighbor = neighbors[side];
-	//if (neighbor)
-	//{
-	//	outIndex = getIndex(x & CHUNK_LOWER_BITS_MASK, y & CHUNK_LOWER_BITS_MASK, z & CHUNK_LOWER_BITS_MASK);
-	//	return neighbor;
-	//}
-	//
-	//return nullptr;
-
-	// Version 2
+	// Version 1: 0.327s and 0.149s
 	const int check = (x | y | z) & CHUNK_UPPER_BITS_MASK;
 	if (check == 0)
 	{
@@ -1552,11 +1535,28 @@ Chunk* Chunk::traverseToSideNeighbor(int x, int y, int z, int side, size_t& outI
 		return const_cast<Chunk*>(this);
 	}
 	
-	outIndex = getIndex(x & CHUNK_LOWER_BITS_MASK, y & CHUNK_LOWER_BITS_MASK, z & CHUNK_LOWER_BITS_MASK);
+	Chunk* neighbor = neighbors[side];
+	if (neighbor)
+	{
+		outIndex = getIndex(x & CHUNK_LOWER_BITS_MASK, y & CHUNK_LOWER_BITS_MASK, z & CHUNK_LOWER_BITS_MASK);
+		return neighbor;
+	}
 	
-	return neighbors[side];
+	return nullptr;
 
-	// Version 3
+	// Version 2: 0.536s + 0.331s
+	//const int check = (x | y | z) & CHUNK_UPPER_BITS_MASK;
+	//if (check == 0)
+	//{
+	//	outIndex = getIndex(x, y, z);
+	//	return const_cast<Chunk*>(this);
+	//}
+	//
+	//outIndex = getIndex(x & CHUNK_LOWER_BITS_MASK, y & CHUNK_LOWER_BITS_MASK, z & CHUNK_LOWER_BITS_MASK);
+	//
+	//return neighbors[side];
+
+	// Version 3 0.722s + 0.408s
 	//const int check = (x | y | z) & CHUNK_UPPER_BITS_MASK;
 	//outIndex = getIndex(x & CHUNK_LOWER_BITS_MASK, y & CHUNK_LOWER_BITS_MASK, z & CHUNK_LOWER_BITS_MASK);
 	//
@@ -1567,7 +1567,7 @@ Chunk* Chunk::traverseToSideNeighbor(int x, int y, int z, int side, size_t& outI
 	//}
 	//return returnPtr;
 
-	// Version 4
+	// Version 4: 7.27s and 4.28s
 	//outIndex = getIndex(x & CHUNK_LOWER_BITS_MASK, y & CHUNK_LOWER_BITS_MASK, z & CHUNK_LOWER_BITS_MASK);
 	//return ((x | y | z) & CHUNK_UPPER_BITS_MASK) == 0 ? const_cast<Chunk*>(this) : neighbors[side];
 }

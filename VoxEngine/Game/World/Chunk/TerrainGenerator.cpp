@@ -137,8 +137,8 @@ void TerrainGenerator::ChunkColumnDataPool::release(ChunkColumnData* chunkColumn
 
 int TerrainGenerator::seed = 0;
 thread_local FastNoise::SmartNode<FastNoise::Simplex> TerrainGenerator::simplexNoise;
-thread_local std::vector<float> TerrainGenerator::internalLayeredNoiseArray;
-thread_local std::vector<float> TerrainGenerator::caveNoiseArray;
+thread_local DynamicArray<float> TerrainGenerator::internalLayeredNoiseArray;
+thread_local DynamicArray<float> TerrainGenerator::caveNoiseArray;
 
 TerrainGenerator& TerrainGenerator::getInstance()
 {
@@ -407,11 +407,6 @@ void TerrainGenerator::computeInitialHeightMap(int* heightMap, int chunkX, int c
 	}
 }
 
-void TerrainGenerator::computeNoise_2D(float* outArray, int chunkX, int chunkZ, float frequency)
-{
-	simplexNoise->GenUniformGrid2D(outArray, chunkX * CHUNK_SIZE, chunkZ * CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE, frequency, seed);
-}
-
 void TerrainGenerator::computeLayeredNoise_2D(float* outArray, int chunkX, int chunkZ, const NoiseParams& params)
 {
 	for (int i = 0; i < CHUNK_AREA; i++)
@@ -423,9 +418,12 @@ void TerrainGenerator::computeLayeredNoise_2D(float* outArray, int chunkX, int c
 	float layerFrequency = params.frequency;
 	float amplitudeSum = 0.0f;
 
+	const int xStart = chunkX * CHUNK_SIZE;
+	const int zStart = chunkZ * CHUNK_SIZE;
+
 	for (int i = 0; i < params.layerCount; i++)
 	{
-		computeNoise_2D(internalLayeredNoiseArray.data(), chunkX, chunkZ, layerFrequency);
+		simplexNoise->GenUniformGrid2D(internalLayeredNoiseArray.data(), xStart, zStart, CHUNK_SIZE, CHUNK_SIZE, layerFrequency, seed);
 		for (int index = 0; index < CHUNK_AREA; index++)
 		{
 			outArray[index] += internalLayeredNoiseArray[index] * layerAmplitude;
@@ -445,11 +443,6 @@ void TerrainGenerator::computeLayeredNoise_2D(float* outArray, int chunkX, int c
 	}
 }
 
-void TerrainGenerator::computeNoise_3D(float* outArray, int chunkX, int chunkY, int chunkZ, float frequency)
-{
-	simplexNoise->GenUniformGrid3D(outArray, chunkX * CHUNK_SIZE, chunkY * CHUNK_SIZE, chunkZ * CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE, frequency, seed);
-}
-
 void TerrainGenerator::computeLayeredNoise_3D(float* outArray, int chunkX, int chunkY, int chunkZ, const NoiseParams& params)
 {
 	for (int i = 0; i < CHUNK_VOLUME; i++)
@@ -462,9 +455,13 @@ void TerrainGenerator::computeLayeredNoise_3D(float* outArray, int chunkX, int c
 
 	float amplitudeSum = 0.0f;
 
+	const int xStart = chunkX * CHUNK_SIZE;
+	const int yStart = chunkY * CHUNK_SIZE;
+	const int zStart = chunkZ * CHUNK_SIZE;
+
 	for (int i = 0; i < params.layerCount; i++)
 	{
-		computeNoise_3D(internalLayeredNoiseArray.data(), chunkX, chunkY, chunkZ, layerFrequency);
+		simplexNoise->GenUniformGrid3D(outArray, xStart, yStart, zStart, CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE, layerFrequency, seed);
 		for (int index = 0; index < CHUNK_VOLUME; index++)
 		{
 			outArray[index] += internalLayeredNoiseArray[index] * layerAmplitude;

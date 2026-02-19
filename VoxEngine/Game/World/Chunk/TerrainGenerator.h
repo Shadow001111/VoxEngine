@@ -6,6 +6,7 @@
 
 #include "Core/MemoryAllocation/FixedArenaObjectPool.h"
 #include "Core/Hashes/ivec2Hasher.h"
+#include "Core/DynamicArray.h"
 
 #include "robin_hood.h"
 #include <mutex>
@@ -61,8 +62,8 @@ class TerrainGenerator
 	
 	static int seed;
 	static thread_local FastNoise::SmartNode<FastNoise::Simplex> simplexNoise;
-	static thread_local std::vector<float> internalLayeredNoiseArray;
-	static thread_local std::vector<float> caveNoiseArray;
+	static thread_local DynamicArray<float> internalLayeredNoiseArray; // TODO: Use allocated std::array
+	static thread_local DynamicArray<float> caveNoiseArray;
 
 	TerrainGenerator() = default;
 	~TerrainGenerator() = default;
@@ -99,10 +100,8 @@ private:
 		float frequencyFactor = 2.0f;
 	};
 
-	static void computeNoise_2D(float* outArray, int chunkX, int chunkZ, float frequency);
 	static void computeLayeredNoise_2D(float* outArray, int chunkX, int chunkZ, const NoiseParams& params);
 
-	static void computeNoise_3D(float* outArray, int chunkX, int chunkY, int chunkZ, float frequency);
 	static void computeLayeredNoise_3D(float* outArray, int chunkX, int chunkY, int chunkZ, const NoiseParams& params);
 };
 
