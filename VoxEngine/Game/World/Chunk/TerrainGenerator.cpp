@@ -2,7 +2,7 @@
 
 #include "Core/Profiler.h"
 
-#include <cmath>
+//#include <cmath>
 
 //============================================================================
 float continentalSpline(float x)
@@ -10,6 +10,14 @@ float continentalSpline(float x)
 	return x;
 }
 
+#define MIN_FUNCTION(a, b) a < b ? a : b
+#define ABS_FUNCTION(a) std::abs(a) //a > 0 ? a : -a;
+
+//static inline void fast_abs_in_place(float* x)
+//{
+//	uint32_t* bits = reinterpret_cast<uint32_t*>(x);
+//	(*bits) &= 0x7FFFFFFF;  // Clear sign bit
+//}
 
 //float continentalSpline(float x)
 //{
@@ -95,11 +103,6 @@ const int* ChunkColumnData::heightMapRead() const
 
 	std::unique_lock<std::mutex> lock(readDataMutex);
 	readDataCV.wait(lock, [this]() { return initialized; });
-	return heightMap;
-}
-
-int* ChunkColumnData::heightMapWrite()
-{
 	return heightMap;
 }
 
@@ -291,8 +294,8 @@ void TerrainGenerator::computeCaveMask(bool* outArray, int chunkX, int chunkY, i
 				const int writeIndex = x + y * CHUNK_SIZE + z * CHUNK_AREA;
 
 				float value = caveNoiseArray[readIndex];
-				value = fabsf(value);
-				value = fminf(value * 5.0f, 1.0f);
+				value = ABS_FUNCTION(value);
+				value = MIN_FUNCTION(value * 5.0f, 1.0f);
 				value = 1.0f - value;
 
 				outArray[writeIndex] = value > 0.5f;
@@ -351,7 +354,7 @@ float TerrainGenerator::calculateHeight(float continentalNoise, float erosionNoi
 
 	// Weirdness
 	weirdnessNoise = (weirdnessNoise + 1.0f) * 0.5f;
-	float weirdnessHeight = (1.0f - fabsf(3.0f * weirdnessNoise - 2.0f)) * weirdnessAmplitude * (1.0f - beachOcean);
+	float weirdnessHeight = (1.0f - ABS_FUNCTION(3.0f * weirdnessNoise - 2.0f)) * weirdnessAmplitude * (1.0f - beachOcean);
 	height += weirdnessHeight;
 
 	return height;

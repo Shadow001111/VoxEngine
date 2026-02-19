@@ -31,7 +31,7 @@ public:
 	void destroy();
 
 	const int* heightMapRead() const;
-	int* heightMapWrite();
+	int* heightMapWrite() { return heightMap; }
 
 	void setToInitialized();
 };
