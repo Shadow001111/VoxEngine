@@ -30,7 +30,7 @@ public:
 
     void shutdown();
 
-	void waitForCompletion();
+	//void waitForCompletion();
     size_t getThreadCount() const { return workers.size(); };
     size_t getTaskCount() const { return tasks.size(); }
 private:
