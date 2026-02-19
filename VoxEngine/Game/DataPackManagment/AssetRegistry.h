@@ -10,6 +10,7 @@
 //#include "DataTypes/ItemModelData.h"
 
 #include "Core/StringIndexer.h"
+#include "Core/DynamicArray.h"
 
 constexpr size_t MAX_OBJECT_NAME_SIZE = 64;
 constexpr size_t MAX_TEXTURE_SLOT_COUNT = 64;
@@ -44,16 +45,14 @@ void printObjectNameValidationError(std::ostream& os,
 class AssetRegistry
 {
 	// Assets are used for loading and linking data objects
-	static std::vector<BlockAsset> blockAssetStorage;
-	static std::vector<ItemAsset> itemAssetStorage;
+	static DynamicArray<BlockAsset> blockAssetStorage;
+	static DynamicArray<ItemAsset> itemAssetStorage;
 
 	// Data objects are used directly in game
-	static std::vector<BlockData> blockDataStorage;
-	static size_t blockDataStorageSize;
-
-	static std::vector<BlockModelData> blockModelDataStorage;
-	static std::vector<ItemData> itemDataStorage;
-	static std::vector<ItemModelData> itemModelDataStorage;
+	static DynamicArray<BlockData> blockDataStorage;
+	static DynamicArray<BlockModelData> blockModelDataStorage;
+	static DynamicArray<ItemData> itemDataStorage;
+	static DynamicArray<ItemModelData> itemModelDataStorage;
 
 	// Indexers
 	static StringIndexer blockIndexer;

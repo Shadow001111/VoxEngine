@@ -19,10 +19,10 @@ class ChunkSpecializedQueue
     using index_t = uint16_t;
     static constexpr index_t DEFAULT_CAPACITY = 1024;
 
-    T* data_ = nullptr;
-    index_t capacity_ = 0;
-    index_t front_idx_ = 0;
-    index_t size_ = 0;
+    T* mData = nullptr;
+    index_t mSize = 0;
+    index_t mCapacity = 0;
+    index_t mFrontIndex = 0;
 
     // Type requirements - must be trivially copyable and trivially destructible
     static_assert(std::is_trivially_copyable_v<T>,
@@ -30,12 +30,13 @@ class ChunkSpecializedQueue
     static_assert(std::is_trivially_destructible_v<T>,
         "ChunkSpecializedQueue only supports trivially destructible types");
 
-    void grow_if_needed()
+    void grow()
     {
-        if (size_ >= capacity_)
+        if (mCapacity > std::numeric_limits<index_t>::max() / 2)
         {
-            reserve(capacity_ << 1);
+            throw std::overflow_error("Cannot grow queue beyond maximum capacity");
         }
+        reserve(mCapacity << 1);
     }
 
     static index_t round_up_to_power_of_two(index_t n)
@@ -46,70 +47,70 @@ class ChunkSpecializedQueue
 
     void reallocate_to_new_capacity(index_t new_capacity)
     {
-        if (new_capacity <= capacity_) return;
+        if (new_capacity <= mCapacity) return;
 
         T* new_data = static_cast<T*>(::operator new(new_capacity * sizeof(T)));
 
-        if (size_ > 0)
+        if (mSize > 0)
         {
-            if (front_idx_ + size_ <= capacity_)
+            if (mFrontIndex + mSize <= mCapacity)
             {
-                std::memcpy(new_data, data_ + front_idx_, size_ * sizeof(T));
+                std::memcpy(new_data, mData + mFrontIndex, mSize * sizeof(T));
             }
             else
             {
-                index_t first_part = capacity_ - front_idx_;
-                std::memcpy(new_data, data_ + front_idx_, first_part * sizeof(T));
-                std::memcpy(new_data + first_part, data_, (size_ - first_part) * sizeof(T));
+                index_t first_part = mCapacity - mFrontIndex;
+                std::memcpy(new_data, mData + mFrontIndex, first_part * sizeof(T));
+                std::memcpy(new_data + first_part, mData, (mSize - first_part) * sizeof(T));
             }
         }
 
-        ::operator delete(data_);
-        data_ = new_data;
-        capacity_ = new_capacity;
-        front_idx_ = 0;
+        ::operator delete(mData);
+        mData = new_data;
+        mCapacity = new_capacity;
+        mFrontIndex = 0;
     }
 
 public:
     explicit ChunkSpecializedQueue(index_t initial_capacity = DEFAULT_CAPACITY)
     {
         index_t rounded_capacity = round_up_to_power_of_two(initial_capacity);
-        capacity_ = std::max<index_t>(rounded_capacity, DEFAULT_CAPACITY);
-        data_ = static_cast<T*>(::operator new(capacity_ * sizeof(T)));
+        mCapacity = std::max<index_t>(rounded_capacity, DEFAULT_CAPACITY);
+        mData = static_cast<T*>(::operator new(mCapacity * sizeof(T)));
     }
 
     ~ChunkSpecializedQueue()
     {
-        ::operator delete(data_);
+        ::operator delete(mData);
     }
 
     ChunkSpecializedQueue(ChunkSpecializedQueue&& other) noexcept
-        : data_(other.data_),
-        capacity_(other.capacity_),
-        front_idx_(other.front_idx_),
-        size_(other.size_)
+        : mData(other.mData),
+        mCapacity(other.mCapacity),
+        mFrontIndex(other.mFrontIndex),
+        mSize(other.mSize)
     {
-        other.data_ = nullptr;
-        other.capacity_ = 0;
-        other.front_idx_ = 0;
-        other.size_ = 0;
+        other.mData = nullptr;
+        other.mCapacity = 0;
+        other.mFrontIndex = 0;
+        other.mSize = 0;
     }
 
     ChunkSpecializedQueue& operator=(ChunkSpecializedQueue&& other) noexcept
     {
         if (this != &other)
         {
-            ::operator delete(data_);
+            ::operator delete(mData);
 
-            data_ = other.data_;
-            capacity_ = other.capacity_;
-            front_idx_ = other.front_idx_;
-            size_ = other.size_;
+            mData = other.mData;
+            mCapacity = other.mCapacity;
+            mFrontIndex = other.mFrontIndex;
+            mSize = other.mSize;
 
-            other.data_ = nullptr;
-            other.capacity_ = 0;
-            other.front_idx_ = 0;
-            other.size_ = 0;
+            other.mData = nullptr;
+            other.mCapacity = 0;
+            other.mFrontIndex = 0;
+            other.mSize = 0;
         }
         return *this;
     }
@@ -120,10 +121,10 @@ public:
     void swap(ChunkSpecializedQueue& other) noexcept
     {
         using std::swap;
-        swap(data_, other.data_);
-        swap(capacity_, other.capacity_);
-        swap(front_idx_, other.front_idx_);
-        swap(size_, other.size_);
+        swap(mData, other.mData);
+        swap(mSize, other.mSize);
+        swap(mCapacity, other.mCapacity);
+        swap(mFrontIndex, other.mFrontIndex);
     }
 
     friend void swap(ChunkSpecializedQueue& lhs, ChunkSpecializedQueue& rhs) noexcept
@@ -133,17 +134,17 @@ public:
 
     [[nodiscard]] bool empty() const noexcept
     {
-        return size_ == 0;
+        return mSize == 0;
     }
 
     [[nodiscard]] index_t size() const noexcept
     {
-        return size_;
+        return mSize;
     }
 
     [[nodiscard]] index_t capacity() const noexcept
     {
-        return capacity_;
+        return mCapacity;
     }
 
     T& front()
@@ -152,7 +153,7 @@ public:
         {
             throw std::out_of_range("Queue is empty");
         }
-        return data_[front_idx_];
+        return mData[mFrontIndex];
     }
 
     const T& front() const
@@ -161,33 +162,42 @@ public:
         {
             throw std::out_of_range("Queue is empty");
         }
-        return data_[front_idx_];
+        return mData[mFrontIndex];
     }
 
     void push(const T& value)
     {
-        grow_if_needed();
-        index_t new_idx = (front_idx_ + size_) & (capacity_ - 1);
-        data_[new_idx] = value;
-        size_++;
+        if (mSize >= mCapacity)
+        {
+            grow();
+        }
+        index_t new_idx = (mFrontIndex + mSize) & (mCapacity - 1);
+        mData[new_idx] = value;
+        mSize++;
     }
 
     void push(T&& value)
     {
-        grow_if_needed();
-        index_t new_idx = (front_idx_ + size_) & (capacity_ - 1);
-        data_[new_idx] = std::move(value);
-        size_++;
+        if (mSize >= mCapacity)
+        {
+            grow();
+        }
+        index_t new_idx = (mFrontIndex + mSize) & (mCapacity - 1);
+        mData[new_idx] = std::move(value);
+        mSize++;
     }
 
     template<typename... Args>
     T& emplace(Args&&... args)
     {
-        grow_if_needed();
-        index_t new_idx = (front_idx_ + size_) & (capacity_ - 1);
-        data_[new_idx] = T(std::forward<Args>(args)...);
-        size_++;
-        return data_[new_idx];
+        if (mSize >= mCapacity)
+        {
+            grow();
+        }
+        index_t new_idx = (mFrontIndex + mSize) & (mCapacity - 1);
+        mData[new_idx] = T(std::forward<Args>(args)...);
+        mSize++;
+        return mData[new_idx];
     }
 
     void pop()
@@ -197,19 +207,19 @@ public:
             throw std::out_of_range("Queue is empty");
         }
 
-        front_idx_ = (front_idx_ + 1) & (capacity_ - 1);
-        size_--;
+        mFrontIndex = (mFrontIndex + 1) & (mCapacity - 1);
+        mSize--;
     }
 
     void clear() noexcept
     {
-        front_idx_ = 0;
-        size_ = 0;
+        mFrontIndex = 0;
+        mSize = 0;
     }
 
     void reserve(index_t new_capacity)
     {
-        if (new_capacity > capacity_)
+        if (new_capacity > mCapacity)
         {
             index_t rounded_capacity = round_up_to_power_of_two(new_capacity);
             reallocate_to_new_capacity(rounded_capacity);
@@ -224,7 +234,7 @@ public:
 #if TEST_UNSAFE
         ASSERT(!empty());
 #endif
-        return data_[front_idx_];
+        return mData[mFrontIndex];
     }
 
     const T& front_unsafe() const noexcept
@@ -232,7 +242,7 @@ public:
 #if TEST_UNSAFE
         ASSERT(!empty());
 #endif
-        return data_[front_idx_];
+        return mData[mFrontIndex];
     }
 
     void pop_unsafe() noexcept
@@ -240,8 +250,8 @@ public:
 #if TEST_UNSAFE
         ASSERT(!empty());
 #endif
-        front_idx_ = (front_idx_ + 1) & (capacity_ - 1);
-        size_--;
+        mFrontIndex = (mFrontIndex + 1) & (mCapacity - 1);
+        mSize--;
     }
 
     T pop_and_return_unsafe() noexcept
@@ -249,9 +259,9 @@ public:
 #if TEST_UNSAFE
         ASSERT(!empty());
 #endif
-        T& result = data_[front_idx_];
-        front_idx_ = (front_idx_ + 1) & (capacity_ - 1);
-        size_--;
+        T& result = mData[mFrontIndex];
+        mFrontIndex = (mFrontIndex + 1) & (mCapacity - 1);
+        mSize--;
         return result;
     }
 };

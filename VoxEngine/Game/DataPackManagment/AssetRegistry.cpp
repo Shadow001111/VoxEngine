@@ -3,15 +3,13 @@
 #include <algorithm>
 #include "SoundManager.h"
 
-std::vector<BlockAsset> AssetRegistry::blockAssetStorage;
-std::vector<ItemAsset> AssetRegistry::itemAssetStorage;
+DynamicArray<BlockAsset> AssetRegistry::blockAssetStorage;
+DynamicArray<ItemAsset> AssetRegistry::itemAssetStorage;
 
-std::vector<BlockData> AssetRegistry::blockDataStorage;
-size_t AssetRegistry::blockDataStorageSize = 0;
-
-std::vector<BlockModelData> AssetRegistry::blockModelDataStorage;
-std::vector<ItemData> AssetRegistry::itemDataStorage;
-std::vector<ItemModelData> AssetRegistry::itemModelDataStorage;
+DynamicArray<BlockData> AssetRegistry::blockDataStorage;
+DynamicArray<BlockModelData> AssetRegistry::blockModelDataStorage;
+DynamicArray<ItemData> AssetRegistry::itemDataStorage;
+DynamicArray<ItemModelData> AssetRegistry::itemModelDataStorage;
 
 StringIndexer AssetRegistry::blockIndexer;
 StringIndexer AssetRegistry::blockModelIndexer;
@@ -332,11 +330,8 @@ bool AssetRegistry::linkAssets()
 		return false;
 	}
 
-	//
-	blockDataStorageSize = blockDataStorage.size();
-
 	// End
-	blockAssetStorage.clear();
+	blockAssetStorage.clear(); // TODO: Destroy them
 	itemAssetStorage.clear();
 	return true;
 }
@@ -474,8 +469,7 @@ const BlockData* AssetRegistry::getBlockDataSafe(BlockId numericalId)
 
 const BlockData* AssetRegistry::getBlockData(BlockId numericalId)
 {
-	//return numericalId < blockDataStorage.size() ? &blockDataStorage[numericalId] : nullptr;
-	return numericalId < blockDataStorageSize ? blockDataStorage.data() + numericalId : nullptr;
+	return numericalId < blockDataStorage.size() ? &blockDataStorage[numericalId] : nullptr;
 }
 
 const BlockModelData* AssetRegistry::getBlockModelData(ModelId numericalId)
