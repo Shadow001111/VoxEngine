@@ -2,6 +2,7 @@
 
 #include "Core/UpdateTimer.h"
 #include "Core/Profiler.h"
+#include "Core/Multithreading/ThreadPool.h"
 
 #include "Game/World.h"
 #include "Game/Player/Player.h"
@@ -477,8 +478,11 @@ static void renderDebugData(const WindowManager& wnd, const Player& player, cons
         std::cout << (gpuUsageData.memoryUsage >> 20) << "\n";
     }
 
-    // Render text
+    // Threading
+    const auto& threadPool = ParallelUtils::getGlobalThreadPool();
+    ss << "\n Total task count:" << formatSize(threadPool.getTaskTotalCount()) << "\n";
 
+    // Render text
     std::string text = ss.str();
 
     TextRenderer::startTextRendering();

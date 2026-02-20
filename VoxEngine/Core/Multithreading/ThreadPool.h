@@ -17,6 +17,9 @@ class ThreadPool
 	std::mutex queueMutex;
 	std::condition_variable condition;
     std::atomic<bool> stop{ false };
+
+    // Statistics
+    std::atomic<uint64_t> taskTotalCount{ 0 };
 public:
 	ThreadPool(size_t numThreads = 0);
 	~ThreadPool();
@@ -35,6 +38,7 @@ public:
 	//void waitForCompletion();
     size_t getThreadCount() const { return workers.size(); };
     size_t getTaskCount() const { return tasks.size(); }
+    uint64_t getTaskTotalCount() const { return taskTotalCount; }
 private:
 	void workerThread();
 };
@@ -58,6 +62,7 @@ inline void ThreadPool::enqueue(F&& f, Args && ...args)
         tasks.push(std::move(task));
     }
     condition.notify_one();
+    ++taskTotalCount;
 }
 
 template<class F, class ...Args>
@@ -82,6 +87,7 @@ inline auto ThreadPool::enqueueFuture(F&& f, Args && ...args) -> std::future<typ
         tasks.emplace([task]() { (*task)(); });
     }
     condition.notify_one();
+    ++taskTotalCount;
     return res;
 }
 

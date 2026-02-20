@@ -25,10 +25,8 @@ void ThreadPool::shutdown()
     condition.notify_all();
     {
         std::unique_lock<std::mutex> lock(queueMutex);
-        while (!tasks.empty())
-        {
-            tasks.pop();
-        }
+
+        tasks = {}; // Making queue empty
     }
 
     for (std::thread& worker : workers)
@@ -49,43 +47,6 @@ void ThreadPool::shutdown()
 
 void ThreadPool::workerThread()
 {
-    //constexpr size_t BATCH_SIZE = 2;
-    //
-    //std::vector<Task> taskBatch;
-    //taskBatch.reserve(BATCH_SIZE);
-    //
-    //while (true)
-    //{
-    //    {
-    //        auto waitStart = std::chrono::steady_clock::now();
-    //
-    //        std::unique_lock<std::mutex> lock(queueMutex);
-    //        condition.wait(lock, [this] { return !tasks.empty() || stop.load(std::memory_order_relaxed); });
-    //
-    //        if (stop.load(std::memory_order_relaxed))
-    //        {
-    //            break;
-    //        }
-    //
-    //        auto waitEnd = std::chrono::steady_clock::now();
-    //
-    //        const size_t taskCount = tasks.size();
-    //        size_t tasksToTake = std::min(BATCH_SIZE, taskCount);
-    //
-    //        for (size_t i = 0; i < tasksToTake; i++)
-    //        {
-    //            taskBatch.push_back(std::move(tasks.front()));
-    //            tasks.pop();
-    //        }
-    //    }
-    //
-    //    for (auto& task : taskBatch)
-    //    {
-    //        task(); // TODO: Add exception
-    //    }
-    //    taskBatch.clear();
-    //}
-
     while (true)
     {
         Task task;
@@ -102,7 +63,7 @@ void ThreadPool::workerThread()
             tasks.pop();
         }
 
-        task(); // TODO: Add exception handling
+        task();
     }
 }
 
@@ -114,7 +75,7 @@ ThreadPool& ParallelUtils::getGlobalThreadPool()
 
 size_t ParallelUtils::calculateOptimalChunkCount(size_t totalItems, size_t minChunkSize)
 {
-    ThreadPool& pool = getGlobalThreadPool();
+    const ThreadPool& pool = getGlobalThreadPool();
     size_t maxChunks = pool.getThreadCount() * 2; // Allow some load balancing
     size_t minChunks = (totalItems - 1) / minChunkSize + 1;
     return std::min(maxChunks, minChunks);
