@@ -24,9 +24,11 @@ public:
     ThreadPool(const ThreadPool&) = delete;
     ThreadPool& operator=(const ThreadPool&) = delete;
 
+    template<class F, class... Args>
+    void enqueue(F&& f, Args&&... args);
+
 	template<class F, class... Args>
-	auto enqueue(F&& f, Args&&... args)
-		-> std::future<typename std::invoke_result<F, Args...>::type>;
+    auto enqueueFuture(F&& f, Args&&... args) -> std::future<typename std::invoke_result_t<F, Args...>>;
 
     void shutdown();
 
@@ -38,19 +40,43 @@ private:
 };
 
 template<class F, class ...Args>
-inline auto ThreadPool::enqueue(F&& f, Args && ...args) -> std::future<typename std::invoke_result<F, Args...>::type>
+inline void ThreadPool::enqueue(F&& f, Args && ...args)
 {
-    using return_type = typename std::invoke_result<F, Args...>::type;
+    // If the pool is stopped, reject the task
+    if (stop.load(std::memory_order_relaxed))
+    {
+        throw std::runtime_error("enqueue on stopped ThreadPool");
+    }
+
+    auto bound = std::bind(std::forward<F>(f), std::forward<Args>(args)...);
+
+    auto task = [bound = std::move(bound)]() mutable { bound(); };
+
+    // Push the task into the queue
+    {
+        std::unique_lock<std::mutex> lock(queueMutex);
+        tasks.push(std::move(task));
+    }
+    condition.notify_one();
+}
+
+template<class F, class ...Args>
+inline auto ThreadPool::enqueueFuture(F&& f, Args && ...args) -> std::future<typename std::invoke_result_t<F, Args...>>
+{
+    // If the pool is stopped, reject the task
+    if (stop.load(std::memory_order_relaxed))
+    {
+        throw std::runtime_error("enqueue on stopped ThreadPool");
+    }
+
+    using return_type = typename std::invoke_result_t<F, Args...>;
 
     auto task = std::make_shared<std::packaged_task<return_type()>>(
         std::bind(std::forward<F>(f), std::forward<Args>(args)...)
     );
 
     std::future<return_type> res = task->get_future();
-    if (stop.load(std::memory_order_relaxed))
-    {
-        return res;
-    }
+    
     {
         std::unique_lock<std::mutex> lock(queueMutex);
         tasks.emplace([task]() { (*task)(); });
@@ -106,7 +132,7 @@ void ParallelUtils::parallelFor(size_t start, size_t end, size_t minChunkSize, F
     for (size_t i = start; i < end; i += chunkSize)
     {
         size_t chunkEnd = std::min(i + chunkSize, end);
-        futures.emplace_back(pool.enqueue([i, chunkEnd, func]()
+        futures.emplace_back(pool.enqueueFuture([i, chunkEnd, func]()
             {
             for (size_t j = i; j < chunkEnd; j++)
             {
