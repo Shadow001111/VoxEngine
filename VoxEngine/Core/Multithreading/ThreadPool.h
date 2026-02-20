@@ -38,7 +38,7 @@ public:
 	//void waitForCompletion();
     size_t getThreadCount() const { return workers.size(); };
     size_t getTaskCount() const { return tasks.size(); }
-    uint64_t getTaskTotalCount() const { return taskTotalCount; }
+    uint64_t getTaskTotalCount() const { return taskTotalCount.load(std::memory_order_relaxed); }
 private:
 	void workerThread();
 };
@@ -62,7 +62,7 @@ inline void ThreadPool::enqueue(F&& f, Args && ...args)
         tasks.push(std::move(task));
     }
     condition.notify_one();
-    ++taskTotalCount;
+    taskTotalCount.fetch_add(1, std::memory_order_relaxed);
 }
 
 template<class F, class ...Args>
@@ -87,7 +87,7 @@ inline auto ThreadPool::enqueueFuture(F&& f, Args && ...args) -> std::future<typ
         tasks.emplace([task]() { (*task)(); });
     }
     condition.notify_one();
-    ++taskTotalCount;
+    taskTotalCount.fetch_add(1, std::memory_order_relaxed);
     return res;
 }
 
@@ -114,7 +114,7 @@ void ParallelUtils::parallelFor(size_t start, size_t end, size_t minChunkSize, F
 {
     if (end <= start) return;
 
-    size_t totalItems = end - start;
+    const size_t totalItems = end - start;
     if (totalItems <= minChunkSize)
     {
         // Too small for parallelization

@@ -480,7 +480,7 @@ static void renderDebugData(const WindowManager& wnd, const Player& player, cons
 
     // Threading
     const auto& threadPool = ParallelUtils::getGlobalThreadPool();
-    ss << "\n Total task count:" << formatSize(threadPool.getTaskTotalCount()) << "\n";
+    ss << "\nTotal task count:" << formatSize(threadPool.getTaskTotalCount()) << "\n";
 
     // Render text
     std::string text = ss.str();

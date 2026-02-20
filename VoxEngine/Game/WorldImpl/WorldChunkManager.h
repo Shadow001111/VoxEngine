@@ -27,6 +27,8 @@ class WorldChunkManager
     int lastChunkLoadingDistance = -1;
 
     std::vector<std::unique_ptr<BaseChunkLoader>> chunkLoaders;
+
+    mutable std::vector<Chunk*> chunksToProcess; // Used as local inside functions
 public:
     WorldChunkManager();
     ~WorldChunkManager() = default;
@@ -49,7 +51,7 @@ public:
 
     void startBuildingChunkBlocks();
     void startBuildingChunkLights();
-    void collectChunksNeedingLightUpdate();
+    void collectChunksForLightUpdate();
     void updateChunkLights();
     void updateChunkMeshes();
 

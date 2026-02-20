@@ -7,6 +7,8 @@
 
 #include "../World/ChunkRegionManager.h"
 
+constexpr size_t CHUNKS_PER_BATCH = 32;
+
 WorldChunkManager::WorldChunkManager()
 {
 	// Chunk loaders
@@ -111,7 +113,7 @@ void WorldChunkManager::update()
 	// If not limited, it goes forever. But when limited to 20 iterations, next frame iteration count is low and less than 20. STRANGE.
 	{
 		size_t iterations = 0;
-		collectChunksNeedingLightUpdate();
+		collectChunksForLightUpdate();
 		while (!buildContainers.lightUpdateA.empty() || !buildContainers.lightUpdateB.empty())
 		{
 			updateChunkLights();
@@ -120,7 +122,7 @@ void WorldChunkManager::update()
 			{
 				break;
 			}
-			collectChunksNeedingLightUpdate();
+			collectChunksForLightUpdate();
 		}
 	}
 
@@ -192,7 +194,7 @@ bool WorldChunkManager::chunkExistsAt(const glm::ivec3& position) const
 void WorldChunkManager::startBuildingChunkBlocks()
 {
 	// Collect chunks
-	std::vector<Chunk*> chunksToProcess;
+	chunksToProcess.clear();
 	{
 		PROFILE_SCOPE("Collect chunks for block building", ProfileCategory::ChunkBlocks);
 
@@ -209,7 +211,7 @@ void WorldChunkManager::startBuildingChunkBlocks()
 			{
 				continue;
 			}
-			ASSERT(!chunk->areBlocksBuilt());
+			
 			chunk->setState(Chunk::State::BuildingBlocks);
 			chunksToProcess.push_back(chunk);
 		}
@@ -217,35 +219,45 @@ void WorldChunkManager::startBuildingChunkBlocks()
 	}
 
 	// Submit chunks to thread pool
+	if (!chunksToProcess.empty())
 	{
 		PROFILE_SCOPE("Send chunks to block building", ProfileCategory::ChunkBlocks);
 
 		ThreadPool& pool = ParallelUtils::getGlobalThreadPool();
-		for (Chunk* chunk : chunksToProcess)
+
+		const size_t chunkCount = chunksToProcess.size();
+		for (size_t i = 0; i < chunkCount; i += CHUNKS_PER_BATCH)
 		{
-			pool.enqueue([this, chunk]()
+			size_t batchEnd = std::min(i + CHUNKS_PER_BATCH, chunkCount);
+			std::vector<Chunk*> batch(chunksToProcess.begin() + i, chunksToProcess.begin() + batchEnd);
+
+			pool.enqueue([this, batch_ = std::move(batch)]()
 				{
-					chunk->buildBlocks();
-					if (!chunk->getIsLoadedInWorld())
+					for (Chunk* chunk : batch_)
 					{
-						return;
-					}
+						chunk->buildBlocks();
+						if (!chunk->getIsLoadedInWorld())
+						{
+							continue;
+						}
 
-					chunk->setState(Chunk::State::NeedsLight);
+						chunk->setState(Chunk::State::NeedsLight);
 
-					{
-						std::lock_guard<std::mutex> lock(buildContainers.lightsMutex);
-						buildContainers.lights.insert(chunk);
+						{
+							std::lock_guard<std::mutex> lock(buildContainers.lightsMutex);
+							buildContainers.lights.insert(chunk);
+						}
 					}
 				});
 		}
 	}
+	chunksToProcess.clear();
 }
 
 void WorldChunkManager::startBuildingChunkLights()
 {
 	// Collect chunks that are ready for light building
-	std::vector<Chunk*> chunksToProcess;
+	chunksToProcess.clear();
 	{
 		PROFILE_SCOPE("Collect chunks for light building", ProfileCategory::ChunkLight);
 
@@ -268,9 +280,6 @@ void WorldChunkManager::startBuildingChunkLights()
 			{
 				continue;
 			}
-
-			ASSERT(chunk->areBlocksBuilt());
-			ASSERT(!chunk->isLightBuilt());
 
 			// Check if all neighbors have blocks built
 			bool allNeighborsReady = true;
@@ -300,23 +309,33 @@ void WorldChunkManager::startBuildingChunkLights()
 	}
 
 	// Submit chunks to thread pool
+	if (!chunksToProcess.empty())
 	{
 		PROFILE_SCOPE("Send chunks to light building", ProfileCategory::ChunkLight);
 
 		ThreadPool& pool = ParallelUtils::getGlobalThreadPool();
-		for (Chunk* chunk : chunksToProcess)
+
+		const size_t chunkCount = chunksToProcess.size();
+		for (size_t i = 0; i < chunkCount; i += CHUNKS_PER_BATCH)
 		{
-			pool.enqueue([this, chunk]()
+			size_t batchEnd = std::min(i + CHUNKS_PER_BATCH, chunkCount);
+			std::vector<Chunk*> batch(chunksToProcess.begin() + i, chunksToProcess.begin() + batchEnd);
+
+			pool.enqueue([this, batch_ = std::move(batch)]()
 				{
-					chunk->buildLight();
+					for (Chunk* chunk : batch_)
+					{
+						chunk->buildLight();
+					}
 				});
 		}
 	}
+	chunksToProcess.clear();
 }
 
-void WorldChunkManager::collectChunksNeedingLightUpdate()
+void WorldChunkManager::collectChunksForLightUpdate()
 {
-	PROFILE_SCOPE("Collect chunks needing light update", ProfileCategory::ChunkLight);
+	PROFILE_SCOPE("Collect chunks for light update", ProfileCategory::ChunkLight);
 	
 	buildContainers.lightUpdateA.clear();
 	buildContainers.lightUpdateB.clear();
@@ -342,34 +361,66 @@ void WorldChunkManager::updateChunkLights()
 {
 	// Using parallelForEach because it will assure that all tasks are done before returning
 	// Update chunks in two separate passes in checkboard pattern to avoid racing conditions (at least between this updateLight group, not including buildLight)
-	ParallelUtils::parallelForEach(buildContainers.lightUpdateA, 1, [](Chunk* chunk)
-		{
-			chunk->updateLight();
-		});
-	ParallelUtils::parallelForEach(buildContainers.lightUpdateB, 1, [](Chunk* chunk)
-		{
-			chunk->updateLight();
-		});
+	if (!buildContainers.lightUpdateA.empty())
+	{
+		ParallelUtils::parallelForEach(buildContainers.lightUpdateA, 1, [](Chunk* chunk)
+			{
+				chunk->updateLight();
+			});
+	}
+	if (!buildContainers.lightUpdateB.empty())
+	{
+		ParallelUtils::parallelForEach(buildContainers.lightUpdateB, 1, [](Chunk* chunk)
+			{
+				chunk->updateLight();
+			});
+	}
 }
 
 void WorldChunkManager::updateChunkMeshes()
 {
-	ThreadPool& pool = ParallelUtils::getGlobalThreadPool();
-	for (const auto& [_, chunkRegion] : Chunk::chunkRegionManagerInstance.getRegionMap())
-	{
-		for (Chunk* chunk : chunkRegion->chunks)
-		{
-			if (!chunk) continue;
+	chunksToProcess.clear();
 
-			if (chunk->shouldMeshBeUpdated())
+	// Collect chunks
+	{
+		PROFILE_SCOPE("Collect chunks for mesh updating", ProfileCategory::ChunkMesh);
+
+		for (const auto& [_, chunkRegion] : Chunk::chunkRegionManagerInstance.getRegionMap())
+		{
+			for (Chunk* chunk : chunkRegion->chunks)
 			{
-				pool.enqueue([chunk]()
-					{
-						chunk->updateMesh();
-					});
+				if (chunk && chunk->shouldMeshBeUpdated())
+				{
+					chunksToProcess.push_back(chunk);
+				}
 			}
 		}
 	}
+
+	// Send to thread
+	if (chunksToProcess.empty())
+	{
+		return;
+	}
+
+	ThreadPool& pool = ParallelUtils::getGlobalThreadPool();
+
+	const size_t chunkCount = chunksToProcess.size();
+	for (size_t i = 0; i < chunkCount; i += CHUNKS_PER_BATCH)
+	{
+		size_t batchEnd = std::min(i + CHUNKS_PER_BATCH, chunkCount);
+		std::vector<Chunk*> batch(chunksToProcess.begin() + i, chunksToProcess.begin() + batchEnd);
+
+		pool.enqueue([this, batch_ = std::move(batch)]()
+			{
+				for (Chunk* chunk : batch_)
+				{
+					chunk->updateMesh();
+				}
+			});
+	}
+
+	chunksToProcess.clear();
 }
 
 void WorldChunkManager::rebuildAllChunkMeshes()
