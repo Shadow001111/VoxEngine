@@ -10,7 +10,7 @@
 //#include "DataTypes/ItemModelData.h"
 
 #include "Core/StringIndexer.h"
-#include "Core/DynamicArray.h"
+#include "Core/Container/DynamicArray.h"
 
 constexpr size_t MAX_OBJECT_NAME_SIZE = 64;
 constexpr size_t MAX_TEXTURE_SLOT_COUNT = 64;

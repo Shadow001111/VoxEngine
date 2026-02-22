@@ -215,7 +215,9 @@
     <ClCompile Include="Game\WorldImpl\WorldRenderer.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Core\DynamicArray.h" />
+    <ClInclude Include="Core\Container\Dequeue.h" />
+    <ClInclude Include="Core\Container\DynamicArray.h" />
+    <ClInclude Include="Core\Container\Queue.h" />
     <ClInclude Include="Game\World\ChunkRegionManager.h" />
     <ClInclude Include="Game\World\Chunk\ChunkIO.h" />
     <ClInclude Include="Game\World\Chunk\ChunkMesh.h" />

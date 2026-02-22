@@ -1,6 +1,5 @@
 #pragma once
 #include <vector>
-#include <queue>
 #include <thread>
 #include <mutex>
 #include <condition_variable>
@@ -8,12 +7,16 @@
 #include <functional>
 #include <atomic>
 
+#include <queue>
+#include "Core/Container/Queue.h"
+
 class ThreadPool
 {
     using Task = std::function<void()>;
+    using TaskQueue = Queue<Task>;// std::queue<Task>;
 
 	std::vector<std::thread> workers;
-	std::queue<Task> tasks; // TODO: Maybe use something better, like vector as cicular queue
+    TaskQueue tasks;
 	std::mutex queueMutex;
 	std::condition_variable condition;
     std::atomic<bool> stop{ false };

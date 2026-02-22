@@ -2,7 +2,6 @@
 #include <iterator>
 #include <stdexcept>
 #include <string>
-#include <algorithm>
 #include <type_traits>
 
 // TODO: Add [[nodiscard]]
@@ -13,8 +12,6 @@ class DynamicArray
 	T* mData = nullptr;
 	size_t mSize = 0;
 	size_t mCapacity = 0;
-
-	//
 
 	void destroy_elements() noexcept
 	{
@@ -78,6 +75,28 @@ public:
 		mSize(0),
 		mCapacity(1)
 	{
+	}
+
+	explicit DynamicArray(size_t size) :
+		mData(static_cast<T*>(::operator new(size * sizeof(T)))),
+		mSize(size),
+		mCapacity(size)
+	{
+		for (size_t i = 0; i < size; i++)
+		{
+			new (&mData[i]) T();
+		}
+	}
+
+	explicit DynamicArray(size_t size, const T& value) :
+		mData(static_cast<T*>(::operator new(size * sizeof(T)))),
+		mSize(size),
+		mCapacity(size)
+	{
+		for (size_t i = 0; i < size; i++)
+		{
+			new (&mData[i]) T(value);
+		}
 	}
 
 	explicit DynamicArray(const T* begin, const T* end)
@@ -352,6 +371,30 @@ public:
 		mSize = newSize;
 	}
 
+	void resize(size_t newSize, const T& value)
+	{
+		if (newSize > mSize)
+		{
+			if (newSize > mCapacity)
+			{
+				changeCapacity(newSize);
+			}
+
+			for (size_t i = mSize; i < newSize; i++)
+			{
+				new (&mData[i]) T(value);
+			}
+		}
+		else if (newSize < mSize)
+		{
+			for (size_t i = newSize; i < mSize; i++)
+			{
+				mData[i].~T();
+			}
+		}
+		mSize = newSize;
+	}
+
 	void fill(const T& value)
 	{
 		for (size_t i = 0; i < mSize; i++)
@@ -382,6 +425,42 @@ public:
 		new (&mData[mSize]) T(std::forward<Args>(args)...);
 
 		return mData[mSize++];
+	}
+
+	template<typename... Args>
+	void insert_emplace(size_t index, Args&&... args)
+	{
+		if (index > mSize)
+		{
+			throw std::out_of_range("DynamicArray::insert(): position out of range");
+		}
+
+		if (mSize >= mCapacity)
+		{
+			size_t newCapacity = mCapacity * 2;
+			changeCapacity(newCapacity);
+		}
+
+		// Move elements after insertion point one position to the right
+		for (size_t i = mSize; i > index; --i)
+		{
+			new (&mData[i]) T(std::move(mData[i - 1]));
+			mData[i - 1].~T();
+		}
+
+		// Construct new element at insertion point
+		new (&mData[index]) T(std::forward<Args>(args)...);
+		mSize++;
+	}
+
+	void insert(size_t index, const T& value)
+	{
+		insert_emplace(index, value);
+	}
+
+	void insert(size_t index, T&& value)
+	{
+		insert_emplace(index, std::move(value));
 	}
 
 	//void insert(size_t index, const T& value)

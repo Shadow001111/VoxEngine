@@ -4,7 +4,7 @@
 #include <string>
 #include "../ObjectTypes.h"
 
-#include "Core/DynamicArray.h"
+#include "Core/Container/DynamicArray.h"
 
 struct BlockData
 {

@@ -7,7 +7,7 @@
 
 #include "../World/ChunkRegionManager.h"
 
-constexpr size_t CHUNKS_PER_BATCH = 32;
+constexpr size_t CHUNKS_PER_BATCH = 16;
 
 WorldChunkManager::WorldChunkManager()
 {
