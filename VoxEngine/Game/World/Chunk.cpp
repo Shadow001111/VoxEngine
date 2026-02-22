@@ -71,6 +71,8 @@ void Chunk::init(const glm::ivec3& position, const std::array<Chunk*, 6>& newNei
 // Cleans up resources
 void Chunk::destroy()
 {
+	ScopedProcessingFence fence(processingFence);
+
 	// Clear neighbors
 	for (int i = 0; i < 6; i++)
 	{
@@ -274,6 +276,12 @@ void Chunk::buildBlocks()
 
 	// Load blocks
 	loadBlocks();
+
+	//
+	if (!chunkFlags.read(Flag::IsLoadedInWorld))
+	{
+		return;  // Chunk was unloaded during building
+	}
 
 	//
 	setState(State::BlocksBuilt);

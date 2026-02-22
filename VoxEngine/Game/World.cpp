@@ -306,7 +306,10 @@ bool World::placeBlock(const RaycastResult& raycast, BlockId block)
 	case 5: placePos.z++; break; // +Z
 	}
 
-	updateBlockAt(placePos, block);
+	if (!updateBlockAt(placePos, block))
+	{
+		return false;
+	}
 
 	const BlockData* blockData = AssetRegistry::getBlockData(block);
 	if (blockData && !blockData->placeSounds.empty())
@@ -343,7 +346,7 @@ bool World::breakBlock(const RaycastResult& raycast)
 	return true;
 }
 
-void World::updateBlockAt(const glm::ivec3& worldPos, BlockId block)
+bool World::updateBlockAt(const glm::ivec3& worldPos, BlockId block)
 {
 	// Convert world position to chunk position and local position
 	glm::ivec3 chunkPos = worldPos >> CHUNK_SIZE_LOG2;
@@ -353,12 +356,13 @@ void World::updateBlockAt(const glm::ivec3& worldPos, BlockId block)
 	Chunk* chunk = chunkManager.getChunkAt(chunkPos);
 	if (!chunk)
 	{
-		return;
+		return false;
 	}
 
 	// Update the block
 	// Note: Can possibly break something if chunk is in the middle of processing
 	chunk->setBlockAt(localPos.x, localPos.y, localPos.z, block);
+	return true;
 }
 
 std::optional<BlockId> World::getBlockAt(const glm::ivec3& globalPosition) const

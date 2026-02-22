@@ -26,7 +26,8 @@ void ThreadPool::shutdown()
     {
         std::unique_lock<std::mutex> lock(queueMutex);
 
-        tasks = {}; // Making queue empty
+        tasks.clear();
+        // tasks = {};
     }
 
     for (std::thread& worker : workers)

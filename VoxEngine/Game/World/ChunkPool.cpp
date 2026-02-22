@@ -2,8 +2,6 @@
 
 void ChunkPool::release(Chunk* chunk)
 {
-	chunk->destroy();
-
 	if (chunk->getIsProcessing())
 	{
 		processingChunks.push_back(chunk);

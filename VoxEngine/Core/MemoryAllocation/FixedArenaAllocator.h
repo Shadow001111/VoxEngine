@@ -1,5 +1,5 @@
 #pragma once
-#include <vector>
+#include "Core/Container/DynamicArray.h"
 
 template<typename T, size_t ItemsPerBlock>
 class FixedArenaAllocator
@@ -10,14 +10,17 @@ class FixedArenaAllocator
     {
         T* memory;
 
-        Block() : memory(static_cast<T*>(std::malloc(sizeof(T) * ItemsPerBlock)))
+        Block() :
+            memory(
+                static_cast<T*>(::operator new(ItemsPerBlock * sizeof(T)))
+            )
         {
             if (!memory) throw std::bad_alloc();
         }
 
         ~Block()
         {
-            std::free(memory);
+            ::operator delete(memory);
         }
 
         Block(const Block&) = delete;
@@ -30,8 +33,9 @@ class FixedArenaAllocator
 
         Block& operator=(Block&& other) noexcept
         {
-            if (this != &other) {
-                std::free(memory);
+            if (this != &other)
+            {
+                ::operator delete(memory);
                 memory = other.memory;
                 other.memory = nullptr;
             }
@@ -41,8 +45,14 @@ class FixedArenaAllocator
         T* getSlot(size_t index) { return &memory[index]; }
     };
 
-    std::vector<Block> blocks;
+    DynamicArray<Block> blocks;
     size_t itemsUsedInCurrentBlock = 0;
+
+    void allocateBlock()
+    {
+        blocks.emplace_back();
+        itemsUsedInCurrentBlock = 0;
+    }
 public:
     FixedArenaAllocator()
     {
@@ -124,10 +134,4 @@ public:
     size_t capacity() const { return blocks.size() * ItemsPerBlock; }
     size_t size() const { return (blocks.size() - 1) * ItemsPerBlock + itemsUsedInCurrentBlock; }
     size_t itemsPerBlock() const { return ItemsPerBlock; }
-private:
-    void allocateBlock()
-    {
-        blocks.emplace_back();
-        itemsUsedInCurrentBlock = 0;
-    }
 };

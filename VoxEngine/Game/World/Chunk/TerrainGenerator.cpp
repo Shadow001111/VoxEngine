@@ -2,89 +2,16 @@
 
 #include "Core/Profiler.h"
 
-//#include <cmath>
-
 //============================================================================
 float continentalSpline(float x)
 {
 	return x;
 }
 
+
 #define MIN_FUNCTION(a, b) a < b ? a : b
 #define ABS_FUNCTION(a) std::abs(a) //a > 0 ? a : -a;
 
-//static inline void fast_abs_in_place(float* x)
-//{
-//	uint32_t* bits = reinterpret_cast<uint32_t*>(x);
-//	(*bits) &= 0x7FFFFFFF;  // Clear sign bit
-//}
-
-//float continentalSpline(float x)
-//{
-//	constexpr float power = 5.0f;
-//
-//	x = (x + 1.0f) * 0.5f;
-//	float t = power * x + 0.5f * (1.0f - power);
-//	t = fminf(1.0f, fmaxf(0.0, t));
-//	return 3.0f * t * t - 2.0f * t * t * t;
-//
-//	float y1 = 10.0f * (1.0f - 20.0f * x);
-//	float y3 = 10.0f * (x - 0.25f);
-//	float y5 = 10.0f * (x - 0.5f);
-//	float y6 = 1.0f + 0.1f * (x - 1.0f);
-//	
-//	float r1 = fminf(y3, 0.5f);
-//	float r2 = fmaxf(r1, y5);
-//	float r3 = fminf(r2, y6);
-//	float r4 = fmaxf(y1, 0.0f);
-//	float r5 = fmaxf(r4, r3);
-//	float r6 = fminf(r5, 1.0f);
-//
-//	return r6;
-//}
-
-//float continentalSpline(float x)
-//{
-//	constexpr float a = 0.5f;
-//	constexpr float b = 0.07f;
-//	constexpr float s = 3.0f;
-//
-//	auto f = [](float t)
-//		{
-//			return sqrtf(t);
-//		};
-//	auto g = [](float t)
-//		{
-//			return floorf(t * s) / s;
-//		};
-//
-//	float t = (x + 1.0f) * 0.5f;
-//	float value;
-//	if (t >= a)
-//	{
-//		value = f((t - a) / (1.0f - a)) * b + 1.0f - b;
-//	}
-//	else
-//	{
-//		value = g(t / a) * (1.0f - b);
-//	}
-//	return value;
-//}
-
-//float continentalSpline(float x)
-//{
-//	constexpr float N = 3.0f;
-//
-//	x = (x + 1.0f) * 0.5f;
-//	float scaled = x * N;
-//	float f = floorf(scaled);
-//	float t = scaled - f;
-//	float s = t * t * (3.0f - 2.0f * t);
-//	return (f + s) / N;
-//}
-
-//============================================================================
-//ChunkColumnData
 
 void ChunkColumnData::init(int x, int z)
 {
@@ -99,11 +26,9 @@ void ChunkColumnData::destroy()
 
 const int* ChunkColumnData::heightMapRead() const
 {
-	PROFILE_SCOPE("Read height map", ProfileCategory::ChunkColumnData);
-
 	std::unique_lock<std::mutex> lock(readDataMutex);
 	readDataCV.wait(lock, [this]() { return initialized; });
-	return heightMap;
+	return heightMap.data();
 }
 
 void ChunkColumnData::setToInitialized()
@@ -146,7 +71,7 @@ TerrainGenerator& TerrainGenerator::getInstance()
 
 const ChunkColumnData* TerrainGenerator::loadChunkColumnData(int chunkX, int chunkZ)
 {
-	ChunkColumnData* columnPtr;
+	ChunkColumnData* column;
 	{
 		PROFILE_SCOPE("Load ChunkColumnData", ProfileCategory::ChunkColumnData);
 
@@ -154,28 +79,18 @@ const ChunkColumnData* TerrainGenerator::loadChunkColumnData(int chunkX, int chu
 
 		// Check if column already exists
 		{
-			ChunkColumnData* foundColumn = nullptr;
-			bool isColumnFound = false;
+			std::lock_guard<std::mutex> lock(dataMutex);
+			auto it = chunkColumnData.find(pos);
+			if (it != chunkColumnData.end())
 			{
-				std::lock_guard<std::mutex> lock(dataMutex);
-				auto it = chunkColumnData.find(pos);
-				isColumnFound = it != chunkColumnData.end();
-				if (isColumnFound)
-				{
-					foundColumn = it->second;
-				}
-			}
-			if (isColumnFound)
-			{
-				foundColumn->referenceCount.fetch_add(1, std::memory_order_acq_rel);
-				return foundColumn;
+				it->second->referenceCount.fetch_add(1, std::memory_order_acq_rel);
+				return it->second;
 			}
 		}
 
 		// Create column
-		ChunkColumnData* column = chunkColumnDataPool.acquire();
-		column->referenceCount = 1;
-		columnPtr = column;
+		column = chunkColumnDataPool.acquire();
+		column->referenceCount.store(1, std::memory_order_relaxed);
 
 		{
 			// Check again in case another thread created it while we were acquiring from pool
@@ -184,7 +99,7 @@ const ChunkColumnData* TerrainGenerator::loadChunkColumnData(int chunkX, int chu
 			ChunkColumnData* foundColumn = nullptr;
 			bool isColumnFound = false;
 			{
-				auto it = chunkColumnData.find(pos);
+				const auto it = chunkColumnData.find(pos);
 				isColumnFound = it != chunkColumnData.end();
 				if (isColumnFound)
 				{
@@ -205,11 +120,8 @@ const ChunkColumnData* TerrainGenerator::loadChunkColumnData(int chunkX, int chu
 			chunkColumnData.emplace(pos, column);
 		}
 	}
-	{
-		initChunkColumnData(columnPtr, chunkX, chunkZ);
-		columnPtr->setToInitialized();
-	}
-	return columnPtr;
+	initChunkColumnData(column, chunkX, chunkZ);
+	return column;
 }
 
 const ChunkColumnData* TerrainGenerator::getChunkColumnData(int chunkX, int chunkZ)
@@ -229,9 +141,6 @@ const ChunkColumnData* TerrainGenerator::getChunkColumnData(int chunkX, int chun
 
 void TerrainGenerator::unloadChunkColumnData(int chunkX, int chunkZ)
 {
-	// TODO: (When moving down) Chunks on edge of render area may unload, they are last, destroying the column.
-	// Posible solution: Load chunk column data in Chunk::init, not in Chunk::buildBlocks.
-	// Problems: Chunk::init is on main thread.
 	PROFILE_SCOPE("Unload ChunkColumnData", ProfileCategory::ChunkColumnData);
 
 	ChunkColumnData* columnToRelease = nullptr;
@@ -246,11 +155,10 @@ void TerrainGenerator::unloadChunkColumnData(int chunkX, int chunkZ)
 		}
 
 		// Decrement reference count
-		auto oldReferenceCount = it->second->referenceCount.fetch_sub(1, std::memory_order_acq_rel);
-		// 'oldReferenceCount' has value of referenceCount before decrement operation.
+		auto referenceCount = it->second->referenceCount.fetch_sub(1, std::memory_order_acq_rel) - 1;
 
 		// If no more references, unload the column
-		if (oldReferenceCount <= 1) // if (oldReferenceCount - 1 <= 0)
+		if (referenceCount <= 0)
 		{
 			columnToRelease = it->second;
 			chunkColumnData.erase(it);
@@ -262,7 +170,7 @@ void TerrainGenerator::unloadChunkColumnData(int chunkX, int chunkZ)
 	}
 }
 
-void TerrainGenerator::computeCaveMask(bool* outArray, int chunkX, int chunkY, int chunkZ)
+void TerrainGenerator::computeCaveMask(bool* outArray, int chunkX, int chunkY, int chunkZ) const
 {
 	// TODO: Try computing low-resolution noise array and interpolate it
 	PROFILE_SCOPE("Compute cave mask", ProfileCategory::TerrainGeneration);
@@ -306,6 +214,7 @@ void TerrainGenerator::initChunkColumnData(ChunkColumnData* column, int chunkX, 
 {
 	column->init(chunkX, chunkZ);
 	computeInitialHeightMap(column->heightMapWrite(), chunkX, chunkZ);
+	column->setToInitialized();
 }
 
 float TerrainGenerator::calculateHeight(float continentalNoise, float erosionNoise, float weirdnessNoise)

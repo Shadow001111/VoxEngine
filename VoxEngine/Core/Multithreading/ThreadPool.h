@@ -1,5 +1,4 @@
 #pragma once
-#include <vector>
 #include <thread>
 #include <mutex>
 #include <condition_variable>
@@ -7,15 +6,14 @@
 #include <functional>
 #include <atomic>
 
-#include <queue>
 #include "Core/Container/Queue.h"
 
 class ThreadPool
 {
     using Task = std::function<void()>;
-    using TaskQueue = Queue<Task>;// std::queue<Task>;
+    using TaskQueue = Queue<Task>;
 
-	std::vector<std::thread> workers;
+    DynamicArray<std::thread> workers;
     TaskQueue tasks;
 	std::mutex queueMutex;
 	std::condition_variable condition;

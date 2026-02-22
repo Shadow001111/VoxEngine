@@ -153,10 +153,10 @@ void WorldChunkManager::sendChunkMeshesToGPU()
 	}
 }
 
-Chunk* WorldChunkManager::getChunkAt(const glm::ivec3& position) const
+Chunk* WorldChunkManager::getChunkAt(const glm::ivec3& chunkPosition) const
 {
 	// Get region position
-	glm::ivec3 regionPosition = ChunkRegion::getRegionPosition(position);
+	glm::ivec3 regionPosition = ChunkRegion::getRegionPosition(chunkPosition);
 
 	// Get chunk region if exists
 	ChunkRegion* chunkRegion = Chunk::chunkRegionManagerInstance.getRegion(regionPosition);
@@ -166,16 +166,16 @@ Chunk* WorldChunkManager::getChunkAt(const glm::ivec3& position) const
 	}
 
 	// Get chunk index in region
-	size_t index = ChunkRegion::getChunkIndexInRegion(position);
+	size_t index = ChunkRegion::getChunkIndexInRegion(chunkPosition);
 
 	// Return chunk pointer
 	return chunkRegion->chunks[index];
 }
 
-bool WorldChunkManager::chunkExistsAt(const glm::ivec3& position) const
+bool WorldChunkManager::chunkExistsAt(const glm::ivec3& chunkPosition) const
 {
 	// Get region position
-	glm::ivec3 regionPosition = ChunkRegion::getRegionPosition(position);
+	glm::ivec3 regionPosition = ChunkRegion::getRegionPosition(chunkPosition);
 
 	// Get chunk region if exists
 	const ChunkRegion* chunkRegion = Chunk::chunkRegionManagerInstance.getRegion(regionPosition);
@@ -185,7 +185,7 @@ bool WorldChunkManager::chunkExistsAt(const glm::ivec3& position) const
 	}
 
 	// Get chunk index in region
-	size_t index = ChunkRegion::getChunkIndexInRegion(position);
+	size_t index = ChunkRegion::getChunkIndexInRegion(chunkPosition);
 
 	// Return result
 	return chunkRegion->chunks[index] != nullptr;
@@ -436,16 +436,16 @@ void WorldChunkManager::rebuildAllChunkMeshes()
 	}
 }
 
-void WorldChunkManager::loadChunk(const glm::ivec3& position)
+void WorldChunkManager::loadChunk(const glm::ivec3& chunkPosition)
 {
 	// Get region position
-	glm::ivec3 regionPosition = ChunkRegion::getRegionPosition(position);
+	glm::ivec3 regionPosition = ChunkRegion::getRegionPosition(chunkPosition);
 
 	// Get region at position
 	ChunkRegion* region = Chunk::chunkRegionManagerInstance.getOrCreateRegion(regionPosition);
 
 	// Get chunk index in region
-	size_t index = ChunkRegion::getChunkIndexInRegion(position);
+	size_t index = ChunkRegion::getChunkIndexInRegion(chunkPosition);
 
 	// Check if chunk already exists
 	if (region->chunks[index])
@@ -456,18 +456,18 @@ void WorldChunkManager::loadChunk(const glm::ivec3& position)
 
 	// Find existing neighbors
 	std::array<Chunk*, 6> neighbors = {
-		getChunkAt({ position.x - 1, position.y,	 position.z		}),
-		getChunkAt({ position.x + 1, position.y,	 position.z		}),
-		getChunkAt({ position.x,	 position.y - 1, position.z		}),
-		getChunkAt({ position.x,	 position.y + 1, position.z		}),
-		getChunkAt({ position.x,	 position.y,	 position.z - 1 }),
-		getChunkAt({ position.x,	 position.y,	 position.z + 1 })
+		getChunkAt({ chunkPosition.x - 1, chunkPosition.y,	 chunkPosition.z		}),
+		getChunkAt({ chunkPosition.x + 1, chunkPosition.y,	 chunkPosition.z		}),
+		getChunkAt({ chunkPosition.x,	 chunkPosition.y - 1, chunkPosition.z		}),
+		getChunkAt({ chunkPosition.x,	 chunkPosition.y + 1, chunkPosition.z		}),
+		getChunkAt({ chunkPosition.x,	 chunkPosition.y,	 chunkPosition.z - 1 }),
+		getChunkAt({ chunkPosition.x,	 chunkPosition.y,	 chunkPosition.z + 1 })
 	};
 
 	// Create and initialize chunk
 	Chunk* chunk = chunkPool.acquire();
 	chunk->addLoader();
-	chunk->init(position, neighbors);
+	chunk->init(chunkPosition, neighbors);
 
 	// Send chunk to building blocks
 	{
@@ -483,20 +483,20 @@ void WorldChunkManager::loadChunk(const glm::ivec3& position)
 	ASSERT(region->chunkCount <= CHUNK_REGION_VOLUME);
 }
 
-void WorldChunkManager::unloadChunk(const glm::ivec3& position)
+void WorldChunkManager::unloadChunk(const glm::ivec3& chunkPosition)
 {
 	// Get region position
-	glm::ivec3 regionPosition = ChunkRegion::getRegionPosition(position);
+	glm::ivec3 regionPosition = ChunkRegion::getRegionPosition(chunkPosition);
 
 	// Get chunk region if exists
-	ChunkRegion* chunkRegion = Chunk::chunkRegionManagerInstance.getRegion(position);
+	ChunkRegion* chunkRegion = Chunk::chunkRegionManagerInstance.getRegion(regionPosition);
 	if (!chunkRegion)
 	{
 		return;
 	}
 
 	// Get chunk index in region
-	size_t index = ChunkRegion::getChunkIndexInRegion(position);
+	size_t index = ChunkRegion::getChunkIndexInRegion(chunkPosition);
 
 	// Check if chunk exists
 	Chunk* chunk = chunkRegion->chunks[index];
@@ -508,7 +508,10 @@ void WorldChunkManager::unloadChunk(const glm::ivec3& position)
 	// Decrement loader count
 	chunk->removeLoader();
 
-	// Release chunk to pool (will call Chunk::destroy)
+	// Destroy chunk
+	chunk->destroy();
+
+	// Release chunk to pool
 	chunkPool.release(chunk);
 
 	// Remove chunk from region

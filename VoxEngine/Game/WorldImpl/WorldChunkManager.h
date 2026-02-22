@@ -46,8 +46,8 @@ public:
 
     void sendChunkMeshesToGPU();
 
-    Chunk* getChunkAt(const glm::ivec3& position) const;
-    bool chunkExistsAt(const glm::ivec3& position) const;
+    Chunk* getChunkAt(const glm::ivec3& chunkPosition) const;
+    bool chunkExistsAt(const glm::ivec3& chunkPosition) const;
 
     void startBuildingChunkBlocks();
     void startBuildingChunkLights();
@@ -57,8 +57,8 @@ public:
 
     void rebuildAllChunkMeshes();
 private:
-    void loadChunk(const glm::ivec3& position);
-    void unloadChunk(const glm::ivec3& position);
+    void loadChunk(const glm::ivec3& chunkPosition);
+    void unloadChunk(const glm::ivec3& chunkPosition);
 
     template<typename T, typename... Args>
     T* createChunkLoader(Args&&... args)

@@ -76,7 +76,7 @@ public:
 
 	bool placeBlock(const RaycastResult& raycast, BlockId block);
 	bool breakBlock(const RaycastResult& raycast);
-	void updateBlockAt(const glm::ivec3& worldPos, BlockId block);
+	bool updateBlockAt(const glm::ivec3& worldPos, BlockId block);
 	std::optional<BlockId> getBlockAt(const glm::ivec3& globalPosition) const;
 
 	void setChunkLoadingDistance(int loadingDistanceInChunks);

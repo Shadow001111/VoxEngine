@@ -6,10 +6,8 @@ class FixedArenaObjectPool
 {
 	FixedArenaAllocator<T, ArenaBlockSize> allocator;
 protected:
-	std::vector<T*> pool;
+	DynamicArray<T*> pool;
 public:
-    size_t additionalAllocationCount = 10;
-
     FixedArenaObjectPool() = default;
     ~FixedArenaObjectPool() = default;
 
@@ -29,7 +27,7 @@ public:
         }
 
         // When no objects in pool, allocate additional ones
-        allocate(additionalAllocationCount);
+        allocate(10);
 
         // And one more too
         return allocator.create();

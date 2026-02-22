@@ -16,15 +16,15 @@ class ChunkColumnData
 {
 	int X = 0, Z = 0; // Coordinates in chunk space
 
-	int heightMap[CHUNK_AREA];
+	std::array<int, CHUNK_AREA> heightMap;
 
 	bool initialized = false;
-public:
-	std::atomic<int32_t> referenceCount = 0;
-private:
+
 	mutable std::mutex readDataMutex; // Prevents chunks from reading heightMap until it's built
 	mutable std::condition_variable readDataCV;
 public:
+	std::atomic<int32_t> referenceCount = 0;
+
 	ChunkColumnData() = default;
 	~ChunkColumnData() = default;
 
@@ -32,7 +32,7 @@ public:
 	void destroy();
 
 	const int* heightMapRead() const;
-	int* heightMapWrite() { return heightMap; }
+	int* heightMapWrite() { return heightMap.data(); }
 
 	void setToInitialized();
 };
@@ -88,13 +88,11 @@ public:
 
 	static TerrainGenerator& getInstance();
 
-	static void initThread();
-
 	const ChunkColumnData* loadChunkColumnData(int chunkX, int chunkZ);
 	const ChunkColumnData* getChunkColumnData(int chunkX, int chunkZ);
 	void unloadChunkColumnData(int chunkX, int chunkZ);
 
-	void computeCaveMask(bool* outArray, int chunkX, int chunkY, int chunkZ);
+	void computeCaveMask(bool* outArray, int chunkX, int chunkY, int chunkZ) const;
 
 	// Debug
 	size_t getChunkColumnDataCount() const;
