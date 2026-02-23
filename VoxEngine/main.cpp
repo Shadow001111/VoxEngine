@@ -27,7 +27,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #ifdef NDEBUG
-constexpr int CHUNK_LOAD_DISTANCE = 16;
+constexpr int CHUNK_LOAD_DISTANCE = 24;
 #else
 constexpr int CHUNK_LOAD_DISTANCE = 3;
 #endif
@@ -99,8 +99,8 @@ struct ContainerUI
 struct GPUUsageMetrics
 {
     bool enabled;
-    uint64_t memoryUsage;
     float gpuUtilization;
+    uint64_t memoryUsage;
 };
 
 struct DebugUIMetrics
@@ -632,7 +632,7 @@ int gameFunc()
     // Timers
     double lastTime = glfwGetTime();
     UpdateTimer worldUpdateTimer(20.0); worldUpdateTimer.setUpdateToTrue();
-    UpdateTimer profilerUpdateTimer(1.0 / 1.0);
+    UpdateTimer profilerUpdateTimer(1.0 / 2.0);
     UpdateTimer frequentUIDataUpdateTimer(1.0);
     UpdateTimer worldDebugDataIntenseUpdateTimer(1.0);
 

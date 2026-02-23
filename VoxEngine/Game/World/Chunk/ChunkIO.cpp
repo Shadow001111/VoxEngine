@@ -22,7 +22,9 @@ fs::path ChunkIO::getFilePath(const glm::ivec3 chunkPosition)
 
 bool ChunkIO::doesFileExist(const std::filesystem::path& path)
 {
-	return fs::exists(path) && fs::is_regular_file(path);
+	std::error_code ec;
+	auto status = fs::status(path, ec);
+	return !ec && fs::is_regular_file(status);
 }
 
 uint64_t ChunkIO::computeHash(const BlockChanges& blockChanges)

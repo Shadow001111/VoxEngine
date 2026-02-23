@@ -6,6 +6,20 @@
 
 namespace fs = std::filesystem;
 
+bool fileExistsAndIsRegular(const fs::path& path)
+{
+    std::error_code ec;
+    auto status = fs::status(path, ec);
+    return !ec && fs::is_regular_file(status);
+}
+
+bool fileExistsAndIsDirectory(const fs::path& path)
+{
+    std::error_code ec;
+    auto status = fs::status(path, ec);
+    return !ec && fs::is_directory(status);
+}
+
 // TODO: Check for dependencies
 // TODO: Check for duplicate id's
 // TODO: Require core pack
@@ -17,7 +31,7 @@ void DataPackManager::loadAllDataPacks()
     // Check if directory exist
 	const fs::path packsDir = "res/DataPacks";
 
-    if (!fs::exists(packsDir) || !fs::is_directory(packsDir))
+    if (!fileExistsAndIsDirectory(packsDir))
     {
         std::cerr << "[DataPackManager]: Data pack directory is not found\n";
         return;
@@ -76,7 +90,7 @@ std::optional<DataPackManager::DatapackMetadata> DataPackManager::getDatapackMet
 {
     // Check for file
     fs::path metadataPath = dataPackPath / "datapack.json";
-    if (!fs::exists(metadataPath) || !fs::is_regular_file(metadataPath))
+    if (!fileExistsAndIsRegular(metadataPath))
     {
         std::cerr << "[DataPackManager]: Metadata is not found\n";
         return std::nullopt;
@@ -137,7 +151,7 @@ std::optional<DataPackManager::DatapackMetadata> DataPackManager::parseMetadataJ
 void DataPackManager::loadBlocks(const std::filesystem::path& dataPackPath, const std::string& dataPackStringId)
 {
     fs::path blocksDir = dataPackPath / "Blocks";
-    if (!fs::exists(blocksDir) || !fs::is_directory(blocksDir))
+    if (!fileExistsAndIsDirectory(blocksDir))
     {
         return;
     }
@@ -438,7 +452,7 @@ bool DataPackManager::parseBlockSoundsJson(const json& j, BlockAsset& outAsset)
 void DataPackManager::loadBlockModels(const std::filesystem::path& dataPackPath, const std::string& dataPackStringId)
 {
     fs::path modelsDir = dataPackPath / "BlockModels";
-    if (!fs::exists(modelsDir) || !fs::is_directory(modelsDir))
+    if (!fileExistsAndIsDirectory(modelsDir))
     {
         return;
     }
@@ -714,7 +728,7 @@ std::optional<BlockModelData::NonAlignedFace> DataPackManager::parseBlockModelNo
 void DataPackManager::loadItems(const std::filesystem::path& dataPackPath, const std::string& dataPackStringId)
 {
     fs::path itemsDir = dataPackPath / "Items";
-    if (!fs::exists(itemsDir) || !fs::is_directory(itemsDir))
+    if (!fileExistsAndIsDirectory(itemsDir))
     {
         return;
     }
@@ -841,7 +855,7 @@ bool DataPackManager::parseItemJson(const json& j, ItemAsset& outAsset)
 void DataPackManager::loadItemModels(const std::filesystem::path& dataPackPath, const std::string& dataPackStringId)
 {
     fs::path modelsDir = dataPackPath / "ItemModels";
-    if (!fs::exists(modelsDir) || !fs::is_directory(modelsDir))
+    if (!!fileExistsAndIsDirectory(modelsDir))
     {
         return;
     }
