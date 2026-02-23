@@ -1,6 +1,6 @@
 #pragma once
+#include <utility>
 
-// TODO: Maybe add 'emplace' method
 template<typename T>
 class BufferStreamWriter
 {
@@ -32,6 +32,13 @@ public:
 	{
 		std::memcpy(destination, &source, count * sizeof(T));
 		destination += count;
+	}
+
+	template<typename... Args>
+	void emplaceSingle(Args&&... args)
+	{
+		new (destination) T(std::forward<Args>(args)...);
+		destination++;
 	}
 
 	const T* getDestination() const { return destination; }

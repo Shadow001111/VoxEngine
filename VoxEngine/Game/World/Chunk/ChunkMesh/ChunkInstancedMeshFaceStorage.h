@@ -4,19 +4,19 @@
 
 #include "Core/BlockAllocator.h"
 #include "Core/Multithreading/ProcessingFence.h"
+#include "Core/Container/DynamicArray.h"
 
 #include <cstdint>
-#include <vector>
 
 struct ChunkInstancedMeshFaceStorage
 {
 	struct InstancesStorage
 	{
-		std::vector<AlignedBlockFace> alignedOpaque;
-		std::vector<AlignedBlockFace> alignedTranslucent;
+		DynamicArray<AlignedBlockFace> alignedOpaque;
+		DynamicArray<AlignedBlockFace> alignedTranslucent;
 
-		std::vector<NonAlignedBlockFace> nonAlignedOpaque;
-		std::vector<NonAlignedBlockFace> nonAlignedTranslucent;
+		DynamicArray<NonAlignedBlockFace> nonAlignedOpaque;
+		DynamicArray<NonAlignedBlockFace> nonAlignedTranslucent;
 
 		InstancesStorage& operator=(InstancesStorage&& other) noexcept;
 	};

@@ -1,5 +1,5 @@
 #pragma once
-#include "Chunk/ChunkMesh.h"
+#include "Chunk/ChunkMesh/ChunkMesh.h"
 #include "Chunk/Metrics.h"
 #include "Chunk/StructureBlockChanges.h"
 #include "Chunk/ChunkSpecializedQueue.h"

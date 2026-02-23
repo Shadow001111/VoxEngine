@@ -2,14 +2,13 @@
 #include "Core/Profiler.h"
 
 #include "OpenGLWrappers/Shader.h"
-#include "OpenGLWrappers/VertexArray.h"
 #include "OpenGLWrappers/ImmutableBuffer.h"
 #include "OpenGLWrappers/FrameBuffer.h"
 
 #include "../World/VoxelMarkerMesh.h"
 #include "../World/RaycastResult.h"
 #include "../World/WorldVisualSettings.h"
-#include "../World/Chunk/ChunkInstancedMeshAllocator.h"
+#include "../World/Chunk/ChunkMesh/ChunkInstancedMeshAllocator.h"
 
 #include "Graphics/Camera.h"
 #include "Graphics/DrawCommands.h"

@@ -1492,8 +1492,7 @@ void Chunk::collectAlignedOpaqueRenderData(BufferStreamWriter<DrawArraysIndirect
 	{
 		return;
 	}
-	DrawArraysIndirectCommand command(4, faceCount, 0, mesh.faceStorage.allocatedBlock_alignedFaces.offset);
-	drawCommands.writeSingle(command);
+	drawCommands.emplaceSingle(4, faceCount, 0, mesh.faceStorage.allocatedBlock_alignedFaces.offset);
 	positions.writeSingle(position);
 }
 
@@ -1504,8 +1503,7 @@ void Chunk::collectAlignedTranslucentRenderData(BufferStreamWriter<DrawArraysInd
 	{
 		return;
 	}
-	DrawArraysIndirectCommand command(4, faceCount, 0, mesh.faceStorage.allocatedBlock_alignedFaces.offset + mesh.faceStorage.renderAlignedOpaqueFaceCount);
-	drawCommands.writeSingle(command);
+	drawCommands.emplaceSingle(4, faceCount, 0, mesh.faceStorage.allocatedBlock_alignedFaces.offset + mesh.faceStorage.renderAlignedOpaqueFaceCount);
 	positions.writeSingle(position);
 }
 
@@ -1516,8 +1514,7 @@ void Chunk::collectNonAlignedOpaqueRenderData(BufferStreamWriter<DrawArraysIndir
 	{
 		return;
 	}
-	DrawArraysIndirectCommand command(4, faceCount, 0, mesh.faceStorage.allocatedBlock_nonAlignedFaces.offset);
-	drawCommands.writeSingle(command);
+	drawCommands.emplaceSingle(4, faceCount, 0, mesh.faceStorage.allocatedBlock_nonAlignedFaces.offset);
 	positions.writeSingle(position);
 }
 
@@ -1528,8 +1525,7 @@ void Chunk::collectNonAlignedTranslucentRenderData(BufferStreamWriter<DrawArrays
 	{
 		return;
 	}
-	DrawArraysIndirectCommand command(4, faceCount, 0, mesh.faceStorage.allocatedBlock_nonAlignedFaces.offset + mesh.faceStorage.renderNonAlignedOpaqueFaceCount);
-	drawCommands.writeSingle(command);
+	drawCommands.emplaceSingle(4, faceCount, 0, mesh.faceStorage.allocatedBlock_nonAlignedFaces.offset + mesh.faceStorage.renderNonAlignedOpaqueFaceCount);
 	positions.writeSingle(position);
 }
 

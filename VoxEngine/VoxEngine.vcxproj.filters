@@ -90,16 +90,16 @@
     <ClCompile Include="Game\DataPackManagment\AssetRegistry.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="Game\World\Chunk\MeshTemplates\AlignedBlockFace.cpp">
+    <ClCompile Include="Game\World\Chunk\ChunkMesh\MeshTemplates\AlignedBlockFace.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="Game\World\Chunk\MeshTemplates\NonAlignedBlockFace.cpp">
+    <ClCompile Include="Game\World\Chunk\ChunkMesh\MeshTemplates\NonAlignedBlockFace.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="Game\World\Chunk\ChunkInstancedMeshAllocator.cpp">
+    <ClCompile Include="Game\World\Chunk\ChunkMesh\ChunkInstancedMeshAllocator.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="Game\World\Chunk\ChunkInstancedMeshFaceStorage.cpp">
+    <ClCompile Include="Game\World\Chunk\ChunkMesh\ChunkInstancedMeshFaceStorage.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
     <ClCompile Include="Game\World\Chunk\StructureBlockChanges.cpp">
@@ -180,7 +180,7 @@
     <ClCompile Include="Graphics\DrawCommands.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="Game\World\Chunk\ChunkMesh.cpp">
+    <ClCompile Include="Game\World\Chunk\ChunkMesh\ChunkMesh.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
     <ClCompile Include="Game\World\Chunk\ChunkIO.cpp">
@@ -296,19 +296,19 @@
     <ClInclude Include="Game\DataPackManagment\DataTypes\BlockModelData.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="Game\World\Chunk\MeshTemplates\AlignedBlockFace.h">
+    <ClInclude Include="Game\World\Chunk\ChunkMesh\MeshTemplates\AlignedBlockFace.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="Game\World\Chunk\MeshTemplates\NonAlignedBlockFace.h">
+    <ClInclude Include="Game\World\Chunk\ChunkMesh\MeshTemplates\NonAlignedBlockFace.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="Game\World\Chunk\ChunkInstancedMeshAllocator.h">
+    <ClInclude Include="Game\World\Chunk\ChunkMesh\ChunkInstancedMeshAllocator.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Game\World\Chunk\ChunkSpecializedQueue.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="Game\World\Chunk\ChunkInstancedMeshFaceStorage.h">
+    <ClInclude Include="Game\World\Chunk\ChunkMesh\ChunkInstancedMeshFaceStorage.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Game\World\Chunk\Metrics.h">
@@ -419,7 +419,7 @@
     <ClInclude Include="Graphics\DrawCommands.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="Game\World\Chunk\ChunkMesh.h">
+    <ClInclude Include="Game\World\Chunk\ChunkMesh\ChunkMesh.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Game\World\Chunk\ChunkIO.h">

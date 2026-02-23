@@ -1,7 +1,7 @@
 #include "World.h"
 
 #include "World/Chunk/TerrainGenerator.h"
-#include "World/Chunk/ChunkInstancedMeshAllocator.h"
+#include "World/Chunk/ChunkMesh/ChunkInstancedMeshAllocator.h"
 
 #include "DataPackManagment/DataPackManager.h"
 #include "DataPackManagment/AssetRegistry.h"
