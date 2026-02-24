@@ -116,8 +116,8 @@ ChunkInstancedMeshAllocator& ChunkInstancedMeshAllocator::getInstance()
 }
 
 void ChunkInstancedMeshAllocator::processMeshAllocationRequests(
-	const std::vector<ChunkInstancedMeshFaceStorage*>& alignedMeshRequests,
-	const std::vector<ChunkInstancedMeshFaceStorage*>& nonAlignedMeshRequests
+	const DynamicArray<ChunkInstancedMeshFaceStorage*>& alignedMeshRequests,
+	const DynamicArray<ChunkInstancedMeshFaceStorage*>& nonAlignedMeshRequests
 )
 {
 	alignedMeshAllocator.processMeshRequests(alignedMeshRequests);
@@ -136,7 +136,7 @@ void ChunkInstancedMeshAllocator::MeshAllocator::init(const ProcessorConfig& con
 	this->config = config;
 }
 
-void ChunkInstancedMeshAllocator::MeshAllocator::processMeshRequests(const std::vector<ChunkInstancedMeshFaceStorage*>& meshRequests)
+void ChunkInstancedMeshAllocator::MeshAllocator::processMeshRequests(const DynamicArray<ChunkInstancedMeshFaceStorage*>& meshRequests)
 {
 	// Store old capacity
 	size_t oldCapacity = blockAllocator.getCapacity();

@@ -81,7 +81,7 @@
     <ClCompile Include="OpenGLWrappers\VertexArray.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="SoundManager.cpp">
+    <ClCompile Include="Game\SoundManager.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
     <ClCompile Include="Game\DataPackManagment\DataPackManager.cpp">
@@ -159,7 +159,7 @@
     <ClCompile Include="Game\Inventory\GUIInventory.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="Random.cpp">
+    <ClCompile Include="Core\Random.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
     <ClCompile Include="FileLogger.cpp">
@@ -278,7 +278,7 @@
     <ClInclude Include="OpenGLWrappers\VertexArray.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="SoundManager.h">
+    <ClInclude Include="Game\SoundManager.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Game\DataPackManagment\DataPackManager.h">
@@ -395,7 +395,7 @@
     <ClInclude Include="Game\Inventory\GUIInventory.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="Random.h">
+    <ClInclude Include="Core\Random.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="FileLogger.h">
@@ -446,13 +446,5 @@
     <ClInclude Include="Core\Container\Queue.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <CopyFileToFolders Include="..\Libraries\bin\FastNoise.dll">
-      <Filter>Файлы ресурсов</Filter>
-    </CopyFileToFolders>
-    <CopyFileToFolders Include="..\Libraries\bin\FastNoiseD.dll">
-      <Filter>Файлы ресурсов</Filter>
-    </CopyFileToFolders>
   </ItemGroup>
 </Project>

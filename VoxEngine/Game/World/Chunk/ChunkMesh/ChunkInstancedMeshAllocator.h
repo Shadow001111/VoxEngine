@@ -4,7 +4,8 @@
 
 #include "ChunkInstancedMeshFaceStorage.h"
 
-#include <vector>
+#include "Core/Container/DynamicArray.h"
+
 #include <functional>
 
 class ChunkInstancedMeshAllocator
@@ -35,7 +36,7 @@ class ChunkInstancedMeshAllocator
 
 		void init(const ProcessorConfig& config);
 
-		void processMeshRequests(const std::vector<ChunkInstancedMeshFaceStorage*>& meshRequests);
+		void processMeshRequests(const DynamicArray<ChunkInstancedMeshFaceStorage*>& meshRequests);
 	};
 	
 	ImmutableBuffer vbo;
@@ -52,8 +53,8 @@ public:
 	static ChunkInstancedMeshAllocator& getInstance();
 
 	void processMeshAllocationRequests(
-		const std::vector<ChunkInstancedMeshFaceStorage*>& alignedMeshRequests,
-		const std::vector<ChunkInstancedMeshFaceStorage*>& nonAlignedMeshRequests
+		const DynamicArray<ChunkInstancedMeshFaceStorage*>& alignedMeshRequests,
+		const DynamicArray<ChunkInstancedMeshFaceStorage*>& nonAlignedMeshRequests
 	);
 public:
 	ImmutableBuffer& getAlignedInstanceVBO() { return alignedMeshAllocator.instanceVBO; };

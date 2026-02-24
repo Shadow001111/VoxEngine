@@ -4,7 +4,7 @@
 
 #include "ChunkInstancedMeshAllocator.h"
 
-std::vector<ChunkInstancedMeshFaceStorage*> ChunkMesh::pendingMeshUploads;
+DynamicArray<ChunkInstancedMeshFaceStorage*> ChunkMesh::pendingMeshUploads;
 std::atomic<bool> ChunkMesh::hasPendingMeshUploads{ false };
 
 void ChunkMesh::sendMeshesToGPU()
@@ -24,10 +24,10 @@ void ChunkMesh::sendMeshesToGPU()
 	}
 
 	// Collect meshes that need memory allocation
-	std::vector<ChunkInstancedMeshFaceStorage*> allocateMemoryAlignedMeshRequests;
+	DynamicArray<ChunkInstancedMeshFaceStorage*> allocateMemoryAlignedMeshRequests;
 	allocateMemoryAlignedMeshRequests.reserve(pendingMeshUploads.size() >> 1);
 
-	std::vector<ChunkInstancedMeshFaceStorage*> allocateMemoryNonAlignedMeshRequests;
+	DynamicArray<ChunkInstancedMeshFaceStorage*> allocateMemoryNonAlignedMeshRequests;
 	allocateMemoryNonAlignedMeshRequests.reserve(pendingMeshUploads.size() >> 1);
 
 	for (ChunkInstancedMeshFaceStorage* chunkMesh : pendingMeshUploads)

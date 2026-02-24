@@ -1266,17 +1266,17 @@ void Chunk::updateLight()
 void Chunk::updateMesh()
 {
 	if (
-		!chunkFlags.read(Flag::IsLoadedInWorld) ||
+		!meshDirty ||
 		!isLightBuilt() ||
-		!meshDirty
+		!chunkFlags.read(Flag::IsLoadedInWorld)
 		)
 	{
 		return;
 	}
-
-	meshDirty = false;
 	
 	ScopedProcessingFence scopedFence(processingFence);
+
+	meshDirty = false;
 
 	PROFILE_SCOPE("Update chunk mesh", ProfileCategory::ChunkMesh);
 

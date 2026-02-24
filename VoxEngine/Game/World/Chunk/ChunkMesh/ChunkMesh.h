@@ -9,7 +9,7 @@ class ChunkMesh
 
 	ChunkInstancedMeshFaceStorage faceStorage;
 
-	static std::vector<ChunkInstancedMeshFaceStorage*> pendingMeshUploads;
+	static DynamicArray<ChunkInstancedMeshFaceStorage*> pendingMeshUploads;
 	static std::atomic<bool> hasPendingMeshUploads;
 public:
 	static void sendMeshesToGPU();

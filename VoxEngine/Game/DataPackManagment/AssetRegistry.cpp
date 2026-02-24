@@ -1,7 +1,7 @@
 #include "AssetRegistry.h"
 #include <iostream>
 #include <algorithm>
-#include "SoundManager.h"
+#include "Game/SoundManager.h"
 
 DynamicArray<BlockAsset> AssetRegistry::blockAssetStorage;
 DynamicArray<ItemAsset> AssetRegistry::itemAssetStorage;

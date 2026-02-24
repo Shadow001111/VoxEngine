@@ -15,7 +15,7 @@
 #include "OpenGLWrappers/VertexArray.h"
 #include "OpenGLWrappers/ImmutableBuffer.h"
 
-#include "SoundManager.h"
+#include "Game/SoundManager.h"
 
 #include "FileLogger.h"
 

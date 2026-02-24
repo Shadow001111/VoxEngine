@@ -205,8 +205,8 @@
     <ClCompile Include="OpenGLWrappers\Texture.cpp" />
     <ClCompile Include="Game\DataPackManagment\DataPackManager.cpp" />
     <ClCompile Include="OpenGLWrappers\ImmutableBuffer.cpp" />
-    <ClCompile Include="Random.cpp" />
-    <ClCompile Include="SoundManager.cpp" />
+    <ClCompile Include="Core\Random.cpp" />
+    <ClCompile Include="Game\SoundManager.cpp" />
     <ClCompile Include="SeamlessPerlinNoise\Perlin.cpp" />
     <ClCompile Include="Core\Stream\StreamReader.cpp" />
     <ClCompile Include="Core\Stream\StreamWriter.cpp" />
@@ -289,26 +289,14 @@
     <ClInclude Include="OpenGLWrappers\Texture.h" />
     <ClInclude Include="Game\DataPackManagment\DataPackManager.h" />
     <ClInclude Include="OpenGLWrappers\ImmutableBuffer.h" />
-    <ClInclude Include="Random.h" />
-    <ClInclude Include="SoundManager.h" />
+    <ClInclude Include="Core\Random.h" />
+    <ClInclude Include="Game\SoundManager.h" />
     <ClInclude Include="SeamlessPerlinNoise\Perlin.h" />
     <ClInclude Include="Core\Stream\StreamReader.h" />
     <ClInclude Include="Core\Stream\StreamWriter.h" />
     <ClInclude Include="WindowManager.h" />
     <ClInclude Include="Game\WorldImpl\WorldChunkManager.h" />
     <ClInclude Include="Game\WorldImpl\WorldRenderer.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <CopyFileToFolders Include="..\Libraries\bin\FastNoise.dll">
-      <FileType>Document</FileType>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-    </CopyFileToFolders>
-    <CopyFileToFolders Include="..\Libraries\bin\FastNoiseD.dll">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
-      <FileType>Document</FileType>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
-    </CopyFileToFolders>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
