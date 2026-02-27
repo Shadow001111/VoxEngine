@@ -533,7 +533,7 @@ public:
 
 		construct_at(mData + index, std::forward<Args>(args)...);
 
-		mSize++
+		mSize++;
 		return mData[index];
 	}
 
