@@ -1,6 +1,6 @@
 #pragma once
 #include <cstdint>
-#include <vector>
+#include "Core/Container/DynamicArray.h"
 
 struct BlockModelData
 {
@@ -39,7 +39,7 @@ struct BlockModelData
     };
 
     //std::string stringId;
-    std::vector<AlignedFace> alignedFaces;
-    std::vector<NonAlignedFace> nonAlignedFaces;
+    DynamicArray<AlignedFace> alignedFaces;
+    DynamicArray<NonAlignedFace> nonAlignedFaces;
 };
 

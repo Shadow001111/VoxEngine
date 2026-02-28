@@ -224,6 +224,7 @@ public:
 	}
 
 	template<typename InputIt>
+	//requires (!std::is_same_v<std::decay_t<InputIt>, DynamicArray>)
 	DynamicArray(InputIt first, InputIt last)
 	{
 		mSize = 0;
@@ -288,7 +289,7 @@ public:
 			{
 				for (; i < mSize; i++)
 				{
-					construct_at(mData + i, other.mData + i);
+					construct_at(mData + i, other.mData[i]);
 				}
 			}
 			catch (...)
