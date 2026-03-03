@@ -10,7 +10,7 @@
 
 class ThreadPool
 {
-    using Task = std::function<void()>;
+    using Task = std::move_only_function<void()>;
     using TaskQueue = Queue<Task>;
 
     DynamicArray<std::thread> workers;
@@ -77,15 +77,15 @@ inline auto ThreadPool::enqueueFuture(F&& f, Args && ...args) -> std::future<typ
 
     using return_type = typename std::invoke_result_t<F, Args...>;
 
-    auto task = std::make_shared<std::packaged_task<return_type()>>(
+    auto task = std::packaged_task<return_type()>(
         std::bind(std::forward<F>(f), std::forward<Args>(args)...)
     );
 
-    std::future<return_type> res = task->get_future();
+    std::future<return_type> res = task.get_future();
     
     {
         std::unique_lock<std::mutex> lock(queueMutex);
-        tasks.emplace([task]() { (*task)(); });
+        tasks.emplace([task = std::move(task)]() mutable { task(); });
     }
     condition.notify_one();
     taskTotalCount.fetch_add(1, std::memory_order_relaxed);

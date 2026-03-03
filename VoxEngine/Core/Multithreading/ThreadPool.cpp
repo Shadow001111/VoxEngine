@@ -22,13 +22,13 @@ ThreadPool::~ThreadPool()
 void ThreadPool::shutdown()
 {
     stop.store(true, std::memory_order_release);
-    condition.notify_all();
     {
         std::unique_lock<std::mutex> lock(queueMutex);
 
         tasks.clear();
         // tasks = {};
     }
+    condition.notify_all();
 
     for (std::thread& worker : workers)
     {
