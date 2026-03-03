@@ -1,5 +1,5 @@
 #pragma once
-#include "Metrics.h"
+#include "Chunk/Metrics.h"
 
 #define FASTNOISE_STATIC_LIB
 #include "FastNoise/FastNoise.h"
@@ -67,8 +67,8 @@ class TerrainGenerator
 		struct Resources
 		{
 			FastNoise::SmartNode<FastNoise::Simplex> simplexNoise;
-			std::array<float, CHUNK_VOLUME> tempNoiseArray;
-			std::array<float, CHUNK_VOLUME> caveNoiseArray;
+			std::array<float, CHUNK_VOLUME> tempNoiseArray{};
+			std::array<float, CHUNK_VOLUME> caveNoiseArray{};
 		};
 
 		std::unique_ptr<Resources> resources;

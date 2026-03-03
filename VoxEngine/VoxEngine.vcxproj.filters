@@ -105,7 +105,7 @@
     <ClCompile Include="Game\World\Chunk\StructureBlockChanges.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="Game\World\Chunk\TerrainGenerator.cpp">
+    <ClCompile Include="Game\World\TerrainGenerator.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
     <ClCompile Include="Game\World\ChunkLoaders\BaseChunkLoader.cpp">
@@ -317,7 +317,7 @@
     <ClInclude Include="Game\World\Chunk\StructureBlockChanges.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="Game\World\Chunk\TerrainGenerator.h">
+    <ClInclude Include="Game\World\TerrainGenerator.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Game\World\ChunkLoaders\BaseChunkLoader.h">

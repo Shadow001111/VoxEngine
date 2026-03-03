@@ -1,5 +1,6 @@
 #include "Chunk.h"
-#include "Chunk/TerrainGenerator.h"
+
+#include "TerrainGenerator.h"
 
 #include "Game/DataPackManagment/AssetRegistry.h"
 

@@ -98,9 +98,9 @@ struct ContainerUI
 
 struct GPUUsageMetrics
 {
-    bool enabled;
-    float gpuUtilization;
-    uint64_t memoryUsage;
+    bool enabled = false;
+    float gpuUtilization = 0.0f;
+    uint64_t memoryUsage = 0;
 };
 
 struct DebugUIMetrics
@@ -491,7 +491,7 @@ static void renderDebugData(const WindowManager& wnd, const Player& player, cons
     glDepthMask(GL_TRUE);
 }
 
-void check()
+static void check()
 {
     // Get data
     GLint maxTextureSize;
@@ -536,7 +536,7 @@ void check()
     std::cout << std::string(100, '=') << "\n";
 }
 
-int gameFunc()
+static int gameFunc()
 {
     constexpr float CAMERA_FAR_PLANE = (CHUNK_LOAD_DISTANCE + 0.5f) * CHUNK_SIZE;
 
@@ -707,7 +707,7 @@ int gameFunc()
 
                 int width, height;
                 glfwGetWindowSize(wnd.getWindow(), &width, &height);
-                glfwSetCursorPos(wnd.getWindow(), width / 2, height / 2);
+                glfwSetCursorPos(wnd.getWindow(), (float)width * 0.5f, (float)height * 0.5f);
             }
         }
 
