@@ -8,8 +8,6 @@
 #include "Core/ASSERT.h"
 #include "Core/Hashes/ivec2Hasher.h"
 
-#include <vector>
-
 thread_local ChunkSpecializedQueue<LightNode> Chunk::localBlockLightBfsQueue;
 thread_local ChunkSpecializedQueue<LightRemovalNode> Chunk::localBlockLightRemovalBfsQueue;
 thread_local ChunkSpecializedQueue<LightNode> Chunk::localSkyLightBfsQueue;
@@ -72,7 +70,7 @@ void Chunk::init(const glm::ivec3& position, const std::array<Chunk*, 6>& newNei
 // Cleans up resources
 void Chunk::destroy()
 {
-	ScopedProcessingFence fence(processingFence);
+	FenceGuard fence(processingFence);
 
 	// Clear neighbors
 	for (int i = 0; i < 6; i++)
@@ -143,7 +141,7 @@ void Chunk::buildBlocks()
 		return;
 	}
 
-	ScopedProcessingFence scopedFence(processingFence);
+	FenceGuard scopedFence(processingFence);
 
 	// Load chunk column data
 	const ChunkColumnData* chunkColumnData;
@@ -373,7 +371,7 @@ void Chunk::updateStructureBlocks()
 {
 	const BlockId airID = AssetRegistry::getBlockNumericalId("core:air");
 
-	ScopedProcessingFence scopedFence(processingFence);
+	FenceGuard scopedFence(processingFence);
 
 	auto pendingChanges = structureBlockChangeManager.retrieveAndClearChanges(position);
 	for (const auto& change : pendingChanges)
@@ -628,7 +626,7 @@ void Chunk::buildLight()
 		return;
 	}
 
-	ScopedProcessingFence scopedFence(processingFence);
+	FenceGuard scopedFence(processingFence);
 
 	PROFILE_SCOPE("Build chunk light", ProfileCategory::ChunkLight);
 
@@ -1008,7 +1006,7 @@ void Chunk::updateLight()
 		localSkyLightRemovalBfsQueue.swap(skyLightRemovalBfsQueue);
 	}
 
-	ScopedProcessingFence scopedFence(processingFence);
+	FenceGuard scopedFence(processingFence);
 
 	PROFILE_SCOPE("Update chunk light", ProfileCategory::ChunkLight);
 
@@ -1275,7 +1273,7 @@ void Chunk::updateMesh()
 		return;
 	}
 	
-	ScopedProcessingFence scopedFence(processingFence);
+	FenceGuard scopedFence(processingFence);
 
 	meshDirty = false;
 
@@ -1453,7 +1451,7 @@ void Chunk::updateMesh()
 		}
 
 		// Set mesh data
-		ScopedProcessingFence scopedMeshFence(mesh.faceStorage.processingFence);
+		FenceGuard scopedMeshFence(mesh.faceStorage.processingFence);
 
 		mesh.faceStorage.instancesStorage = std::move(newInstances);
 
@@ -2158,9 +2156,4 @@ void Chunk::calculateBlockVertexLight(BlockVertexLightData& result, int x, int y
 
 	////result.light[0] = LightLevel(15, 15);
 	////result.ao[0] = 3;
-}
-
-void Chunk::setState(State newState)
-{
-	state.store(newState, std::memory_order_release);
 }

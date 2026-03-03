@@ -1,6 +1,6 @@
 #include "ProcessingFence.h"
 
-void ProcessingFence::startProcessing()
+void MutexCVFence::startProcessing()
 {
     std::unique_lock<std::mutex> lock(mtx);
     // Wait until not processing
@@ -9,29 +9,46 @@ void ProcessingFence::startProcessing()
     processing = true;
 }
 
-void ProcessingFence::stopProcessing()
+void MutexCVFence::stopProcessing()
 {
     {
         std::lock_guard<std::mutex> lock(mtx);
         processing = false;
     }
     // Notify waiting threads
-    cv.notify_one();
-}
-
-bool ProcessingFence::isProcessing() const noexcept
-{
-    return processing;
+	cv.notify_one(); // Allow one waiting thread to proceed
 }
 
 
-ScopedProcessingFence::ScopedProcessingFence(ProcessingFence& fence) :
-    fence(fence)
+void AtomicWaitFence::startProcessing()
 {
-    fence.startProcessing();
+    bool expected = false;
+    // Try to flip false -> true; if it fails, sleep until value changes.
+    while (!processing.compare_exchange_weak(
+        expected, true,
+        std::memory_order_acquire,
+        std::memory_order_relaxed))
+    {
+        processing.wait(true, std::memory_order_relaxed);
+        expected = false;
+    }
 }
 
-ScopedProcessingFence::~ScopedProcessingFence()
+void AtomicWaitFence::stopProcessing()
 {
-    fence.stopProcessing();
+    processing.store(false, std::memory_order_release);
+    processing.notify_one();
+}
+
+
+void SemaphoreFence::startProcessing()
+{
+    sem.acquire();
+    processing.store(true, std::memory_order_release);
+}
+
+void SemaphoreFence::stopProcessing()
+{
+    processing.store(false, std::memory_order_release);
+    sem.release();
 }

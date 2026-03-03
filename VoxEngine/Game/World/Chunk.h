@@ -90,9 +90,8 @@ private:
 	// Mesh
 	ChunkMesh mesh;
 
-	// Processing fence. I tried global processing system. It reduces memory usage because chunk doesn't have its own processing fence.
-	// But it increases wait time in average from 4ms to 40ms, trading 1mb for around 7000 chunks. Benefits aren't that big.
-	ProcessingFence processingFence;
+	// Processing fence
+	AtomicWaitFence processingFence;
 	
 	// Changed blocks
 	ChunkIO::BlockChanges changedBlocks;
@@ -218,9 +217,9 @@ public:
 
 	// Getters and setters for states and flags
 	State getState() const { return state.load(std::memory_order_acquire); };
-	void setState(State newState);
+	void setState(State newState) { state.store(newState, std::memory_order_release); }
 
-	bool getIsProcessing() const { return processingFence.isProcessing(); };
+	bool getIsProcessing() const noexcept { return processingFence.isProcessing(); };
 
 	bool getIsLoadedInWorld() const { return chunkFlags.read(Flag::IsLoadedInWorld); };
 

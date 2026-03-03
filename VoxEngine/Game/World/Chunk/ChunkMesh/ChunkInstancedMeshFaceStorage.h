@@ -36,7 +36,7 @@ struct ChunkInstancedMeshFaceStorage
 
 	InstancesStorage instancesStorage;
 
-	ProcessingFence processingFence;
+	AtomicWaitFence processingFence;
 
 	ChunkInstancedMeshFaceStorage() = default;
 	~ChunkInstancedMeshFaceStorage() = default;
