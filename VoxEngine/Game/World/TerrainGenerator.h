@@ -16,12 +16,12 @@ class ChunkColumnData
 {
 	int X = 0, Z = 0; // Coordinates in chunk space
 
-	std::array<int, CHUNK_AREA> heightMap;
-
-	bool initialized = false;
+	std::array<int, CHUNK_AREA> heightMap{};
 
 	mutable std::mutex readDataMutex; // Prevents chunks from reading heightMap until it's built
 	mutable std::condition_variable readDataCV;
+
+	bool initialized = false;
 public:
 	std::atomic<int32_t> referenceCount = 0;
 

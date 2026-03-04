@@ -297,13 +297,13 @@ void TerrainGenerator::computeInitialHeightMap(int* heightMap, int chunkX, int c
 	{
 		for (int z = 0; z < CHUNK_SIZE; z++)
 		{
-			const int readIndex = z + x * CHUNK_SIZE;
+			const int readIndex = z + (x << CHUNK_SIZE_LOG2);
 
 			float continentalNoise = continentalNoiseArray[readIndex];
 			float erosionNoise = erosionNoiseArray[readIndex];
 			float weirdnessNoise = weirdnessNoiseArray[readIndex];
 
-			heightMap[x + z * CHUNK_SIZE] = (int)calculateHeight(continentalNoise, erosionNoise, weirdnessNoise);
+			heightMap[x + (z << CHUNK_SIZE_LOG2)] = (int)calculateHeight(continentalNoise, erosionNoise, weirdnessNoise);
 		}
 	}
 }

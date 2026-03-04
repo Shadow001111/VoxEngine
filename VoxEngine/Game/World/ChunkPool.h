@@ -4,7 +4,7 @@
 
 class ChunkPool : public FixedArenaObjectPool<Chunk, 256>
 {
-	std::vector<Chunk*> processingChunks;
+	DynamicArray<Chunk*> processingChunks;
 public:
 	ChunkPool() = default;
 	~ChunkPool() = default;
