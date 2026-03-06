@@ -37,16 +37,13 @@ namespace SeamlessPerlinNoise
         return glm::vec3(x, y, z) / 4294967296.0f;
     }
 
-    float dot(const glm::vec3& a, const glm::vec3& b)
+    glm::vec3 fade(const glm::vec3& t)
     {
-        return a.x * b.x + a.y * b.y + a.z * b.z;
-    }
-
-    glm::vec3 fade(const glm::vec3& t) {
         return t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f);
     }
 
-    float lerp(float a, float b, float t) {
+    float lerp(float a, float b, float t)
+    {
         return b * t + (1.0f - t) * a;
     }
 
@@ -63,7 +60,7 @@ namespace SeamlessPerlinNoise
     float grad(uint32_t hash, const glm::vec3& p)
     {
         uint32_t h = hash & 15;
-        return dot(rand_vector(h) * 2.0f - 1.0f, p);
+        return glm::dot(rand_vector(h) * 2.0f - 1.0f, p);
     }
 
     void generatePerlinNoise3D(
@@ -82,7 +79,11 @@ namespace SeamlessPerlinNoise
         out.resize(resolutionX * resolutionY * resolutionZ);
 
         // Calculate grid resolution
-        float grid_resolution = std::floor(1.0f / perlinSize);
+        const float grid_resolution = std::floor(1.0f / perlinSize);
+
+        const glm::vec3 invResolution = 1.0f / glm::vec3(resolutionX, resolutionY, resolutionZ);
+
+        const glm::vec3 invResolutionMulGridResolution = invResolution * grid_resolution;
 
         size_t index = 0; // x + y * resX + z * resX * resY
         for (int z = 0; z < resolutionZ; z++)
@@ -91,7 +92,7 @@ namespace SeamlessPerlinNoise
             {
                 for (int x = 0; x < resolutionX; x++)
                 {
-                    glm::vec3 position = glm::vec3(x, y, z) / glm::vec3(resolutionX, resolutionY, resolutionZ) * grid_resolution;
+                    glm::vec3 position = glm::vec3(x, y, z) * invResolutionMulGridResolution;
 
                     float sum = 0.0f;
 
