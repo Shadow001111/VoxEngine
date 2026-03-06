@@ -176,6 +176,10 @@ private:
 	Chunk* traverseToSideNeighbor(int x, int y, int z, int side, size_t& outIndex) const;
 	Chunk* traverseThroughNeighbors(int x, int y, int z, size_t& outIndex) const;
 public:
+	//
+	static uint32_t getNeighborDirtyMask(int x, int y, int z) noexcept;
+	void applyNeighborDirtyMask(uint32_t mask);
+
 	// Grid getters
 	BlockId getBlockAt(int x, int y, int z) const { return blocks[getIndex(x, y, z)]; }
 	LightLevel getLightAt(int x, int y, int z) const { return lightLevels[getIndex(x, y, z)]; }
@@ -202,7 +206,7 @@ public:
 	void addSkyLightRemovalNodeToQueue(int x, int y, int z, uint8_t lightLevel);
 private:
 	// Mesh
-	void markBlockMeshDirty(int x, int y, int z);
+	void markMeshesDirtyAroundBlock(int x, int y, int z);
 
 	// Mesh building
 	void calculateVertexAmbientOcclusionAndLight(unsigned int& ao, LightLevel& light, LightLevel centerLight, const std::pair<LightLevel, bool>& side1, const std::pair<LightLevel, bool>& side2, const std::pair<LightLevel, bool>& corner) const;

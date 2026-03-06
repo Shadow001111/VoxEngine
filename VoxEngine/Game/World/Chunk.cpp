@@ -621,9 +621,6 @@ void Chunk::removeIndexFromMap(BlockId block, uint16_t idx)
 
 // TODO: Underground light is wrong on borders. Sky light is not zero somehow. Problem is in mesh update, not in light propagation.
 // Maybe it is because of chunk's on edge can't be getten for 100% sure.
-// Either look-up directly in map, but then we will should use mutex, or try more ways to reach certain chunks.
-// 
-// TODO: Cache neighbor meshes dirty value and set it once
 void Chunk::buildLight()
 {
 	if (
@@ -642,6 +639,7 @@ void Chunk::buildLight()
 	const ChunkColumnData* chunkColumnData = TerrainGenerator::getInstance().getChunkColumnData(position.x, position.z);
 	const int* heightMap = chunkColumnData->heightMapRead();
 	const Chunk* top = neighbors[3];
+	uint32_t neighborDirtyMask = 0;
 
 	// Constants for direction offsets
 	const int dx[] = { -1, 1, 0, 0, 0, 0 };
@@ -673,8 +671,9 @@ void Chunk::buildLight()
 						continue;
 					}
 
-					setBlockLightAt(x, y, z, emission);
+					lightLevels[index].blockLight = emission;
 					localBlockLightBfsQueue.emplace(x, y, z);
+					neighborDirtyMask |= getNeighborDirtyMask(x, y, z);
 				}
 			}
 		}
@@ -706,8 +705,9 @@ void Chunk::buildLight()
 
 					uint8_t newSkyLight = neighborSkyLight < 15 ? neighborSkyLight - 1 : neighborSkyLight;
 
-					setSkyLightAt(x, y, z, neighborSkyLight);
+					lightLevels[index].skyLight = newSkyLight;
 					localSkyLightBfsQueue.emplace(x, y, z);
+					neighborDirtyMask |= getNeighborDirtyMask(x, y, z);
 				}
 			}
 		}
@@ -726,8 +726,9 @@ void Chunk::buildLight()
 						if (globalY > globalHeight)
 						{
 							// Air block
-							setSkyLightAt(x, y, z, 15);
+							lightLevels[index].skyLight = 15;
 							localSkyLightBfsQueue.emplace(x, y, z);
+							neighborDirtyMask |= getNeighborDirtyMask(x, y, z);
 						}
 						else
 						{
@@ -757,16 +758,18 @@ void Chunk::buildLight()
 				// Block light
 				if (lightLevels[index].blockLight + 1 < neighborLight.blockLight)
 				{
-					setBlockLightAt(x, y, z, neighborLight.blockLight - 1);
+					lightLevels[index].blockLight = neighborLight.blockLight - 1;
 					localBlockLightBfsQueue.emplace(x, y, z);
+					neighborDirtyMask |= getNeighborDirtyMask(x, y, z);
 				}
 
 				// Sky light
 				uint8_t skyLightAbsorption = (propagatingFromTop && lightLevels[index].skyLight == 15) ? 0 : 1;
 				if (lightLevels[index].skyLight + skyLightAbsorption < neighborLight.skyLight)
 				{
-					setSkyLightAt(x, y, z, neighborLight.skyLight - skyLightAbsorption);
+					lightLevels[index].skyLight = neighborLight.skyLight - skyLightAbsorption;
 					localSkyLightBfsQueue.emplace(x, y, z);
+					neighborDirtyMask |= getNeighborDirtyMask(x, y, z);
 				}
 			};
 
@@ -905,8 +908,9 @@ void Chunk::buildLight()
 
 				if (neighborChunk == this)
 				{
-					setBlockLightAt(nx, ny, nz, lightToSet);
+					lightLevels[neighborIndex].blockLight = lightToSet;
 					localBlockLightBfsQueue.emplace(nx, ny, nz);
+					neighborDirtyMask |= getNeighborDirtyMask(nx, ny, nz);
 				}
 				else
 				{
@@ -914,8 +918,9 @@ void Chunk::buildLight()
 					int neighborNY = ny & CHUNK_LOWER_BITS_MASK;
 					int neighborNZ = nz & CHUNK_LOWER_BITS_MASK;
 
-					neighborChunk->setBlockLightAt(neighborIndex, lightToSet);
+					neighborChunk->lightLevels[neighborIndex].blockLight = lightToSet;
 					neighborChunk->addBlockLightNodeToQueue(neighborNX, neighborNY, neighborNZ);
+					neighborDirtyMask |= getNeighborDirtyMask(nx, ny, nz);
 				}
 			}
 		}
@@ -969,8 +974,9 @@ void Chunk::buildLight()
 
 				if (neighborChunk == this)
 				{
-					setSkyLightAt(nx, ny, nz, lightToSet);
+					lightLevels[neighborIndex].skyLight = lightToSet;
 					localSkyLightBfsQueue.emplace(nx, ny, nz);
+					neighborDirtyMask |= getNeighborDirtyMask(nx, ny, nz);
 				}
 				else
 				{
@@ -978,14 +984,19 @@ void Chunk::buildLight()
 					int neighborNY = ny & CHUNK_LOWER_BITS_MASK;
 					int neighborNZ = nz & CHUNK_LOWER_BITS_MASK;
 
-					neighborChunk->setSkyLightAt(neighborIndex, lightToSet);
+					neighborChunk->lightLevels[neighborIndex].skyLight = lightToSet;
 					neighborChunk->addSkyLightNodeToQueue(neighborNX, neighborNY, neighborNZ);
+					neighborDirtyMask |= getNeighborDirtyMask(nx, ny, nz);
 				}
 			}
 		}
 	}
 
+	// Set state
 	setState(State::LightsBuilt);
+
+	// Apply dirty mask
+	applyNeighborDirtyMask(neighborDirtyMask);
 }
 
 void Chunk::updateLight()
@@ -1024,6 +1035,8 @@ void Chunk::updateLight()
 	const int dy[] = { 0, 0, -1, 1, 0, 0 };
 	const int dz[] = { 0, 0, 0, 0, -1, 1 };
 
+	uint32_t neighborDirtyMask = 0;
+
 	// Remove block light
 	while (!localBlockLightRemovalBfsQueue.empty())
 	{
@@ -1056,8 +1069,9 @@ void Chunk::updateLight()
 			{
 				if (neighborChunk == this)
 				{
-					setBlockLightAt(nx, ny, nz, 0);
+					lightLevels[neighborIndex].blockLight = 0;
 					localBlockLightRemovalBfsQueue.emplace(nx, ny, nz, neighborBlockLight);
+					neighborDirtyMask |= getNeighborDirtyMask(nx, ny, nz);
 				}
 				else
 				{
@@ -1065,8 +1079,9 @@ void Chunk::updateLight()
 					int neighborNY = ny & CHUNK_LOWER_BITS_MASK;
 					int neighborNZ = nz & CHUNK_LOWER_BITS_MASK;
 
-					neighborChunk->setBlockLightAt(neighborNX, neighborNY, neighborNZ, 0);
+					neighborChunk->lightLevels[neighborIndex].blockLight = 0;
 					neighborChunk->addBlockLightRemovalNodeToQueue(neighborNX, neighborNY, neighborNZ, neighborBlockLight);
+					neighborDirtyMask |= getNeighborDirtyMask(nx, ny, nz);
 				}
 			}
 			else if (neighborBlockLight >= data.lightLevel)
@@ -1130,8 +1145,9 @@ void Chunk::updateLight()
 
 			if (neighborChunk == this)
 			{
-				setBlockLightAt(nx, ny, nz, lightToSet);
+				lightLevels[neighborIndex].blockLight = lightToSet;
 				localBlockLightBfsQueue.emplace(nx, ny, nz);
+				neighborDirtyMask |= getNeighborDirtyMask(nx, ny, nz);
 			}
 			else
 			{
@@ -1139,8 +1155,9 @@ void Chunk::updateLight()
 				int neighborNY = ny & CHUNK_LOWER_BITS_MASK;
 				int neighborNZ = nz & CHUNK_LOWER_BITS_MASK;
 
-				neighborChunk->setBlockLightAt(neighborNX, neighborNY, neighborNZ, lightToSet);
+				neighborChunk->lightLevels[neighborIndex].blockLight = lightToSet;
 				neighborChunk->addBlockLightNodeToQueue(neighborNX, neighborNY, neighborNZ);
+				neighborDirtyMask |= getNeighborDirtyMask(nx, ny, nz);
 			}
 		}
 	}
@@ -1178,8 +1195,9 @@ void Chunk::updateLight()
 			{
 				if (neighborChunk == this)
 				{
-					setSkyLightAt(nx, ny, nz, 0);
+					lightLevels[neighborIndex].skyLight = 0;
 					localSkyLightRemovalBfsQueue.emplace(nx, ny, nz, neighborSkyLight);
+					neighborDirtyMask |= getNeighborDirtyMask(nx, ny, nz);
 				}
 				else
 				{
@@ -1187,8 +1205,9 @@ void Chunk::updateLight()
 					int neighborNY = ny & CHUNK_LOWER_BITS_MASK;
 					int neighborNZ = nz & CHUNK_LOWER_BITS_MASK;
 
-					neighborChunk->setSkyLightAt(neighborNX, neighborNY, neighborNZ, 0);
+					neighborChunk->lightLevels[neighborIndex].skyLight = 0;
 					neighborChunk->addSkyLightRemovalNodeToQueue(neighborNX, neighborNY, neighborNZ, neighborSkyLight);
+					neighborDirtyMask |= getNeighborDirtyMask(nx, ny, nz);
 				}
 			}
 			else if (neighborSkyLight >= data.lightLevel)
@@ -1255,8 +1274,9 @@ void Chunk::updateLight()
 
 			if (neighborChunk == this)
 			{
-				setSkyLightAt(nx, ny, nz, lightToSet);
+				lightLevels[neighborIndex].skyLight = lightToSet;
 				localSkyLightBfsQueue.emplace(nx, ny, nz);
+				neighborDirtyMask |= getNeighborDirtyMask(nx, ny, nz);
 			}
 			else
 			{
@@ -1264,11 +1284,15 @@ void Chunk::updateLight()
 				int neighborNY = ny & CHUNK_LOWER_BITS_MASK;
 				int neighborNZ = nz & CHUNK_LOWER_BITS_MASK;
 
-				neighborChunk->setSkyLightAt(neighborNX, neighborNY, neighborNZ, lightToSet);
+				neighborChunk->lightLevels[neighborIndex].skyLight = lightToSet;
 				neighborChunk->addSkyLightNodeToQueue(neighborNX, neighborNY, neighborNZ);
+				neighborDirtyMask |= getNeighborDirtyMask(nx, ny, nz);
 			}
 		}
 	}
+
+	// Apply dirty mask
+	applyNeighborDirtyMask(neighborDirtyMask);
 }
 
 void Chunk::updateMesh()
@@ -1634,6 +1658,77 @@ Chunk* Chunk::traverseThroughNeighbors(int x, int y, int z, size_t& outIndex) co
 	return neighbor;
 }
 
+uint32_t Chunk::getNeighborDirtyMask(int x, int y, int z) noexcept
+{
+	const bool nx = x == 0, px = x == (CHUNK_SIZE - 1);
+	const bool ny = y == 0, py = y == (CHUNK_SIZE - 1);
+	const bool nz = z == 0, pz = z == (CHUNK_SIZE - 1);
+
+	uint32_t mask = 0;
+	if (nx)				mask |= 1u << 0;
+	if (px)				mask |= 1u << 1;
+	if (ny)				mask |= 1u << 2;
+	if (py)				mask |= 1u << 3;
+	if (nz)				mask |= 1u << 4;
+	if (pz)				mask |= 1u << 5;
+	if (nx && ny)		mask |= 1u << 6;
+	if (nx && py)		mask |= 1u << 7;
+	if (px && ny)		mask |= 1u << 8;
+	if (px && py)		mask |= 1u << 9;
+	if (nx && nz)		mask |= 1u << 10;
+	if (nx && pz)		mask |= 1u << 11;
+	if (px && nz)		mask |= 1u << 12;
+	if (px && pz)		mask |= 1u << 13;
+	if (ny && nz)		mask |= 1u << 14;
+	if (ny && pz)		mask |= 1u << 15;
+	if (py && nz)		mask |= 1u << 16;
+	if (py && pz)		mask |= 1u << 17;
+	if (nx && ny && nz)	mask |= 1u << 18;
+	if (nx && ny && pz)	mask |= 1u << 19;
+	if (nx && py && nz)	mask |= 1u << 20;
+	if (nx && py && pz)	mask |= 1u << 21;
+	if (px && ny && nz)	mask |= 1u << 22;
+	if (px && ny && pz)	mask |= 1u << 23;
+	if (px && py && nz)	mask |= 1u << 24;
+	if (px && py && pz)	mask |= 1u << 25;
+
+	return mask;
+}
+
+void Chunk::applyNeighborDirtyMask(uint32_t mask)
+{
+	setFlag(Flag::IsMeshDirty, true);
+	if (!mask) return;
+
+	Chunk *n0, *n1, *n2;
+	if ((mask & 1u << 0)  && (n0 = neighbors[0])) n0->setFlag(Flag::IsMeshDirty, true);
+	if ((mask & 1u << 1)  && (n0 = neighbors[1])) n0->setFlag(Flag::IsMeshDirty, true);
+	if ((mask & 1u << 2)  && (n0 = neighbors[2])) n0->setFlag(Flag::IsMeshDirty, true);
+	if ((mask & 1u << 3)  && (n0 = neighbors[3])) n0->setFlag(Flag::IsMeshDirty, true);
+	if ((mask & 1u << 4)  && (n0 = neighbors[4])) n0->setFlag(Flag::IsMeshDirty, true);
+	if ((mask & 1u << 5)  && (n0 = neighbors[5])) n0->setFlag(Flag::IsMeshDirty, true);
+	if ((mask & 1u << 6)  && (n0 = neighbors[0]) && (n1 = n0->neighbors[2])) n1->setFlag(Flag::IsMeshDirty, true);
+	if ((mask & 1u << 7)  && (n0 = neighbors[0]) && (n1 = n0->neighbors[3])) n1->setFlag(Flag::IsMeshDirty, true);
+	if ((mask & 1u << 8)  && (n0 = neighbors[1]) && (n1 = n0->neighbors[2])) n1->setFlag(Flag::IsMeshDirty, true);
+	if ((mask & 1u << 9)  && (n0 = neighbors[1]) && (n1 = n0->neighbors[3])) n1->setFlag(Flag::IsMeshDirty, true);
+	if ((mask & 1u << 10) && (n0 = neighbors[0]) && (n1 = n0->neighbors[4])) n1->setFlag(Flag::IsMeshDirty, true);
+	if ((mask & 1u << 11) && (n0 = neighbors[0]) && (n1 = n0->neighbors[5])) n1->setFlag(Flag::IsMeshDirty, true);
+	if ((mask & 1u << 12) && (n0 = neighbors[1]) && (n1 = n0->neighbors[4])) n1->setFlag(Flag::IsMeshDirty, true);
+	if ((mask & 1u << 13) && (n0 = neighbors[1]) && (n1 = n0->neighbors[5])) n1->setFlag(Flag::IsMeshDirty, true);
+	if ((mask & 1u << 14) && (n0 = neighbors[2]) && (n1 = n0->neighbors[4])) n1->setFlag(Flag::IsMeshDirty, true);
+	if ((mask & 1u << 15) && (n0 = neighbors[2]) && (n1 = n0->neighbors[5])) n1->setFlag(Flag::IsMeshDirty, true);
+	if ((mask & 1u << 16) && (n0 = neighbors[3]) && (n1 = n0->neighbors[4])) n1->setFlag(Flag::IsMeshDirty, true);
+	if ((mask & 1u << 17) && (n0 = neighbors[3]) && (n1 = n0->neighbors[5])) n1->setFlag(Flag::IsMeshDirty, true);
+	if ((mask & 1u << 18) && (n0 = neighbors[0]) && (n1 = n0->neighbors[2]) && (n2 = n1->neighbors[4])) n2->setFlag(Flag::IsMeshDirty, true);
+	if ((mask & 1u << 19) && (n0 = neighbors[0]) && (n1 = n0->neighbors[2]) && (n2 = n1->neighbors[5])) n2->setFlag(Flag::IsMeshDirty, true);
+	if ((mask & 1u << 20) && (n0 = neighbors[0]) && (n1 = n0->neighbors[3]) && (n2 = n1->neighbors[4])) n2->setFlag(Flag::IsMeshDirty, true);
+	if ((mask & 1u << 21) && (n0 = neighbors[0]) && (n1 = n0->neighbors[3]) && (n2 = n1->neighbors[5])) n2->setFlag(Flag::IsMeshDirty, true);
+	if ((mask & 1u << 22) && (n0 = neighbors[1]) && (n1 = n0->neighbors[2]) && (n2 = n1->neighbors[4])) n2->setFlag(Flag::IsMeshDirty, true);
+	if ((mask & 1u << 23) && (n0 = neighbors[1]) && (n1 = n0->neighbors[2]) && (n2 = n1->neighbors[5])) n2->setFlag(Flag::IsMeshDirty, true);
+	if ((mask & 1u << 24) && (n0 = neighbors[1]) && (n1 = n0->neighbors[3]) && (n2 = n1->neighbors[4])) n2->setFlag(Flag::IsMeshDirty, true);
+	if ((mask & 1u << 25) && (n0 = neighbors[1]) && (n1 = n0->neighbors[3]) && (n2 = n1->neighbors[5])) n2->setFlag(Flag::IsMeshDirty, true);
+}
+
 std::pair<BlockId, LightLevel> Chunk::getBlockAndLightAt(int x, int y, int z) const
 {
 	size_t index = getIndex(x, y, z);
@@ -1747,25 +1842,25 @@ void Chunk::setBlockAt(int x, int y, int z, BlockId block, bool saveBlockChanges
 	}
 
 	// Mark meshes as dirty
-	markBlockMeshDirty(x, y, z);
+	markMeshesDirtyAroundBlock(x, y, z);
 }
 
 void Chunk::setLightAt(int x, int y, int z, LightLevel lightValue)
 {
 	lightLevels[getIndex(x, y, z)] = lightValue;
-	markBlockMeshDirty(x, y, z);
+	markMeshesDirtyAroundBlock(x, y, z);
 }
 
 void Chunk::setBlockLightAt(int x, int y, int z, uint8_t lightLevel)
 {
 	lightLevels[getIndex(x, y, z)].blockLight = lightLevel;
-	markBlockMeshDirty(x, y, z);
+	markMeshesDirtyAroundBlock(x, y, z);
 }
 
 void Chunk::setSkyLightAt(int x, int y, int z, uint8_t lightLevel)
 {
 	lightLevels[getIndex(x, y, z)].skyLight = lightLevel;
-	markBlockMeshDirty(x, y, z);
+	markMeshesDirtyAroundBlock(x, y, z);
 }
 
 void Chunk::setLightAt(size_t index, LightLevel lightValue)
@@ -1773,7 +1868,7 @@ void Chunk::setLightAt(size_t index, LightLevel lightValue)
 	lightLevels[index] = lightValue;
 
 	glm::ivec3 pos = getPositionFromIndex(index);
-	markBlockMeshDirty(pos.x, pos.y, pos.z);
+	markMeshesDirtyAroundBlock(pos.x, pos.y, pos.z);
 }
 
 void Chunk::setBlockLightAt(size_t index, uint8_t lightLevel)
@@ -1781,7 +1876,7 @@ void Chunk::setBlockLightAt(size_t index, uint8_t lightLevel)
 	lightLevels[index].blockLight = lightLevel;
 
 	glm::ivec3 pos = getPositionFromIndex(index);
-	markBlockMeshDirty(pos.x, pos.y, pos.z);
+	markMeshesDirtyAroundBlock(pos.x, pos.y, pos.z);
 }
 
 void Chunk::setSkyLightAt(size_t index, uint8_t lightLevel)
@@ -1789,7 +1884,7 @@ void Chunk::setSkyLightAt(size_t index, uint8_t lightLevel)
 	lightLevels[index].skyLight = lightLevel;
 
 	glm::ivec3 pos = getPositionFromIndex(index);
-	markBlockMeshDirty(pos.x, pos.y, pos.z);
+	markMeshesDirtyAroundBlock(pos.x, pos.y, pos.z);
 }
 
 void Chunk::addBlockLightNodeToQueue(int x, int y, int z)
@@ -1816,103 +1911,10 @@ void Chunk::addSkyLightRemovalNodeToQueue(int x, int y, int z, uint8_t lightLeve
 	skyLightRemovalBfsQueue.emplace(x, y, z, lightLevel);
 }
 
-void Chunk::markBlockMeshDirty(int x, int y, int z)
+void Chunk::markMeshesDirtyAroundBlock(int x, int y, int z)
 {
-	setFlag(Flag::IsMeshDirty, true);
-
-	// Mark neighbor meshes as dirty
-	const bool left = x == 0;
-	const bool right = x == (CHUNK_SIZE - 1);
-	const bool bottom = y == 0;
-	const bool top = y == (CHUNK_SIZE - 1);
-	const bool back = z == 0;
-	const bool front = z == (CHUNK_SIZE - 1);
-
-	// Early exit if not on any boundary
-	if (!(left || right || bottom || top || back || front)) return;
-
-	// Sides
-	Chunk* n0;
-	if (left   && (n0 = neighbors[0])) n0->setFlag(Flag::IsMeshDirty, true);;
-	if (right  && (n0 = neighbors[1])) n0->setFlag(Flag::IsMeshDirty, true);;
-	if (bottom && (n0 = neighbors[2])) n0->setFlag(Flag::IsMeshDirty, true);;
-	if (top    && (n0 = neighbors[3])) n0->setFlag(Flag::IsMeshDirty, true);;
-	if (back   && (n0 = neighbors[4])) n0->setFlag(Flag::IsMeshDirty, true);;
-	if (front  && (n0 = neighbors[5])) n0->setFlag(Flag::IsMeshDirty, true);;
-
-	// Edges
-	Chunk* n1;
-	if (left   && bottom && (n0 = neighbors[0]) && (n1 = n0->neighbors[2])) n1->setFlag(Flag::IsMeshDirty, true);;
-	if (left   && top    && (n0 = neighbors[0]) && (n1 = n0->neighbors[3])) n1->setFlag(Flag::IsMeshDirty, true);;
-	if (right  && bottom && (n0 = neighbors[1]) && (n1 = n0->neighbors[2])) n1->setFlag(Flag::IsMeshDirty, true);;
-	if (right  && top    && (n0 = neighbors[1]) && (n1 = n0->neighbors[3])) n1->setFlag(Flag::IsMeshDirty, true);;
-	if (left   && back   && (n0 = neighbors[0]) && (n1 = n0->neighbors[4])) n1->setFlag(Flag::IsMeshDirty, true);;
-	if (left   && front  && (n0 = neighbors[0]) && (n1 = n0->neighbors[5])) n1->setFlag(Flag::IsMeshDirty, true);;
-	if (right  && back   && (n0 = neighbors[1]) && (n1 = n0->neighbors[4])) n1->setFlag(Flag::IsMeshDirty, true);;
-	if (right  && front  && (n0 = neighbors[1]) && (n1 = n0->neighbors[5])) n1->setFlag(Flag::IsMeshDirty, true);;
-	if (bottom && back   && (n0 = neighbors[2]) && (n1 = n0->neighbors[4])) n1->setFlag(Flag::IsMeshDirty, true);;
-	if (bottom && front  && (n0 = neighbors[2]) && (n1 = n0->neighbors[5])) n1->setFlag(Flag::IsMeshDirty, true);;
-	if (top    && back   && (n0 = neighbors[3]) && (n1 = n0->neighbors[4])) n1->setFlag(Flag::IsMeshDirty, true);;
-	if (top    && front  && (n0 = neighbors[3]) && (n1 = n0->neighbors[5])) n1->setFlag(Flag::IsMeshDirty, true);;
-
-	// Corners
-	Chunk* n2;
-	if (left && bottom && back &&
-		(n0 = neighbors[0]) &&
-		(n1 = n0->neighbors[2]) &&
-		(n2 = n1->neighbors[4]))
-	{
-		n2->setFlag(Flag::IsMeshDirty, true);
-	}
-	if (left && bottom && front &&
-		(n0 = neighbors[0]) &&
-		(n1 = n0->neighbors[2]) &&
-		(n2 = n1->neighbors[5]))
-	{
-		n2->setFlag(Flag::IsMeshDirty, true);
-	}
-	if (left && top && back &&
-		(n0 = neighbors[0]) &&
-		(n1 = n0->neighbors[3]) &&
-		(n2 = n1->neighbors[4]))
-	{
-		n2->setFlag(Flag::IsMeshDirty, true);
-	}
-	if (left && top && front &&
-		(n0 = neighbors[0]) &&
-		(n1 = n0->neighbors[3]) &&
-		(n2 = n1->neighbors[5]))
-	{
-		n2->setFlag(Flag::IsMeshDirty, true);
-	}
-	if (right && bottom && back &&
-		(n0 = neighbors[1]) &&
-		(n1 = n0->neighbors[2]) &&
-		(n2 = n1->neighbors[4]))
-	{
-		n2->setFlag(Flag::IsMeshDirty, true);
-	}
-	if (right && bottom && front &&
-		(n0 = neighbors[1]) &&
-		(n1 = n0->neighbors[2]) &&
-		(n2 = n1->neighbors[5]))
-	{
-		n2->setFlag(Flag::IsMeshDirty, true);
-	}
-	if (right && top && back &&
-		(n0 = neighbors[1]) &&
-		(n1 = n0->neighbors[3]) &&
-		(n2 = n1->neighbors[4]))
-	{
-		n2->setFlag(Flag::IsMeshDirty, true);
-	}
-	if (right && top && front &&
-		(n0 = neighbors[1]) &&
-		(n1 = n0->neighbors[3]) &&
-		(n2 = n1->neighbors[5]))
-	{
-		n2->setFlag(Flag::IsMeshDirty, true);
-	}
+	uint32_t dirtyMask = getNeighborDirtyMask(x, y, z);
+	applyNeighborDirtyMask(dirtyMask);
 }
 
 void Chunk::calculateVertexAmbientOcclusionAndLight(
