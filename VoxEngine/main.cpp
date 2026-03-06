@@ -777,7 +777,7 @@ static int gameFunc()
 
         if (profilerUpdateTimer.shouldUpdate())
         {
-            Profiler::printProfileReport();
+            //Profiler::printProfileReport();
         }
     }
     //Profiler::printProfileReport();
@@ -799,11 +799,7 @@ int main()
     {
         FileLogger logger("log/crash.txt");
 
-        auto now = std::chrono::system_clock::now();
-        auto time = std::chrono::current_zone()->to_local(now);
-        auto date = std::format("{:%Y-%m-%d %H:%M}", time);
-
-		std::string message = date + " | EXCEPTION: " + e.what();
+		std::string message = "EXCEPTION: " + std::string(e.what());
 
         logger.add(message);
         result = -1;

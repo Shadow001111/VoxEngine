@@ -1,5 +1,7 @@
 #include "ThreadPool.h"
 
+#include "FileLogger.h"
+
 ThreadPool::ThreadPool(size_t numThreads)
 {
     if (numThreads == 0)
@@ -48,9 +50,9 @@ void ThreadPool::shutdown()
 
 void ThreadPool::workerThread()
 {
+    Task task;
     while (true)
     {
-        Task task;
         {
             std::unique_lock<std::mutex> lock(queueMutex);
             condition.wait(lock, [this] { return !tasks.empty() || stop.load(std::memory_order_relaxed); });
@@ -64,7 +66,27 @@ void ThreadPool::workerThread()
             tasks.pop();
         }
 
-        task();
+        if (!task)
+        {
+            FileLogger logger("log/warnings.txt");
+			logger.add("Warning: Empty task encountered in thread pool worker thread");
+            continue; // Skip empty tasks
+		}
+
+        try
+        {
+            task();
+        }
+        catch (const std::exception& e)
+        {
+            FileLogger logger("log/warnings.txt");
+			logger.add(std::string("Exception in thread pool worker thread: ") + e.what());
+        }
+        catch (...)
+        {
+			FileLogger logger("log/warnings.txt");
+			logger.add("Unknown exception in thread pool worker thread");
+        }
     }
 }
 
