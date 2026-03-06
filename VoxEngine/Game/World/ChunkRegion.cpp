@@ -15,4 +15,5 @@ void ChunkRegion::init()
 {
 	chunks.fill(nullptr);
 	chunkCount = 0;
+	flags.reset();
 }

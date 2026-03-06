@@ -1479,7 +1479,17 @@ void Chunk::updateMesh()
 		else
 		{
 			mesh.faceStorage.dirty = true;
+
+			// Global flag
 			mesh.hasPendingMeshUploads.store(true, std::memory_order_release);
+
+			// Region flag
+			glm::ivec3 regionPosition = ChunkRegion::getRegionPosition(position);
+			ChunkRegion* region = chunkRegionManagerInstance.getRegion(regionPosition);
+			if (region)
+			{
+				region->setFlag(ChunkRegion::Flag::HasMeshToUpload, true);
+			}
 		}
 	}
 }

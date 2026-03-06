@@ -137,15 +137,22 @@ void WorldChunkManager::sendChunkMeshesToGPU()
 	{
 		ChunkMesh::setHasPendingMeshUploads(false);
 
-		PROFILE_SCOPE("Check dirty meshes to send to GPU", ProfileCategory::ChunkMesh);
-
-		for (const auto& [_, chunkRegion] : Chunk::chunkRegionManagerInstance.getRegionMap())
 		{
-			for (Chunk* chunk : chunkRegion->chunks)
-			{
-				if (!chunk) continue;
+			PROFILE_SCOPE("Check dirty meshes to send to GPU", ProfileCategory::ChunkMesh);
 
-				chunk->askForMeshUpload();
+			for (const auto& [_, chunkRegion] : Chunk::chunkRegionManagerInstance.getRegionMap())
+			{
+				if (!chunkRegion->readAndSetFlag(ChunkRegion::Flag::HasMeshToUpload, false))
+				{
+					continue;
+				}
+
+				for (Chunk* chunk : chunkRegion->chunks)
+				{
+					if (!chunk) continue;
+
+					chunk->askForMeshUpload();
+				}
 			}
 		}
 

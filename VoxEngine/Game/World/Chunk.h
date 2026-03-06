@@ -161,7 +161,7 @@ public:
 
 	// Mesh
 	void updateMesh();
-	bool shouldMeshBeUpdated() const { return meshDirty&& isLightBuilt(); };
+	bool shouldMeshBeUpdated() const { return meshDirty && isLightBuilt(); };
 	void markMeshDirty();
 	void askForMeshUpload();
 
