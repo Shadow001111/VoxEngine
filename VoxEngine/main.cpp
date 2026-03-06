@@ -798,7 +798,14 @@ int main()
     catch (const std::exception& e)
     {
         FileLogger logger("log/crash.txt");
-        logger.logException(e);
+
+        auto now = std::chrono::system_clock::now();
+        auto time = std::chrono::current_zone()->to_local(now);
+        auto date = std::format("{:%Y-%m-%d %H:%M}", time);
+
+		std::string message = date + " | EXCEPTION: " + e.what();
+
+        logger.add(message);
         result = -1;
     }
 
