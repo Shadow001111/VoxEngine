@@ -10,6 +10,7 @@ float continentalSpline(float x)
 
 
 #define MIN_FUNCTION(a, b) a < b ? a : b
+#define MAX_FUNCTION(a, b) a > b ? a : b
 #define ABS_FUNCTION(a) std::abs(a) //a > 0 ? a : -a;
 
 
@@ -222,36 +223,26 @@ float TerrainGenerator::calculateHeight(float continentalNoise, float erosionNoi
 	constexpr float weirdnessAmplitude = 20.0f;
 	constexpr float beachThreshold = 10.0f / continentalAmplitude;
 
+	// Precompute for small performance
+	constexpr float invBeachThreshold = 1.0f / beachThreshold;
+	constexpr float invOneMinusErosionThreshold = 1.0f / (1.0f - erosionThreshold);
+
 	// Continental
 	float continentalNoiseSpline = continentalSpline(continentalNoise);
 	float continentalHeight = continentalNoiseSpline * continentalAmplitude;
 	float height = continentalHeight;
 
-	float beachOcean;
-	if (continentalNoiseSpline < 0.0f)
-	{
-		beachOcean = 1.0f;
-	}
-	else if (continentalNoiseSpline > beachThreshold)
-	{
-		beachOcean = 0.0f;
-	}
-	else
-	{
-		beachOcean = 1.0 - continentalNoiseSpline / beachThreshold;
-	}
+	float oceanToBeach = std::min(std::max(continentalNoiseSpline * invBeachThreshold, 0.0f), 1.0f);
 
 	// Erosion
 	erosionNoise = (erosionNoise + 1.0f) * 0.5f;
-	if (erosionNoise > erosionThreshold)
-	{
-		float erosionNormalized = (erosionNoise - erosionThreshold) / (1.0f - erosionThreshold);
-		height -= erosionNormalized * erosionAmplitude * (1.0f - beachOcean);
-	}
+
+	float erosionNormalized = MAX_FUNCTION(erosionNoise - erosionThreshold, 0.0f) * invOneMinusErosionThreshold;
+	height -= erosionNormalized * erosionAmplitude * oceanToBeach;
 
 	// Weirdness
-	weirdnessNoise = (weirdnessNoise + 1.0f) * 0.5f;
-	float weirdnessHeight = (1.0f - ABS_FUNCTION(3.0f * weirdnessNoise - 2.0f)) * weirdnessAmplitude * (1.0f - beachOcean);
+	weirdnessNoise = weirdnessNoise + 1.0f; // [0, 2]
+	float weirdnessHeight = (1.0f - std::abs(1.5f * weirdnessNoise - 2.0f)) * weirdnessAmplitude * oceanToBeach;
 	height += weirdnessHeight;
 
 	return height;
