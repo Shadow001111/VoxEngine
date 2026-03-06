@@ -60,7 +60,6 @@ private:
 	// States and flags
 	std::atomic<State> state = State::NotInitialized_NeedsBlocks;
 	AtomicFlags<uint8_t> chunkFlags;
-	bool meshDirty = false;
 
 	// Loaders count
 	uint8_t loaderCount = 0;
@@ -161,7 +160,7 @@ public:
 
 	// Mesh
 	void updateMesh();
-	bool shouldMeshBeUpdated() const { return meshDirty && isLightBuilt(); };
+	bool shouldMeshBeUpdated() const { return chunkFlags.read(Flag::IsMeshDirty) && isLightBuilt(); };
 	void markMeshDirty();
 	void askForMeshUpload();
 
@@ -218,6 +217,9 @@ public:
 	// Getters and setters for states and flags
 	State getState() const { return state.load(std::memory_order_acquire); };
 	void setState(State newState) { state.store(newState, std::memory_order_release); }
+
+	void setFlag(Flag flag, bool value) { chunkFlags.set(static_cast<unsigned>(flag), value); }
+	bool readFlag(Flag flag) const { return chunkFlags.read(static_cast<unsigned>(flag)); }
 
 	bool getIsProcessing() const noexcept { return processingFence.isProcessing(); };
 

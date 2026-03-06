@@ -52,19 +52,14 @@ void Chunk::init(const glm::ivec3& position, const std::array<Chunk*, 6>& newNei
 	}
 
 	// Reset
-	ASSERT(loaderCount > 0);
-
 	setState(Chunk::State::NotInitialized_NeedsBlocks);
 
 	chunkFlags.reset();
 	chunkFlags.set(Flag::IsLoadedInWorld, true);
+	chunkFlags.set(Flag::IsMeshDirty, false);
 
 	mesh.faceStorage.resetRenderFaceCount();
 	mesh.faceStorage.dirty = false;
-
-	meshDirty = false;
-	
-	ASSERT(changedBlocks.empty());
 }
 
 // Cleans up resources
@@ -301,81 +296,82 @@ void Chunk::buildBlocks()
 	// Mark itself and neighbors meshes as dirty
 
 	{
-		meshDirty = true;
+		setFlag(Flag::IsMeshDirty, true);
 
 		// Sides
 		Chunk* n0;
-		if (n0 = neighbors[0]) n0->meshDirty = true;
-		if (n0 = neighbors[1]) n0->meshDirty = true;
-		if (n0 = neighbors[2]) n0->meshDirty = true;
-		if (n0 = neighbors[3]) n0->meshDirty = true;
-		if (n0 = neighbors[4]) n0->meshDirty = true;
-		if (n0 = neighbors[5]) n0->meshDirty = true;
+		if (n0 = neighbors[0]) n0->setFlag(Flag::IsMeshDirty, true);;
+		if (n0 = neighbors[1]) n0->setFlag(Flag::IsMeshDirty, true);;
+		if (n0 = neighbors[2]) n0->setFlag(Flag::IsMeshDirty, true);;
+		if (n0 = neighbors[3]) n0->setFlag(Flag::IsMeshDirty, true);;
+		if (n0 = neighbors[4]) n0->setFlag(Flag::IsMeshDirty, true);;
+		if (n0 = neighbors[5]) n0->setFlag(Flag::IsMeshDirty, true);;
 
 		// Edges
 		Chunk* n1;
-		if ((n0 = neighbors[0]) && (n1 = n0->neighbors[2])) n1->meshDirty = true;
-		if ((n0 = neighbors[0]) && (n1 = n0->neighbors[3])) n1->meshDirty = true;
-		if ((n0 = neighbors[1]) && (n1 = n0->neighbors[2])) n1->meshDirty = true;
-		if ((n0 = neighbors[1]) && (n1 = n0->neighbors[3])) n1->meshDirty = true;
-		if ((n0 = neighbors[0]) && (n1 = n0->neighbors[4])) n1->meshDirty = true;
-		if ((n0 = neighbors[0]) && (n1 = n0->neighbors[5])) n1->meshDirty = true;
-		if ((n0 = neighbors[1]) && (n1 = n0->neighbors[4])) n1->meshDirty = true;
-		if ((n0 = neighbors[1]) && (n1 = n0->neighbors[5])) n1->meshDirty = true;
-		if ((n0 = neighbors[2]) && (n1 = n0->neighbors[4])) n1->meshDirty = true;
-		if ((n0 = neighbors[2]) && (n1 = n0->neighbors[5])) n1->meshDirty = true;
-		if ((n0 = neighbors[3]) && (n1 = n0->neighbors[4])) n1->meshDirty = true;
-		if ((n0 = neighbors[3]) && (n1 = n0->neighbors[5])) n1->meshDirty = true;
+		if ((n0 = neighbors[0]) && (n1 = n0->neighbors[2])) n1->setFlag(Flag::IsMeshDirty, true);
+		if ((n0 = neighbors[0]) && (n1 = n0->neighbors[3])) n1->setFlag(Flag::IsMeshDirty, true);
+		if ((n0 = neighbors[1]) && (n1 = n0->neighbors[2])) n1->setFlag(Flag::IsMeshDirty, true);
+		if ((n0 = neighbors[1]) && (n1 = n0->neighbors[3])) n1->setFlag(Flag::IsMeshDirty, true);
+		if ((n0 = neighbors[0]) && (n1 = n0->neighbors[4])) n1->setFlag(Flag::IsMeshDirty, true);
+		if ((n0 = neighbors[0]) && (n1 = n0->neighbors[5])) n1->setFlag(Flag::IsMeshDirty, true);
+		if ((n0 = neighbors[1]) && (n1 = n0->neighbors[4])) n1->setFlag(Flag::IsMeshDirty, true);
+		if ((n0 = neighbors[1]) && (n1 = n0->neighbors[5])) n1->setFlag(Flag::IsMeshDirty, true);
+		if ((n0 = neighbors[2]) && (n1 = n0->neighbors[4])) n1->setFlag(Flag::IsMeshDirty, true);
+		if ((n0 = neighbors[2]) && (n1 = n0->neighbors[5])) n1->setFlag(Flag::IsMeshDirty, true);
+		if ((n0 = neighbors[3]) && (n1 = n0->neighbors[4])) n1->setFlag(Flag::IsMeshDirty, true);
+		if ((n0 = neighbors[3]) && (n1 = n0->neighbors[5])) n1->setFlag(Flag::IsMeshDirty, true);
 
 		// Corners
+		// TODO: Either store corner neighbors too, or use ChunkRegion system
 		Chunk* n2;
 		if ((n0 = neighbors[0]) &&
 			(n1 = n0->neighbors[2]) &&
 			(n2 = n1->neighbors[4]))
 		{
-			n2->meshDirty = true;
+			n2->setFlag(Flag::IsMeshDirty, true);;
 		}
 		if ((n0 = neighbors[0]) &&
 			(n1 = n0->neighbors[2]) &&
 			(n2 = n1->neighbors[5]))
 		{
-			n2->meshDirty = true;
+			n2->setFlag(Flag::IsMeshDirty, true);;
 		}
 		if ((n0 = neighbors[0]) &&
 			(n1 = n0->neighbors[3]) &&
 			(n2 = n1->neighbors[4]))
 		{
-			n2->meshDirty = true;
+			n2->setFlag(Flag::IsMeshDirty, true);;
 		}
 		if ((n0 = neighbors[0]) &&
 			(n1 = n0->neighbors[3]) &&
 			(n2 = n1->neighbors[5]))
 		{
-			n2->meshDirty = true;
+			n2->setFlag(Flag::IsMeshDirty, true);;
 		}
 		if ((n0 = neighbors[1]) &&
 			(n1 = n0->neighbors[2]) &&
 			(n2 = n1->neighbors[4]))
 		{
-			n2->meshDirty = true;
+			n2->setFlag(Flag::IsMeshDirty, true);;
 		}
 		if ((n0 = neighbors[1]) &&
 			(n1 = n0->neighbors[2]) &&
 			(n2 = n1->neighbors[5]))
 		{
-			n2->meshDirty = true;
+			n2->setFlag(Flag::IsMeshDirty, true);;
 		}
 		if ((n0 = neighbors[1]) &&
 			(n1 = n0->neighbors[3]) &&
 			(n2 = n1->neighbors[4]))
 		{
-			n2->meshDirty = true;
+			n2->setFlag(Flag::IsMeshDirty, true);;
 		}
 		if ((n0 = neighbors[1]) &&
 			(n1 = n0->neighbors[3]) &&
 			(n2 = n1->neighbors[5]))
 		{
-			n2->meshDirty = true;
+			n2->setFlag(Flag::IsMeshDirty, true);;
 		}
 	}
 }
@@ -1278,7 +1274,7 @@ void Chunk::updateLight()
 void Chunk::updateMesh()
 {
 	if (
-		!meshDirty ||
+		!readFlag(Flag::IsMeshDirty) ||
 		!isLightBuilt() ||
 		!chunkFlags.read(Flag::IsLoadedInWorld)
 		)
@@ -1288,7 +1284,7 @@ void Chunk::updateMesh()
 	
 	FenceGuard scopedFence(processingFence);
 
-	meshDirty = false;
+	setFlag(Flag::IsMeshDirty, false);
 
 	PROFILE_SCOPE("Update chunk mesh", ProfileCategory::ChunkMesh);
 
@@ -1496,7 +1492,7 @@ void Chunk::updateMesh()
 
 void Chunk::markMeshDirty()
 {
-	meshDirty = true;
+	setFlag(Flag::IsMeshDirty, true);
 }
 
 void Chunk::askForMeshUpload()
@@ -1822,7 +1818,7 @@ void Chunk::addSkyLightRemovalNodeToQueue(int x, int y, int z, uint8_t lightLeve
 
 void Chunk::markBlockMeshDirty(int x, int y, int z)
 {
-	meshDirty = true;
+	setFlag(Flag::IsMeshDirty, true);
 
 	// Mark neighbor meshes as dirty
 	const bool left = x == 0;
@@ -1837,27 +1833,27 @@ void Chunk::markBlockMeshDirty(int x, int y, int z)
 
 	// Sides
 	Chunk* n0;
-	if (left   && (n0 = neighbors[0])) n0->meshDirty = true;
-	if (right  && (n0 = neighbors[1])) n0->meshDirty = true;
-	if (bottom && (n0 = neighbors[2])) n0->meshDirty = true;
-	if (top    && (n0 = neighbors[3])) n0->meshDirty = true;
-	if (back   && (n0 = neighbors[4])) n0->meshDirty = true;
-	if (front  && (n0 = neighbors[5])) n0->meshDirty = true;
+	if (left   && (n0 = neighbors[0])) n0->setFlag(Flag::IsMeshDirty, true);;
+	if (right  && (n0 = neighbors[1])) n0->setFlag(Flag::IsMeshDirty, true);;
+	if (bottom && (n0 = neighbors[2])) n0->setFlag(Flag::IsMeshDirty, true);;
+	if (top    && (n0 = neighbors[3])) n0->setFlag(Flag::IsMeshDirty, true);;
+	if (back   && (n0 = neighbors[4])) n0->setFlag(Flag::IsMeshDirty, true);;
+	if (front  && (n0 = neighbors[5])) n0->setFlag(Flag::IsMeshDirty, true);;
 
 	// Edges
 	Chunk* n1;
-	if (left   && bottom && (n0 = neighbors[0]) && (n1 = n0->neighbors[2])) n1->meshDirty = true;
-	if (left   && top    && (n0 = neighbors[0]) && (n1 = n0->neighbors[3])) n1->meshDirty = true;
-	if (right  && bottom && (n0 = neighbors[1]) && (n1 = n0->neighbors[2])) n1->meshDirty = true;
-	if (right  && top    && (n0 = neighbors[1]) && (n1 = n0->neighbors[3])) n1->meshDirty = true;
-	if (left   && back   && (n0 = neighbors[0]) && (n1 = n0->neighbors[4])) n1->meshDirty = true;
-	if (left   && front  && (n0 = neighbors[0]) && (n1 = n0->neighbors[5])) n1->meshDirty = true;
-	if (right  && back   && (n0 = neighbors[1]) && (n1 = n0->neighbors[4])) n1->meshDirty = true;
-	if (right  && front  && (n0 = neighbors[1]) && (n1 = n0->neighbors[5])) n1->meshDirty = true;
-	if (bottom && back   && (n0 = neighbors[2]) && (n1 = n0->neighbors[4])) n1->meshDirty = true;
-	if (bottom && front  && (n0 = neighbors[2]) && (n1 = n0->neighbors[5])) n1->meshDirty = true;
-	if (top    && back   && (n0 = neighbors[3]) && (n1 = n0->neighbors[4])) n1->meshDirty = true;
-	if (top    && front  && (n0 = neighbors[3]) && (n1 = n0->neighbors[5])) n1->meshDirty = true;
+	if (left   && bottom && (n0 = neighbors[0]) && (n1 = n0->neighbors[2])) n1->setFlag(Flag::IsMeshDirty, true);;
+	if (left   && top    && (n0 = neighbors[0]) && (n1 = n0->neighbors[3])) n1->setFlag(Flag::IsMeshDirty, true);;
+	if (right  && bottom && (n0 = neighbors[1]) && (n1 = n0->neighbors[2])) n1->setFlag(Flag::IsMeshDirty, true);;
+	if (right  && top    && (n0 = neighbors[1]) && (n1 = n0->neighbors[3])) n1->setFlag(Flag::IsMeshDirty, true);;
+	if (left   && back   && (n0 = neighbors[0]) && (n1 = n0->neighbors[4])) n1->setFlag(Flag::IsMeshDirty, true);;
+	if (left   && front  && (n0 = neighbors[0]) && (n1 = n0->neighbors[5])) n1->setFlag(Flag::IsMeshDirty, true);;
+	if (right  && back   && (n0 = neighbors[1]) && (n1 = n0->neighbors[4])) n1->setFlag(Flag::IsMeshDirty, true);;
+	if (right  && front  && (n0 = neighbors[1]) && (n1 = n0->neighbors[5])) n1->setFlag(Flag::IsMeshDirty, true);;
+	if (bottom && back   && (n0 = neighbors[2]) && (n1 = n0->neighbors[4])) n1->setFlag(Flag::IsMeshDirty, true);;
+	if (bottom && front  && (n0 = neighbors[2]) && (n1 = n0->neighbors[5])) n1->setFlag(Flag::IsMeshDirty, true);;
+	if (top    && back   && (n0 = neighbors[3]) && (n1 = n0->neighbors[4])) n1->setFlag(Flag::IsMeshDirty, true);;
+	if (top    && front  && (n0 = neighbors[3]) && (n1 = n0->neighbors[5])) n1->setFlag(Flag::IsMeshDirty, true);;
 
 	// Corners
 	Chunk* n2;
@@ -1866,56 +1862,56 @@ void Chunk::markBlockMeshDirty(int x, int y, int z)
 		(n1 = n0->neighbors[2]) &&
 		(n2 = n1->neighbors[4]))
 	{
-		n2->meshDirty = true;
+		n2->setFlag(Flag::IsMeshDirty, true);
 	}
 	if (left && bottom && front &&
 		(n0 = neighbors[0]) &&
 		(n1 = n0->neighbors[2]) &&
 		(n2 = n1->neighbors[5]))
 	{
-		n2->meshDirty = true;
+		n2->setFlag(Flag::IsMeshDirty, true);
 	}
 	if (left && top && back &&
 		(n0 = neighbors[0]) &&
 		(n1 = n0->neighbors[3]) &&
 		(n2 = n1->neighbors[4]))
 	{
-		n2->meshDirty = true;
+		n2->setFlag(Flag::IsMeshDirty, true);
 	}
 	if (left && top && front &&
 		(n0 = neighbors[0]) &&
 		(n1 = n0->neighbors[3]) &&
 		(n2 = n1->neighbors[5]))
 	{
-		n2->meshDirty = true;
+		n2->setFlag(Flag::IsMeshDirty, true);
 	}
 	if (right && bottom && back &&
 		(n0 = neighbors[1]) &&
 		(n1 = n0->neighbors[2]) &&
 		(n2 = n1->neighbors[4]))
 	{
-		n2->meshDirty = true;
+		n2->setFlag(Flag::IsMeshDirty, true);
 	}
 	if (right && bottom && front &&
 		(n0 = neighbors[1]) &&
 		(n1 = n0->neighbors[2]) &&
 		(n2 = n1->neighbors[5]))
 	{
-		n2->meshDirty = true;
+		n2->setFlag(Flag::IsMeshDirty, true);
 	}
 	if (right && top && back &&
 		(n0 = neighbors[1]) &&
 		(n1 = n0->neighbors[3]) &&
 		(n2 = n1->neighbors[4]))
 	{
-		n2->meshDirty = true;
+		n2->setFlag(Flag::IsMeshDirty, true);
 	}
 	if (right && top && front &&
 		(n0 = neighbors[1]) &&
 		(n1 = n0->neighbors[3]) &&
 		(n2 = n1->neighbors[5]))
 	{
-		n2->meshDirty = true;
+		n2->setFlag(Flag::IsMeshDirty, true);
 	}
 }
 
