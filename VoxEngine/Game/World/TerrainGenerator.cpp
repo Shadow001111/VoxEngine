@@ -173,25 +173,28 @@ void TerrainGenerator::unloadChunkColumnData(int chunkX, int chunkZ)
 void TerrainGenerator::computeCaveMask(bool* outArray, int chunkX, int chunkY, int chunkZ) const
 {
 	// TODO: Try computing low-resolution noise array and interpolate it
-	// TODO: Separate two scopes with different profiling
-	PROFILE_SCOPE("Compute cave mask", ProfileCategory::TerrainGeneration);
 
 	float* caveNoiseArray = threadLocalData.resources->caveNoiseArray.data();
 
 	{
+		PROFILE_SCOPE("Cave mask: compute noises", ProfileCategory::TerrainGeneration);
+
 		NoiseParams params;
 		params.frequency = 0.01f;
 		params.layerCount = 3;
 		computeLayeredNoise_3D(caveNoiseArray, chunkX, chunkY, chunkZ, params);
 	}
 
-	for (size_t i = 0; i < CHUNK_VOLUME; i++)
 	{
-		float value = caveNoiseArray[i];
-		value = ABS_FUNCTION(value);
-		value = MIN_FUNCTION(value * 5.0f, 1.0f);
+		PROFILE_SCOPE("Cave mask: combine noises", ProfileCategory::TerrainGeneration);
 
-		outArray[i] = value < 0.5f;
+		for (size_t i = 0; i < CHUNK_VOLUME; i++)
+		{
+			float value = caveNoiseArray[i];
+			value = ABS_FUNCTION(value);
+
+			outArray[i] = value < 0.1f;
+		}
 	}
 }
 
@@ -260,22 +263,21 @@ void TerrainGenerator::computeInitialHeightMap(int* heightMap, int chunkX, int c
 
 	// Computing continental noise array
 	float continentalNoiseArray[CHUNK_AREA];
+	float erosionNoiseArray[CHUNK_AREA];
+	float weirdnessNoiseArray[CHUNK_AREA];
+
 	{
 		NoiseParams params;
 		params.frequency = 0.0001f;
 		params.layerCount = 3;
 		computeLayeredNoise_2D(continentalNoiseArray, chunkX, chunkZ, params);
 	}
-
-	float erosionNoiseArray[CHUNK_AREA];
 	{
 		NoiseParams params;
 		params.frequency = 0.01f;
 		params.layerCount = 1;
 		computeLayeredNoise_2D(erosionNoiseArray, chunkX, chunkZ, params);
 	}
-
-	float weirdnessNoiseArray[CHUNK_AREA];
 	{
 		NoiseParams params;
 		params.frequency = 0.005f;

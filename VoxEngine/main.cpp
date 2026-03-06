@@ -777,7 +777,7 @@ static int gameFunc()
 
         if (profilerUpdateTimer.shouldUpdate())
         {
-            //Profiler::printProfileReport();
+            Profiler::printProfileReport();
         }
     }
     //Profiler::printProfileReport();
