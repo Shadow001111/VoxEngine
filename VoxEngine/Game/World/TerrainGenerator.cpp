@@ -155,10 +155,10 @@ void TerrainGenerator::unloadChunkColumnData(int chunkX, int chunkZ)
 		}
 
 		// Decrement reference count
-		auto referenceCount = it->second->referenceCount.fetch_sub(1, std::memory_order_acq_rel) - 1;
+		auto oldReferenceCount = it->second->referenceCount.fetch_sub(1, std::memory_order_acq_rel);
 
 		// If no more references, unload the column
-		if (referenceCount <= 0)
+		if (oldReferenceCount <= 1)
 		{
 			columnToRelease = it->second;
 			chunkColumnData.erase(it);
@@ -213,7 +213,9 @@ size_t TerrainGenerator::getChunkColumnDataCount() const
 void TerrainGenerator::initChunkColumnData(ChunkColumnData* column, int chunkX, int chunkZ)
 {
 	column->init(chunkX, chunkZ);
-	computeInitialHeightMap(column->heightMapWrite(), chunkX, chunkZ);
+	auto heightMap = column->heightMapWrite();
+	computeInitialHeightMap(heightMap, chunkX, chunkZ);
+	column->maxHeight = computeMaxHeight(heightMap);
 	column->setToInitialized();
 }
 
@@ -306,6 +308,19 @@ void TerrainGenerator::computeInitialHeightMap(int* heightMap, int chunkX, int c
 			heightMap[x + (z << CHUNK_SIZE_LOG2)] = (int)calculateHeight(continentalNoise, erosionNoise, weirdnessNoise);
 		}
 	}
+}
+
+int TerrainGenerator::computeMaxHeight(const int* heightMap)
+{
+	int maxHeight = std::numeric_limits<int>::min();
+	for (size_t i = 0; i < CHUNK_AREA; i++)
+	{
+		if (heightMap[i] > maxHeight)
+		{
+			maxHeight = heightMap[i];
+		}
+	}
+	return maxHeight;
 }
 
 void TerrainGenerator::computeLayeredNoise_2D(float* outArray, int chunkX, int chunkZ, const NoiseParams& params)

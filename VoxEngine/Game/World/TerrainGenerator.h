@@ -23,8 +23,10 @@ class ChunkColumnData
 
 	bool initialized = false;
 public:
-	std::atomic<int32_t> referenceCount = 0;
-
+	std::atomic<uint16_t> referenceCount = 0;
+//private:
+	int maxHeight = 0;
+//public:
 	ChunkColumnData() = default;
 	~ChunkColumnData() = default;
 
@@ -101,6 +103,7 @@ private:
 
 	static float calculateHeight(float continentalNoise, float erosionNoise, float weirdnessNoise);
 	static void computeInitialHeightMap(int* heightMap, int chunkX, int chunkZ);
+	static int computeMaxHeight(const int* heightMap);
 
 	struct NoiseParams
 	{

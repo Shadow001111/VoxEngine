@@ -159,19 +159,28 @@ void Chunk::buildBlocks()
 
 	// Terrain
 	bool computeCaveMask = false;
+
+	constexpr int OCEAN_LEVEL = 0;
+
+	const int globalChunkY = position.y * CHUNK_SIZE;
+
+	const bool isInTerrainRange = globalChunkY <= chunkColumnData->maxHeight;
+	const bool isInWaterRange = globalChunkY <= OCEAN_LEVEL;
+
+	if (isInTerrainRange || isInWaterRange)
 	{
-		PROFILE_SCOPE("Build chunk blocks", ProfileCategory::ChunkBlocks);
+		PROFILE_SCOPE("Build terrain", ProfileCategory::ChunkBlocks);
 
 		const int globalChunkY = position.y * CHUNK_SIZE;
 		for (int x = 0; x < CHUNK_SIZE; x++)
 		{
 			for (int z = 0; z < CHUNK_SIZE; z++)
 			{
-				int globalHeight = heightMap[z + x * CHUNK_SIZE];
+				int globalHeight = heightMap[z + (x << CHUNK_SIZE_LOG2)];
 				for (int y = 0; y < CHUNK_SIZE; y++)
 				{
 					int globalY = globalChunkY + y;
-					bool ocean = globalY <= 0;
+					bool ocean = globalY <= OCEAN_LEVEL;
 
 					size_t index = getIndex(x, y, z);
 
@@ -198,6 +207,10 @@ void Chunk::buildBlocks()
 				}
 			}
 		}
+	}
+	else
+	{
+		std::fill(std::begin(blocks), std::end(blocks), airID);
 	}
 
 	// Caves
