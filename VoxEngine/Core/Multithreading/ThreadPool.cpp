@@ -23,14 +23,17 @@ ThreadPool::~ThreadPool()
 
 void ThreadPool::shutdown()
 {
-    stop.store(true, std::memory_order_release);
     {
         std::unique_lock<std::mutex> lock(queueMutex);
 
-        tasks.clear();
-        // tasks = {};
+        completionCondition.wait(lock, [this]
+            {
+                return tasks.empty() &&
+                    activeTaskCount.load(std::memory_order_relaxed) == 0;
+            });
     }
-    condition.notify_all();
+    stop.store(true, std::memory_order_release);
+    newTaskCondition.notify_all();
 
     for (std::thread& worker : workers)
     {
@@ -55,7 +58,7 @@ void ThreadPool::workerThread()
     {
         {
             std::unique_lock<std::mutex> lock(queueMutex);
-            condition.wait(lock, [this] { return !tasks.empty() || stop.load(std::memory_order_relaxed); });
+            newTaskCondition.wait(lock, [this] { return !tasks.empty() || stop.load(std::memory_order_relaxed); });
 
             if (stop.load(std::memory_order_relaxed))
             {
@@ -70,9 +73,12 @@ void ThreadPool::workerThread()
         {
             FileLogger logger("log/warnings.txt");
 			logger.add("Warning: Empty task encountered in thread pool worker thread");
+            
+            completionCondition.notify_all();
             continue; // Skip empty tasks
 		}
 
+        activeTaskCount.fetch_add(1, std::memory_order_relaxed);
         try
         {
             task();
@@ -86,6 +92,15 @@ void ThreadPool::workerThread()
         {
 			FileLogger logger("log/warnings.txt");
 			logger.add("Unknown exception in thread pool worker thread");
+        }
+        activeTaskCount.fetch_sub(1, std::memory_order_relaxed);
+
+        {
+            std::unique_lock<std::mutex> lock(queueMutex);
+            if (tasks.empty() && activeTaskCount.load(std::memory_order_relaxed) == 0)
+            {
+                completionCondition.notify_all();
+            }
         }
     }
 }

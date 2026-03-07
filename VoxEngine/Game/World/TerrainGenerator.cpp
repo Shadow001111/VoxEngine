@@ -30,7 +30,6 @@ void ChunkColumnData::destroy()
 const int* ChunkColumnData::heightMapRead() const
 {
 	initialized.wait(false, std::memory_order_acquire);
-	ASSERT(initialized);
 	return heightMap.data();
 }
 

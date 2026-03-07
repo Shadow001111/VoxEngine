@@ -16,11 +16,13 @@ class ThreadPool
     DynamicArray<std::thread> workers;
     TaskQueue tasks;
 	std::mutex queueMutex;
-	std::condition_variable condition;
+	std::condition_variable newTaskCondition;
+    std::condition_variable completionCondition;
     std::atomic<bool> stop{ false };
+    std::atomic<size_t> activeTaskCount{ 0 };
 
     // Statistics
-    std::atomic<uint64_t> taskTotalCount{ 0 };
+    std::atomic<size_t> taskTotalCount{ 0 };
 public:
 	ThreadPool(size_t numThreads = 0);
 	~ThreadPool();
@@ -39,7 +41,7 @@ public:
 	//void waitForCompletion();
     size_t getThreadCount() const { return workers.size(); };
     size_t getTaskCount() const { return tasks.size(); }
-    uint64_t getTaskTotalCount() const { return taskTotalCount.load(std::memory_order_relaxed); }
+    size_t getTaskTotalCount() const { return taskTotalCount.load(std::memory_order_relaxed); }
 private:
 	void workerThread();
 };
@@ -62,7 +64,7 @@ inline void ThreadPool::enqueue(F&& f, Args && ...args)
         std::unique_lock<std::mutex> lock(queueMutex);
         tasks.push(std::move(task));
     }
-    condition.notify_one();
+    newTaskCondition.notify_one();
     taskTotalCount.fetch_add(1, std::memory_order_relaxed);
 }
 
@@ -87,7 +89,7 @@ inline auto ThreadPool::enqueueFuture(F&& f, Args && ...args) -> std::future<typ
         std::unique_lock<std::mutex> lock(queueMutex);
         tasks.emplace([task = std::move(task)]() mutable { task(); });
     }
-    condition.notify_one();
+    newTaskCondition.notify_one();
     taskTotalCount.fetch_add(1, std::memory_order_relaxed);
     return res;
 }
