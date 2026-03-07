@@ -35,7 +35,7 @@ Chunk::~Chunk()
 }
 
 // Prepares chunk for use
-void Chunk::init(const glm::ivec3& position, const std::array<Chunk*, 6>& newNeighbors)
+void Chunk::init(const glm::ivec3& position, const std::array<Chunk*, 6>& newNeighbors, ChunkRegion* parentRegion)
 {
 	// Set position
 	this->position = position;
@@ -51,6 +51,9 @@ void Chunk::init(const glm::ivec3& position, const std::array<Chunk*, 6>& newNei
 		}
 	}
 
+	// Set parent region
+	this->parentRegion = parentRegion;
+
 	// Reset
 	setState(Chunk::State::NotInitialized_NeedsBlocks);
 
@@ -59,7 +62,7 @@ void Chunk::init(const glm::ivec3& position, const std::array<Chunk*, 6>& newNei
 	chunkFlags.set(Flag::IsMeshDirty, false);
 
 	mesh.faceStorage.resetRenderFaceCount();
-	mesh.faceStorage.dirty = false;
+	mesh.faceStorage.shouldBeUploaded = false;
 }
 
 // Cleans up resources
@@ -1495,37 +1498,35 @@ void Chunk::updateMesh()
 		size_t faceCount = mesh.faceStorage.getAllFaceCount();
 		if (faceCount == 0)
 		{
-			mesh.faceStorage.dirty = false;
+			mesh.faceStorage.shouldBeUploaded = false;
 
 			// Update render face count if no changes (means no faces at all)
 			mesh.faceStorage.updateRenderFaceCount();
 		}
 		else
 		{
-			mesh.faceStorage.dirty = true;
-
-			// Global flag
-			mesh.hasPendingMeshUploads.store(true, std::memory_order_release);
+			mesh.faceStorage.shouldBeUploaded = true;
 
 			// Region flag
-			glm::ivec3 regionPosition = ChunkRegion::getRegionPosition(position);
-			ChunkRegion* region = chunkRegionManagerInstance.getRegion(regionPosition);
-			if (region)
-			{
-				region->setFlag(ChunkRegion::Flag::HasMeshToUpload, true);
-			}
+			parentRegion->setFlag(ChunkRegion::Flag::HasMeshToUpload, true);
+			parentRegion->setGlobalFlag(ChunkRegion::Flag::HasMeshToUpload, true);
 		}
 	}
 }
 
 void Chunk::markMeshDirty()
 {
+	// Self flag
 	setFlag(Flag::IsMeshDirty, true);
+
+	// Region flag
+	parentRegion->setFlag(ChunkRegion::Flag::HasMeshToUpdate, true);
+	parentRegion->setGlobalFlag(ChunkRegion::Flag::HasMeshToUpdate, true);
 }
 
 void Chunk::askForMeshUpload()
 {
-	if (mesh.faceStorage.dirty)
+	if (mesh.faceStorage.shouldBeUploaded)
 	{
 		mesh.pendingMeshUploads.push_back(&mesh.faceStorage);
 	}
@@ -1705,32 +1706,32 @@ void Chunk::applyNeighborDirtyMask(uint32_t mask)
 	if (!mask) return;
 
 	Chunk *n0, *n1, *n2;
-	if ((mask & 1u << 0)  && (n0 = neighbors[0])) n0->setFlag(Flag::IsMeshDirty, true);
-	if ((mask & 1u << 1)  && (n0 = neighbors[1])) n0->setFlag(Flag::IsMeshDirty, true);
-	if ((mask & 1u << 2)  && (n0 = neighbors[2])) n0->setFlag(Flag::IsMeshDirty, true);
-	if ((mask & 1u << 3)  && (n0 = neighbors[3])) n0->setFlag(Flag::IsMeshDirty, true);
-	if ((mask & 1u << 4)  && (n0 = neighbors[4])) n0->setFlag(Flag::IsMeshDirty, true);
-	if ((mask & 1u << 5)  && (n0 = neighbors[5])) n0->setFlag(Flag::IsMeshDirty, true);
-	if ((mask & 1u << 6)  && (n0 = neighbors[0]) && (n1 = n0->neighbors[2])) n1->setFlag(Flag::IsMeshDirty, true);
-	if ((mask & 1u << 7)  && (n0 = neighbors[0]) && (n1 = n0->neighbors[3])) n1->setFlag(Flag::IsMeshDirty, true);
-	if ((mask & 1u << 8)  && (n0 = neighbors[1]) && (n1 = n0->neighbors[2])) n1->setFlag(Flag::IsMeshDirty, true);
-	if ((mask & 1u << 9)  && (n0 = neighbors[1]) && (n1 = n0->neighbors[3])) n1->setFlag(Flag::IsMeshDirty, true);
-	if ((mask & 1u << 10) && (n0 = neighbors[0]) && (n1 = n0->neighbors[4])) n1->setFlag(Flag::IsMeshDirty, true);
-	if ((mask & 1u << 11) && (n0 = neighbors[0]) && (n1 = n0->neighbors[5])) n1->setFlag(Flag::IsMeshDirty, true);
-	if ((mask & 1u << 12) && (n0 = neighbors[1]) && (n1 = n0->neighbors[4])) n1->setFlag(Flag::IsMeshDirty, true);
-	if ((mask & 1u << 13) && (n0 = neighbors[1]) && (n1 = n0->neighbors[5])) n1->setFlag(Flag::IsMeshDirty, true);
-	if ((mask & 1u << 14) && (n0 = neighbors[2]) && (n1 = n0->neighbors[4])) n1->setFlag(Flag::IsMeshDirty, true);
-	if ((mask & 1u << 15) && (n0 = neighbors[2]) && (n1 = n0->neighbors[5])) n1->setFlag(Flag::IsMeshDirty, true);
-	if ((mask & 1u << 16) && (n0 = neighbors[3]) && (n1 = n0->neighbors[4])) n1->setFlag(Flag::IsMeshDirty, true);
-	if ((mask & 1u << 17) && (n0 = neighbors[3]) && (n1 = n0->neighbors[5])) n1->setFlag(Flag::IsMeshDirty, true);
-	if ((mask & 1u << 18) && (n0 = neighbors[0]) && (n1 = n0->neighbors[2]) && (n2 = n1->neighbors[4])) n2->setFlag(Flag::IsMeshDirty, true);
-	if ((mask & 1u << 19) && (n0 = neighbors[0]) && (n1 = n0->neighbors[2]) && (n2 = n1->neighbors[5])) n2->setFlag(Flag::IsMeshDirty, true);
-	if ((mask & 1u << 20) && (n0 = neighbors[0]) && (n1 = n0->neighbors[3]) && (n2 = n1->neighbors[4])) n2->setFlag(Flag::IsMeshDirty, true);
-	if ((mask & 1u << 21) && (n0 = neighbors[0]) && (n1 = n0->neighbors[3]) && (n2 = n1->neighbors[5])) n2->setFlag(Flag::IsMeshDirty, true);
-	if ((mask & 1u << 22) && (n0 = neighbors[1]) && (n1 = n0->neighbors[2]) && (n2 = n1->neighbors[4])) n2->setFlag(Flag::IsMeshDirty, true);
-	if ((mask & 1u << 23) && (n0 = neighbors[1]) && (n1 = n0->neighbors[2]) && (n2 = n1->neighbors[5])) n2->setFlag(Flag::IsMeshDirty, true);
-	if ((mask & 1u << 24) && (n0 = neighbors[1]) && (n1 = n0->neighbors[3]) && (n2 = n1->neighbors[4])) n2->setFlag(Flag::IsMeshDirty, true);
-	if ((mask & 1u << 25) && (n0 = neighbors[1]) && (n1 = n0->neighbors[3]) && (n2 = n1->neighbors[5])) n2->setFlag(Flag::IsMeshDirty, true);
+	if ((mask & 1u << 0)  && (n0 = neighbors[0])) n0->markMeshDirty();
+	if ((mask & 1u << 1)  && (n0 = neighbors[1])) n0->markMeshDirty();
+	if ((mask & 1u << 2)  && (n0 = neighbors[2])) n0->markMeshDirty();
+	if ((mask & 1u << 3)  && (n0 = neighbors[3])) n0->markMeshDirty();
+	if ((mask & 1u << 4)  && (n0 = neighbors[4])) n0->markMeshDirty();
+	if ((mask & 1u << 5)  && (n0 = neighbors[5])) n0->markMeshDirty();
+	if ((mask & 1u << 6)  && (n0 = neighbors[0]) && (n1 = n0->neighbors[2])) n1->markMeshDirty();
+	if ((mask & 1u << 7)  && (n0 = neighbors[0]) && (n1 = n0->neighbors[3])) n1->markMeshDirty();
+	if ((mask & 1u << 8)  && (n0 = neighbors[1]) && (n1 = n0->neighbors[2])) n1->markMeshDirty();
+	if ((mask & 1u << 9)  && (n0 = neighbors[1]) && (n1 = n0->neighbors[3])) n1->markMeshDirty();
+	if ((mask & 1u << 10) && (n0 = neighbors[0]) && (n1 = n0->neighbors[4])) n1->markMeshDirty();
+	if ((mask & 1u << 11) && (n0 = neighbors[0]) && (n1 = n0->neighbors[5])) n1->markMeshDirty();
+	if ((mask & 1u << 12) && (n0 = neighbors[1]) && (n1 = n0->neighbors[4])) n1->markMeshDirty();
+	if ((mask & 1u << 13) && (n0 = neighbors[1]) && (n1 = n0->neighbors[5])) n1->markMeshDirty();
+	if ((mask & 1u << 14) && (n0 = neighbors[2]) && (n1 = n0->neighbors[4])) n1->markMeshDirty();
+	if ((mask & 1u << 15) && (n0 = neighbors[2]) && (n1 = n0->neighbors[5])) n1->markMeshDirty();
+	if ((mask & 1u << 16) && (n0 = neighbors[3]) && (n1 = n0->neighbors[4])) n1->markMeshDirty();
+	if ((mask & 1u << 17) && (n0 = neighbors[3]) && (n1 = n0->neighbors[5])) n1->markMeshDirty();
+	if ((mask & 1u << 18) && (n0 = neighbors[0]) && (n1 = n0->neighbors[2]) && (n2 = n1->neighbors[4])) n2->markMeshDirty();
+	if ((mask & 1u << 19) && (n0 = neighbors[0]) && (n1 = n0->neighbors[2]) && (n2 = n1->neighbors[5])) n2->markMeshDirty();
+	if ((mask & 1u << 20) && (n0 = neighbors[0]) && (n1 = n0->neighbors[3]) && (n2 = n1->neighbors[4])) n2->markMeshDirty();
+	if ((mask & 1u << 21) && (n0 = neighbors[0]) && (n1 = n0->neighbors[3]) && (n2 = n1->neighbors[5])) n2->markMeshDirty();
+	if ((mask & 1u << 22) && (n0 = neighbors[1]) && (n1 = n0->neighbors[2]) && (n2 = n1->neighbors[4])) n2->markMeshDirty();
+	if ((mask & 1u << 23) && (n0 = neighbors[1]) && (n1 = n0->neighbors[2]) && (n2 = n1->neighbors[5])) n2->markMeshDirty();
+	if ((mask & 1u << 24) && (n0 = neighbors[1]) && (n1 = n0->neighbors[3]) && (n2 = n1->neighbors[4])) n2->markMeshDirty();
+	if ((mask & 1u << 25) && (n0 = neighbors[1]) && (n1 = n0->neighbors[3]) && (n2 = n1->neighbors[5])) n2->markMeshDirty();
 }
 
 std::pair<BlockId, LightLevel> Chunk::getBlockAndLightAt(int x, int y, int z) const

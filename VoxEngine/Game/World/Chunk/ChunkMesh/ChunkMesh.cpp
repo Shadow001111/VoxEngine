@@ -5,7 +5,6 @@
 #include "ChunkInstancedMeshAllocator.h"
 
 DynamicArray<ChunkInstancedMeshFaceStorage*> ChunkMesh::pendingMeshUploads;
-std::atomic<bool> ChunkMesh::hasPendingMeshUploads{ false };
 
 void ChunkMesh::sendMeshesToGPU()
 {
@@ -117,7 +116,7 @@ void ChunkMesh::sendMeshesToGPU()
 	for (ChunkInstancedMeshFaceStorage* chunkMesh : pendingMeshUploads)
 	{
 		chunkMesh->updateRenderFaceCount();
-		chunkMesh->dirty = false;
+		chunkMesh->shouldBeUploaded = false;
 		//chunkMesh->clearInstances(); // Can be cleared, but it won't change anything.
 		chunkMesh->processingFence.stopProcessing();
 	}

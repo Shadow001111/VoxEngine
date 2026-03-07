@@ -133,10 +133,8 @@ void WorldChunkManager::update()
 void WorldChunkManager::sendChunkMeshesToGPU()
 {
 	// Send only dirty meshes
-	if (ChunkMesh::getHasPendingMeshUploads())
+	if (ChunkRegion::readAndSetGlobalFlag(ChunkRegion::Flag::HasMeshToUpload, false))
 	{
-		ChunkMesh::setHasPendingMeshUploads(false);
-
 		{
 			PROFILE_SCOPE("Check dirty meshes to send to GPU", ProfileCategory::ChunkMesh);
 
@@ -290,9 +288,10 @@ void WorldChunkManager::startBuildingChunkLights()
 
 			// Check if all neighbors have blocks built
 			bool allNeighborsReady = true;
+			const auto& neigbors = chunk->getNeighbors();
 			for (int i = 0; i < 6; i++)
 			{
-				const Chunk* neighbor = chunk->neighbors[i];
+				const Chunk* neighbor = neigbors[i];
 				if (neighbor && !neighbor->areBlocksBuilt())
 				{
 					allNeighborsReady = false;
@@ -386,6 +385,13 @@ void WorldChunkManager::updateChunkLights()
 
 void WorldChunkManager::updateChunkMeshes()
 {
+	// Check global flag
+	if (!ChunkRegion::readAndSetGlobalFlag(ChunkRegion::Flag::HasMeshToUpdate, false))
+	{
+		return;
+	}
+
+	//
 	chunksToProcess.clear();
 
 	// Collect chunks
@@ -394,6 +400,11 @@ void WorldChunkManager::updateChunkMeshes()
 
 		for (const auto& [_, chunkRegion] : Chunk::chunkRegionManagerInstance.getRegionMap())
 		{
+			if (!chunkRegion->readAndSetFlag(ChunkRegion::Flag::HasMeshToUpdate, false))
+			{
+				continue;
+			}
+
 			for (Chunk* chunk : chunkRegion->chunks)
 			{
 				if (chunk && chunk->shouldMeshBeUpdated())
@@ -474,7 +485,7 @@ void WorldChunkManager::loadChunk(const glm::ivec3& chunkPosition)
 	// Create and initialize chunk
 	Chunk* chunk = chunkPool.acquire();
 	chunk->addLoader();
-	chunk->init(chunkPosition, neighbors);
+	chunk->init(chunkPosition, neighbors, region);
 
 	// Send chunk to building blocks
 	{

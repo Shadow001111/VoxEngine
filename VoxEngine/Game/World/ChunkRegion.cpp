@@ -1,5 +1,7 @@
 #include "ChunkRegion.h"
 
+AtomicFlags<uint8_t> ChunkRegion::globalFlags;
+
 glm::ivec3 ChunkRegion::getRegionPosition(const glm::ivec3& chunkPosition)
 {
 	return chunkPosition >> CHUNK_REGION_SIZE_LOG2;

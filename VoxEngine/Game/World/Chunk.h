@@ -109,9 +109,10 @@ private:
 			index & CHUNK_LOWER_BITS_MASK
 		};
 	};
-public:
-	std::array<Chunk*, 6> neighbors{ nullptr }; // Pointers to neighboring chunks for easier access
 
+	std::array<Chunk*, 6> neighbors{ nullptr }; // Pointers to neighboring chunks for easier access
+	ChunkRegion* parentRegion = nullptr; // Pointer to the parent region, set when chunk is added to a region
+public:
 	// Constructors, destructors, assigments
 	Chunk() = default;
 	~Chunk();
@@ -124,7 +125,7 @@ public:
 	bool operator==(const Chunk& other) const noexcept { return position == other.position; };
 
 	// Init/destroy
-	void init(const glm::ivec3& position, const std::array<Chunk*, 6>& newNeighbors);
+	void init(const glm::ivec3& position, const std::array<Chunk*, 6>& newNeighbors, ChunkRegion* parentRegion);
 	void destroy();
 	static void globalInit();
 
@@ -216,6 +217,7 @@ private:
 public:
 	// Chunk data getters
 	glm::ivec3 getPosition() const { return position; };
+	const auto& getNeighbors() const { return neighbors; };
 	size_t getFaceCount() const { return mesh.faceStorage.getAllFaceCount(); };
 
 	// Getters and setters for states and flags

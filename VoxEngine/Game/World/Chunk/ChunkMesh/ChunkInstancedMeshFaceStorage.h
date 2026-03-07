@@ -32,11 +32,11 @@ struct ChunkInstancedMeshFaceStorage
 	// TODO: Use flags to reduce memory usage. Though it won't help due to memory layout.
 	bool alignedCreated = false;
 	bool nonAlignedCreated = false;
-	bool dirty = false;
-
-	InstancesStorage instancesStorage;
+	bool shouldBeUploaded = false;
 
 	AtomicWaitFence processingFence;
+
+	InstancesStorage instancesStorage;
 
 	ChunkInstancedMeshFaceStorage() = default;
 	~ChunkInstancedMeshFaceStorage() = default;
