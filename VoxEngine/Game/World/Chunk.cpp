@@ -59,7 +59,7 @@ void Chunk::init(const glm::ivec3& position, const std::array<Chunk*, 6>& newNei
 
 	chunkFlags.reset();
 	chunkFlags.set(Flag::IsLoadedInWorld, true);
-	chunkFlags.set(Flag::IsMeshDirty, false);
+	chunkFlags.set(Flag::ShouldUpdateMesh, false);
 
 	mesh.faceStorage.resetRenderFaceCount();
 	mesh.faceStorage.shouldBeUploaded = false;
@@ -299,31 +299,31 @@ void Chunk::buildBlocks()
 	// Mark itself and neighbors meshes as dirty
 
 	{
-		setFlag(Flag::IsMeshDirty, true);
+		setFlag(Flag::ShouldUpdateMesh, true);
 
 		// Sides
 		Chunk* n0;
-		if (n0 = neighbors[0]) n0->setFlag(Flag::IsMeshDirty, true);;
-		if (n0 = neighbors[1]) n0->setFlag(Flag::IsMeshDirty, true);;
-		if (n0 = neighbors[2]) n0->setFlag(Flag::IsMeshDirty, true);;
-		if (n0 = neighbors[3]) n0->setFlag(Flag::IsMeshDirty, true);;
-		if (n0 = neighbors[4]) n0->setFlag(Flag::IsMeshDirty, true);;
-		if (n0 = neighbors[5]) n0->setFlag(Flag::IsMeshDirty, true);;
+		if (n0 = neighbors[0]) n0->setFlag(Flag::ShouldUpdateMesh, true);;
+		if (n0 = neighbors[1]) n0->setFlag(Flag::ShouldUpdateMesh, true);;
+		if (n0 = neighbors[2]) n0->setFlag(Flag::ShouldUpdateMesh, true);;
+		if (n0 = neighbors[3]) n0->setFlag(Flag::ShouldUpdateMesh, true);;
+		if (n0 = neighbors[4]) n0->setFlag(Flag::ShouldUpdateMesh, true);;
+		if (n0 = neighbors[5]) n0->setFlag(Flag::ShouldUpdateMesh, true);;
 
 		// Edges
 		Chunk* n1;
-		if ((n0 = neighbors[0]) && (n1 = n0->neighbors[2])) n1->setFlag(Flag::IsMeshDirty, true);
-		if ((n0 = neighbors[0]) && (n1 = n0->neighbors[3])) n1->setFlag(Flag::IsMeshDirty, true);
-		if ((n0 = neighbors[1]) && (n1 = n0->neighbors[2])) n1->setFlag(Flag::IsMeshDirty, true);
-		if ((n0 = neighbors[1]) && (n1 = n0->neighbors[3])) n1->setFlag(Flag::IsMeshDirty, true);
-		if ((n0 = neighbors[0]) && (n1 = n0->neighbors[4])) n1->setFlag(Flag::IsMeshDirty, true);
-		if ((n0 = neighbors[0]) && (n1 = n0->neighbors[5])) n1->setFlag(Flag::IsMeshDirty, true);
-		if ((n0 = neighbors[1]) && (n1 = n0->neighbors[4])) n1->setFlag(Flag::IsMeshDirty, true);
-		if ((n0 = neighbors[1]) && (n1 = n0->neighbors[5])) n1->setFlag(Flag::IsMeshDirty, true);
-		if ((n0 = neighbors[2]) && (n1 = n0->neighbors[4])) n1->setFlag(Flag::IsMeshDirty, true);
-		if ((n0 = neighbors[2]) && (n1 = n0->neighbors[5])) n1->setFlag(Flag::IsMeshDirty, true);
-		if ((n0 = neighbors[3]) && (n1 = n0->neighbors[4])) n1->setFlag(Flag::IsMeshDirty, true);
-		if ((n0 = neighbors[3]) && (n1 = n0->neighbors[5])) n1->setFlag(Flag::IsMeshDirty, true);
+		if ((n0 = neighbors[0]) && (n1 = n0->neighbors[2])) n1->setFlag(Flag::ShouldUpdateMesh, true);
+		if ((n0 = neighbors[0]) && (n1 = n0->neighbors[3])) n1->setFlag(Flag::ShouldUpdateMesh, true);
+		if ((n0 = neighbors[1]) && (n1 = n0->neighbors[2])) n1->setFlag(Flag::ShouldUpdateMesh, true);
+		if ((n0 = neighbors[1]) && (n1 = n0->neighbors[3])) n1->setFlag(Flag::ShouldUpdateMesh, true);
+		if ((n0 = neighbors[0]) && (n1 = n0->neighbors[4])) n1->setFlag(Flag::ShouldUpdateMesh, true);
+		if ((n0 = neighbors[0]) && (n1 = n0->neighbors[5])) n1->setFlag(Flag::ShouldUpdateMesh, true);
+		if ((n0 = neighbors[1]) && (n1 = n0->neighbors[4])) n1->setFlag(Flag::ShouldUpdateMesh, true);
+		if ((n0 = neighbors[1]) && (n1 = n0->neighbors[5])) n1->setFlag(Flag::ShouldUpdateMesh, true);
+		if ((n0 = neighbors[2]) && (n1 = n0->neighbors[4])) n1->setFlag(Flag::ShouldUpdateMesh, true);
+		if ((n0 = neighbors[2]) && (n1 = n0->neighbors[5])) n1->setFlag(Flag::ShouldUpdateMesh, true);
+		if ((n0 = neighbors[3]) && (n1 = n0->neighbors[4])) n1->setFlag(Flag::ShouldUpdateMesh, true);
+		if ((n0 = neighbors[3]) && (n1 = n0->neighbors[5])) n1->setFlag(Flag::ShouldUpdateMesh, true);
 
 		// Corners
 		// TODO: Either store corner neighbors too, or use ChunkRegion system
@@ -332,49 +332,49 @@ void Chunk::buildBlocks()
 			(n1 = n0->neighbors[2]) &&
 			(n2 = n1->neighbors[4]))
 		{
-			n2->setFlag(Flag::IsMeshDirty, true);;
+			n2->setFlag(Flag::ShouldUpdateMesh, true);;
 		}
 		if ((n0 = neighbors[0]) &&
 			(n1 = n0->neighbors[2]) &&
 			(n2 = n1->neighbors[5]))
 		{
-			n2->setFlag(Flag::IsMeshDirty, true);;
+			n2->setFlag(Flag::ShouldUpdateMesh, true);;
 		}
 		if ((n0 = neighbors[0]) &&
 			(n1 = n0->neighbors[3]) &&
 			(n2 = n1->neighbors[4]))
 		{
-			n2->setFlag(Flag::IsMeshDirty, true);;
+			n2->setFlag(Flag::ShouldUpdateMesh, true);;
 		}
 		if ((n0 = neighbors[0]) &&
 			(n1 = n0->neighbors[3]) &&
 			(n2 = n1->neighbors[5]))
 		{
-			n2->setFlag(Flag::IsMeshDirty, true);;
+			n2->setFlag(Flag::ShouldUpdateMesh, true);;
 		}
 		if ((n0 = neighbors[1]) &&
 			(n1 = n0->neighbors[2]) &&
 			(n2 = n1->neighbors[4]))
 		{
-			n2->setFlag(Flag::IsMeshDirty, true);;
+			n2->setFlag(Flag::ShouldUpdateMesh, true);;
 		}
 		if ((n0 = neighbors[1]) &&
 			(n1 = n0->neighbors[2]) &&
 			(n2 = n1->neighbors[5]))
 		{
-			n2->setFlag(Flag::IsMeshDirty, true);;
+			n2->setFlag(Flag::ShouldUpdateMesh, true);;
 		}
 		if ((n0 = neighbors[1]) &&
 			(n1 = n0->neighbors[3]) &&
 			(n2 = n1->neighbors[4]))
 		{
-			n2->setFlag(Flag::IsMeshDirty, true);;
+			n2->setFlag(Flag::ShouldUpdateMesh, true);;
 		}
 		if ((n0 = neighbors[1]) &&
 			(n1 = n0->neighbors[3]) &&
 			(n2 = n1->neighbors[5]))
 		{
-			n2->setFlag(Flag::IsMeshDirty, true);;
+			n2->setFlag(Flag::ShouldUpdateMesh, true);;
 		}
 	}
 }
@@ -1305,7 +1305,7 @@ void Chunk::updateLight()
 void Chunk::updateMesh()
 {
 	if (
-		!readFlag(Flag::IsMeshDirty) ||
+		!readFlag(Flag::ShouldUpdateMesh) ||
 		!isLightBuilt() ||
 		!chunkFlags.read(Flag::IsLoadedInWorld)
 		)
@@ -1315,7 +1315,7 @@ void Chunk::updateMesh()
 	
 	FenceGuard scopedFence(processingFence);
 
-	setFlag(Flag::IsMeshDirty, false);
+	setFlag(Flag::ShouldUpdateMesh, false);
 
 	PROFILE_SCOPE("Update chunk mesh", ProfileCategory::ChunkMesh);
 
@@ -1517,7 +1517,7 @@ void Chunk::updateMesh()
 void Chunk::markMeshDirty()
 {
 	// Self flag
-	setFlag(Flag::IsMeshDirty, true);
+	setFlag(Flag::ShouldUpdateMesh, true);
 
 	// Region flag
 	parentRegion->setFlag(ChunkRegion::Flag::HasMeshToUpdate, true);
@@ -1702,7 +1702,7 @@ uint32_t Chunk::getNeighborDirtyMask(int x, int y, int z) noexcept
 
 void Chunk::applyNeighborDirtyMask(uint32_t mask)
 {
-	setFlag(Flag::IsMeshDirty, true);
+	markMeshDirty();
 	if (!mask) return;
 
 	Chunk *n0, *n1, *n2;

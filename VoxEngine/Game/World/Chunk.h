@@ -51,7 +51,7 @@ private:
 	{
 		IsLoadedInWorld = 0,
 		IsLoadedChunkColumnData,
-		IsMeshDirty
+		ShouldUpdateMesh
 	};
 
 	// Chunk coordinates
@@ -161,7 +161,7 @@ public:
 
 	// Mesh
 	void updateMesh();
-	bool shouldMeshBeUpdated() const { return chunkFlags.read(Flag::IsMeshDirty) && isLightBuilt(); };
+	bool shouldMeshBeUpdated() const { return chunkFlags.read(Flag::ShouldUpdateMesh) && isLightBuilt(); };
 	void markMeshDirty();
 	void askForMeshUpload();
 
