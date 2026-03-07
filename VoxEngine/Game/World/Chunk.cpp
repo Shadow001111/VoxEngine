@@ -1534,7 +1534,7 @@ void Chunk::askForMeshUpload()
 
 void Chunk::collectAlignedOpaqueRenderData(BufferStreamWriter<DrawArraysIndirectCommand>& drawCommands, BufferStreamWriter<glm::ivec3>& positions) const
 {
-	size_t faceCount = mesh.faceStorage.renderAlignedOpaqueFaceCount;
+	auto faceCount = mesh.faceStorage.renderAlignedOpaqueFaceCount;
 	if (!mesh.faceStorage.alignedCreated || faceCount == 0)
 	{
 		return;
@@ -1545,7 +1545,7 @@ void Chunk::collectAlignedOpaqueRenderData(BufferStreamWriter<DrawArraysIndirect
 
 void Chunk::collectAlignedTranslucentRenderData(BufferStreamWriter<DrawArraysIndirectCommand>& drawCommands, BufferStreamWriter<glm::ivec3>& positions) const
 {
-	size_t faceCount = mesh.faceStorage.renderAlignedTranslucentFaceCount;
+	auto faceCount = mesh.faceStorage.renderAlignedTranslucentFaceCount;
 	if (!mesh.faceStorage.alignedCreated || faceCount == 0)
 	{
 		return;
@@ -1556,7 +1556,7 @@ void Chunk::collectAlignedTranslucentRenderData(BufferStreamWriter<DrawArraysInd
 
 void Chunk::collectNonAlignedOpaqueRenderData(BufferStreamWriter<DrawArraysIndirectCommand>& drawCommands, BufferStreamWriter<glm::ivec3>& positions) const
 {
-	size_t faceCount = mesh.faceStorage.renderNonAlignedOpaqueFaceCount;
+	auto faceCount = mesh.faceStorage.renderNonAlignedOpaqueFaceCount;
 	if (!mesh.faceStorage.nonAlignedCreated || faceCount == 0)
 	{
 		return;
@@ -1567,7 +1567,7 @@ void Chunk::collectNonAlignedOpaqueRenderData(BufferStreamWriter<DrawArraysIndir
 
 void Chunk::collectNonAlignedTranslucentRenderData(BufferStreamWriter<DrawArraysIndirectCommand>& drawCommands, BufferStreamWriter<glm::ivec3>& positions) const
 {
-	size_t faceCount = mesh.faceStorage.renderNonAlignedTranslucentFaceCount;
+	auto faceCount = mesh.faceStorage.renderNonAlignedTranslucentFaceCount;
 	if (!mesh.faceStorage.nonAlignedCreated || faceCount == 0)
 	{
 		return;

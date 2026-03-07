@@ -15,11 +15,11 @@ class ChunkInstancedMeshAllocator
 	struct ProcessorConfig
 	{
 		std::function<void()> configureVBO;
-		std::function<size_t(ChunkInstancedMeshFaceStorage*)> getFaceCount;
+		std::function<uint32_t(ChunkInstancedMeshFaceStorage*)> getFaceCount;
 		std::function<bool(ChunkInstancedMeshFaceStorage*)> isCreated;
-		std::function<BlockAllocator::Block& (ChunkInstancedMeshFaceStorage*)> getAllocatedBlock;
+		std::function<BlockAllocator<uint32_t>::Block& (ChunkInstancedMeshFaceStorage*)> getAllocatedBlock;
 		std::function<void(ChunkInstancedMeshFaceStorage*, bool)> setCreated;
-		std::function<void(ChunkInstancedMeshFaceStorage*, BlockAllocator::Block)> setAllocatedBlock;
+		std::function<void(ChunkInstancedMeshFaceStorage*, BlockAllocator<uint32_t>::Block)> setAllocatedBlock;
 		size_t faceSize;
 		std::string debugName;
 	};
@@ -28,7 +28,7 @@ class ChunkInstancedMeshAllocator
 	{
 		VertexArray vao;
 		ImmutableBuffer instanceVBO;
-		BlockAllocator blockAllocator;
+		BlockAllocator<uint32_t> blockAllocator;
 		ProcessorConfig config;
 
 		MeshAllocator();

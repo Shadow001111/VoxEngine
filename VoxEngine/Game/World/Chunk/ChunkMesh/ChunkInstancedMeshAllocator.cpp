@@ -23,9 +23,9 @@ ChunkInstancedMeshAllocator::ChunkInstancedMeshAllocator()
 			[this]() { configureAlignedInstanceVBO(); },
 			[](ChunkInstancedMeshFaceStorage* mesh) { return mesh->getAlignedFaceCount(); },
 			[](ChunkInstancedMeshFaceStorage* mesh) { return mesh->alignedCreated; },
-			[](ChunkInstancedMeshFaceStorage* mesh) -> BlockAllocator::Block& { return mesh->allocatedBlock_alignedFaces; },
+			[](ChunkInstancedMeshFaceStorage* mesh) -> BlockAllocator<uint32_t>::Block& { return mesh->allocatedBlock_alignedFaces; },
 			[](ChunkInstancedMeshFaceStorage* mesh, bool created) { mesh->alignedCreated = created; },
-			[](ChunkInstancedMeshFaceStorage* mesh, BlockAllocator::Block block) { mesh->allocatedBlock_alignedFaces = block; },
+			[](ChunkInstancedMeshFaceStorage* mesh, BlockAllocator<uint32_t>::Block block) { mesh->allocatedBlock_alignedFaces = block; },
 			sizeof(AlignedBlockFace),
 			"processAlignedMeshRequests"
 		};
@@ -36,9 +36,9 @@ ChunkInstancedMeshAllocator::ChunkInstancedMeshAllocator()
 			[this]() { configureNonAlignedInstanceVBO(); },
 			[](ChunkInstancedMeshFaceStorage* mesh) { return mesh->getNonAlignedFaceCount(); },
 			[](ChunkInstancedMeshFaceStorage* mesh) { return mesh->nonAlignedCreated; },
-			[](ChunkInstancedMeshFaceStorage* mesh) -> BlockAllocator::Block& { return mesh->allocatedBlock_nonAlignedFaces; },
+			[](ChunkInstancedMeshFaceStorage* mesh) -> BlockAllocator<uint32_t>::Block& { return mesh->allocatedBlock_nonAlignedFaces; },
 			[](ChunkInstancedMeshFaceStorage* mesh, bool created) { mesh->nonAlignedCreated = created; },
-			[](ChunkInstancedMeshFaceStorage* mesh, BlockAllocator::Block block) { mesh->allocatedBlock_nonAlignedFaces = block; },
+			[](ChunkInstancedMeshFaceStorage* mesh, BlockAllocator<uint32_t>::Block block) { mesh->allocatedBlock_nonAlignedFaces = block; },
 			sizeof(NonAlignedBlockFace),
 			"processNonAlignedMeshRequests"
 		};
@@ -156,7 +156,7 @@ void ChunkInstancedMeshAllocator::MeshAllocator::processMeshRequests(const Dynam
 	size_t stopIndex = 0;
 	for (ChunkInstancedMeshFaceStorage* chunkMesh : meshRequests)
 	{
-		size_t faceCount = config.getFaceCount(chunkMesh);
+		auto faceCount = config.getFaceCount(chunkMesh);
 
 		auto result = blockAllocator.allocate(faceCount);
 		if (!result.has_value())
@@ -195,7 +195,7 @@ void ChunkInstancedMeshAllocator::MeshAllocator::processMeshRequests(const Dynam
 		newBuffer.allocateStorage(newCapacity * config.faceSize, INSTANCE_VBO_FLAGS);
 
 		// Copy data to a new buffer
-		const std::vector<BlockAllocator::Block>& currentBlocks = blockAllocator.getAllAllocations();
+		const std::vector<BlockAllocator<uint32_t>::Block>& currentBlocks = blockAllocator.getAllAllocations();
 		const auto& firstBlock = currentBlocks[0];
 		const auto& lastBlock = currentBlocks[currentBlocks.size() - 1];
 		newBuffer.copyRangeFrom(
@@ -214,7 +214,7 @@ void ChunkInstancedMeshAllocator::MeshAllocator::processMeshRequests(const Dynam
 	for (size_t i = stopIndex; i < meshRequests.size(); i++)
 	{
 		ChunkInstancedMeshFaceStorage* chunkMesh = meshRequests[i];
-		size_t faceCount = config.getFaceCount(chunkMesh);
+		auto faceCount = config.getFaceCount(chunkMesh);
 
 		auto result = blockAllocator.allocate(faceCount);
 		if (!result.has_value())

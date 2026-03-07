@@ -63,9 +63,6 @@
     <ClCompile Include="Graphics\TextRenderer.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="Core\BlockAllocator.cpp">
-      <Filter>Исходные файлы</Filter>
-    </ClCompile>
     <ClCompile Include="OpenGLWrappers\FrameBuffer.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>

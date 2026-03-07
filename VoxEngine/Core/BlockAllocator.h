@@ -1,26 +1,69 @@
 #pragma once
 #include <vector>
 #include <optional>
+#include <concepts>
 
+template<std::integral TIndex>
 class BlockAllocator
 {
 public:
 	struct Block
 	{
-		size_t offset;
-		size_t size;
-		size_t id;
+		TIndex offset;
+		TIndex size;
+		TIndex id;
 
 		bool operator==(const Block& other) const { return id == other.id && offset == other.offset && size == other.size; }
 	};
 private:
-	size_t capacity;
-	size_t nextBlockId = 0;
+	TIndex capacity;
+	TIndex nextBlockId = 0;
 	std::vector<Block> blocks; // Always sorted
 
-	std::optional<size_t> findFreeBlock(size_t requestedSize) const;
+	std::optional<TIndex> findFreeBlock(TIndex requestedSize) const
+	{
+		if (requestedSize > capacity)
+		{
+			return std::nullopt;
+		}
+
+		// Check if there's space at the beginning
+		if (blocks.empty())
+		{
+			return 0;
+		}
+
+		// Check gaps between blocks
+		for (size_t i = 0; i < blocks.size() - 1; i++)
+		{
+			const auto& block1 = blocks[i];
+			const auto& block2 = blocks[i + 1];
+
+			TIndex gapStart = block1.offset + block1.size;
+			TIndex gapEnd = block2.offset;
+			TIndex gapSize = gapEnd - gapStart;
+
+			if (gapSize >= requestedSize)
+			{
+				return gapStart;
+			}
+		}
+
+		// Check space at the end
+		const auto& lastBlock = blocks.back();
+		TIndex lastEnd = lastBlock.offset + lastBlock.size;
+		if (lastEnd + requestedSize <= capacity)
+		{
+			return lastEnd;
+		}
+
+		return std::nullopt;
+	}
 public:
-	explicit BlockAllocator(size_t capacity);
+	explicit BlockAllocator(TIndex capacity) :
+		capacity(capacity)
+	{
+	}
 	~BlockAllocator() = default;
 
 	BlockAllocator(const BlockAllocator&) = delete;
@@ -28,17 +71,108 @@ public:
 	BlockAllocator(BlockAllocator&&) = delete;
 	BlockAllocator& operator=(BlockAllocator&&) = delete;
 
-	std::optional<Block> allocate(size_t size);
-	bool free(size_t id);
+	std::optional<Block> allocate(TIndex size)
+	{
+		if (size == 0)
+		{
+			return std::nullopt;
+		}
 
-	bool setCapacity(size_t newCapacity);
+		auto offset = findFreeBlock(size);
+		if (!offset.has_value())
+		{
+			return std::nullopt; // Not enough space
+		}
 
-	void organizeAllocations();
+		Block block{ offset.value(), size, nextBlockId++ };
+
+		// Insert block in sorted position by offset
+		auto insertPos = std::lower_bound(blocks.begin(), blocks.end(), block,
+			[](const Block& a, const Block& b) {
+				return a.offset < b.offset;
+			});
+		blocks.insert(insertPos, block);
+
+		return block;
+	}
+
+	bool free(TIndex id)
+	{
+		auto it = std::find_if(blocks.begin(), blocks.end(),
+			[id](const Block& block) {
+				return block.id == id;
+			});
+
+		if (it != blocks.end())
+		{
+			blocks.erase(it);
+			return true;
+		}
+
+		return false;
+	}
+
+	bool setCapacity(TIndex newCapacity)
+	{
+		if (newCapacity >= capacity)
+		{
+			capacity = newCapacity;
+			return true;
+		}
+
+		// Check if current allocations fit in new capacity
+		for (const auto& block : blocks)
+		{
+			if (block.offset + block.size > newCapacity)
+			{
+				return false; // Cannot shrink below current allocations
+			}
+		}
+
+		capacity = newCapacity;
+		return true;
+	}
+
+	void organizeAllocations()
+	{
+		TIndex lastEnd = 0;
+		for (auto& block : blocks)
+		{
+			block.offset = lastEnd;
+			lastEnd = block.offset + block.size;
+		}
+	}
 
 	// Debug
-	size_t getCapacity() const;
-	size_t getLastBlockEnd() const;
-	size_t getGapSizesSum() const;
-	const std::vector<Block>& getAllAllocations() const;
-};
+	TIndex getCapacity() const
+	{
+		return capacity;
+	}
 
+	TIndex getLastBlockEnd() const
+	{
+		if (blocks.empty())
+		{
+			return 0;
+		}
+		const auto& lastBlock = blocks.back();
+		return lastBlock.offset + lastBlock.size;
+	}
+
+	TIndex getGapSizesSum() const
+	{
+		TIndex gaps = 0;
+		TIndex lastEnd = 0;
+		for (const auto& block : blocks)
+		{
+			gaps += block.offset - lastEnd;
+			lastEnd = block.offset + block.size;
+		}
+		return gaps;
+	}
+
+	const std::vector<Block>& getAllAllocations() const
+	{
+		return blocks;
+	}
+};

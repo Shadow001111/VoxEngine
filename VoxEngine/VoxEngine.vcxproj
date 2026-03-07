@@ -162,7 +162,6 @@
     <ClCompile Include="Core\TimeMeasurer.cpp" />
     <ClCompile Include="FileLogger.cpp" />
     <ClCompile Include="Game\DataPackManagment\AssetRegistry.cpp" />
-    <ClCompile Include="Core\BlockAllocator.cpp" />
     <ClCompile Include="Game\World.cpp" />
     <ClCompile Include="Game\World\Chunk.cpp" />
     <ClCompile Include="Game\World\ChunkLoaders\BaseChunkLoader.cpp" />

@@ -60,8 +60,8 @@ void ChunkMesh::sendMeshesToGPU()
 			continue;
 		}
 
-		size_t opaqueFaceCount = chunkMesh->getAlignedOpaqueFaceCount();
-		size_t translucentFaceCount = chunkMesh->getAlignedTranslucentFaceCount();
+		auto opaqueFaceCount = chunkMesh->getAlignedOpaqueFaceCount();
+		auto translucentFaceCount = chunkMesh->getAlignedTranslucentFaceCount();
 
 		if (opaqueFaceCount > 0)
 		{
@@ -90,8 +90,8 @@ void ChunkMesh::sendMeshesToGPU()
 			continue;
 		}
 
-		size_t opaqueFaceCount = chunkMesh->getNonAlignedOpaqueFaceCount();
-		size_t translucentFaceCount = chunkMesh->getNonAlignedTranslucentFaceCount();
+		auto opaqueFaceCount = chunkMesh->getNonAlignedOpaqueFaceCount();
+		auto translucentFaceCount = chunkMesh->getNonAlignedTranslucentFaceCount();
 
 		if (opaqueFaceCount > 0)
 		{
