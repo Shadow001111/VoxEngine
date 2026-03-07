@@ -641,6 +641,10 @@ void Chunk::buildLight()
 	const Chunk* top = neighbors[3];
 	uint32_t neighborDirtyMask = 0;
 
+	// Reserve space in BFS queues to avoid dynamic allocations during propagation
+	localBlockLightBfsQueue.reserve(CHUNK_VOLUME);
+	localSkyLightBfsQueue.reserve(CHUNK_VOLUME);
+
 	// Constants for direction offsets
 	const int dx[] = { -1, 1, 0, 0, 0, 0 };
 	const int dy[] = { 0, 0, -1, 1, 0, 0 };
@@ -692,7 +696,7 @@ void Chunk::buildLight()
 				{
 					size_t index = getIndex(x, y, z);
 					const auto* blockData = AssetRegistry::getBlockData(blocks[index]);
-					if (blockData && blockData->absorbsLight)
+					if (!blockData || blockData->absorbsLight)
 					{
 						continue;
 					}
@@ -748,7 +752,7 @@ void Chunk::buildLight()
 			{
 				size_t index = getIndex(x, y, z);
 				const auto* blockData = AssetRegistry::getBlockData(blocks[index]);
-				if (blockData && blockData->absorbsLight)
+				if (!blockData || blockData->absorbsLight)
 				{
 					return;
 				}
@@ -895,7 +899,7 @@ void Chunk::buildLight()
 
 				const BlockId neighborBlock = neighborChunk->getBlockAt(neighborIndex);
 				const auto* neighborBlockData = AssetRegistry::getBlockData(neighborBlock);
-				if (neighborBlockData && neighborBlockData->absorbsLight)
+				if (!neighborBlockData || neighborBlockData->absorbsLight)
 				{
 					continue;
 				}
@@ -956,7 +960,7 @@ void Chunk::buildLight()
 
 				const BlockId neighborBlock = neighborChunk->getBlockAt(neighborIndex);
 				const auto* neighborBlockData = AssetRegistry::getBlockData(neighborBlock);
-				if (neighborBlockData && neighborBlockData->absorbsLight)
+				if (!neighborBlockData || neighborBlockData->absorbsLight)
 				{
 					continue;
 				}
@@ -1059,7 +1063,7 @@ void Chunk::updateLight()
 
 			BlockId neighborBlock = neighborChunk->getBlockAt(neighborIndex);
 			const auto* neighborBlockData = AssetRegistry::getBlockData(neighborBlock);
-			if (neighborBlockData && neighborBlockData->absorbsLight)
+			if (!neighborBlockData || neighborBlockData->absorbsLight)
 			{
 				continue;
 			}
@@ -1132,7 +1136,7 @@ void Chunk::updateLight()
 
 			BlockId neighborBlock = neighborChunk->getBlockAt(neighborIndex);
 			const auto* neighborBlockData = AssetRegistry::getBlockData(neighborBlock);
-			if (neighborBlockData && neighborBlockData->absorbsLight)
+			if (!neighborBlockData || neighborBlockData->absorbsLight)
 			{
 				continue;
 			}
@@ -1184,7 +1188,7 @@ void Chunk::updateLight()
 
 			BlockId neighborBlock = neighborChunk->getBlockAt(neighborIndex);
 			const auto* neighborBlockData = AssetRegistry::getBlockData(neighborBlock);
-			if (neighborBlockData && neighborBlockData->absorbsLight)
+			if (!neighborBlockData || neighborBlockData->absorbsLight)
 			{
 				continue;
 			}
@@ -1257,7 +1261,7 @@ void Chunk::updateLight()
 
 			BlockId neighborBlock = neighborChunk->getBlockAt(neighborIndex);
 			const auto* neighborBlockData = AssetRegistry::getBlockData(neighborBlock);
-			if (neighborBlockData && neighborBlockData->absorbsLight)
+			if (!neighborBlockData || neighborBlockData->absorbsLight)
 			{
 				continue;
 			}
@@ -1377,7 +1381,7 @@ void Chunk::updateMesh()
 					}
 
 					const BlockData* neighborBlockData = AssetRegistry::getBlockData(neighborBlock);
-					if (neighborBlockData && neighborBlockData->faceCulling[face.normal ^ 1])
+					if (!neighborBlockData || neighborBlockData->faceCulling[face.normal ^ 1])
 					{
 						continue;
 					}

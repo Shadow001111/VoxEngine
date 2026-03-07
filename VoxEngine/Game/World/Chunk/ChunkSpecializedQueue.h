@@ -171,7 +171,7 @@ public:
         {
             grow();
         }
-        index_t new_idx = (mFrontIndex + mSize) & (mCapacity - 1);
+        const  index_t new_idx = (mFrontIndex + mSize) & (mCapacity - 1);
         mData[new_idx] = value;
         mSize++;
     }
@@ -182,22 +182,21 @@ public:
         {
             grow();
         }
-        index_t new_idx = (mFrontIndex + mSize) & (mCapacity - 1);
+        const index_t new_idx = (mFrontIndex + mSize) & (mCapacity - 1);
         mData[new_idx] = std::move(value);
         mSize++;
     }
 
     template<typename... Args>
-    T& emplace(Args&&... args)
+    void emplace(Args&&... args) // T& emplace(Args&&... args)
     {
         if (mSize >= mCapacity)
         {
             grow();
         }
-        index_t new_idx = (mFrontIndex + mSize) & (mCapacity - 1);
-        mData[new_idx] = T(std::forward<Args>(args)...);
+        const index_t new_idx = (mFrontIndex + mSize) & (mCapacity - 1);
+        new (mData + new_idx) T(std::forward<Args>(args)...);
         mSize++;
-        return mData[new_idx];
     }
 
     void pop()

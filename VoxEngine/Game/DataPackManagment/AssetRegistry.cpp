@@ -462,16 +462,6 @@ ItemId AssetRegistry::getItemNumericalId(const std::string& stringId)
 	return result.has_value() ? static_cast<ItemId>(result.value()) : FALLBACK_ITEM_ID;
 }
 
-const BlockData* AssetRegistry::getBlockDataSafe(BlockId numericalId)
-{
-	return numericalId < blockDataStorage.size() ? &blockDataStorage[numericalId] : &blockDataStorage[FALLBACK_BLOCK_ID];
-}
-
-const BlockData* AssetRegistry::getBlockData(BlockId numericalId)
-{
-	return numericalId < blockDataStorage.size() ? &blockDataStorage[numericalId] : nullptr;
-}
-
 const BlockModelData* AssetRegistry::getBlockModelData(ModelId numericalId)
 {
 	// TODO: Use something faster than vector.size()
