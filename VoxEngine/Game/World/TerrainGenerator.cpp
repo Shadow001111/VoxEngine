@@ -23,24 +23,21 @@ void ChunkColumnData::init(int x, int z)
 
 void ChunkColumnData::destroy()
 {
-	referenceCount = 0;
-	initialized = false;
+	referenceCount.store(0, std::memory_order_relaxed);
+	initialized.store(false, std::memory_order_relaxed);
 }
 
 const int* ChunkColumnData::heightMapRead() const
 {
-	std::unique_lock<std::mutex> lock(readDataMutex);
-	readDataCV.wait(lock, [this]() { return initialized; });
+	initialized.wait(false, std::memory_order_acquire);
+	ASSERT(initialized);
 	return heightMap.data();
 }
 
 void ChunkColumnData::setToInitialized()
 {
-	{
-		std::lock_guard<std::mutex> lock(readDataMutex);
-		initialized = true;
-	}
-	readDataCV.notify_all();
+	initialized.store(true, std::memory_order_release);
+	initialized.notify_all();
 }
 
 //============================================================================

@@ -10,7 +10,6 @@
 #include "robin_hood.h"
 #include <mutex>
 #include <array>
-#include <condition_variable>
 
 class ChunkColumnData
 {
@@ -18,10 +17,7 @@ class ChunkColumnData
 
 	std::array<int, CHUNK_AREA> heightMap{};
 
-	mutable std::mutex readDataMutex; // Prevents chunks from reading heightMap until it's built
-	mutable std::condition_variable readDataCV;
-
-	bool initialized = false;
+	std::atomic<bool> initialized{ false };
 public:
 	std::atomic<uint16_t> referenceCount = 0;
 //private:

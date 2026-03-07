@@ -64,6 +64,9 @@ private:
 	// Loaders count
 	uint8_t loaderCount = 0;
 
+	// Processing fence
+	AtomicWaitFence processingFence;
+
 	// Grid data
 	BlockId blocks[CHUNK_VOLUME];
 	LightLevel lightLevels[CHUNK_VOLUME];
@@ -88,9 +91,6 @@ private:
 
 	// Mesh
 	ChunkMesh mesh;
-
-	// Processing fence
-	AtomicWaitFence processingFence;
 	
 	// Changed blocks
 	ChunkIO::BlockChanges changedBlocks;
