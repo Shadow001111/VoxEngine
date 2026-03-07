@@ -1665,39 +1665,11 @@ Chunk* Chunk::traverseThroughNeighbors(int x, int y, int z, size_t& outIndex) co
 
 uint32_t Chunk::getNeighborDirtyMask(int x, int y, int z) noexcept
 {
-	const bool nx = x == 0, px = x == (CHUNK_SIZE - 1);
-	const bool ny = y == 0, py = y == (CHUNK_SIZE - 1);
-	const bool nz = z == 0, pz = z == (CHUNK_SIZE - 1);
+	const int xi = (x == 0) + (x == (CHUNK_SIZE - 1)) * 2;
+	const int yi = (y == 0) + (y == (CHUNK_SIZE - 1)) * 2;
+	const int zi = (z == 0) + (z == (CHUNK_SIZE - 1)) * 2;
 
-	uint32_t mask = 0;
-	if (nx)				mask |= 1u << 0;
-	if (px)				mask |= 1u << 1;
-	if (ny)				mask |= 1u << 2;
-	if (py)				mask |= 1u << 3;
-	if (nz)				mask |= 1u << 4;
-	if (pz)				mask |= 1u << 5;
-	if (nx && ny)		mask |= 1u << 6;
-	if (nx && py)		mask |= 1u << 7;
-	if (px && ny)		mask |= 1u << 8;
-	if (px && py)		mask |= 1u << 9;
-	if (nx && nz)		mask |= 1u << 10;
-	if (nx && pz)		mask |= 1u << 11;
-	if (px && nz)		mask |= 1u << 12;
-	if (px && pz)		mask |= 1u << 13;
-	if (ny && nz)		mask |= 1u << 14;
-	if (ny && pz)		mask |= 1u << 15;
-	if (py && nz)		mask |= 1u << 16;
-	if (py && pz)		mask |= 1u << 17;
-	if (nx && ny && nz)	mask |= 1u << 18;
-	if (nx && ny && pz)	mask |= 1u << 19;
-	if (nx && py && nz)	mask |= 1u << 20;
-	if (nx && py && pz)	mask |= 1u << 21;
-	if (px && ny && nz)	mask |= 1u << 22;
-	if (px && ny && pz)	mask |= 1u << 23;
-	if (px && py && nz)	mask |= 1u << 24;
-	if (px && py && pz)	mask |= 1u << 25;
-
-	return mask;
+	return PRECOMPUTED_NEIGHBOR_DIRTY_MASKS[xi * 9 + yi * 3 + zi];
 }
 
 void Chunk::applyNeighborDirtyMask(uint32_t mask)

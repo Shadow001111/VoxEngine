@@ -22,6 +22,54 @@
 #include <array>
 #include <glm/glm.hpp>
 
+constexpr auto precomputeNeighborDirtyMasks()
+{
+	std::array<uint32_t, 27> lut{};
+	for (int xi = 0; xi < 3; ++xi)
+	{
+		for (int yi = 0; yi < 3; ++yi)
+		{
+			for (int zi = 0; zi < 3; ++zi)
+			{
+				const bool nx = xi == 1, px = xi == 2;
+				const bool ny = yi == 1, py = yi == 2;
+				const bool nz = zi == 1, pz = zi == 2;
+
+				uint32_t mask = 0;
+				if (nx)             mask |= 1u << 0;
+				if (px)             mask |= 1u << 1;
+				if (ny)             mask |= 1u << 2;
+				if (py)             mask |= 1u << 3;
+				if (nz)             mask |= 1u << 4;
+				if (pz)             mask |= 1u << 5;
+				if (nx && ny)       mask |= 1u << 6;
+				if (nx && py)       mask |= 1u << 7;
+				if (px && ny)       mask |= 1u << 8;
+				if (px && py)       mask |= 1u << 9;
+				if (nx && nz)       mask |= 1u << 10;
+				if (nx && pz)       mask |= 1u << 11;
+				if (px && nz)       mask |= 1u << 12;
+				if (px && pz)       mask |= 1u << 13;
+				if (ny && nz)       mask |= 1u << 14;
+				if (ny && pz)       mask |= 1u << 15;
+				if (py && nz)       mask |= 1u << 16;
+				if (py && pz)       mask |= 1u << 17;
+				if (nx && ny && nz) mask |= 1u << 18;
+				if (nx && ny && pz) mask |= 1u << 19;
+				if (nx && py && nz) mask |= 1u << 20;
+				if (nx && py && pz) mask |= 1u << 21;
+				if (px && ny && nz) mask |= 1u << 22;
+				if (px && ny && pz) mask |= 1u << 23;
+				if (px && py && nz) mask |= 1u << 24;
+				if (px && py && pz) mask |= 1u << 25;
+
+				lut[xi * 9 + yi * 3 + zi] = mask;
+			}
+		}
+	}
+	return lut;
+}
+
 struct BlockVertexLightData
 {
 	unsigned int ao[8];      // AO values for each vertex
@@ -46,6 +94,8 @@ public:
 
 	static std::atomic<bool> gHasStructureBlockChanges; // TODO: Move this to StructureBlockChangeManager.
 	static ChunkRegionManager chunkRegionManagerInstance;
+
+	static constexpr std::array<uint32_t, 27> PRECOMPUTED_NEIGHBOR_DIRTY_MASKS = precomputeNeighborDirtyMasks();
 private:
 	enum Flag : uint8_t
 	{
