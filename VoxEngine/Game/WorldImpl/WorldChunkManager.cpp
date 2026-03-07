@@ -133,29 +133,31 @@ void WorldChunkManager::update()
 void WorldChunkManager::sendChunkMeshesToGPU()
 {
 	// Send only dirty meshes
-	if (ChunkRegion::readAndSetGlobalFlag(ChunkRegion::Flag::HasMeshToUpload, false))
+	if (!ChunkRegion::readAndSetGlobalFlag(ChunkRegion::Flag::HasMeshToUpload, false))
 	{
+		return;
+	}
+
+	{
+		PROFILE_SCOPE("Check dirty meshes to send to GPU", ProfileCategory::ChunkMesh);
+
+		for (const auto& [_, chunkRegion] : Chunk::chunkRegionManagerInstance.getRegionMap())
 		{
-			PROFILE_SCOPE("Check dirty meshes to send to GPU", ProfileCategory::ChunkMesh);
-
-			for (const auto& [_, chunkRegion] : Chunk::chunkRegionManagerInstance.getRegionMap())
+			if (!chunkRegion->readAndSetFlag(ChunkRegion::Flag::HasMeshToUpload, false))
 			{
-				if (!chunkRegion->readAndSetFlag(ChunkRegion::Flag::HasMeshToUpload, false))
-				{
-					continue;
-				}
+				continue;
+			}
 
-				for (Chunk* chunk : chunkRegion->chunks)
-				{
-					if (!chunk) continue;
+			for (Chunk* chunk : chunkRegion->chunks)
+			{
+				if (!chunk) continue;
 
-					chunk->askForMeshUpload();
-				}
+				chunk->askForMeshUpload();
 			}
 		}
-
-		ChunkMesh::sendMeshesToGPU();
 	}
+
+	ChunkMesh::sendMeshesToGPU();
 }
 
 Chunk* WorldChunkManager::getChunkAt(const glm::ivec3& chunkPosition) const

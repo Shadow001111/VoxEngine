@@ -2,6 +2,8 @@
 
 #include "Core/Profiler.h"
 
+#include <intrin.h>
+
 //============================================================================
 float continentalSpline(float x)
 {
@@ -189,12 +191,31 @@ void TerrainGenerator::computeCaveMask(bool* outArray, int chunkX, int chunkY, i
 	{
 		PROFILE_SCOPE("Cave mask: combine noises", ProfileCategory::TerrainGeneration);
 
-		for (size_t i = 0; i < CHUNK_VOLUME; i++)
-		{
-			float value = caveNoiseArray[i];
-			value = ABS_FUNCTION(value);
+		//for (size_t i = 0; i < CHUNK_VOLUME; i++)
+		//{
+		//	float value = caveNoiseArray[i];
+		//	value = ABS_FUNCTION(value);
+		//
+		//	outArray[i] = value < 0.1f;
+		//}
 
-			outArray[i] = value < 0.1f;
+		const __m128 abs_mask = _mm_castsi128_ps(_mm_set1_epi32(0x7fffffff)); // sign-strip mask
+		const __m128 threshold = _mm_set1_ps(0.1f);
+		const __m128i true_mask = _mm_set1_epi8(1);
+
+		for (int i = 0; i < CHUNK_VOLUME; i += 4)
+		{
+			__m128 values = _mm_loadu_ps(&caveNoiseArray[i]);         // load 4 floats
+			__m128 absoluteValues = _mm_and_ps(values, abs_mask);           // fabsf x4
+			__m128i comparisons = _mm_castps_si128(_mm_cmplt_ps(absoluteValues, threshold));     // abs(x) < 0.1f | 4 bytes (0x01 or 0x00)
+
+			// Pack bools
+			comparisons = _mm_packs_epi32(comparisons, comparisons);
+			comparisons = _mm_packs_epi16(comparisons, comparisons);
+			comparisons = _mm_and_si128(comparisons, true_mask);
+
+			// Store 4 bools at once
+			*((int32_t*)(outArray + i)) = _mm_cvtsi128_si32(comparisons);
 		}
 	}
 }
