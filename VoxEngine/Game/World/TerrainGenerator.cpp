@@ -197,7 +197,7 @@ void TerrainGenerator::computeCaveMask(bool* outArray, int chunkX, int chunkY, i
 	{
 		PROFILE_SCOPE("Cave mask: combine noises", ProfileCategory::TerrainGeneration);
 
-		//for (size_t i = 0; i < CHUNK_VOLUME; i++)
+		//for (int i = 0; i < CHUNK_VOLUME; i++)
 		//{
 		//	float value = caveNoiseArray[i];
 		//	value = ABS_FUNCTION(value);
@@ -205,24 +205,55 @@ void TerrainGenerator::computeCaveMask(bool* outArray, int chunkX, int chunkY, i
 		//	outArray[i] = value < 0.1f;
 		//}
 
-		const __m128 abs_mask = _mm_castsi128_ps(_mm_set1_epi32(0x7fffffff)); // sign-strip mask
-		const __m128 threshold = _mm_set1_ps(0.1f);
-		//const __m128i true_mask = _mm_set1_epi8(1);
-
-		for (int i = 0; i < CHUNK_VOLUME; i += 4)
+#ifdef __AVX2__
+		// AVX/AVX2 implementation
 		{
-			__m128 values = _mm_loadu_ps(&caveNoiseArray[i]);         // load 4 floats
-			__m128 absoluteValues = _mm_and_ps(values, abs_mask);     // abs(x)
-			__m128i comparisons = _mm_castps_si128(_mm_cmplt_ps(absoluteValues, threshold));     // abs(x) < 0.1f
+			const __m256 abs_mask = _mm256_castsi256_ps(_mm256_set1_epi32(0x7fffffff)); // sign-strip mask
+			const __m256 threshold = _mm256_set1_ps(0.1f);
 
-			// Pack bools
-			comparisons = _mm_packs_epi32(comparisons, comparisons);
-			comparisons = _mm_packs_epi16(comparisons, comparisons);
-			//comparisons = _mm_and_si128(comparisons, true_mask); // Convert to 0 or 1, but it's not necessary for storing in bool array
+			for (int i = 0; i < CHUNK_VOLUME; i += 8)
+			{
+				__m256 values = _mm256_loadu_ps(&caveNoiseArray[i]);          // load 8 floats
+				__m256 absoluteValues = _mm256_and_ps(values, abs_mask);      // abs(x)
+				__m256 cmpResult = _mm256_cmp_ps(absoluteValues, threshold, _CMP_LT_OQ);  // abs(x) < 0.1f
+				__m256i comparisons = _mm256_castps_si256(cmpResult);
 
-			// Store 4 bools at once
-			*((int32_t*)(outArray + i)) = _mm_cvtsi128_si32(comparisons);
+				// Pack bools: 32-bit -> 16-bit -> 8-bit
+				// AVX2 packs operate within 128-bit lanes, so we need to account for that
+				__m128i lo = _mm256_extracti128_si256(comparisons, 0);
+				__m128i hi = _mm256_extracti128_si256(comparisons, 1);
+
+				lo = _mm_packs_epi32(lo, hi);    // 8x 32-bit -> 8x 16-bit (SSE2, fits in 128-bit)
+				lo = _mm_packs_epi16(lo, lo);    // 8x 16-bit -> 8x  8-bit (result in lower 64 bits)
+
+				// Store 8 bools at once
+				*((int64_t*)(outArray + i)) = _mm_cvtsi128_si64(lo);
+			}
 		}
+		// I don't wanna do AVX
+#else
+		// SSE implementation
+		{
+			const __m128 abs_mask = _mm_castsi128_ps(_mm_set1_epi32(0x7fffffff)); // sign-strip mask
+			const __m128 threshold = _mm_set1_ps(0.1f);
+			//const __m128i true_mask = _mm_set1_epi8(1);
+
+			for (int i = 0; i < CHUNK_VOLUME; i += 4)
+			{
+				__m128 values = _mm_loadu_ps(&caveNoiseArray[i]);         // load 4 floats
+				__m128 absoluteValues = _mm_and_ps(values, abs_mask);     // abs(x)
+				__m128i comparisons = _mm_castps_si128(_mm_cmplt_ps(absoluteValues, threshold));     // abs(x) < 0.1f
+
+				// Pack bools
+				comparisons = _mm_packs_epi32(comparisons, comparisons);
+				comparisons = _mm_packs_epi16(comparisons, comparisons);
+				//comparisons = _mm_and_si128(comparisons, true_mask); // Convert to 0 or 1, but it's not necessary for storing in bool array
+
+				// Store 4 bools at once
+				*((int32_t*)(outArray + i)) = _mm_cvtsi128_si32(comparisons);
+			}
+		}
+#endif
 	}
 }
 
