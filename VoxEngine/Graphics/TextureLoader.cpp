@@ -109,31 +109,60 @@ namespace TextureLoader
         return undefinedTexture;
     }
 
-    GLenum getInternalFormat(int channels)
+    // Convert int channel count to the TextureCompression::Channels enum.
+    static TextureCompression::Channels toCompressionChannels(int channels)
     {
         switch (channels)
         {
-        case 1: return GL_R8;
-        case 2: return GL_RG8;
-        case 3: return GL_RGB8;
-        case 4: return GL_RGBA8;
+        case 1:  return TextureCompression::Channels::R;
+        case 2:  return TextureCompression::Channels::RG;
+        case 3:  return TextureCompression::Channels::RGB;
+        default: return TextureCompression::Channels::RGBA;
+        }
+    }
+
+    // Returns the best internal format for the given params.
+    // When compression is requested it resolves a compressed format and falls
+    // back to the plain uncompressed format if the extension is unavailable.
+    static GLenum resolveInternalFormat(const TextureLoadParams& params, bool allowCompression = true)
+    {
+        if (allowCompression && params.compression != TextureCompression::Format::NONE)
+        {
+            GLenum compressed = TextureCompression::resolveInternalFormat(
+                params.compression,
+                toCompressionChannels(params.desiredChannels),
+                params.isHDR);
+
+            if (compressed != GL_NONE)
+                return compressed;
+
+            std::cerr << "[TextureLoader]: Requested compression ("
+                << TextureCompression::getName(params.compression)
+                << ") is unavailable. Falling back to uncompressed storage.\n";
+        }
+
+        // Plain uncompressed fallback
+        switch (params.desiredChannels)
+        {
+        case 1:  return GL_R8;
+        case 2:  return GL_RG8;
+        case 3:  return GL_RGB8;
         default: return GL_RGBA8;
         }
     }
 
-    GLenum getFormat(int channels)
+    static GLenum getFormat(int channels)
     {
         switch (channels)
         {
         case 1: return GL_RED;
         case 2: return GL_RG;
         case 3: return GL_RGB;
-        case 4: return GL_RGBA;
         default: return GL_RGBA;
         }
     }
 
-    int calculateMipmapLevels(int width, int height, bool createMipmaps)
+    static int calculateMipmapLevels(int width, int height, bool createMipmaps)
     {
         if (!createMipmaps) return 1;
 
@@ -143,7 +172,7 @@ namespace TextureLoader
         return levels;
     }
 
-    int calculateMipmapLevels(int width, int height, int depth, bool createMipmaps)
+    static int calculateMipmapLevels(int width, int height, int depth, bool createMipmaps)
     {
         if (!createMipmaps) return 1;
 
@@ -153,7 +182,7 @@ namespace TextureLoader
         return levels;
     }
 
-    bool validateChannels(int channels)
+    static bool validateChannels(int channels)
     {
         if (channels < 1 || channels > 4)
         {
@@ -246,59 +275,59 @@ namespace TextureLoader
         stbi_image_free(data);
     }
 
-
+    // -----------------------------------------------------------------------
+    //  Public API
+    // -----------------------------------------------------------------------
 
     void createTexture2DFromImage(
         Texture& texture,
-        const std::filesystem::path& texturePath,
+        const fs::path& texturePath,
         const TextureLoadParams& params)
     {
         if (!validateChannels(params.desiredChannels)) return;
 
         std::vector<unsigned char> imageData;
-        int width, height;
+        int width = 0, height = 0;
 
         loadAndProcessImage(texturePath, params.desiredChannels, imageData, width, height);
 
         if (width == 0 || height == 0)
         {
-            // Create fallback texture
+            // Fallback: create a small magenta checkerboard.
+            // Compression is intentionally skipped for the fallback texture
+            // because the driver may produce poor quality on tiny images.
             constexpr int defaultSize = 16;
-            std::vector<unsigned char> undefinedTexture = createUndefinedTexture(defaultSize, defaultSize, params.desiredChannels);
+            std::vector<unsigned char> fallback =
+                createUndefinedTexture(defaultSize, defaultSize, params.desiredChannels);
 
-            const int mipmapLevels = calculateMipmapLevels(defaultSize, defaultSize, params.createMipmaps);
-            GLenum internalFormat = getInternalFormat(params.desiredChannels);
+            const int mips = calculateMipmapLevels(defaultSize, defaultSize, params.createMipmaps);
 
-            texture.create2D(defaultSize, defaultSize, internalFormat, mipmapLevels);
-            texture.uploadSubData2D(
-                undefinedTexture.data(),
-                0, 0,
-                defaultSize, defaultSize,
-                GL_UNSIGNED_BYTE,
-                0);
-            if (mipmapLevels > 1) texture.generateMipmaps();
+            TextureLoadParams uncompressedParams = params;
+            uncompressedParams.compression = TextureCompression::Format::NONE;
+            GLenum fmt = resolveInternalFormat(uncompressedParams);
+
+            texture.create2D(defaultSize, defaultSize, fmt, mips);
+            texture.uploadSubData2D(fallback.data(), 0, 0, defaultSize, defaultSize, GL_UNSIGNED_BYTE, 0);
+            if (mips > 1) texture.generateMipmaps();
             return;
         }
 
-        const int mipmapLevels = calculateMipmapLevels(width, height, params.createMipmaps);
-        GLenum internalFormat = getInternalFormat(params.desiredChannels);
+        const int  mips = calculateMipmapLevels(width, height, params.createMipmaps);
+        const GLenum fmt = resolveInternalFormat(params);
 
-        texture.create2D(width, height, internalFormat, mipmapLevels);
-        texture.uploadSubData2D(
-            imageData.data(),
-            0, 0,
-            width, height,
-            GL_UNSIGNED_BYTE,
-            0);
-        if (mipmapLevels > 1) texture.generateMipmaps();
+        // When the internal format is compressed, OpenGL accepts ordinary
+        // pixel data via glTextureSubImage* and compresses it on the driver.
+        // No special upload path is required here.
+        texture.create2D(width, height, fmt, mips);
+        texture.uploadSubData2D(imageData.data(), 0, 0, width, height, GL_UNSIGNED_BYTE, 0);
+        if (mips > 1) texture.generateMipmaps();
     }
 
     void createTextureArrayFromImages(
         Texture& texture,
         const fs::path& texturesFolderPath,
         const std::vector<std::string>& textureNames,
-        const TextureLoadParams& params
-    )
+        const TextureLoadParams& params)
     {
         if (!validateChannels(params.desiredChannels)) return;
 
@@ -312,35 +341,32 @@ namespace TextureLoader
 
         const size_t layerCount = textureNames.size();
 
-        // Determine maximum dimensions
+        // Determine shared dimensions across all layers.
         int sharedWidth = 0;
         int sharedHeight = 0;
-        // TODO: Add 'sharedChannels'
 
-        for (size_t i = 0; i < layerCount; i++)
+        for (const auto& name : textureNames)
         {
-            fs::path fullPath = texturesFolderPath / (textureNames[i] + ".png");
-
-            int width, height, channels;
-            if (stbi_info(fullPath.string().c_str(), &width, &height, &channels))
+            fs::path fullPath = texturesFolderPath / (name + ".png");
+            int w, h, ch;
+            if (stbi_info(fullPath.string().c_str(), &w, &h, &ch))
             {
-                sharedWidth = std::max(sharedWidth, width);
-                sharedHeight = std::max(sharedHeight, height);
+                sharedWidth = std::max(sharedWidth, w);
+                sharedHeight = std::max(sharedHeight, h);
             }
         }
 
         if (sharedWidth == 0 || sharedHeight == 0)
-        {
-            sharedWidth = sharedHeight = 16; // Default fallback size
-        }
+            sharedWidth = sharedHeight = 16;
 
-        const int mipmapLevels = calculateMipmapLevels(sharedWidth, sharedHeight, params.createMipmaps);
-        GLenum internalFormat = getInternalFormat(params.desiredChannels);
-        std::vector<unsigned char> undefinedTexture = createUndefinedTexture(sharedWidth, sharedHeight, params.desiredChannels);
+        const int    mips = calculateMipmapLevels(sharedWidth, sharedHeight, params.createMipmaps);
+        const GLenum fmt = resolveInternalFormat(params);
 
-        texture.create2DArray(sharedWidth, sharedHeight, static_cast<int>(layerCount), internalFormat, mipmapLevels);
+        std::vector<unsigned char> fallback =
+            createUndefinedTexture(sharedWidth, sharedHeight, params.desiredChannels);
 
-        // Load and upload each texture
+        texture.create2DArray(sharedWidth, sharedHeight, static_cast<int>(layerCount), fmt, mips);
+
         std::vector<unsigned char> imageData;
         std::vector<unsigned char> convertedData;
 
@@ -348,22 +374,21 @@ namespace TextureLoader
         {
             fs::path fullPath = texturesFolderPath / (textureNames[i] + ".png");
 
-            int width, height;
+            int width = 0, height = 0;
             loadAndProcessImage(fullPath, params.desiredChannels, imageData, width, height);
 
             const unsigned char* uploadData = nullptr;
-            int uploadWidth = sharedWidth;
-            int uploadHeight = sharedHeight;
 
             if (width == 0 || height == 0)
             {
-                // Use undefined texture as fallback
-                uploadData = undefinedTexture.data();
+                uploadData = fallback.data();
             }
             else if (width != sharedWidth || height != sharedHeight)
             {
-                // Resize or pad image data to match shared dimensions
-                convertImageData(imageData.data(), width, height, params.desiredChannels, params.desiredChannels, convertedData);
+                convertImageData(
+                    imageData.data(), width, height,
+                    params.desiredChannels, params.desiredChannels,
+                    convertedData);
                 uploadData = convertedData.data();
             }
             else
@@ -374,39 +399,57 @@ namespace TextureLoader
             texture.uploadSubData2DArray(
                 uploadData,
                 0, 0, static_cast<int>(i),
-                uploadWidth, uploadHeight,
+                sharedWidth, sharedHeight,
                 GL_UNSIGNED_BYTE,
                 0);
         }
 
-        if (mipmapLevels > 1) texture.generateMipmaps();
+        if (mips > 1) texture.generateMipmaps();
     }
 
-    void createTexture3DFromFloatData(Texture& texture, const std::vector<float>& data, int width, int height, int depth, const TextureLoadParams& params)
+    void createTexture3DFromFloatData(
+        Texture& texture,
+        const std::vector<float>& data,
+        int width, int height, int depth,
+        const TextureLoadParams& params)
     {
         if (!validateChannels(params.desiredChannels)) return;
 
-        const int expectedSize = width * height * depth;
-        if (data.size() < expectedSize)
+        const int expectedSize = width * height * depth * params.desiredChannels;
+        if (static_cast<int>(data.size()) < expectedSize)
         {
-            std::cerr << "[TextureLoader][createAndLoadTexture3D]: Provided data size is not enough\n";
+            std::cerr << "[TextureLoader][createTexture3DFromFloatData]: "
+                "Provided data size (" << data.size() << ") is smaller than expected ("
+                << expectedSize << ").\n";
             return;
         }
 
-        const int mipmapLevels = 1 + calculateMipmapLevels(width, height, depth, params.createMipmaps);
+        // Block-compressed formats are not valid for GL_TEXTURE_3D in OpenGL.
+        // Warn and fall back to uncompressed.
+        if (params.compression != TextureCompression::Format::NONE)
+        {
+            std::cerr << "[TextureLoader][createTexture3DFromFloatData]: "
+                "Block-compressed formats are not supported for 3D textures. "
+                "Ignoring compression setting.\n";
+        }
 
-        GLenum internalFormat = getInternalFormat(params.desiredChannels);
-        GLenum format = getFormat(params.desiredChannels);
+        TextureLoadParams uncompressedParams = params;
+        uncompressedParams.compression = TextureCompression::Format::NONE;
 
-        texture.create3D(width, height, depth, internalFormat, mipmapLevels);
+        // Select a float-compatible internal format.
+        GLenum internalFormat;
+        switch (params.desiredChannels)
+        {
+        case 1:  internalFormat = GL_R32F;    break;
+        case 2:  internalFormat = GL_RG32F;   break;
+        case 3:  internalFormat = GL_RGB32F;  break;
+        default: internalFormat = GL_RGBA32F; break;
+        }
 
-        // Upload the texture data
-        texture.uploadSubData3D(
-            data.data(),
-            0, 0, 0,
-            width, height, depth,
-            GL_FLOAT,
-            0);
-        if (mipmapLevels > 1) texture.generateMipmaps();
+        const int mips = calculateMipmapLevels(width, height, depth, params.createMipmaps);
+
+        texture.create3D(width, height, depth, internalFormat, mips);
+        texture.uploadSubData3D(data.data(), 0, 0, 0, width, height, depth, GL_FLOAT, 0);
+        if (mips > 1) texture.generateMipmaps();
     }
 }

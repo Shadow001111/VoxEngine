@@ -10,6 +10,15 @@ namespace TextureLoader
     {
         int desiredChannels = 4;
         bool createMipmaps = false;
+
+        // Set to anything other than NONE to request GPU-compressed storage.
+        // AUTO lets the system pick the best format available on the hardware.
+        // Compression is skipped silently for texture types that do not support
+        // it (GL_TEXTURE_3D) or when the chosen format is unsupported.
+        TextureCompression::Format compression = TextureCompression::Format::NONE;
+
+        // Only relevant for BC6H / HDR workflows.
+        bool isHDR = false;
     };
 
     void createTexture2DFromImage(

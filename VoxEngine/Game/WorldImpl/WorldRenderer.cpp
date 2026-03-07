@@ -35,6 +35,43 @@ ViewRays computeViewRays(const Camera& cam)
 }
 
 
+void debugPrintCompressionInfo(const Texture& texture)
+{
+	GLuint id = texture.getID();
+
+	GLint isCompressed = 0;
+	glGetTextureLevelParameteriv(id, 0, GL_TEXTURE_COMPRESSED, &isCompressed);
+
+	if (!isCompressed)
+	{
+		std::cerr << "[TextureDebug]: Texture " << id << " is NOT compressed.\n";
+		return;
+	}
+
+	GLint compressedSize = 0;
+	glGetTextureLevelParameteriv(id, 0, GL_TEXTURE_COMPRESSED_IMAGE_SIZE, &compressedSize);
+
+	GLint internalFormat = 0;
+	glGetTextureLevelParameteriv(id, 0, GL_TEXTURE_INTERNAL_FORMAT, &internalFormat);
+
+	GLint width = 0, height = 0, depth = 0;
+	glGetTextureLevelParameteriv(id, 0, GL_TEXTURE_WIDTH, &width);
+	glGetTextureLevelParameteriv(id, 0, GL_TEXTURE_HEIGHT, &height);
+	glGetTextureLevelParameteriv(id, 0, GL_TEXTURE_DEPTH, &depth);
+
+	int layers = std::max(depth, 1);
+
+	int uncompressedSize = width * height * layers * 4; // assume RGBA8 baseline
+	float ratio = static_cast<float>(uncompressedSize) / static_cast<float>(compressedSize);
+
+	std::cout << "[TextureDebug]: Texture " << id << "\n"
+		<< "  Internal format : " << texture.getInternalFormatName() << "\n"
+		<< "  Compressed size : " << compressedSize << " bytes\n"
+		<< "  Uncompressed est: " << uncompressedSize << " bytes\n"
+		<< "  Ratio           : " << ratio << ":1\n";
+}
+
+
 WorldRenderer::ChunkRenderInfo::ChunkRenderInfo() :
 	chunk(nullptr), manhattanDistance(0)
 {}
@@ -50,11 +87,14 @@ void WorldRenderer::initTextures(const std::vector<std::string>& blockTextureNam
 		// Load
 		TextureLoader::TextureLoadParams textureLoadParametrs;
 		textureLoadParametrs.createMipmaps = true;
+		textureLoadParametrs.compression = TextureCompression::Format::AUTO;
 
 		{
 			PROFILE_SCOPE("Block texture array creation", ProfileCategory::General);
 			TextureLoader::createTextureArrayFromImages(blockTextureArray, "res/BlockTextures", blockTextureNames, textureLoadParametrs);
 		}
+
+		//debugPrintCompressionInfo(blockTextureArray);
 
 		Texture::Parameters textureParametrs
 		{

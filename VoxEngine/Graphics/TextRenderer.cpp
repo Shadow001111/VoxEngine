@@ -195,11 +195,41 @@ void TextRenderer::loadGlyphs(FT_Face& face, Font& font)
         {
             texture = textureID++;
 
+            int srcW = (int)face->glyph->bitmap.width;
+            int srcH = (int)face->glyph->bitmap.rows;
+
+            // For block-compressed textures every upload region must have
+            // width and height that are multiples of 4 (or reach the texture
+            // edge, which we can not guarantee for arbitrary glyph sizes).
+            const void* uploadPtr = face->glyph->bitmap.buffer;
+            std::vector<uint8_t> paddedBitmap;
+
+            if (font.textureArray.isCompressed())
+            {
+                int padW = (srcW + 3) & ~3;
+                int padH = (srcH + 3) & ~3;
+
+                if (padW != srcW || padH != srcH)
+                {
+                    paddedBitmap.resize(padW * padH, 0);
+                    for (int row = 0; row < srcH; ++row)
+                    {
+                        std::memcpy(
+                            paddedBitmap.data() + row * padW,
+                            face->glyph->bitmap.buffer + row * srcW,
+                            srcW);
+                    }
+                    uploadPtr = paddedBitmap.data();
+                    srcW = padW;
+                    srcH = padH;
+                }
+            }
+
             font.textureArray.uploadSubData2DArray(
-                face->glyph->bitmap.buffer,
+                uploadPtr,
                 0, 0,
                 texture - 1,
-                face->glyph->bitmap.width, face->glyph->bitmap.rows,
+                srcW, srcH,
                 GL_UNSIGNED_BYTE
             );
         }
@@ -485,7 +515,18 @@ bool TextRenderer::loadFont(const std::string& fontName, GLuint fontSize)
 
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
-    font.textureArray.create2DArray(font.maxGlyphSize.x, font.maxGlyphSize.y, glyphCount, GL_R8);
+	GLenum internalFormat = TextureCompression::resolveInternalFormat(TextureCompression::Format::AUTO, TextureCompression::Channels::R, false);
+
+    // Block-compressed formats operate on 4x4 pixel blocks.
+    // The texture dimensions must be multiples of 4 so every glyph
+    // upload can be padded to a valid block-aligned size.
+    if (Texture::isFormatCompressed(internalFormat))
+    {
+        font.maxGlyphSize.x = (font.maxGlyphSize.x + 3) & ~3;
+        font.maxGlyphSize.y = (font.maxGlyphSize.y + 3) & ~3;
+    }
+
+    font.textureArray.create2DArray(font.maxGlyphSize.x, font.maxGlyphSize.y, glyphCount, internalFormat);
 
     {
         Texture::Parameters textureParametrs

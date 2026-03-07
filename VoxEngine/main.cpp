@@ -27,7 +27,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #ifdef NDEBUG
-constexpr int CHUNK_LOAD_DISTANCE = 24;
+constexpr int CHUNK_LOAD_DISTANCE = 8;
 #else
 constexpr int CHUNK_LOAD_DISTANCE = 3;
 #endif
@@ -138,6 +138,7 @@ static void setupContainerUI(ContainerUI& c)
     }
 
     TextureLoader::TextureLoadParams textureLoadParametrs;
+    textureLoadParametrs.compression = TextureCompression::Format::AUTO;
 
     Texture::Parameters textureParametrs
     {
@@ -527,10 +528,14 @@ static void check()
     std::cout << "    Max color attachment count: " << maxColorAttachments << "\n";
 
     // Check texture compression available
-    //std::cout << std::string(100, '=') << "\n";
-    //{
-    //    checkAllCompressionFormats();
-    //}
+    {
+        const auto& s = TextureCompression::getSupport();
+        std::cout << "Texture compression support:\n"
+            << "    S3TC (BC1/BC3) : " << (s.s3tc ? "yes" : "no") << "\n"
+            << "    RGTC (BC4/BC5) : " << (s.rgtc ? "yes" : "no") << "\n"
+            << "    BPTC (BC6/BC7) : " << (s.bptc ? "yes" : "no") << "\n"
+            << "    ASTC           : " << (s.astc ? "yes" : "no") << "\n";
+    }
 
     //
     std::cout << std::string(100, '=') << "\n";
