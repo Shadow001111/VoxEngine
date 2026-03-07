@@ -65,6 +65,12 @@ void TerrainGenerator::ChunkColumnDataPool::release(ChunkColumnData* chunkColumn
 
 int TerrainGenerator::seed = 0;
 thread_local TerrainGenerator::ThreadLocalData TerrainGenerator::threadLocalData;
+FastNoise::SmartNode<FastNoise::Simplex> TerrainGenerator::simplexNoise;
+
+TerrainGenerator::TerrainGenerator()
+{
+	simplexNoise = FastNoise::New<FastNoise::Simplex>();
+}
 
 TerrainGenerator& TerrainGenerator::getInstance()
 {
@@ -201,18 +207,18 @@ void TerrainGenerator::computeCaveMask(bool* outArray, int chunkX, int chunkY, i
 
 		const __m128 abs_mask = _mm_castsi128_ps(_mm_set1_epi32(0x7fffffff)); // sign-strip mask
 		const __m128 threshold = _mm_set1_ps(0.1f);
-		const __m128i true_mask = _mm_set1_epi8(1);
+		//const __m128i true_mask = _mm_set1_epi8(1);
 
 		for (int i = 0; i < CHUNK_VOLUME; i += 4)
 		{
 			__m128 values = _mm_loadu_ps(&caveNoiseArray[i]);         // load 4 floats
-			__m128 absoluteValues = _mm_and_ps(values, abs_mask);           // fabsf x4
-			__m128i comparisons = _mm_castps_si128(_mm_cmplt_ps(absoluteValues, threshold));     // abs(x) < 0.1f | 4 bytes (0x01 or 0x00)
+			__m128 absoluteValues = _mm_and_ps(values, abs_mask);     // abs(x)
+			__m128i comparisons = _mm_castps_si128(_mm_cmplt_ps(absoluteValues, threshold));     // abs(x) < 0.1f
 
 			// Pack bools
 			comparisons = _mm_packs_epi32(comparisons, comparisons);
 			comparisons = _mm_packs_epi16(comparisons, comparisons);
-			comparisons = _mm_and_si128(comparisons, true_mask);
+			//comparisons = _mm_and_si128(comparisons, true_mask); // Convert to 0 or 1, but it's not necessary for storing in bool array
 
 			// Store 4 bools at once
 			*((int32_t*)(outArray + i)) = _mm_cvtsi128_si32(comparisons);
@@ -334,7 +340,6 @@ void TerrainGenerator::computeLayeredNoise_2D(float* outArray, int chunkX, int c
 	const int zStart = chunkZ * CHUNK_SIZE;
 
 	float* tempNoiseArray = threadLocalData.resources->tempNoiseArray.data();
-	const auto& simplexNoise = threadLocalData.resources->simplexNoise;
 	for (int i = 0; i < params.layerCount; i++)
 	{
 		// X and Z are swapped because of FastNoise's coordinate system
@@ -372,15 +377,16 @@ void TerrainGenerator::computeLayeredNoise_3D(float* outArray, int chunkX, int c
 	const int zStart = chunkZ * CHUNK_SIZE;
 
 	float* tempNoiseArray = threadLocalData.resources->tempNoiseArray.data();
-	const auto& simplexNoise = threadLocalData.resources->simplexNoise;
 	for (int i = 0; i < params.layerCount; i++)
 	{
 		// X and Z are swapped because of FastNoise's coordinate system
 		simplexNoise->GenUniformGrid3D(tempNoiseArray, zStart, yStart, xStart, CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE, layerFrequency, seed);
+
 		for (int index = 0; index < CHUNK_VOLUME; index++)
 		{
 			outArray[index] += tempNoiseArray[index] * layerAmplitude;
 		}
+
 		amplitudeSum += layerAmplitude;
 		layerAmplitude *= params.amplitudeFactor;
 		layerFrequency *= params.frequencyFactor;
@@ -402,7 +408,6 @@ void TerrainGenerator::computeLayeredNoise_3D(float* outArray, int chunkX, int c
 TerrainGenerator::ThreadLocalData::ThreadLocalData() :
 	resources(std::make_unique<Resources>())
 {
-	resources->simplexNoise = FastNoise::New<FastNoise::Simplex>();
 }
 
 //============================================================================

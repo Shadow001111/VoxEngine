@@ -68,7 +68,6 @@ class TerrainGenerator
 	{
 		struct Resources
 		{
-			FastNoise::SmartNode<FastNoise::Simplex> simplexNoise;
 			std::array<float, CHUNK_VOLUME> tempNoiseArray{};
 			std::array<float, CHUNK_VOLUME> caveNoiseArray{};
 		};
@@ -79,8 +78,9 @@ class TerrainGenerator
 	};
 
 	static thread_local ThreadLocalData threadLocalData;
+	static FastNoise::SmartNode<FastNoise::Simplex> simplexNoise;
 
-	TerrainGenerator() = default;
+	TerrainGenerator();
 	~TerrainGenerator() = default;
 public:
 	TerrainGenerator(const TerrainGenerator& other) = delete;
