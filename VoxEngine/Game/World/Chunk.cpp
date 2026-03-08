@@ -35,19 +35,23 @@ Chunk::~Chunk()
 }
 
 // Prepares chunk for use
-void Chunk::init(const glm::ivec3& position, const std::array<Chunk*, 6>& newNeighbors, ChunkRegion* parentRegion)
+void Chunk::init(const glm::ivec3& position, const std::array<Chunk*, 27>& newNeighbors, ChunkRegion* parentRegion)
 {
 	// Set position
 	this->position = position;
 
 	// Set neighbors
 	this->neighbors = newNeighbors;
-	for (int i = 0; i < 6; i++)
+	constexpr int selfIndex = getNeighborIndex(0, 0, 0);
+	neighbors[selfIndex] = this; // Set self pointer for easier access. This also allows to use the same indexing for neighbors and self.
+	for (int i = 0; i < newNeighbors.size(); i++)
 	{
+		if (i == selfIndex) continue;
+
 		Chunk* neighbor = this->neighbors[i];
 		if (neighbor)
 		{
-			neighbor->neighbors[i ^ 1] = this;
+			neighbor->neighbors[getOppositeNeighborIndex(i)] = this;
 		}
 	}
 
@@ -71,12 +75,16 @@ void Chunk::destroy()
 	FenceGuard fence(processingFence);
 
 	// Clear neighbors
-	for (int i = 0; i < 6; i++)
+	constexpr int selfIndex = getNeighborIndex(0, 0, 0);
+	neighbors[selfIndex] = nullptr;
+	for (int i = 0; i < neighbors.size(); i++)
 	{
+		if (i == selfIndex) continue;
+
 		Chunk* neighbor = neighbors[i];
 		if (neighbor)
 		{
-			neighbor->neighbors[i ^ 1] = nullptr;
+			neighbor->neighbors[getOppositeNeighborIndex(i)] = nullptr;
 			neighbors[i] = nullptr;
 		}
 	}
@@ -299,83 +307,8 @@ void Chunk::buildBlocks()
 	// Mark itself and neighbors meshes as dirty
 
 	{
-		setFlag(Flag::ShouldUpdateMesh, true);
-
-		// Sides
-		Chunk* n0;
-		if (n0 = neighbors[0]) n0->setFlag(Flag::ShouldUpdateMesh, true);;
-		if (n0 = neighbors[1]) n0->setFlag(Flag::ShouldUpdateMesh, true);;
-		if (n0 = neighbors[2]) n0->setFlag(Flag::ShouldUpdateMesh, true);;
-		if (n0 = neighbors[3]) n0->setFlag(Flag::ShouldUpdateMesh, true);;
-		if (n0 = neighbors[4]) n0->setFlag(Flag::ShouldUpdateMesh, true);;
-		if (n0 = neighbors[5]) n0->setFlag(Flag::ShouldUpdateMesh, true);;
-
-		// Edges
-		Chunk* n1;
-		if ((n0 = neighbors[0]) && (n1 = n0->neighbors[2])) n1->setFlag(Flag::ShouldUpdateMesh, true);
-		if ((n0 = neighbors[0]) && (n1 = n0->neighbors[3])) n1->setFlag(Flag::ShouldUpdateMesh, true);
-		if ((n0 = neighbors[1]) && (n1 = n0->neighbors[2])) n1->setFlag(Flag::ShouldUpdateMesh, true);
-		if ((n0 = neighbors[1]) && (n1 = n0->neighbors[3])) n1->setFlag(Flag::ShouldUpdateMesh, true);
-		if ((n0 = neighbors[0]) && (n1 = n0->neighbors[4])) n1->setFlag(Flag::ShouldUpdateMesh, true);
-		if ((n0 = neighbors[0]) && (n1 = n0->neighbors[5])) n1->setFlag(Flag::ShouldUpdateMesh, true);
-		if ((n0 = neighbors[1]) && (n1 = n0->neighbors[4])) n1->setFlag(Flag::ShouldUpdateMesh, true);
-		if ((n0 = neighbors[1]) && (n1 = n0->neighbors[5])) n1->setFlag(Flag::ShouldUpdateMesh, true);
-		if ((n0 = neighbors[2]) && (n1 = n0->neighbors[4])) n1->setFlag(Flag::ShouldUpdateMesh, true);
-		if ((n0 = neighbors[2]) && (n1 = n0->neighbors[5])) n1->setFlag(Flag::ShouldUpdateMesh, true);
-		if ((n0 = neighbors[3]) && (n1 = n0->neighbors[4])) n1->setFlag(Flag::ShouldUpdateMesh, true);
-		if ((n0 = neighbors[3]) && (n1 = n0->neighbors[5])) n1->setFlag(Flag::ShouldUpdateMesh, true);
-
-		// Corners
-		// TODO: Either store corner neighbors too, or use ChunkRegion system
-		Chunk* n2;
-		if ((n0 = neighbors[0]) &&
-			(n1 = n0->neighbors[2]) &&
-			(n2 = n1->neighbors[4]))
-		{
-			n2->setFlag(Flag::ShouldUpdateMesh, true);;
-		}
-		if ((n0 = neighbors[0]) &&
-			(n1 = n0->neighbors[2]) &&
-			(n2 = n1->neighbors[5]))
-		{
-			n2->setFlag(Flag::ShouldUpdateMesh, true);;
-		}
-		if ((n0 = neighbors[0]) &&
-			(n1 = n0->neighbors[3]) &&
-			(n2 = n1->neighbors[4]))
-		{
-			n2->setFlag(Flag::ShouldUpdateMesh, true);;
-		}
-		if ((n0 = neighbors[0]) &&
-			(n1 = n0->neighbors[3]) &&
-			(n2 = n1->neighbors[5]))
-		{
-			n2->setFlag(Flag::ShouldUpdateMesh, true);;
-		}
-		if ((n0 = neighbors[1]) &&
-			(n1 = n0->neighbors[2]) &&
-			(n2 = n1->neighbors[4]))
-		{
-			n2->setFlag(Flag::ShouldUpdateMesh, true);;
-		}
-		if ((n0 = neighbors[1]) &&
-			(n1 = n0->neighbors[2]) &&
-			(n2 = n1->neighbors[5]))
-		{
-			n2->setFlag(Flag::ShouldUpdateMesh, true);;
-		}
-		if ((n0 = neighbors[1]) &&
-			(n1 = n0->neighbors[3]) &&
-			(n2 = n1->neighbors[4]))
-		{
-			n2->setFlag(Flag::ShouldUpdateMesh, true);;
-		}
-		if ((n0 = neighbors[1]) &&
-			(n1 = n0->neighbors[3]) &&
-			(n2 = n1->neighbors[5]))
-		{
-			n2->setFlag(Flag::ShouldUpdateMesh, true);;
-		}
+		uint32_t dirtyMask = -1;
+		applyNeighborDirtyMask(dirtyMask);
 	}
 }
 
@@ -641,7 +574,7 @@ void Chunk::buildLight()
 
 	const ChunkColumnData* chunkColumnData = TerrainGenerator::getInstance().getChunkColumnData(position.x, position.z);
 	const int* heightMap = chunkColumnData->heightMapRead();
-	const Chunk* top = neighbors[3];
+	const Chunk* top = neighbors[getNeighborIndex(0, 1, 0)];
 	uint32_t neighborDirtyMask = 0;
 
 	// Reserve space in BFS queues to avoid dynamic allocations during propagation
@@ -781,7 +714,7 @@ void Chunk::buildLight()
 			};
 
 		// -X
-		const Chunk* neighbor = neighbors[0];
+		const Chunk* neighbor = neighbors[getNeighborIndex(-1, 0, 0)];
 		if (neighbor && neighbor->isLightBuilt())
 		{
 			const int x = 0;
@@ -796,7 +729,7 @@ void Chunk::buildLight()
 		}
 
 		// +X
-		neighbor = neighbors[1];
+		neighbor = neighbors[getNeighborIndex(1, 0, 0)];
 		if (neighbor && neighbor->isLightBuilt())
 		{
 			const int x = CHUNK_SIZE - 1;
@@ -811,7 +744,7 @@ void Chunk::buildLight()
 		}
 
 		// -Y
-		neighbor = neighbors[2];
+		neighbor = neighbors[getNeighborIndex(0, -1, 0)];
 		if (neighbor && neighbor->isLightBuilt())
 		{
 			const int y = 0;
@@ -826,7 +759,7 @@ void Chunk::buildLight()
 		}
 
 		// +Y
-		neighbor = neighbors[3];
+		neighbor = neighbors[getNeighborIndex(0, 1, 0)];
 		if (neighbor && neighbor->isLightBuilt())
 		{
 			const int y = CHUNK_SIZE - 1;
@@ -841,7 +774,7 @@ void Chunk::buildLight()
 		}
 
 		// -Z
-		neighbor = neighbors[4];
+		neighbor = neighbors[getNeighborIndex(0, 0, -1)];
 		if (neighbor && neighbor->isLightBuilt())
 		{
 			const int z = 0;
@@ -856,7 +789,7 @@ void Chunk::buildLight()
 		}
 
 		// +Z
-		neighbor = neighbors[5];
+		neighbor = neighbors[getNeighborIndex(0, 0, 1)];
 		if (neighbor && neighbor->isLightBuilt())
 		{
 			const int z = CHUNK_SIZE - 1;
@@ -1586,7 +1519,7 @@ Chunk* Chunk::traverseToSideNeighbor(int x, int y, int z, int side, size_t& outI
 		return const_cast<Chunk*>(this);
 	}
 	
-	Chunk* neighbor = neighbors[side];
+	Chunk* neighbor = neighbors[getSideNeighborIndex(side)];
 	if (neighbor)
 	{
 		outIndex = getIndex(x & CHUNK_LOWER_BITS_MASK, y & CHUNK_LOWER_BITS_MASK, z & CHUNK_LOWER_BITS_MASK);
@@ -1594,70 +1527,22 @@ Chunk* Chunk::traverseToSideNeighbor(int x, int y, int z, int side, size_t& outI
 	}
 	
 	return nullptr;
-
-	// Version 2: 0.536s + 0.331s
-	//const int check = (x | y | z) & CHUNK_UPPER_BITS_MASK;
-	//if (check == 0)
-	//{
-	//	outIndex = getIndex(x, y, z);
-	//	return const_cast<Chunk*>(this);
-	//}
-	//
-	//outIndex = getIndex(x & CHUNK_LOWER_BITS_MASK, y & CHUNK_LOWER_BITS_MASK, z & CHUNK_LOWER_BITS_MASK);
-	//
-	//return neighbors[side];
-
-	// Version 3 0.722s + 0.408s
-	//const int check = (x | y | z) & CHUNK_UPPER_BITS_MASK;
-	//outIndex = getIndex(x & CHUNK_LOWER_BITS_MASK, y & CHUNK_LOWER_BITS_MASK, z & CHUNK_LOWER_BITS_MASK);
-	//
-	//Chunk* returnPtr = const_cast<Chunk*>(this);
-	//if (check != 0)
-	//{
-	//	returnPtr = neighbors[side];
-	//}
-	//return returnPtr;
-
-	// Version 4: 7.27s and 4.28s
-	//outIndex = getIndex(x & CHUNK_LOWER_BITS_MASK, y & CHUNK_LOWER_BITS_MASK, z & CHUNK_LOWER_BITS_MASK);
-	//return ((x | y | z) & CHUNK_UPPER_BITS_MASK) == 0 ? const_cast<Chunk*>(this) : neighbors[side];
 }
 
 Chunk* Chunk::traverseThroughNeighbors(int x, int y, int z, size_t& outIndex) const
 {
-	int nx = x & CHUNK_UPPER_BITS_MASK;
-	int ny = y & CHUNK_UPPER_BITS_MASK;
-	int nz = z & CHUNK_UPPER_BITS_MASK;
-
-	if (nx == 0 && ny == 0 && nz == 0)
+	if (((x | y | z) & CHUNK_UPPER_BITS_MASK) == 0)
 	{
 		outIndex = getIndex(x, y, z);
 		return const_cast<Chunk*>(this);
 	}
 
-	int dirX = (nx == 0) ? -1 : 0 + (nx > 0); //(nx < 0) ? 0 : ((nx > 0) ? 1 : -1);
-	int dirY = (ny == 0) ? -1 : 2 + (ny > 0); //(ny < 0) ? 2 : ((ny > 0) ? 3 : -1);
-	int dirZ = (nz == 0) ? -1 : 4 + (nz > 0); //(nz < 0) ? 4 : ((nz > 0) ? 5 : -1);
+	const int dirX = (x < 0) ? -1 : (x >= CHUNK_SIZE) ? 1 : 0;
+	const int dirY = (y < 0) ? -1 : (y >= CHUNK_SIZE) ? 1 : 0;
+	const int dirZ = (z < 0) ? -1 : (z >= CHUNK_SIZE) ? 1 : 0;
 
-	Chunk* neighbor = const_cast<Chunk*>(this);
-
-	if (dirX != -1)
-	{
-		neighbor = neighbor->neighbors[dirX];
-		if (!neighbor) return nullptr;
-	}
-
-	if (dirY != -1)
-	{
-		neighbor = neighbor->neighbors[dirY];
-		if (!neighbor) return nullptr;
-	}
-
-	if (dirZ != -1)
-	{
-		neighbor = neighbor->neighbors[dirZ];
-		if (!neighbor) return nullptr;
-	}
+	Chunk* neighbor = neighbors[getNeighborIndex(dirX, dirY, dirZ)];
+	if (!neighbor) return nullptr;
 
 	outIndex = getIndex(x & CHUNK_LOWER_BITS_MASK, y & CHUNK_LOWER_BITS_MASK, z & CHUNK_LOWER_BITS_MASK);
 	return neighbor;
@@ -1665,45 +1550,22 @@ Chunk* Chunk::traverseThroughNeighbors(int x, int y, int z, size_t& outIndex) co
 
 uint32_t Chunk::getNeighborDirtyMask(int x, int y, int z) noexcept
 {
-	const int xi = (x == 0) + (x == (CHUNK_SIZE - 1)) * 2;
-	const int yi = (y == 0) + (y == (CHUNK_SIZE - 1)) * 2;
-	const int zi = (z == 0) + (z == (CHUNK_SIZE - 1)) * 2;
+	const int xi = (x <= 0) ? 1 : (x >= (CHUNK_SIZE - 1)) ? 2 : 0;
+	const int yi = (y <= 0) ? 1 : (y >= (CHUNK_SIZE - 1)) ? 2 : 0;
+	const int zi = (z <= 0) ? 1 : (z >= (CHUNK_SIZE - 1)) ? 2 : 0;
 
 	return PRECOMPUTED_NEIGHBOR_DIRTY_MASKS[xi * 9 + yi * 3 + zi];
 }
 
 void Chunk::applyNeighborDirtyMask(uint32_t mask)
 {
-	markMeshDirty();
-	if (!mask) return;
-
-	Chunk *n0, *n1, *n2;
-	if ((mask & 1u << 0)  && (n0 = neighbors[0])) n0->markMeshDirty();
-	if ((mask & 1u << 1)  && (n0 = neighbors[1])) n0->markMeshDirty();
-	if ((mask & 1u << 2)  && (n0 = neighbors[2])) n0->markMeshDirty();
-	if ((mask & 1u << 3)  && (n0 = neighbors[3])) n0->markMeshDirty();
-	if ((mask & 1u << 4)  && (n0 = neighbors[4])) n0->markMeshDirty();
-	if ((mask & 1u << 5)  && (n0 = neighbors[5])) n0->markMeshDirty();
-	if ((mask & 1u << 6)  && (n0 = neighbors[0]) && (n1 = n0->neighbors[2])) n1->markMeshDirty();
-	if ((mask & 1u << 7)  && (n0 = neighbors[0]) && (n1 = n0->neighbors[3])) n1->markMeshDirty();
-	if ((mask & 1u << 8)  && (n0 = neighbors[1]) && (n1 = n0->neighbors[2])) n1->markMeshDirty();
-	if ((mask & 1u << 9)  && (n0 = neighbors[1]) && (n1 = n0->neighbors[3])) n1->markMeshDirty();
-	if ((mask & 1u << 10) && (n0 = neighbors[0]) && (n1 = n0->neighbors[4])) n1->markMeshDirty();
-	if ((mask & 1u << 11) && (n0 = neighbors[0]) && (n1 = n0->neighbors[5])) n1->markMeshDirty();
-	if ((mask & 1u << 12) && (n0 = neighbors[1]) && (n1 = n0->neighbors[4])) n1->markMeshDirty();
-	if ((mask & 1u << 13) && (n0 = neighbors[1]) && (n1 = n0->neighbors[5])) n1->markMeshDirty();
-	if ((mask & 1u << 14) && (n0 = neighbors[2]) && (n1 = n0->neighbors[4])) n1->markMeshDirty();
-	if ((mask & 1u << 15) && (n0 = neighbors[2]) && (n1 = n0->neighbors[5])) n1->markMeshDirty();
-	if ((mask & 1u << 16) && (n0 = neighbors[3]) && (n1 = n0->neighbors[4])) n1->markMeshDirty();
-	if ((mask & 1u << 17) && (n0 = neighbors[3]) && (n1 = n0->neighbors[5])) n1->markMeshDirty();
-	if ((mask & 1u << 18) && (n0 = neighbors[0]) && (n1 = n0->neighbors[2]) && (n2 = n1->neighbors[4])) n2->markMeshDirty();
-	if ((mask & 1u << 19) && (n0 = neighbors[0]) && (n1 = n0->neighbors[2]) && (n2 = n1->neighbors[5])) n2->markMeshDirty();
-	if ((mask & 1u << 20) && (n0 = neighbors[0]) && (n1 = n0->neighbors[3]) && (n2 = n1->neighbors[4])) n2->markMeshDirty();
-	if ((mask & 1u << 21) && (n0 = neighbors[0]) && (n1 = n0->neighbors[3]) && (n2 = n1->neighbors[5])) n2->markMeshDirty();
-	if ((mask & 1u << 22) && (n0 = neighbors[1]) && (n1 = n0->neighbors[2]) && (n2 = n1->neighbors[4])) n2->markMeshDirty();
-	if ((mask & 1u << 23) && (n0 = neighbors[1]) && (n1 = n0->neighbors[2]) && (n2 = n1->neighbors[5])) n2->markMeshDirty();
-	if ((mask & 1u << 24) && (n0 = neighbors[1]) && (n1 = n0->neighbors[3]) && (n2 = n1->neighbors[4])) n2->markMeshDirty();
-	if ((mask & 1u << 25) && (n0 = neighbors[1]) && (n1 = n0->neighbors[3]) && (n2 = n1->neighbors[5])) n2->markMeshDirty();
+	for (int i = 0 ; i < neighbors.size(); i++)
+	{
+		if ((mask & (1u << i)) && neighbors[i])
+		{
+			neighbors[i]->markMeshDirty();
+		}
+	}
 }
 
 std::pair<BlockId, LightLevel> Chunk::getBlockAndLightAt(int x, int y, int z) const

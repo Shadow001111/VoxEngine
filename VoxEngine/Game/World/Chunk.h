@@ -26,47 +26,26 @@ constexpr auto precomputeNeighborDirtyMasks()
 {
 	std::array<uint32_t, 27> lut{};
 	for (int xi = 0; xi < 3; ++xi)
-	{
 		for (int yi = 0; yi < 3; ++yi)
-		{
 			for (int zi = 0; zi < 3; ++zi)
 			{
-				const bool nx = xi == 1, px = xi == 2;
-				const bool ny = yi == 1, py = yi == 2;
-				const bool nz = zi == 1, pz = zi == 2;
-
 				uint32_t mask = 0;
-				if (nx)             mask |= 1u << 0;
-				if (px)             mask |= 1u << 1;
-				if (ny)             mask |= 1u << 2;
-				if (py)             mask |= 1u << 3;
-				if (nz)             mask |= 1u << 4;
-				if (pz)             mask |= 1u << 5;
-				if (nx && ny)       mask |= 1u << 6;
-				if (nx && py)       mask |= 1u << 7;
-				if (px && ny)       mask |= 1u << 8;
-				if (px && py)       mask |= 1u << 9;
-				if (nx && nz)       mask |= 1u << 10;
-				if (nx && pz)       mask |= 1u << 11;
-				if (px && nz)       mask |= 1u << 12;
-				if (px && pz)       mask |= 1u << 13;
-				if (ny && nz)       mask |= 1u << 14;
-				if (ny && pz)       mask |= 1u << 15;
-				if (py && nz)       mask |= 1u << 16;
-				if (py && pz)       mask |= 1u << 17;
-				if (nx && ny && nz) mask |= 1u << 18;
-				if (nx && ny && pz) mask |= 1u << 19;
-				if (nx && py && nz) mask |= 1u << 20;
-				if (nx && py && pz) mask |= 1u << 21;
-				if (px && ny && nz) mask |= 1u << 22;
-				if (px && ny && pz) mask |= 1u << 23;
-				if (px && py && nz) mask |= 1u << 24;
-				if (px && py && pz) mask |= 1u << 25;
+				for (int dx = -1; dx <= 1; ++dx)
+					for (int dy = -1; dy <= 1; ++dy)
+						for (int dz = -1; dz <= 1; ++dz)
+						{
+							const bool x = (dx == 0) || (dx == -1 && xi == 1) || (dx == 1 && xi == 2);
+							const bool y = (dy == 0) || (dy == -1 && yi == 1) || (dy == 1 && yi == 2);
+							const bool z = (dz == 0) || (dz == -1 && zi == 1) || (dz == 1 && zi == 2);
 
+							if (x && y && z)
+							{
+								int index = (dx + 1) * 9 + (dy + 1) * 3 + (dz + 1);
+								mask |= 1u << index;
+							}
+						}
 				lut[xi * 9 + yi * 3 + zi] = mask;
 			}
-		}
-	}
 	return lut;
 }
 
@@ -160,9 +139,37 @@ private:
 		};
 	};
 
-	std::array<Chunk*, 6> neighbors{ nullptr }; // Pointers to neighboring chunks for easier access
+	std::array<Chunk*, 27> neighbors{ nullptr }; // Pointers to neighboring chunks for easier access. Could store 26, but storing 27 allows to use easier indexing.
 	ChunkRegion* parentRegion = nullptr; // Pointer to the parent region, set when chunk is added to a region
 public:
+	static constexpr int getNeighborIndex(int dx, int dy, int dz) noexcept
+	{
+		return (dx + 1) * 9 + (dy + 1) * 3 + (dz + 1);
+	}
+
+	static constexpr int getOppositeNeighborIndex(int idx) noexcept
+	{
+		return 26 - idx;
+	}
+
+	static constexpr glm::ivec3 getNeighborOffset(int idx) noexcept
+	{
+		return { (idx / 9) - 1, (idx / 3 % 3) - 1, (idx % 3) - 1 };
+	}
+
+	static constexpr int getSideNeighborIndex(int side) noexcept
+	{
+		static constexpr std::array<int, 6> sideToNeighborIndex = {
+			getNeighborIndex(-1, 0, 0), // Left
+			getNeighborIndex(1, 0, 0),  // Right
+			getNeighborIndex(0, -1, 0), // Down
+			getNeighborIndex(0, 1, 0),  // Up
+			getNeighborIndex(0, 0, -1), // Back
+			getNeighborIndex(0, 0, 1)   // Front
+		};
+		return sideToNeighborIndex[side];
+	}
+
 	// Constructors, destructors, assigments
 	Chunk() = default;
 	~Chunk();
@@ -175,7 +182,7 @@ public:
 	bool operator==(const Chunk& other) const noexcept { return position == other.position; };
 
 	// Init/destroy
-	void init(const glm::ivec3& position, const std::array<Chunk*, 6>& newNeighbors, ChunkRegion* parentRegion);
+	void init(const glm::ivec3& position, const std::array<Chunk*, 27>& newNeighbors, ChunkRegion* parentRegion);
 	void destroy();
 	static void globalInit();
 

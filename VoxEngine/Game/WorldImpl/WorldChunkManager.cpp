@@ -293,7 +293,7 @@ void WorldChunkManager::startBuildingChunkLights()
 			const auto& neigbors = chunk->getNeighbors();
 			for (int i = 0; i < 6; i++)
 			{
-				const Chunk* neighbor = neigbors[i];
+				const Chunk* neighbor = neigbors[Chunk::getSideNeighborIndex(i)];
 				if (neighbor && !neighbor->areBlocksBuilt())
 				{
 					allNeighborsReady = false;
@@ -475,14 +475,19 @@ void WorldChunkManager::loadChunk(const glm::ivec3& chunkPosition)
 	}
 
 	// Find existing neighbors
-	std::array<Chunk*, 6> neighbors = {
-		getChunkAt({ chunkPosition.x - 1, chunkPosition.y,	 chunkPosition.z		}),
-		getChunkAt({ chunkPosition.x + 1, chunkPosition.y,	 chunkPosition.z		}),
-		getChunkAt({ chunkPosition.x,	 chunkPosition.y - 1, chunkPosition.z		}),
-		getChunkAt({ chunkPosition.x,	 chunkPosition.y + 1, chunkPosition.z		}),
-		getChunkAt({ chunkPosition.x,	 chunkPosition.y,	 chunkPosition.z - 1 }),
-		getChunkAt({ chunkPosition.x,	 chunkPosition.y,	 chunkPosition.z + 1 })
-	};
+	constexpr int selfIndex = Chunk::getNeighborIndex(0, 0, 0);
+	std::array<Chunk*, 27> neighbors{ nullptr };
+	for (int i = 0; i < neighbors.size(); i++)
+	{
+		if (i == selfIndex)
+		{
+			continue;
+		}
+
+		glm::ivec3 neighborOffset = Chunk::getNeighborOffset(i);
+		glm::ivec3 neighborPosition = chunkPosition + neighborOffset;
+		neighbors[i] = getChunkAt(neighborPosition);
+	}
 
 	// Create and initialize chunk
 	Chunk* chunk = chunkPool.acquire();
