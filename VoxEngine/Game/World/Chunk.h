@@ -151,22 +151,22 @@ private:
 	std::array<Chunk*, 27> neighbors{ nullptr }; // Pointers to neighboring chunks for easier access. Could store 26, but storing 27 allows to use easier indexing.
 	ChunkRegion* parentRegion = nullptr; // Pointer to the parent region, set when chunk is added to a region
 public:
-	static constexpr int getNeighborIndex(int dx, int dy, int dz) noexcept
+	static constexpr inline int getNeighborIndex(int dx, int dy, int dz) noexcept
 	{
 		return (dx + 1) * 9 + (dy + 1) * 3 + (dz + 1);
 	}
 
-	static constexpr int getOppositeNeighborIndex(int idx) noexcept
+	static constexpr inline int getOppositeNeighborIndex(int idx) noexcept
 	{
 		return 26 - idx;
 	}
 
-	static constexpr glm::ivec3 getNeighborOffset(int idx) noexcept
+	static constexpr inline glm::ivec3 getNeighborOffset(int idx) noexcept
 	{
 		return { (idx / 9) - 1, (idx / 3 % 3) - 1, (idx % 3) - 1 };
 	}
 
-	static constexpr int getSideNeighborIndex(int side) noexcept
+	static constexpr inline int getSideNeighborIndex(int side) noexcept
 	{
 		static constexpr std::array<int, 6> sideToNeighborIndex = {
 			getNeighborIndex(-1, 0, 0), // Left

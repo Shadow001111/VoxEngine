@@ -619,62 +619,93 @@ void Chunk::buildLight()
 		}
 	}
 
-	// Step 2: Collect sky light sources
+	// Step 2: Create sky light sources from height map
+	const bool hasTopNeighbor = top && top->isLightBuilt();
+	if (!hasTopNeighbor)
 	{
-		if (top && top->isLightBuilt())
+		const int globalChunkBottomY = position.y * CHUNK_SIZE;
+
+		// Find the lowest local y that is guaranteed above all terrain
+		const int lowestSkyY = glm::clamp(chunkColumnData->maxHeight - globalChunkBottomY + 1, 0, CHUNK_SIZE);
+
+		// Bulk-fill the guaranteed sky region
+		if (lowestSkyY < CHUNK_SIZE)
 		{
-			// Propagate from top neighbor
-			const int y = CHUNK_SIZE - 1;
-			const int neighborY = 0;
+			// Neighbor dirty mask: top level
+			{ // Always true since loop rises to chunk top
+				constexpr uint32_t topLevelMask =
+					(1u << getNeighborIndex(-1, 1, -1)) |
+					(1u << getNeighborIndex(-1, 1,  0)) |
+					(1u << getNeighborIndex(-1, 1,  1)) |
+					(1u << getNeighborIndex( 0, 1, -1)) |
+					(1u << getNeighborIndex( 0, 1,  0)) |
+					(1u << getNeighborIndex( 0, 1,  1)) |
+					(1u << getNeighborIndex( 1, 1, -1)) |
+					(1u << getNeighborIndex( 1, 1,  0)) |
+					(1u << getNeighborIndex( 1, 1,  1))
+				;
+				neighborDirtyMask |= topLevelMask;
+			}
+			// Neighbor dirty mask: middle level
+			{ // Always true since layers touch it
+				constexpr uint32_t middleLevelMask =
+					(1u << getNeighborIndex(-1, 0, -1)) |
+					(1u << getNeighborIndex(-1, 0,  0)) |
+					(1u << getNeighborIndex(-1, 0,  1)) |
+					(1u << getNeighborIndex( 0, 0, -1)) |
+					(1u << getNeighborIndex( 0, 0,  0)) |
+					(1u << getNeighborIndex( 0, 0,  1)) |
+					(1u << getNeighborIndex( 1, 0, -1)) |
+					(1u << getNeighborIndex( 1, 0,  0)) |
+					(1u << getNeighborIndex( 1, 0,  1))
+					;
+				neighborDirtyMask |= middleLevelMask;
+			}
+			// Neighbor dirty mask: bottom level
+			if (lowestSkyY == 0)
+			{
+				constexpr uint32_t bottomLevelMask =
+					(1u << getNeighborIndex(-1, -1, -1)) |
+					(1u << getNeighborIndex(-1, -1,  0)) |
+					(1u << getNeighborIndex(-1, -1,  1)) |
+					(1u << getNeighborIndex( 0, -1, -1)) |
+					(1u << getNeighborIndex( 0, -1,  0)) |
+					(1u << getNeighborIndex( 0, -1,  1)) |
+					(1u << getNeighborIndex( 1, -1, -1)) |
+					(1u << getNeighborIndex( 1, -1,  0)) |
+					(1u << getNeighborIndex( 1, -1,  1))
+					;
+				neighborDirtyMask |= bottomLevelMask;
+			}
+
 			for (int x = 0; x < CHUNK_SIZE; x++)
 			{
 				for (int z = 0; z < CHUNK_SIZE; z++)
 				{
-					size_t index = getIndex(x, y, z);
-					const auto* blockData = AssetRegistry::getBlockData(blocks[index]);
-					if (!blockData || blockData->absorbsLight)
+					for (int y = lowestSkyY; y < CHUNK_SIZE; y++)
 					{
-						continue;
+						lightLevels[getIndex(x, y, z)].skyLight = 15;
 					}
-					uint8_t neighborSkyLight = top->getLightAt(x, neighborY, z).skyLight;
-
-					if (neighborSkyLight == 0)
-					{
-						continue;
-					}
-
-					uint8_t newSkyLight = neighborSkyLight < 15 ? neighborSkyLight - 1 : neighborSkyLight;
-
-					lightLevels[index].skyLight = newSkyLight;
-					localSkyLightBfsQueue.emplace(x, y, z);
-					neighborDirtyMask |= getNeighborDirtyMask(x, y, z);
+					// Seed BFS only from the bottom-most filled row
+					localSkyLightBfsQueue.emplace(x, lowestSkyY, z);
 				}
 			}
 		}
-		else
+
+		// Per-column heightmap scan only for the ambiguous lower portion
+		if (lowestSkyY > 0)
 		{
-			const int globalChunkY = position.y * CHUNK_SIZE;
 			for (int x = 0; x < CHUNK_SIZE; x++)
 			{
 				for (int z = 0; z < CHUNK_SIZE; z++)
 				{
-					int globalHeight = heightMap[z + x * CHUNK_SIZE];
-					for (int y = CHUNK_SIZE - 1; y >= 0; y--)
+					const int globalHeight = heightMap[z + x * CHUNK_SIZE];
+					const int localColumnSkyBottom = glm::clamp(globalHeight - globalChunkBottomY + 1, 0, lowestSkyY);
+					for (int y = lowestSkyY - 1; y >= localColumnSkyBottom; y--)
 					{
-						int globalY = globalChunkY + y;
-						size_t index = getIndex(x, y, z);
-						if (globalY > globalHeight)
-						{
-							// Air block
-							lightLevels[index].skyLight = 15;
-							localSkyLightBfsQueue.emplace(x, y, z);
-							neighborDirtyMask |= getNeighborDirtyMask(x, y, z);
-						}
-						else
-						{
-							// Reached terrain
-							break;
-						}
+						lightLevels[getIndex(x, y, z)].skyLight = 15;
+						localSkyLightBfsQueue.emplace(x, y, z);
+						neighborDirtyMask |= getNeighborDirtyMask(x, y, z);
 					}
 				}
 			}
@@ -758,17 +789,20 @@ void Chunk::buildLight()
 			}
 		}
 
-		// +Y
-		neighbor = neighbors[getNeighborIndex(0, 1, 0)];
-		if (neighbor && neighbor->isLightBuilt())
+		// +Y: only when no top neighbor, otherwise step 2 already seeded sky light from heightmap
+		if (hasTopNeighbor)
 		{
-			const int y = CHUNK_SIZE - 1;
-			const int neighborY = 0;
-			for (int x = 0; x < CHUNK_SIZE; x++)
+			neighbor = neighbors[getNeighborIndex(0, 1, 0)];
+			if (neighbor && neighbor->isLightBuilt())
 			{
-				for (int z = 0; z < CHUNK_SIZE; z++)
+				const int y = CHUNK_SIZE - 1;
+				const int neighborY = 0;
+				for (int x = 0; x < CHUNK_SIZE; x++)
 				{
-					processNeighborFace(x, y, z, x, neighborY, z, neighbor, true);
+					for (int z = 0; z < CHUNK_SIZE; z++)
+					{
+						processNeighborFace(x, y, z, x, neighborY, z, neighbor, true);
+					}
 				}
 			}
 		}
@@ -1555,7 +1589,7 @@ uint32_t Chunk::getNeighborDirtyMask(int x, int y, int z) noexcept
 	const int dy = (y <= 0) ? -1 : (y >= (CHUNK_SIZE - 1)) ? 1 : 0;
 	const int dz = (z <= 0) ? -1 : (z >= (CHUNK_SIZE - 1)) ? 1 : 0;
 
-	// Now index the LUT directly with these offsets
+	// Index the LUT directly with these offsets
 	int lutIndex = getNeighborIndex(dx, dy, dz);
 	return PRECOMPUTED_NEIGHBOR_DIRTY_MASKS[lutIndex];
 }
