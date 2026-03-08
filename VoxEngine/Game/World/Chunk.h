@@ -25,26 +25,35 @@
 constexpr auto precomputeNeighborDirtyMasks()
 {
 	std::array<uint32_t, 27> lut{};
-	for (int xi = 0; xi < 3; ++xi)
-		for (int yi = 0; yi < 3; ++yi)
-			for (int zi = 0; zi < 3; ++zi)
+	for (int dx = -1; dx <= 1; ++dx)
+		for (int dy = -1; dy <= 1; ++dy)
+			for (int dz = -1; dz <= 1; ++dz)
 			{
 				uint32_t mask = 0;
-				for (int dx = -1; dx <= 1; ++dx)
-					for (int dy = -1; dy <= 1; ++dy)
-						for (int dz = -1; dz <= 1; ++dz)
+				for (int nx = -1; nx <= 1; ++nx)
+					for (int ny = -1; ny <= 1; ++ny)
+						for (int nz = -1; nz <= 1; ++nz)
 						{
-							const bool x = (dx == 0) || (dx == -1 && xi == 1) || (dx == 1 && xi == 2);
-							const bool y = (dy == 0) || (dy == -1 && yi == 1) || (dy == 1 && yi == 2);
-							const bool z = (dz == 0) || (dz == -1 && zi == 1) || (dz == 1 && zi == 2);
+							// For a block that is at offset (dx,dy,dz) from chunk center (0,0,0),
+							// which neighbors can it affect? The block is at a position that is:
+							// - If dx = -1: block is at x=0 (negative border)
+							// - If dx = 0: block is interior (1..CHUNK_SIZE-2)
+							// - If dx = 1: block is at x=CHUNK_SIZE-1 (positive border)
+
+							// The neighbor at offset (nx,ny,nz) should be marked dirty if:
+							// The block is on the border facing that neighbor
+							bool x = (nx == 0) || (nx == -1 && dx == -1) || (nx == 1 && dx == 1);
+							bool y = (ny == 0) || (ny == -1 && dy == -1) || (ny == 1 && dy == 1);
+							bool z = (nz == 0) || (nz == -1 && dz == -1) || (nz == 1 && dz == 1);
 
 							if (x && y && z)
 							{
-								int index = (dx + 1) * 9 + (dy + 1) * 3 + (dz + 1);
+								int index = (nx + 1) * 9 + (ny + 1) * 3 + (nz + 1);
 								mask |= 1u << index;
 							}
 						}
-				lut[xi * 9 + yi * 3 + zi] = mask;
+				int lutIndex = (dx + 1) * 9 + (dy + 1) * 3 + (dz + 1);
+				lut[lutIndex] = mask;
 			}
 	return lut;
 }

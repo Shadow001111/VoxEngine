@@ -704,7 +704,7 @@ void Chunk::buildLight()
 				}
 
 				// Sky light
-				uint8_t skyLightAbsorption = (propagatingFromTop && lightLevels[index].skyLight == 15) ? 0 : 1;
+				uint8_t skyLightAbsorption = (propagatingFromTop && neighborLight.skyLight == 15) ? 0 : 1;
 				if (lightLevels[index].skyLight + skyLightAbsorption < neighborLight.skyLight)
 				{
 					lightLevels[index].skyLight = neighborLight.skyLight - skyLightAbsorption;
@@ -1550,11 +1550,14 @@ Chunk* Chunk::traverseThroughNeighbors(int x, int y, int z, size_t& outIndex) co
 
 uint32_t Chunk::getNeighborDirtyMask(int x, int y, int z) noexcept
 {
-	const int xi = (x <= 0) ? 1 : (x >= (CHUNK_SIZE - 1)) ? 2 : 0;
-	const int yi = (y <= 0) ? 1 : (y >= (CHUNK_SIZE - 1)) ? 2 : 0;
-	const int zi = (z <= 0) ? 1 : (z >= (CHUNK_SIZE - 1)) ? 2 : 0;
+	// Convert block coordinates to offset flags (-1, 0, or 1)
+	const int dx = (x <= 0) ? -1 : (x >= (CHUNK_SIZE - 1)) ? 1 : 0;
+	const int dy = (y <= 0) ? -1 : (y >= (CHUNK_SIZE - 1)) ? 1 : 0;
+	const int dz = (z <= 0) ? -1 : (z >= (CHUNK_SIZE - 1)) ? 1 : 0;
 
-	return PRECOMPUTED_NEIGHBOR_DIRTY_MASKS[xi * 9 + yi * 3 + zi];
+	// Now index the LUT directly with these offsets
+	int lutIndex = getNeighborIndex(dx, dy, dz);
+	return PRECOMPUTED_NEIGHBOR_DIRTY_MASKS[lutIndex];
 }
 
 void Chunk::applyNeighborDirtyMask(uint32_t mask)
