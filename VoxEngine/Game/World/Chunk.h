@@ -68,6 +68,23 @@ struct BlockData;
 
 class Chunk
 {
+	struct DirectionsTable
+	{
+		std::array<int, 6> dx{ -1, 1, 0, 0, 0, 0 };
+		std::array<int, 6> dy{ 0, 0, -1, 1, 0, 0 };
+		std::array<int, 6> dz{ 0, 0, 0, 0, -1, 1 };
+	};
+
+	struct CachedBlockIds
+	{
+		BlockId airId;
+		BlockId waterId;
+		BlockId grassBlockId;
+		BlockId dirtId;
+		BlockId stoneId;
+		BlockId oakLogId;
+		BlockId oakLeavesId;
+	};
 public:
 	enum class State : uint8_t
 	{
@@ -84,6 +101,8 @@ public:
 	static ChunkRegionManager chunkRegionManagerInstance;
 
 	static constexpr std::array<uint32_t, 27> PRECOMPUTED_NEIGHBOR_DIRTY_MASKS = precomputeNeighborDirtyMasks();
+	static const DirectionsTable DIRECTIONS_TABLE;
+	static CachedBlockIds CACHED_BLOCK_IDS;
 private:
 	enum Flag : uint8_t
 	{

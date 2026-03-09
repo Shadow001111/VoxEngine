@@ -28,11 +28,9 @@ World::World() :
 		blockTextureNames = AssetRegistry::getBlockTextureNames();
 	}
 
-	// Init WorldRenderer
+	// Init sub-systems
+	chunkManager.init();
 	renderer.init(blockTextureNames);
-
-	// Chunks
-	Chunk::globalInit();
 
 	// Entities
 	Entity::world = this;

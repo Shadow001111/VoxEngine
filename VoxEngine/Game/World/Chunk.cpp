@@ -15,6 +15,10 @@ thread_local ChunkSpecializedQueue<LightRemovalNode> Chunk::localSkyLightRemoval
 
 std::atomic<bool> Chunk::gHasStructureBlockChanges{ false };
 ChunkRegionManager Chunk::chunkRegionManagerInstance;
+
+const Chunk::DirectionsTable Chunk::DIRECTIONS_TABLE;
+Chunk::CachedBlockIds Chunk::CACHED_BLOCK_IDS;
+
 StructureBlockChangeManager Chunk::structureBlockChangeManager;
 
 
@@ -131,10 +135,20 @@ void Chunk::destroy()
 
 void Chunk::globalInit()
 {
-	localBlockLightBfsQueue.reserve(CHUNK_VOLUME);
-	localBlockLightRemovalBfsQueue.reserve(CHUNK_VOLUME);
-	localSkyLightBfsQueue.reserve(CHUNK_VOLUME);
-	localSkyLightRemovalBfsQueue.reserve(CHUNK_VOLUME);
+	// Reserve space for light BFS queues
+	localBlockLightBfsQueue.reserve(CHUNK_VOLUME * 2);
+	localBlockLightRemovalBfsQueue.reserve(CHUNK_VOLUME * 2);
+	localSkyLightBfsQueue.reserve(CHUNK_VOLUME * 2);
+	localSkyLightRemovalBfsQueue.reserve(CHUNK_VOLUME * 2);
+
+	// Cache block ids
+	CACHED_BLOCK_IDS.airId = AssetRegistry::getBlockNumericalId("core:air");
+	CACHED_BLOCK_IDS.waterId = AssetRegistry::getBlockNumericalId("core:water");
+	CACHED_BLOCK_IDS.grassBlockId = AssetRegistry::getBlockNumericalId("core:grass_block");
+	CACHED_BLOCK_IDS.dirtId = AssetRegistry::getBlockNumericalId("core:dirt");
+	CACHED_BLOCK_IDS.stoneId = AssetRegistry::getBlockNumericalId("core:stone");
+	CACHED_BLOCK_IDS.oakLogId = AssetRegistry::getBlockNumericalId("core:oak_log");
+	CACHED_BLOCK_IDS.oakLeavesId = AssetRegistry::getBlockNumericalId("core:oak_leaves");
 }
 
 void Chunk::buildBlocks()
@@ -154,14 +168,6 @@ void Chunk::buildBlocks()
 	chunkColumnData = TerrainGenerator::getInstance().loadChunkColumnData(position.x, position.z);
 	chunkFlags.set(Flag::IsLoadedChunkColumnData, true);
 	const int* heightMap = chunkColumnData->heightMapRead();
-
-	// Fetch IDs
-	// TODO: Maybe fetch block ids once and make them Chunk's static variables?
-	const BlockId airID = AssetRegistry::getBlockNumericalId("core:air");
-	const BlockId waterID = AssetRegistry::getBlockNumericalId("core:water");
-	const BlockId grassBlockId = AssetRegistry::getBlockNumericalId("core:grass_block");
-	const BlockId dirtID = AssetRegistry::getBlockNumericalId("core:dirt");
-	const BlockId stoneID = AssetRegistry::getBlockNumericalId("core:stone");
 
 	// Terrain
 	bool computeCaveMask = false;
@@ -193,19 +199,19 @@ void Chunk::buildBlocks()
 					BlockId block;
 					if (globalY > globalHeight)
 					{
-						block = ocean ? waterID : airID;
+						block = ocean ? CACHED_BLOCK_IDS.waterId : CACHED_BLOCK_IDS.airId;
 					}
 					else if (globalY == globalHeight)
 					{
-						block = grassBlockId;
+						block = CACHED_BLOCK_IDS.grassBlockId;
 					}
 					else if (globalY > globalHeight - 4)
 					{
-						block = dirtID;
+						block = CACHED_BLOCK_IDS.dirtId;
 					}
 					else
 					{
-						block = stoneID;
+						block = CACHED_BLOCK_IDS.stoneId;
 						computeCaveMask = true;
 					}
 
@@ -216,7 +222,7 @@ void Chunk::buildBlocks()
 	}
 	else
 	{
-		std::fill(std::begin(blocks), std::end(blocks), airID);
+		std::fill(std::begin(blocks), std::end(blocks), CACHED_BLOCK_IDS.airId);
 	}
 
 	// Caves
@@ -229,9 +235,9 @@ void Chunk::buildBlocks()
 
 		for (int i = 0; i < CHUNK_VOLUME; i++)
 		{
-			if (blocks[i] == stoneID && caveMask[i])
+			if (blocks[i] == CACHED_BLOCK_IDS.stoneId && caveMask[i])
 			{
-				blocks[i] = airID;
+				blocks[i] = CACHED_BLOCK_IDS.airId;
 			}
 		}
 	}
@@ -259,7 +265,7 @@ void Chunk::buildBlocks()
 				}
 
 				size_t rootIndex = getIndex(x, localY, z);
-				if (blocks[rootIndex] != airID)
+				if (blocks[rootIndex] != CACHED_BLOCK_IDS.airId)
 				{
 					continue;
 				}
@@ -285,7 +291,7 @@ void Chunk::buildBlocks()
 		auto pendingChanges = structureBlockChangeManager.retrieveAndClearChanges(position);
 		for (const auto& change : pendingChanges)
 		{
-			if (!change.placeIfBlockIsAir || blocks[change.index] == airID)
+			if (!change.placeIfBlockIsAir || blocks[change.index] == CACHED_BLOCK_IDS.airId)
 			{
 				blocks[change.index] = change.block;
 			}
@@ -305,23 +311,17 @@ void Chunk::buildBlocks()
 	setState(State::BlocksBuilt);
 
 	// Mark itself and neighbors meshes as dirty
-
-	{
-		uint32_t dirtyMask = -1;
-		applyNeighborDirtyMask(dirtyMask);
-	}
+	applyNeighborDirtyMask(-1);
 }
 
 void Chunk::updateStructureBlocks()
 {
-	const BlockId airID = AssetRegistry::getBlockNumericalId("core:air");
-
 	FenceGuard scopedFence(processingFence);
 
 	auto pendingChanges = structureBlockChangeManager.retrieveAndClearChanges(position);
 	for (const auto& change : pendingChanges)
 	{
-		if (!change.placeIfBlockIsAir || blocks[change.index] == airID)
+		if (!change.placeIfBlockIsAir || blocks[change.index] == CACHED_BLOCK_IDS.airId)
 		{
 			auto pos = getPositionFromIndex(change.index);
 			setBlockAt(pos.x, pos.y, pos.z, change.block, false);
@@ -331,10 +331,6 @@ void Chunk::updateStructureBlocks()
 
 void Chunk::generateTree(const glm::ivec3& rootPosition)
 {
-	const BlockId airID = AssetRegistry::getBlockNumericalId("core:air");
-	const BlockId logID = AssetRegistry::getBlockNumericalId("core:oak_log");
-	const BlockId leavesID = AssetRegistry::getBlockNumericalId("core:oak_leaves");
-
 	const int treeHeight = 4;
 
 	// Check if there's enough space for the tree
@@ -347,7 +343,7 @@ void Chunk::generateTree(const glm::ivec3& rootPosition)
 	for (int i = 0; i < treeHeight; i++)
 	{
 		size_t index = getIndex(rootPosition.x, rootPosition.y + i, rootPosition.z);
-		blocks[index] = logID;
+		blocks[index] = CACHED_BLOCK_IDS.oakLogId;
 	}
 	
 	// Leaves - create a spherical canopy
@@ -366,9 +362,9 @@ void Chunk::generateTree(const glm::ivec3& rootPosition)
 				int dz = lz - rootPosition.z;
 				int dy = ly - (rootPosition.y + treeHeight);
 
-				float distance = sqrtf(dx * dx + dz * dz + dy * dy * 0.8f); // Slightly elliptical
+				float squaredDistance = dx * dx + dz * dz + dy * dy * 0.8f; // Slightly elliptical
 
-				if (distance > 2.0f)
+				if (squaredDistance > 4.0f)
 				{
 					continue;
 				}
@@ -376,9 +372,9 @@ void Chunk::generateTree(const glm::ivec3& rootPosition)
 				if (((lx | ly | lz) & CHUNK_UPPER_BITS_MASK) == 0)
 				{
 					size_t index = getIndex(lx, ly, lz);
-					if (blocks[index] == airID)
+					if (blocks[index] == CACHED_BLOCK_IDS.airId)
 					{
-						blocks[index] = leavesID;
+						blocks[index] = CACHED_BLOCK_IDS.oakLeavesId;
 					}
 				}
 				else
@@ -399,7 +395,7 @@ void Chunk::generateTree(const glm::ivec3& rootPosition)
 					int nz = lz & CHUNK_LOWER_BITS_MASK;
 					size_t index = getIndex(nx, ny, nz);
 
-					structureBlockChangeManager.addChange(chunkPos, leavesID, index, true);
+					structureBlockChangeManager.addChange(chunkPos, CACHED_BLOCK_IDS.oakLeavesId, index, true);
 					hasReachedOtherChunk = true;
 				}
 			}
@@ -555,8 +551,6 @@ void Chunk::removeIndexFromMap(BlockId block, uint16_t idx)
 	if (vec.empty()) changedBlocks.erase(it);
 }
 
-// TODO: Underground light is wrong on borders. Sky light is not zero somehow. Problem is in mesh update, not in light propagation.
-// Maybe it is because of chunk's on edge can't be getten for 100% sure.
 void Chunk::buildLight()
 {
 	if (
@@ -576,15 +570,6 @@ void Chunk::buildLight()
 	const int* heightMap = chunkColumnData->heightMapRead();
 	const Chunk* top = neighbors[getNeighborIndex(0, 1, 0)];
 	uint32_t neighborDirtyMask = 0;
-
-	// Reserve space in BFS queues to avoid dynamic allocations during propagation
-	localBlockLightBfsQueue.reserve(CHUNK_VOLUME);
-	localSkyLightBfsQueue.reserve(CHUNK_VOLUME);
-
-	// Constants for direction offsets
-	const int dx[] = { -1, 1, 0, 0, 0, 0 };
-	const int dy[] = { 0, 0, -1, 1, 0, 0 };
-	const int dz[] = { 0, 0, 0, 0, -1, 1 };
 
 	// Initialize all light values to 0
 	std::fill(std::begin(lightLevels), std::end(lightLevels), LightLevel(0, 0));
@@ -619,7 +604,7 @@ void Chunk::buildLight()
 		}
 	}
 
-	// Step 2: Create sky light sources from height map
+	// Step 2: Create sky light sources from height map (if no read top neighbor)
 	const bool hasTopNeighbor = top && top->isLightBuilt();
 	if (!hasTopNeighbor)
 	{
@@ -631,9 +616,9 @@ void Chunk::buildLight()
 		// Bulk-fill the guaranteed sky region
 		if (lowestSkyY < CHUNK_SIZE)
 		{
-			// Neighbor dirty mask: top level
-			{ // Always true since loop rises to chunk top
-				constexpr uint32_t topLevelMask =
+			// Neighbor dirty mask: top and middle levels
+			{
+				constexpr uint32_t topLevelMask = // Always true since loop rises to chunk top
 					(1u << getNeighborIndex(-1, 1, -1)) |
 					(1u << getNeighborIndex(-1, 1,  0)) |
 					(1u << getNeighborIndex(-1, 1,  1)) |
@@ -644,11 +629,8 @@ void Chunk::buildLight()
 					(1u << getNeighborIndex( 1, 1,  0)) |
 					(1u << getNeighborIndex( 1, 1,  1))
 				;
-				neighborDirtyMask |= topLevelMask;
-			}
-			// Neighbor dirty mask: middle level
-			{ // Always true since layers touch it
-				constexpr uint32_t middleLevelMask =
+
+				constexpr uint32_t middleLevelMask = // Always true since layers touch it
 					(1u << getNeighborIndex(-1, 0, -1)) |
 					(1u << getNeighborIndex(-1, 0,  0)) |
 					(1u << getNeighborIndex(-1, 0,  1)) |
@@ -658,8 +640,11 @@ void Chunk::buildLight()
 					(1u << getNeighborIndex( 1, 0, -1)) |
 					(1u << getNeighborIndex( 1, 0,  0)) |
 					(1u << getNeighborIndex( 1, 0,  1))
-					;
-				neighborDirtyMask |= middleLevelMask;
+				;
+
+				constexpr uint32_t topAndMiddleMask = topLevelMask | middleLevelMask;
+
+				neighborDirtyMask |= topAndMiddleMask;
 			}
 			// Neighbor dirty mask: bottom level
 			if (lowestSkyY == 0)
@@ -674,7 +659,7 @@ void Chunk::buildLight()
 					(1u << getNeighborIndex( 1, -1, -1)) |
 					(1u << getNeighborIndex( 1, -1,  0)) |
 					(1u << getNeighborIndex( 1, -1,  1))
-					;
+				;
 				neighborDirtyMask |= bottomLevelMask;
 			}
 
@@ -856,9 +841,9 @@ void Chunk::buildLight()
 			// Propagate to neighbors
 			for (int i = 0; i < 6; i++)
 			{
-				int nx = data.x + dx[i];
-				int ny = data.y + dy[i];
-				int nz = data.z + dz[i];
+				int nx = data.x + DIRECTIONS_TABLE.dx[i];
+				int ny = data.y + DIRECTIONS_TABLE.dy[i];
+				int nz = data.z + DIRECTIONS_TABLE.dz[i];
 
 				size_t neighborIndex;
 				Chunk* neighborChunk = traverseToSideNeighbor(nx, ny, nz, i, neighborIndex);
@@ -917,9 +902,9 @@ void Chunk::buildLight()
 			// Propagate to neighbors
 			for (int i = 0; i < 6; i++)
 			{
-				int nx = data.x + dx[i];
-				int ny = data.y + dy[i];
-				int nz = data.z + dz[i];
+				int nx = data.x + DIRECTIONS_TABLE.dx[i];
+				int ny = data.y + DIRECTIONS_TABLE.dy[i];
+				int nz = data.z + DIRECTIONS_TABLE.dz[i];
 
 				size_t neighborIndex;
 				Chunk* neighborChunk = traverseToSideNeighbor(nx, ny, nz, i, neighborIndex);
@@ -1005,10 +990,6 @@ void Chunk::updateLight()
 	PROFILE_SCOPE("Update chunk light", ProfileCategory::ChunkLight);
 
 	//
-	const int dx[] = { -1, 1, 0, 0, 0, 0 };
-	const int dy[] = { 0, 0, -1, 1, 0, 0 };
-	const int dz[] = { 0, 0, 0, 0, -1, 1 };
-
 	uint32_t neighborDirtyMask = 0;
 
 	// Remove block light
@@ -1020,9 +1001,9 @@ void Chunk::updateLight()
 		// Propagate to neighbors
 		for (int i = 0; i < 6; i++)
 		{
-			int nx = data.x + dx[i];
-			int ny = data.y + dy[i];
-			int nz = data.z + dz[i];
+			int nx = data.x + DIRECTIONS_TABLE.dx[i];
+			int ny = data.y + DIRECTIONS_TABLE.dy[i];
+			int nz = data.z + DIRECTIONS_TABLE.dz[i];
 
 			size_t neighborIndex;
 			Chunk* neighborChunk = traverseToSideNeighbor(nx, ny, nz, i, neighborIndex);
@@ -1093,9 +1074,9 @@ void Chunk::updateLight()
 		// Propagate to neighbors
 		for (int i = 0; i < 6; i++)
 		{
-			int nx = data.x + dx[i];
-			int ny = data.y + dy[i];
-			int nz = data.z + dz[i];
+			int nx = data.x + DIRECTIONS_TABLE.dx[i];
+			int ny = data.y + DIRECTIONS_TABLE.dy[i];
+			int nz = data.z + DIRECTIONS_TABLE.dz[i];
 
 			size_t neighborIndex;
 			Chunk* neighborChunk = traverseToSideNeighbor(nx, ny, nz, i, neighborIndex);
@@ -1145,9 +1126,9 @@ void Chunk::updateLight()
 		// Propagate to neighbors
 		for (int i = 0; i < 6; i++)
 		{
-			int nx = data.x + dx[i];
-			int ny = data.y + dy[i];
-			int nz = data.z + dz[i];
+			int nx = data.x + DIRECTIONS_TABLE.dx[i];
+			int ny = data.y + DIRECTIONS_TABLE.dy[i];
+			int nz = data.z + DIRECTIONS_TABLE.dz[i];
 
 			size_t neighborIndex;
 			Chunk* neighborChunk = traverseToSideNeighbor(nx, ny, nz, i, neighborIndex);
@@ -1218,9 +1199,9 @@ void Chunk::updateLight()
 		// Propagate to neighbors
 		for (int i = 0; i < 6; i++)
 		{
-			int nx = data.x + dx[i];
-			int ny = data.y + dy[i];
-			int nz = data.z + dz[i];
+			int nx = data.x + DIRECTIONS_TABLE.dx[i];
+			int ny = data.y + DIRECTIONS_TABLE.dy[i];
+			int nz = data.z + DIRECTIONS_TABLE.dz[i];
 
 			size_t neighborIndex;
 			Chunk* neighborChunk = traverseToSideNeighbor(nx, ny, nz, i, neighborIndex);
@@ -1288,9 +1269,7 @@ void Chunk::updateMesh()
 
 	// Collect visible faces
 	{
-		const int dx[] = { -1, 1, 0, 0, 0, 0 };
-		const int dy[] = { 0, 0, -1, 1, 0, 0 };
-		const int dz[] = { 0, 0, 0, 0, -1, 1 };
+		const uint32_t transformationBitMasks[3] = { 0u, 0b11u, 0b111u };
 
 		static const BlockData::TextureSlot fallbackTextureSlot(0, BlockData::TextureSlot::TextureTransformation::None, false);
 
@@ -1330,12 +1309,11 @@ void Chunk::updateMesh()
 					globalChunkY + currentBlockPosition.y,
 					globalChunkZ + currentBlockPosition.z
 				);
-				const uint32_t transformationBitMasks[3] = { 0u, 0b11u, 0b111u };
 				for (const auto& face : model->alignedFaces)
 				{
-					int nx = currentBlockPosition.x + dx[face.normal];
-					int ny = currentBlockPosition.y + dy[face.normal];
-					int nz = currentBlockPosition.z + dz[face.normal];
+					int nx = currentBlockPosition.x + DIRECTIONS_TABLE.dx[face.normal];
+					int ny = currentBlockPosition.y + DIRECTIONS_TABLE.dy[face.normal];
+					int nz = currentBlockPosition.z + DIRECTIONS_TABLE.dz[face.normal];
 
 					size_t neighborIndex;
 					const Chunk* neighborChunk = traverseToSideNeighbor(nx, ny, nz, face.normal, neighborIndex);
@@ -1596,12 +1574,17 @@ uint32_t Chunk::getNeighborDirtyMask(int x, int y, int z) noexcept
 
 void Chunk::applyNeighborDirtyMask(uint32_t mask)
 {
-	for (int i = 0 ; i < neighbors.size(); i++)
+	// Using a loop with bit manipulation because it should reduce the number of branching and memory fetches
+
+	constexpr size_t neighborCount = sizeof(neighbors) / sizeof(neighbors[0]); // Idk, neighbor.size() doesn't work for some reason
+	constexpr uint32_t clearTrashMask = (1u << neighborCount) - 1; // Mask to clear bits that are out of bounds
+	mask &= clearTrashMask;
+
+	while (mask)
 	{
-		if ((mask & (1u << i)) && neighbors[i])
-		{
-			neighbors[i]->markMeshDirty();
-		}
+		int i = std::countr_zero(mask); // Get index of lowest set bit
+		if (neighbors[i]) neighbors[i]->markMeshDirty();
+		mask &= mask - 1; // Clear lowest set bit
 	}
 }
 
@@ -1638,9 +1621,6 @@ void Chunk::setBlockAt(int x, int y, int z, BlockId block, bool saveBlockChanges
 	const BlockData* newBlockData = AssetRegistry::getBlockDataSafe(block);
 	uint8_t newEmission = newBlockData->lightEmission;
 
-	const int dx[] = { -1, 1, 0, 0, 0, 0 };
-	const int dy[] = { 0, 0, -1, 1, 0, 0 };
-	const int dz[] = { 0, 0, 0, 0, -1, 1 };
 	if (previousBlockData->absorbsLight && !newBlockData->absorbsLight)
 	{
 		// Collect maximum light level from neighbors and propagate it to this block
@@ -1648,9 +1628,9 @@ void Chunk::setBlockAt(int x, int y, int z, BlockId block, bool saveBlockChanges
 		uint8_t maxSkyLightToSet = 0;
 		for (int i = 0; i < 6; i++)
 		{
-			int nx = x + dx[i];
-			int ny = y + dy[i];
-			int nz = z + dz[i];
+			int nx = x + DIRECTIONS_TABLE.dx[i];
+			int ny = y + DIRECTIONS_TABLE.dy[i];
+			int nz = z + DIRECTIONS_TABLE.dz[i];
 
 			size_t neighborIndex;
 			Chunk* neighborChunk = traverseToSideNeighbor(nx, ny, nz, i, neighborIndex);

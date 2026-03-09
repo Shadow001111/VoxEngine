@@ -9,10 +9,13 @@
 
 constexpr size_t CHUNKS_PER_BATCH = 16;
 
-WorldChunkManager::WorldChunkManager()
+void WorldChunkManager::init()
 {
 	// Chunk loaders
 	createChunkLoader<SphericalChunkLoader>();
+
+	//
+	Chunk::globalInit();
 }
 
 void WorldChunkManager::preparation(size_t chunkCount)
