@@ -157,10 +157,6 @@ void WorldRenderer::initBuffers()
 
 void WorldRenderer::initShaders()
 {
-	// Bind only the textures which will change their size (if texture will get resized, its handle will gone)
-	// TODO: Always pass textures with uniforms, not bind slots. Just check every frame, if id have changed, update uniform.
-	// Or update each uniform each frame. Or use binding...
-
 	std::vector<Shader::ShaderSource> sources;
 
 	{

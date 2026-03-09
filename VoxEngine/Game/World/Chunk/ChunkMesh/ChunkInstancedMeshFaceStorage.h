@@ -19,6 +19,9 @@ struct ChunkInstancedMeshFaceStorage
 		DynamicArray<NonAlignedBlockFace> nonAlignedTranslucent;
 
 		InstancesStorage& operator=(InstancesStorage&& other) noexcept;
+
+		void clear();
+		void swap(InstancesStorage& other) noexcept;
 	};
 
 	BlockAllocator<uint32_t>::Block allocatedBlock_alignedFaces{};
@@ -44,27 +47,27 @@ struct ChunkInstancedMeshFaceStorage
 	void resetRenderFaceCount();
 	void updateRenderFaceCount();
 
-	void clearInstances();
+	void clearInstances() { instancesStorage.clear(); }
 
-	uint32_t getAlignedOpaqueFaceCount() const { return static_cast<uint32_t>(instancesStorage.alignedOpaque.size()); }
-	uint32_t getAlignedTranslucentFaceCount() const { return static_cast<uint32_t>(instancesStorage.alignedTranslucent.size()); }
-	uint32_t getNonAlignedOpaqueFaceCount() const { return static_cast<uint32_t>(instancesStorage.nonAlignedOpaque.size()); }
-	uint32_t getNonAlignedTranslucentFaceCount() const { return static_cast<uint32_t>(instancesStorage.nonAlignedTranslucent.size()); }
+	uint32_t getAlignedOpaqueFaceCount() const noexcept { return static_cast<uint32_t>(instancesStorage.alignedOpaque.size()); }
+	uint32_t getAlignedTranslucentFaceCount() const noexcept { return static_cast<uint32_t>(instancesStorage.alignedTranslucent.size()); }
+	uint32_t getNonAlignedOpaqueFaceCount() const noexcept { return static_cast<uint32_t>(instancesStorage.nonAlignedOpaque.size()); }
+	uint32_t getNonAlignedTranslucentFaceCount() const noexcept { return static_cast<uint32_t>(instancesStorage.nonAlignedTranslucent.size()); }
 
-	uint32_t getAlignedFaceCount() const {
+	uint32_t getAlignedFaceCount() const noexcept {
 		return
 			static_cast<uint32_t>(instancesStorage.alignedOpaque.size()) +
 			static_cast<uint32_t>(instancesStorage.alignedTranslucent.size())
 			;
 	};
-	uint32_t getNonAlignedFaceCount() const {
+	uint32_t getNonAlignedFaceCount() const noexcept {
 		return
 			static_cast<uint32_t>(instancesStorage.nonAlignedOpaque.size()) +
 			static_cast<uint32_t>(instancesStorage.nonAlignedTranslucent.size())
 			;
 	};
 
-	uint32_t getAllFaceCount() const {
+	uint32_t getAllFaceCount() const noexcept {
 		return
 			static_cast<uint32_t>(instancesStorage.alignedOpaque.size()) +
 			static_cast<uint32_t>(instancesStorage.alignedTranslucent.size()) +
@@ -73,7 +76,7 @@ struct ChunkInstancedMeshFaceStorage
 			;
 	};
 
-	uint32_t getRenderFaceCount() const {
+	uint32_t getRenderFaceCount() const noexcept {
 		return
 			(uint32_t)renderAlignedOpaqueFaceCount +
 			(uint32_t)renderAlignedTranslucentFaceCount +
@@ -81,9 +84,9 @@ struct ChunkInstancedMeshFaceStorage
 			(uint32_t)renderNonAlignedTranslucentFaceCount
 			;
 	};
-	uint32_t getAlignedFaceCapacity() const { return static_cast<uint32_t>(allocatedBlock_alignedFaces.size); };
-	uint32_t getNonAlignedFaceCapacity() const { return static_cast<uint32_t>(allocatedBlock_nonAlignedFaces.size); };
-	uint32_t getAllFaceCapacity() const {
+	uint32_t getAlignedFaceCapacity() const noexcept { return static_cast<uint32_t>(allocatedBlock_alignedFaces.size); };
+	uint32_t getNonAlignedFaceCapacity() const noexcept { return static_cast<uint32_t>(allocatedBlock_nonAlignedFaces.size); };
+	uint32_t getAllFaceCapacity() const noexcept {
 		return static_cast<uint32_t>(allocatedBlock_alignedFaces.size) + static_cast<uint32_t>(allocatedBlock_nonAlignedFaces.size);
 	};
 };

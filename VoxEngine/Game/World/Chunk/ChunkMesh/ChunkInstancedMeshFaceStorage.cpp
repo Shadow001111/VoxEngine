@@ -16,14 +16,6 @@ void ChunkInstancedMeshFaceStorage::updateRenderFaceCount()
 	renderNonAlignedTranslucentFaceCount = instancesStorage.nonAlignedTranslucent.size();
 }
 
-void ChunkInstancedMeshFaceStorage::clearInstances()
-{
-	instancesStorage.alignedOpaque.clear();
-	instancesStorage.alignedTranslucent.clear();
-	instancesStorage.nonAlignedOpaque.clear();
-	instancesStorage.nonAlignedTranslucent.clear();
-}
-
 ChunkInstancedMeshFaceStorage::InstancesStorage& ChunkInstancedMeshFaceStorage::InstancesStorage::operator=(InstancesStorage&& other) noexcept
 {
 	if (this != &other)
@@ -35,4 +27,22 @@ ChunkInstancedMeshFaceStorage::InstancesStorage& ChunkInstancedMeshFaceStorage::
 		nonAlignedTranslucent = std::move(other.nonAlignedTranslucent);
 	}
 	return *this;
+}
+
+
+
+void ChunkInstancedMeshFaceStorage::InstancesStorage::clear()
+{
+	alignedOpaque.clear();
+	alignedTranslucent.clear();
+	nonAlignedOpaque.clear();
+	nonAlignedTranslucent.clear();
+}
+
+void ChunkInstancedMeshFaceStorage::InstancesStorage::swap(InstancesStorage& other) noexcept
+{
+	alignedOpaque.swap(other.alignedOpaque);
+	alignedTranslucent.swap(other.alignedTranslucent);
+	nonAlignedOpaque.swap(other.nonAlignedOpaque);
+	nonAlignedTranslucent.swap(other.nonAlignedTranslucent);
 }

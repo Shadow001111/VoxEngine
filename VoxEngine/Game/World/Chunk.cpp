@@ -13,6 +13,8 @@ thread_local ChunkSpecializedQueue<LightRemovalNode> Chunk::localBlockLightRemov
 thread_local ChunkSpecializedQueue<LightNode> Chunk::localSkyLightBfsQueue;
 thread_local ChunkSpecializedQueue<LightRemovalNode> Chunk::localSkyLightRemovalBfsQueue;
 
+thread_local ChunkInstancedMeshFaceStorage::InstancesStorage Chunk::localMeshInstances;
+
 std::atomic<bool> Chunk::gHasStructureBlockChanges{ false };
 ChunkRegionManager Chunk::chunkRegionManagerInstance;
 
@@ -798,7 +800,12 @@ void Chunk::buildLight()
 
 				const BlockId neighborBlock = neighborChunk->getBlockAt(neighborIndex);
 				const auto* neighborBlockData = AssetRegistry::getBlockData(neighborBlock);
-				if (!neighborBlockData || neighborBlockData->absorbsLight)
+
+				if (!neighborBlockData) [[unlikely]]
+				{
+					continue;
+				}
+				if (neighborBlockData->absorbsLight)
 				{
 					continue;
 				}
@@ -813,7 +820,6 @@ void Chunk::buildLight()
 				{
 					lightLevels[neighborIndex].blockLight = lightToSet;
 					localBlockLightBfsQueue.emplace(nx, ny, nz);
-					neighborDirtyMask |= getNeighborDirtyMask(nx, ny, nz);
 				}
 				else
 				{
@@ -823,8 +829,9 @@ void Chunk::buildLight()
 
 					neighborChunk->lightLevels[neighborIndex].blockLight = lightToSet;
 					neighborChunk->addBlockLightNodeToQueue(neighborNX, neighborNY, neighborNZ);
-					neighborDirtyMask |= getNeighborDirtyMask(nx, ny, nz);
 				}
+
+				neighborDirtyMask |= getNeighborDirtyMask(nx, ny, nz);
 			}
 		}
 	}
@@ -859,7 +866,12 @@ void Chunk::buildLight()
 
 				const BlockId neighborBlock = neighborChunk->getBlockAt(neighborIndex);
 				const auto* neighborBlockData = AssetRegistry::getBlockData(neighborBlock);
-				if (!neighborBlockData || neighborBlockData->absorbsLight)
+
+				if (!neighborBlockData) [[unlikely]]
+				{
+					continue;
+				}
+				if (neighborBlockData->absorbsLight)
 				{
 					continue;
 				}
@@ -879,7 +891,6 @@ void Chunk::buildLight()
 				{
 					lightLevels[neighborIndex].skyLight = lightToSet;
 					localSkyLightBfsQueue.emplace(nx, ny, nz);
-					neighborDirtyMask |= getNeighborDirtyMask(nx, ny, nz);
 				}
 				else
 				{
@@ -889,8 +900,9 @@ void Chunk::buildLight()
 
 					neighborChunk->lightLevels[neighborIndex].skyLight = lightToSet;
 					neighborChunk->addSkyLightNodeToQueue(neighborNX, neighborNY, neighborNZ);
-					neighborDirtyMask |= getNeighborDirtyMask(nx, ny, nz);
 				}
+
+				neighborDirtyMask |= getNeighborDirtyMask(nx, ny, nz);
 			}
 		}
 	}
@@ -1217,9 +1229,8 @@ void Chunk::updateMesh()
 
 		static const BlockData::TextureSlot fallbackTextureSlot(0, BlockData::TextureSlot::TextureTransformation::None, false);
 
-		ChunkInstancedMeshFaceStorage::InstancesStorage newInstances; // TODO: Maybe it should be static thread_local?
-		// Ofcourse we can just clear and then fill mesh.meshData.instacesStorage directly, but then processing fence should be activated before it, which I don't want to.
-		// Maybe there's a way without processing fence.
+		localMeshInstances.clear();
+
 		const int globalChunkX = position.x * CHUNK_SIZE;
 		const int globalChunkY = position.y * CHUNK_SIZE;
 		const int globalChunkZ = position.z * CHUNK_SIZE;
@@ -1290,7 +1301,7 @@ void Chunk::updateMesh()
 					uint32_t faceTransformation = hash & transformationBitMasks[(size_t)textureSlot.transformation];
 
 					// Add new face
-					auto& instances = textureSlot.isTranslucent ? newInstances.alignedTranslucent : newInstances.alignedOpaque;
+					auto& instances = textureSlot.isTranslucent ? localMeshInstances.alignedTranslucent : localMeshInstances.alignedOpaque;
 					instances.emplace_back(
 						currentBlockPosition.x, currentBlockPosition.y, currentBlockPosition.z,
 						face.normal,
@@ -1366,7 +1377,7 @@ void Chunk::updateMesh()
 
 					instance.textureID = textureSlot.textureId;
 
-					auto& instances = textureSlot.isTranslucent ? newInstances.nonAlignedTranslucent : newInstances.nonAlignedOpaque;
+					auto& instances = textureSlot.isTranslucent ? localMeshInstances.nonAlignedTranslucent : localMeshInstances.nonAlignedOpaque;
 
 					instances.push_back(instance);
 				}
@@ -1382,7 +1393,7 @@ void Chunk::updateMesh()
 		// Set mesh data
 		FenceGuard scopedMeshFence(mesh.faceStorage.processingFence);
 
-		mesh.faceStorage.instancesStorage = std::move(newInstances);
+		mesh.faceStorage.instancesStorage.swap(localMeshInstances);
 
 		size_t faceCount = mesh.faceStorage.getAllFaceCount();
 		if (faceCount == 0)

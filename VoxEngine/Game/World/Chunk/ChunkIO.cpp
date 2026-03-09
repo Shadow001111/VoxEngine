@@ -474,7 +474,7 @@ void ChunkIO::saveBlocks(const BlockChanges& blockChanges, const glm::ivec3& chu
 	}
 
 	// Filter valid changes and collect block names
-	robin_hood::unordered_flat_map<BlockId, std::string> idToString = collectBlockIdStrings(blockChanges); // TODO: Use sorted vector instead of std::map
+	robin_hood::unordered_flat_map<BlockId, std::string> idToString = collectBlockIdStrings(blockChanges);
 	
 	// Check if any block id strings were collected
 	if (idToString.empty())

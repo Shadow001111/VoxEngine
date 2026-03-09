@@ -23,7 +23,6 @@ const Item* Inventory::getItemAt(size_t slotIndex) const
 
 bool Inventory::pushItem(const Item& item)
 {
-	// TODO: Implement proper pushing (with items splitting and adding to slots)
 	for (size_t i = 0; i < items.size(); i++)
 	{
 		Item& slotItem = items[i];
@@ -39,7 +38,6 @@ bool Inventory::pushItem(const Item& item)
 
 bool Inventory::putItem(const Item& item, size_t slotIndex, size_t swapIndex)
 {
-	// TODO: Add merging
 	if (slotIndex >= items.size())
 	{
 		return false;

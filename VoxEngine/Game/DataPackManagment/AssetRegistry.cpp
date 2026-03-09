@@ -331,8 +331,11 @@ bool AssetRegistry::linkAssets()
 	}
 
 	// End
-	blockAssetStorage.clear(); // TODO: Destroy them
+	blockAssetStorage.clear();
+	blockAssetStorage.~DynamicArray();
+
 	itemAssetStorage.clear();
+	itemAssetStorage.~DynamicArray();
 	return true;
 }
 
@@ -460,12 +463,6 @@ ItemId AssetRegistry::getItemNumericalId(const std::string& stringId)
 {
 	auto result = itemIndexer.getId(stringId);
 	return result.has_value() ? static_cast<ItemId>(result.value()) : FALLBACK_ITEM_ID;
-}
-
-const BlockModelData* AssetRegistry::getBlockModelData(ModelId numericalId)
-{
-	// TODO: Use something faster than vector.size()
-	return numericalId < blockModelDataStorage.size() ? &blockModelDataStorage[numericalId] : nullptr;
 }
 
 const ItemData* AssetRegistry::getItemDataSafe(ItemId numericalId)

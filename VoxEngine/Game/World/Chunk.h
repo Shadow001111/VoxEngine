@@ -148,6 +148,8 @@ private:
 
 	// Mesh
 	ChunkMesh mesh;
+
+	static thread_local ChunkInstancedMeshFaceStorage::InstancesStorage localMeshInstances;
 	
 	// Changed blocks
 	ChunkIO::BlockChanges changedBlocks;
@@ -156,7 +158,6 @@ private:
 
 	// Helper index functions
 	static size_t getIndex(int x, int y, int z) noexcept { return (x << (CHUNK_SIZE_LOG2 << 1)) | (y << CHUNK_SIZE_LOG2) | z; };
-	//static size_t getIndex(uint8_t x, uint8_t y, uint8_t z) { return ((size_t)x << (CHUNK_SIZE_LOG2 << 1)) | ((size_t)y << CHUNK_SIZE_LOG2) | (size_t)z; };
 
 	static glm::ivec3 getPositionFromIndex(int index) noexcept // Took 'size_t', but now takes 'int' because think it will be cheaper (less casts)
 	{
@@ -301,26 +302,26 @@ private:
 	void calculateBlockVertexLight(BlockVertexLightData& result, int x, int y, int z) const;
 public:
 	// Chunk data getters
-	glm::ivec3 getPosition() const { return position; };
-	const auto& getNeighbors() const { return neighbors; };
-	size_t getFaceCount() const { return mesh.faceStorage.getAllFaceCount(); };
+	glm::ivec3 getPosition() const noexcept { return position; };
+	const auto& getNeighbors() const noexcept { return neighbors; };
+	size_t getFaceCount() const noexcept { return mesh.faceStorage.getAllFaceCount(); };
 
 	// Getters and setters for states and flags
-	State getState() const { return state.load(std::memory_order_acquire); };
-	void setState(State newState) { state.store(newState, std::memory_order_release); }
+	State getState() const noexcept { return state.load(std::memory_order_acquire); };
+	void setState(State newState) noexcept { state.store(newState, std::memory_order_release); }
 
-	void setFlag(Flag flag, bool value) { chunkFlags.set(static_cast<unsigned>(flag), value); }
-	bool readFlag(Flag flag) const { return chunkFlags.read(static_cast<unsigned>(flag)); }
+	void setFlag(Flag flag, bool value) noexcept { chunkFlags.set(static_cast<unsigned>(flag), value); }
+	bool readFlag(Flag flag) const noexcept { return chunkFlags.read(static_cast<unsigned>(flag)); }
 
 	bool getIsProcessing() const noexcept { return processingFence.isProcessing(); };
 
-	bool getIsLoadedInWorld() const { return chunkFlags.read(Flag::IsLoadedInWorld); };
+	bool getIsLoadedInWorld() const noexcept { return chunkFlags.read(Flag::IsLoadedInWorld); };
 
-	bool areBlocksBuilt() const { return getState() >= State::BlocksBuilt; };
-	bool isLightBuilt() const { return getState() >= State::LightsBuilt; };
+	bool areBlocksBuilt() const noexcept { return getState() >= State::BlocksBuilt; };
+	bool isLightBuilt() const noexcept { return getState() >= State::LightsBuilt; };
 
 	// Getters and setters for loaderCount
-	void addLoader() { loaderCount++; }
-	void removeLoader() { loaderCount--; }
-	uint8_t getLoaderCount() const { return loaderCount; };
+	void addLoader() noexcept { loaderCount++; }
+	void removeLoader() noexcept { loaderCount--; }
+	uint8_t getLoaderCount() const noexcept { return loaderCount; };
 };

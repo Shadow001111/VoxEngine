@@ -197,9 +197,11 @@ public:
 		mCapacity = mSize;
 		mData = static_cast<T*>(::operator new(mCapacity * sizeof(T)));
 
+		const auto* start = init.begin();
+
 		if constexpr (std::is_trivially_copy_constructible_v<T>)
 		{
-			std::memcpy(mData, init.begin(), mSize * sizeof(T));
+			std::memcpy(mData, start, mSize * sizeof(T));
 		}
 		else
 		{
@@ -208,7 +210,7 @@ public:
 			{
 				for (; i < mSize; i++)
 				{
-					construct_at(mData + i, init[i]);
+					construct_at(mData + i, start + i);
 				}
 			}
 			catch (...)
@@ -224,7 +226,6 @@ public:
 	}
 
 	template<typename InputIt>
-	//requires (!std::is_same_v<std::decay_t<InputIt>, DynamicArray>)
 	DynamicArray(InputIt first, InputIt last)
 	{
 		mSize = 0;
@@ -264,6 +265,7 @@ public:
 		{
 			destroy_elements();
 			::operator delete(mData);
+			mData = nullptr;
 		}
 	}
 
@@ -276,9 +278,9 @@ public:
 			mData = static_cast<T*>(::operator new(mCapacity * sizeof(T)));
 		}
 
-		if (mSize == 0) return;
+		if (mSize == 0 || mCapacity == 0) return;
 
-		if (std::is_trivially_copy_constructible_v<T>)
+		if constexpr (std::is_trivially_copy_constructible_v<T>)
 		{
 			std::memcpy(mData, other.mData, mSize * sizeof(T));
 		}
@@ -519,7 +521,7 @@ public:
 			changeCapacity(newCapacity);
 		}
 
-		if (std::is_trivially_move_constructible_v<T>)
+		if constexpr (std::is_trivially_move_constructible_v<T>)
 		{
 			std::memmove(mData + index + 1, mData + index, (mSize - index) * sizeof(T));
 		}

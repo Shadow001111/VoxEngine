@@ -43,14 +43,6 @@ void ThreadPool::shutdown()
     workers.clear();
 }
 
-//void ThreadPool::waitForCompletion()
-//{
-//    std::unique_lock<std::mutex> lock(queueMutex);
-//    condition.wait(lock, [this] { return tasks.empty(); });
-//
-//    // TODO: If tasks are empty, it doesn't mean tasks aren't being executed
-//}
-
 void ThreadPool::workerThread()
 {
     Task task;
