@@ -442,8 +442,6 @@ static void renderDebugData(const WindowManager& wnd, const Player& player, cons
     ss << "\nChunk draw command buffer: " << formatSizeBinary(renderStats.chunkDrawCommandBufferSizeInBytes);
     ss << "\nChunk position buffer: " << formatSizeBinary(renderStats.chunkPositionBufferSizeInBytes);
 
-    // TODO: Add textures and font size in bytes
-
     // Player orientation
     const Camera& camera = player.getCamera();
     const auto& playerPos = player.getPosition();
@@ -662,7 +660,6 @@ static int gameFunc()
         const bool iconified = wnd.isZeroSize();
 
         // Time logic
-        // TODO: Maybe reset timer. Maybe if timer will get too big, everything will break.
         double time = glfwGetTime();
         double deltaTime = time - lastTime;
         lastTime = time;

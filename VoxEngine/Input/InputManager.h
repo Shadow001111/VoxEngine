@@ -29,11 +29,10 @@ class InputManager
 	};
 
 	robin_hood::unordered_flat_set<int> pressedKeys;
-	std::array<bool, GLFW_MOUSE_BUTTON_LAST + 1> pressedMouseButtons = {}; // TODO: Maybe make it a bitset
+	std::array<bool, GLFW_MOUSE_BUTTON_LAST + 1> pressedMouseButtons = {};
 
-	// TODO: Maybe make it array of size (GLFW_KEY_LAST - GLFW_KEY_SPACE) instead of map?
-	// TODO: Key can be stored as uint_16
-	robin_hood::unordered_flat_map<int, KeyState> keyStates;
+	// TODO: Maybe make it array of size (GLFW_KEY_LAST - GLFW_KEY_SPACE + 1) instead of map?
+	robin_hood::unordered_flat_map<uint16_t, KeyState> keyStates;
 	std::array<MouseButtonState, GLFW_MOUSE_BUTTON_LAST + 1> mouseButtonStates;
 
 	glm::dvec2 mousePosition = {};

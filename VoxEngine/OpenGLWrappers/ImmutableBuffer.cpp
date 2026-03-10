@@ -279,7 +279,7 @@ void* ImmutableBuffer::map(GLenum access)
 	}
     if (!isMappable())
     {
-        std::cerr << "[ImmutableBuffer][mapPersistent]: Buffer was not created with mappable flags! Cannot map persistently.\n";
+        std::cerr << "[ImmutableBuffer][map]: Buffer was not created with mappable flags! Cannot map.\n";
         return nullptr;
     }
 #endif
@@ -318,7 +318,7 @@ void* ImmutableBuffer::mapRange(GLbitfield access, GLsizeiptr size, GLintptr off
     }
     if (!isMappable())
     {
-        std::cerr << "[ImmutableBuffer][mapPersistent]: Buffer was not created with mappable flags! Cannot map persistently.\n";
+        std::cerr << "[ImmutableBuffer][mapRange]: Buffer was not created with mappable flags! Cannot map.\n";
         return nullptr;
     }
 #endif
@@ -337,27 +337,27 @@ void* ImmutableBuffer::mapPersistentRange(GLbitfield access, GLsizeiptr size, GL
 #if BUFFER_SAFETY_CHECKS
     if (id == 0)
     {
-        std::cerr << "[ImmutableBuffer][mapPersistent]: Buffer not created! Call create() first.\n";
+        std::cerr << "[ImmutableBuffer][mapPersistentRange]: Buffer not created! Call create() first.\n";
         return nullptr;
     }
     if (size <= 0)
     {
-        std::cerr << "[ImmutableBuffer][mapPersistent]: Size must be greater than 0.\n";
+        std::cerr << "[ImmutableBuffer][mapPersistentRange]: Size must be greater than 0.\n";
         return nullptr;
 	}
     if (size > capacity)
     {
-        std::cerr << "[ImmutableBuffer][mapPersistent]: Size exceeds buffer capacity! Size: " << size << ", Capacity: " << capacity << ".\n";
+        std::cerr << "[ImmutableBuffer][mapPersistentRangeRange]: Size exceeds buffer capacity! Size: " << size << ", Capacity: " << capacity << ".\n";
         return nullptr;
     }
     if (persistentMappedPtr)
     {
-        std::cerr << "[ImmutableBuffer][mapPersistent]: Buffer is already persistently mapped! Unmap first before mapping again.\n";
+        std::cerr << "[ImmutableBuffer][mapPersistentRangeRange]: Buffer is already persistently mapped! Unmap first before mapping again.\n";
         return nullptr;
 	}
-    if (!isMappable())
+    if (!isMappablePersistently())
     {
-		std::cerr << "[ImmutableBuffer][mapPersistent]: Buffer was not created with mappable flags! Cannot map persistently.\n";
+		std::cerr << "[ImmutableBuffer][mapPersistentRange]: Buffer was not created with mappable flags! Cannot map persistently.\n";
         return nullptr;
     }
 #endif
@@ -365,7 +365,7 @@ void* ImmutableBuffer::mapPersistentRange(GLbitfield access, GLsizeiptr size, GL
     if (!persistentMappedPtr)
     {
 #if BUFFER_SAFETY_CHECKS
-        std::cerr << "[ImmutableBuffer][mapPersistent]: Failed to map buffer.\n";
+        std::cerr << "[ImmutableBuffer][mapPersistentRange]: Failed to map buffer.\n";
 #endif
     }
     return persistentMappedPtr;

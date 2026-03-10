@@ -47,9 +47,10 @@ public:
     void unmap();
     void flushMappedRange(GLsizeiptr size, GLintptr offset);
 
-    GLuint getID() const { return id; }
-    size_t getCapacity() const { return capacity; }
-    GLbitfield getFlags() const { return flags; }
-    bool isMappable() const { return (flags & (GL_MAP_READ_BIT | GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT)) != 0; }
-    void* getPersistentMappedPtr() const { return persistentMappedPtr; };
+    GLuint getID() const noexcept { return id; }
+    size_t getCapacity() const noexcept { return capacity; }
+    GLbitfield getFlags() const noexcept { return flags; }
+    bool isMappable() const noexcept { return (flags & (GL_MAP_READ_BIT | GL_MAP_WRITE_BIT)) != 0; }
+    bool isMappablePersistently() const noexcept { return (flags & (GL_MAP_READ_BIT | GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT)) != 0; }
+    void* getPersistentMappedPtr() const noexcept { return persistentMappedPtr; };
 };
