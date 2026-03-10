@@ -571,6 +571,10 @@ void Chunk::buildLight()
 	const Chunk* top = neighbors[getNeighborIndex(0, 1, 0)];
 	uint32_t neighborDirtyMask = 0;
 
+	// Assert
+	ASSERT(localBlockLightBfsQueue.empty());
+	ASSERT(localSkyLightBfsQueue.empty());
+
 	// Initialize all light values to 0
 	std::fill(std::begin(lightLevels), std::end(lightLevels), LightLevel(0, 0));
 
@@ -604,41 +608,93 @@ void Chunk::buildLight()
 		}
 	}
 
-	// Step 2: Create sky light sources
+	// Step 2: Collect sky light sources
 	const bool hasTopNeighbor = top && top->isLightBuilt();
+
 	if (!hasTopNeighbor)
 	{
-		// For each column, find the highest opaque block and set all blocks above it to sky light 15
+		// Create local heightmap for this chunk
+		std::array<int, CHUNK_AREA> heightMap;
+		heightMap.fill(-1);
 		for (int x = 0; x < CHUNK_SIZE; x++)
 		{
 			for (int z = 0; z < CHUNK_SIZE; z++)
 			{
-				int highestOpaqueY = -1;
-				// Scan from top down to find the highest opaque block in this column
 				for (int y = CHUNK_SIZE - 1; y >= 0; y--)
 				{
-					size_t index = getIndex(x, y, z);
-					BlockId block = blocks[index];
+					BlockId block = blocks[getIndex(x, y, z)];
 					const auto* blockData = AssetRegistry::getBlockData(block);
-					if (blockData && blockData->absorbsLight)
+					if (!blockData || blockData->absorbsLight)
 					{
-						highestOpaqueY = y;
+						heightMap[getIndex(x, z)] = y;
 						break;
 					}
 				}
+			}
+		}
 
-				int firstExposedY = highestOpaqueY + 1;
-				if (firstExposedY < CHUNK_SIZE)
+		// Compute array of heights from where to start adding nodes
+		// Adding node to queue if:
+		// 1) Local y is greater than any of surrounding max height
+		// 2) Node on chunk border
+		// 3) Always on lowest block
+		constexpr int MAX_LOCAL_HEIGHT = CHUNK_SIZE - 1;
+		std::array<int, CHUNK_AREA> addNodeHeightMap;
+		addNodeHeightMap.fill(MAX_LOCAL_HEIGHT); // Unfilled values will make nodes appear on every y coord
+		// Coords won't be on border, so values on borders won't change
+		for (int x = 1; x < CHUNK_SIZE - 1; x++)
+		{
+			for (int z = 1; z < CHUNK_SIZE - 1; z++)
+			{
+				// Get neighbor heights (in index increasing order)
+				const int nxHeight = heightMap[getIndex(x - 1, z)];
+				const int nzHeight = heightMap[getIndex(x, z - 1)];
+				const int pzHeight = heightMap[getIndex(x, z + 1)];
+				const int pxHeight = heightMap[getIndex(x + 1, z)];
+
+				// Get max height
+				const int maxXHeight = std::max(nxHeight, pxHeight);
+				const int maxZHeight = std::max(pzHeight, nzHeight);
+				const int maxHeight = std::max(maxXHeight, maxZHeight);
+
+				// Set localHeightToStartAddingNodes to the corresponding max height minus one (there can be nothing under toppest block)
+				int localHeightToStartAddingNodes = maxHeight - 1;
+				localHeightToStartAddingNodes = std::max(localHeightToStartAddingNodes, 0); // Must place at bottom, so it can propagate on neighbor chunk
+
+				addNodeHeightMap[getIndex(x, z)] = localHeightToStartAddingNodes;
+			}
+		}
+
+		// Create nodes and fill light levels
+		for (int x = 0; x < CHUNK_SIZE; x++)
+		{
+			for (int z = 0; z < CHUNK_SIZE; z++)
+			{
+				const size_t index = getIndex(x, z);
+				const int firstExposedY = heightMap[index] + 1;
+
+				if (firstExposedY >= CHUNK_SIZE)
 				{
-					// All blocks from firstExposedY to the top are exposed to sky
-					for (int y = firstExposedY; y < CHUNK_SIZE; y++)
-					{
-						size_t index = getIndex(x, y, z);
-						lightLevels[index].skyLight = 15;
-						localSkyLightBfsQueue.emplace(x, y, z);
-						neighborDirtyMask |= getNeighborDirtyMask(x, y, z);
-					}
+					continue; // No exposed blocks in this column
 				}
+
+				// Filling light
+				for (int y = firstExposedY; y < CHUNK_SIZE; y++)
+				{
+					lightLevels[getIndex(x, y, z)].skyLight = 15;
+				}
+
+				// Creating nodes
+				const int localHeightToStartAddingNodes = addNodeHeightMap[index];
+				for (int y = firstExposedY; y <= localHeightToStartAddingNodes; y++)
+				{
+					localSkyLightBfsQueue.emplace(x, y, z);
+				}
+
+				// Calculate neighbor dirty mask and accumulate it
+				// Sample it in two places, top and bottom, because it can include top and bottom neighbors, plus middle layer will be included anyway
+				neighborDirtyMask |= getNeighborDirtyMask(x, firstExposedY, z);
+				neighborDirtyMask |= getNeighborDirtyMask(x, MAX_LOCAL_HEIGHT, z);
 			}
 		}
 	}
@@ -720,7 +776,7 @@ void Chunk::buildLight()
 			}
 		}
 
-		// +Y: only when no top neighbor, otherwise step 2 already seeded sky light from heightmap
+		// +Y
 		if (hasTopNeighbor)
 		{
 			neighbor = neighbors[getNeighborIndex(0, 1, 0)];
@@ -768,6 +824,9 @@ void Chunk::buildLight()
 			}
 		}
 	}
+
+	// Check if chunk is loaded
+	if (!chunkFlags.read(Flag::IsLoadedInWorld)) return;
 
 	// Step 4: Propagate block light using flood-fill
 	{
@@ -835,6 +894,9 @@ void Chunk::buildLight()
 			}
 		}
 	}
+
+	// Check if chunk is loaded
+	if (!chunkFlags.read(Flag::IsLoadedInWorld)) return;
 
 	// Step 5: Propagate sky light using flood-fill
 	{
@@ -907,11 +969,16 @@ void Chunk::buildLight()
 		}
 	}
 
+	// Check if chunk is loaded
+	if (!chunkFlags.read(Flag::IsLoadedInWorld)) return;
+
 	// Set state
 	setState(State::LightsBuilt);
 
 	// Apply dirty mask
 	applyNeighborDirtyMask(neighborDirtyMask);
+
+	std::cout << "Built!!!\n";
 }
 
 void Chunk::updateLight()

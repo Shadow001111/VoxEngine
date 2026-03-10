@@ -158,6 +158,7 @@ private:
 
 	// Helper index functions
 	static size_t getIndex(int x, int y, int z) noexcept { return (x << (CHUNK_SIZE_LOG2 << 1)) | (y << CHUNK_SIZE_LOG2) | z; };
+	static size_t getIndex(int x, int z) noexcept { return (x << CHUNK_SIZE_LOG2) | z; };
 
 	static glm::ivec3 getPositionFromIndex(int index) noexcept // Took 'size_t', but now takes 'int' because think it will be cheaper (less casts)
 	{
