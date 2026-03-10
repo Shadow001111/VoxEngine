@@ -64,15 +64,20 @@ void Chunk::init(const glm::ivec3& position, const std::array<Chunk*, 27>& newNe
 	// Set parent region
 	this->parentRegion = parentRegion;
 
-	// Reset
+	// Reset state and flags
 	setState(Chunk::State::NotInitialized_NeedsBlocks);
 
 	chunkFlags.reset();
 	chunkFlags.set(Flag::IsLoadedInWorld, true);
 	chunkFlags.set(Flag::ShouldUpdateMesh, false);
 
+	// Reset mesh data
 	mesh.faceStorage.resetRenderFaceCount();
 	mesh.faceStorage.shouldBeUploaded = false;
+
+	// Reset blocks and light levels
+	std::fill(std::begin(blocks), std::end(blocks), CACHED_BLOCK_IDS.airId);
+	std::fill(std::begin(lightLevels), std::end(lightLevels), LightLevel(0, 0));
 }
 
 // Cleans up resources
@@ -221,10 +226,6 @@ void Chunk::buildBlocks()
 				}
 			}
 		}
-	}
-	else
-	{
-		std::fill(std::begin(blocks), std::end(blocks), CACHED_BLOCK_IDS.airId);
 	}
 
 	// Caves
@@ -568,15 +569,8 @@ void Chunk::buildLight()
 
 	PROFILE_SCOPE("Build chunk light", ProfileCategory::ChunkLight);
 
-	const Chunk* top = neighbors[getNeighborIndex(0, 1, 0)];
+	const Chunk* topNeighbor = neighbors[getNeighborIndex(0, 1, 0)];
 	uint32_t neighborDirtyMask = 0;
-
-	// Assert
-	ASSERT(localBlockLightBfsQueue.empty());
-	ASSERT(localSkyLightBfsQueue.empty());
-
-	// Initialize all light values to 0
-	std::fill(std::begin(lightLevels), std::end(lightLevels), LightLevel(0, 0));
 
 	// Step 1: Collect block light sources
 	{
@@ -609,9 +603,7 @@ void Chunk::buildLight()
 	}
 
 	// Step 2: Collect sky light sources
-	const bool hasTopNeighbor = top && top->isLightBuilt();
-
-	if (!hasTopNeighbor)
+	if (!topNeighbor)
 	{
 		// Create local heightmap for this chunk
 		std::array<int, CHUNK_AREA> heightMap;
@@ -777,19 +769,16 @@ void Chunk::buildLight()
 		}
 
 		// +Y
-		if (hasTopNeighbor)
+		neighbor = topNeighbor;
+		if (neighbor && neighbor->isLightBuilt())
 		{
-			neighbor = neighbors[getNeighborIndex(0, 1, 0)];
-			if (neighbor && neighbor->isLightBuilt())
+			const int y = CHUNK_SIZE - 1;
+			const int neighborY = 0;
+			for (int x = 0; x < CHUNK_SIZE; x++)
 			{
-				const int y = CHUNK_SIZE - 1;
-				const int neighborY = 0;
-				for (int x = 0; x < CHUNK_SIZE; x++)
+				for (int z = 0; z < CHUNK_SIZE; z++)
 				{
-					for (int z = 0; z < CHUNK_SIZE; z++)
-					{
-						processNeighborFace(x, y, z, x, neighborY, z, neighbor, true);
-					}
+					processNeighborFace(x, y, z, x, neighborY, z, neighbor, true);
 				}
 			}
 		}
@@ -977,8 +966,6 @@ void Chunk::buildLight()
 
 	// Apply dirty mask
 	applyNeighborDirtyMask(neighborDirtyMask);
-
-	std::cout << "Built!!!\n";
 }
 
 void Chunk::updateLight()

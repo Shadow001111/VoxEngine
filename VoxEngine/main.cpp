@@ -27,7 +27,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #ifdef NDEBUG
-constexpr int CHUNK_LOAD_DISTANCE = 5;
+constexpr int CHUNK_LOAD_DISTANCE = 24;
 #else
 constexpr int CHUNK_LOAD_DISTANCE = 3;
 #endif
@@ -677,6 +677,10 @@ static int gameFunc()
 
         // World
         world.setAppTime((float)time);
+        if (playerInputManager.isKeyJustPressed(GLFW_KEY_F3))
+        {
+            world.rebuildAllChunkMeshes();
+		}
         if (worldUpdateTimer.peek())
         {
             glm::dvec3 playerPos = player.getPosition();
