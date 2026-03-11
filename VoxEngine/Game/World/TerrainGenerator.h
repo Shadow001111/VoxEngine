@@ -11,6 +11,12 @@
 #include <mutex>
 #include <array>
 
+#ifdef __AVX2__
+constexpr int SIMD_ALIGNMENT = 32;
+#else
+constexpr int SIMD_ALIGNMENT = 16;
+#endif
+
 class ChunkColumnData
 {
 	int X = 0, Z = 0; // Coordinates in chunk space
@@ -64,8 +70,8 @@ class TerrainGenerator
 	{
 		struct Resources
 		{
-			std::array<float, CHUNK_VOLUME> tempNoiseArray{};
-			std::array<float, CHUNK_VOLUME> caveNoiseArray{};
+			alignas(SIMD_ALIGNMENT) std::array<float, CHUNK_VOLUME> tempNoiseArray{};
+			alignas(SIMD_ALIGNMENT) std::array<float, CHUNK_VOLUME> caveNoiseArray{};
 		};
 
 		std::unique_ptr<Resources> resources;

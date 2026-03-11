@@ -209,7 +209,7 @@ void TerrainGenerator::computeCaveMask(bool* outArray, int chunkX, int chunkY, i
 
 			for (int i = 0; i < CHUNK_VOLUME; i += 8)
 			{
-				__m256 values = _mm256_loadu_ps(&caveNoiseArray[i]);          // load 8 floats
+				__m256 values = _mm256_load_ps(&caveNoiseArray[i]);          // load 8 floats
 				__m256 absoluteValues = _mm256_and_ps(values, abs_mask);      // abs(x)
 				__m256 cmpResult = _mm256_cmp_ps(absoluteValues, threshold, _CMP_LT_OQ);  // abs(x) < 0.1f
 				__m256i comparisons = _mm256_castps_si256(cmpResult);
@@ -236,7 +236,7 @@ void TerrainGenerator::computeCaveMask(bool* outArray, int chunkX, int chunkY, i
 
 			for (int i = 0; i < CHUNK_VOLUME; i += 4)
 			{
-				__m128 values = _mm_loadu_ps(&caveNoiseArray[i]);         // load 4 floats
+				__m128 values = _mm_load_ps(&caveNoiseArray[i]);         // load 4 floats
 				__m128 absoluteValues = _mm_and_ps(values, abs_mask);     // abs(x)
 				__m128i comparisons = _mm_castps_si128(_mm_cmplt_ps(absoluteValues, threshold));     // abs(x) < 0.1f
 
@@ -307,9 +307,9 @@ void TerrainGenerator::computeInitialHeightMap(int* heightMap, int chunkX, int c
 	PROFILE_SCOPE("Compute height map", ProfileCategory::TerrainGeneration);
 
 	// Computing continental noise array
-	float continentalNoiseArray[CHUNK_AREA];
-	float erosionNoiseArray[CHUNK_AREA];
-	float weirdnessNoiseArray[CHUNK_AREA];
+	alignas(SIMD_ALIGNMENT) float continentalNoiseArray[CHUNK_AREA];
+	alignas(SIMD_ALIGNMENT) float erosionNoiseArray[CHUNK_AREA];
+	alignas(SIMD_ALIGNMENT) float weirdnessNoiseArray[CHUNK_AREA];
 
 	{
 		NoiseParams params;
