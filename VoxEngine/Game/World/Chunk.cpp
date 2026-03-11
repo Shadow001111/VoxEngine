@@ -580,10 +580,22 @@ void Chunk::propagateBlockLight(uint32_t& neighborDirtyMask)
 
 			// Get neighbor chunk and block index
 			size_t neighborBlockIndex;
-			Chunk* neighborChunk = traverseToSideNeighbor(nx, ny, nz, i, neighborBlockIndex);
-			if (!neighborChunk)
+			Chunk* neighborChunk;
+
+			const bool isNeighborBlockInSameChunk = ((nx | ny | nz) & CHUNK_UPPER_BITS_MASK) == 0;
+			if (isNeighborBlockInSameChunk)
 			{
-				continue;
+				neighborChunk = this;
+				neighborBlockIndex = getIndex(nx, ny, nz);
+			}
+			else
+			{
+				neighborChunk = neighbors[getSideNeighborIndex(i)];
+				if (!neighborChunk)
+				{
+					continue;
+				}
+				neighborBlockIndex = getIndex(nx & CHUNK_LOWER_BITS_MASK, ny & CHUNK_LOWER_BITS_MASK, nz & CHUNK_LOWER_BITS_MASK);
 			}
 
 			// Get neighbor block light level and compare it
@@ -608,19 +620,15 @@ void Chunk::propagateBlockLight(uint32_t& neighborDirtyMask)
 			}
 
 			// Propagate
-			if (neighborChunk == this)
+			if (isNeighborBlockInSameChunk)
 			{
 				lightLevels[neighborBlockIndex].blockLight = lightToSet;
 				localBlockLightBfsQueue.emplace(nx, ny, nz);
 			}
 			else
 			{
-				int neighborNX = nx & CHUNK_LOWER_BITS_MASK;
-				int neighborNY = ny & CHUNK_LOWER_BITS_MASK;
-				int neighborNZ = nz & CHUNK_LOWER_BITS_MASK;
-
 				neighborChunk->lightLevels[neighborBlockIndex].blockLight = lightToSet;
-				neighborChunk->addBlockLightNodeToQueue(neighborNX, neighborNY, neighborNZ);
+				neighborChunk->addBlockLightNodeToQueue(nx & CHUNK_LOWER_BITS_MASK, ny & CHUNK_LOWER_BITS_MASK, nz & CHUNK_LOWER_BITS_MASK);
 			}
 
 			// Accumulate dirty mask
@@ -643,6 +651,8 @@ void Chunk::propagateSkyLight(uint32_t& neighborDirtyMask)
 			continue;
 		}
 
+		const bool isMaxLightLevel = skyLight == 15;
+
 		// Propagate to neighbors
 		for (int i = 0; i < 6; i++)
 		{
@@ -653,17 +663,29 @@ void Chunk::propagateSkyLight(uint32_t& neighborDirtyMask)
 
 			// Get neighbor chunk and block index
 			size_t neighborBlockIndex;
-			Chunk* neighborChunk = traverseToSideNeighbor(nx, ny, nz, i, neighborBlockIndex);
-			if (!neighborChunk)
+			Chunk* neighborChunk;
+
+			const bool isNeighborBlockInSameChunk = ((nx | ny | nz) & CHUNK_UPPER_BITS_MASK) == 0;
+			if (isNeighborBlockInSameChunk)
 			{
-				continue;
+				neighborChunk = this;
+				neighborBlockIndex = getIndex(nx, ny, nz);
+			}
+			else
+			{
+				neighborChunk = neighbors[getSideNeighborIndex(i)];
+				if (!neighborChunk)
+				{
+					continue;
+				}
+				neighborBlockIndex = getIndex(nx & CHUNK_LOWER_BITS_MASK, ny & CHUNK_LOWER_BITS_MASK, nz & CHUNK_LOWER_BITS_MASK);
 			}
 
 			// Get neighbor sky light level
 			uint8_t neighborSkyLight = neighborChunk->getLightAt(neighborBlockIndex).skyLight;
 
 			// If we are propagating down and skyLight is 15, lightAbsorption is 0, otherwise 1 
-			uint8_t lightAbsorption = !(i == 2 && skyLight == 15);// (i == 2 && skyLight == 15) ? 0 : 1;
+			uint8_t lightAbsorption = !(i == 2 && isMaxLightLevel);
 			uint8_t lightToSet = skyLight - lightAbsorption;
 
 			// Compare
@@ -687,19 +709,15 @@ void Chunk::propagateSkyLight(uint32_t& neighborDirtyMask)
 			}
 
 			// Propagate
-			if (neighborChunk == this)
+			if (isNeighborBlockInSameChunk)
 			{
 				lightLevels[neighborBlockIndex].skyLight = lightToSet;
 				localSkyLightBfsQueue.emplace(nx, ny, nz);
 			}
 			else
 			{
-				int neighborNX = nx & CHUNK_LOWER_BITS_MASK;
-				int neighborNY = ny & CHUNK_LOWER_BITS_MASK;
-				int neighborNZ = nz & CHUNK_LOWER_BITS_MASK;
-
 				neighborChunk->lightLevels[neighborBlockIndex].skyLight = lightToSet;
-				neighborChunk->addSkyLightNodeToQueue(neighborNX, neighborNY, neighborNZ);
+				neighborChunk->addSkyLightNodeToQueue(nx & CHUNK_LOWER_BITS_MASK, ny & CHUNK_LOWER_BITS_MASK, nz & CHUNK_LOWER_BITS_MASK);
 			}
 
 			// Accumulate dirty mask
@@ -725,10 +743,22 @@ void Chunk::propagateBlockLightRemoval(uint32_t& neighborDirtyMask)
 
 			// Get neighbor chunk and block index
 			size_t neighborBlockIndex;
-			Chunk* neighborChunk = traverseToSideNeighbor(nx, ny, nz, i, neighborBlockIndex);
-			if (!neighborChunk)
+			Chunk* neighborChunk;
+
+			const bool isNeighborBlockInSameChunk = ((nx | ny | nz) & CHUNK_UPPER_BITS_MASK) == 0;
+			if (isNeighborBlockInSameChunk)
 			{
-				continue;
+				neighborChunk = this;
+				neighborBlockIndex = getIndex(nx, ny, nz);
+			}
+			else
+			{
+				neighborChunk = neighbors[getSideNeighborIndex(i)];
+				if (!neighborChunk)
+				{
+					continue;
+				}
+				neighborBlockIndex = getIndex(nx & CHUNK_LOWER_BITS_MASK, ny & CHUNK_LOWER_BITS_MASK, nz & CHUNK_LOWER_BITS_MASK);
 			}
 
 			// Get neighbor block data
@@ -749,36 +779,28 @@ void Chunk::propagateBlockLightRemoval(uint32_t& neighborDirtyMask)
 			uint8_t neighborBlockLight = neighborChunk->getLightAt(neighborBlockIndex).blockLight;
 			if (neighborBlockLight > 0 && neighborBlockLight < data.lightLevel)
 			{
-				if (neighborChunk == this)
+				if (isNeighborBlockInSameChunk)
 				{
 					lightLevels[neighborBlockIndex].blockLight = 0;
 					localBlockLightRemovalBfsQueue.emplace(nx, ny, nz, neighborBlockLight);
 				}
 				else
 				{
-					int neighborNX = nx & CHUNK_LOWER_BITS_MASK;
-					int neighborNY = ny & CHUNK_LOWER_BITS_MASK;
-					int neighborNZ = nz & CHUNK_LOWER_BITS_MASK;
-
 					neighborChunk->lightLevels[neighborBlockIndex].blockLight = 0;
-					neighborChunk->addBlockLightRemovalNodeToQueue(neighborNX, neighborNY, neighborNZ, neighborBlockLight);
+					neighborChunk->addBlockLightRemovalNodeToQueue(nx & CHUNK_LOWER_BITS_MASK, ny & CHUNK_LOWER_BITS_MASK, nz & CHUNK_LOWER_BITS_MASK, neighborBlockLight);
 				}
 
 				neighborDirtyMask |= getNeighborDirtyMask(nx, ny, nz);
 			}
 			else if (neighborBlockLight >= data.lightLevel)
 			{
-				if (neighborChunk == this)
+				if (isNeighborBlockInSameChunk)
 				{
 					localBlockLightBfsQueue.emplace(nx, ny, nz);
 				}
 				else
 				{
-					int neighborNX = nx & CHUNK_LOWER_BITS_MASK;
-					int neighborNY = ny & CHUNK_LOWER_BITS_MASK;
-					int neighborNZ = nz & CHUNK_LOWER_BITS_MASK;
-
-					neighborChunk->addBlockLightNodeToQueue(neighborNX, neighborNY, neighborNZ);
+					neighborChunk->addBlockLightNodeToQueue(nx & CHUNK_LOWER_BITS_MASK, ny & CHUNK_LOWER_BITS_MASK, nz & CHUNK_LOWER_BITS_MASK);
 				}
 			}
 		}
@@ -792,6 +814,8 @@ void Chunk::propagateSkyLightRemoval(uint32_t& neighborDirtyMask)
 		// Get node data
 		const auto data = localSkyLightRemovalBfsQueue.pop_and_return_unsafe();
 
+		const bool isMaxLightLevel = data.lightLevel == 15;
+
 		// Propagate to neighbors
 		for (int i = 0; i < 6; i++)
 		{
@@ -802,10 +826,22 @@ void Chunk::propagateSkyLightRemoval(uint32_t& neighborDirtyMask)
 
 			// Get neighbor chunk and block index
 			size_t neighborBlockIndex;
-			Chunk* neighborChunk = traverseToSideNeighbor(nx, ny, nz, i, neighborBlockIndex);
-			if (!neighborChunk)
+			Chunk* neighborChunk;
+
+			const bool isNeighborBlockInSameChunk = ((nx | ny | nz) & CHUNK_UPPER_BITS_MASK) == 0;
+			if (isNeighborBlockInSameChunk)
 			{
-				continue;
+				neighborChunk = this;
+				neighborBlockIndex = getIndex(nx, ny, nz);
+			}
+			else
+			{
+				neighborChunk = neighbors[getSideNeighborIndex(i)];
+				if (!neighborChunk)
+				{
+					continue;
+				}
+				neighborBlockIndex = getIndex(nx & CHUNK_LOWER_BITS_MASK, ny & CHUNK_LOWER_BITS_MASK, nz & CHUNK_LOWER_BITS_MASK);
 			}
 
 			// Get neighbor block data
@@ -825,38 +861,30 @@ void Chunk::propagateSkyLightRemoval(uint32_t& neighborDirtyMask)
 			// Propagate
 			uint8_t neighborSkyLight = neighborChunk->getLightAt(neighborBlockIndex).skyLight;
 			if (neighborSkyLight > 0 &&
-				(neighborSkyLight < data.lightLevel || (data.lightLevel == 15 && i == 2)))
+				(neighborSkyLight < data.lightLevel || (isMaxLightLevel && i == 2)))
 			{
-				if (neighborChunk == this)
+				if (isNeighborBlockInSameChunk)
 				{
 					lightLevels[neighborBlockIndex].skyLight = 0;
 					localSkyLightRemovalBfsQueue.emplace(nx, ny, nz, neighborSkyLight);
 				}
 				else
 				{
-					int neighborNX = nx & CHUNK_LOWER_BITS_MASK;
-					int neighborNY = ny & CHUNK_LOWER_BITS_MASK;
-					int neighborNZ = nz & CHUNK_LOWER_BITS_MASK;
-
 					neighborChunk->lightLevels[neighborBlockIndex].skyLight = 0;
-					neighborChunk->addSkyLightRemovalNodeToQueue(neighborNX, neighborNY, neighborNZ, neighborSkyLight);
+					neighborChunk->addSkyLightRemovalNodeToQueue(nx & CHUNK_LOWER_BITS_MASK, ny & CHUNK_LOWER_BITS_MASK, nz & CHUNK_LOWER_BITS_MASK, neighborSkyLight);
 				}
 
 				neighborDirtyMask |= getNeighborDirtyMask(nx, ny, nz);
 			}
 			else if (neighborSkyLight >= data.lightLevel)
 			{
-				if (neighborChunk == this)
+				if (isNeighborBlockInSameChunk)
 				{
 					localSkyLightBfsQueue.emplace(nx, ny, nz);
 				}
 				else
 				{
-					int neighborNX = nx & CHUNK_LOWER_BITS_MASK;
-					int neighborNY = ny & CHUNK_LOWER_BITS_MASK;
-					int neighborNZ = nz & CHUNK_LOWER_BITS_MASK;
-
-					neighborChunk->addSkyLightNodeToQueue(neighborNX, neighborNY, neighborNZ);
+					neighborChunk->addSkyLightNodeToQueue(nx & CHUNK_LOWER_BITS_MASK, ny & CHUNK_LOWER_BITS_MASK, nz & CHUNK_LOWER_BITS_MASK);
 				}
 			}
 		}
