@@ -554,6 +554,281 @@ void Chunk::removeIndexFromMap(BlockId block, uint16_t idx)
 	if (vec.empty()) changedBlocks.erase(it);
 }
 
+void Chunk::propagateBlockLight(uint32_t& neighborDirtyMask)
+{
+	while (!localBlockLightBfsQueue.empty())
+	{
+		// Get node data
+		const auto data = localBlockLightBfsQueue.pop_and_return_unsafe();
+
+		// Get light level
+		uint8_t blockLight = lightLevels[getIndex(data.x, data.y, data.z)].blockLight;
+		if (blockLight < 2)
+		{
+			continue;
+		}
+		uint8_t lightToSet = blockLight - 1;
+
+		// Propagate to neighbors
+		for (int i = 0; i < 6; i++)
+		{
+			int nx = data.x + DIRECTIONS_TABLE.dx[i];
+			int ny = data.y + DIRECTIONS_TABLE.dy[i];
+			int nz = data.z + DIRECTIONS_TABLE.dz[i];
+
+			size_t neighborIndex;
+			Chunk* neighborChunk = traverseToSideNeighbor(nx, ny, nz, i, neighborIndex);
+			if (!neighborChunk)
+			{
+				continue;
+			}
+
+			const BlockId neighborBlock = neighborChunk->getBlockAt(neighborIndex);
+			const auto* neighborBlockData = AssetRegistry::getBlockData(neighborBlock);
+
+			if (!neighborBlockData) [[unlikely]]
+			{
+				continue;
+			}
+			if (neighborBlockData->absorbsLight)
+			{
+				continue;
+			}
+
+			// TODO: Try moving this check to the beginning of the loop, so we won't need to get block data for blocks that are already bright enough
+			uint8_t neighborBlockLight = neighborChunk->getLightAt(neighborIndex).blockLight;
+			if (neighborBlockLight >= lightToSet)
+			{
+				continue;
+			}
+
+			if (neighborChunk == this)
+			{
+				lightLevels[neighborIndex].blockLight = lightToSet;
+				localBlockLightBfsQueue.emplace(nx, ny, nz);
+			}
+			else
+			{
+				int neighborNX = nx & CHUNK_LOWER_BITS_MASK;
+				int neighborNY = ny & CHUNK_LOWER_BITS_MASK;
+				int neighborNZ = nz & CHUNK_LOWER_BITS_MASK;
+
+				neighborChunk->lightLevels[neighborIndex].blockLight = lightToSet;
+				neighborChunk->addBlockLightNodeToQueue(neighborNX, neighborNY, neighborNZ);
+			}
+
+			neighborDirtyMask |= getNeighborDirtyMask(nx, ny, nz);
+		}
+	}
+}
+
+void Chunk::propagateSkyLight(uint32_t& neighborDirtyMask)
+{
+	while (!localSkyLightBfsQueue.empty())
+	{
+		// Get node data
+		const auto data = localSkyLightBfsQueue.pop_and_return_unsafe();
+
+		// Get light level
+		uint8_t skyLight = lightLevels[getIndex(data.x, data.y, data.z)].skyLight;
+		if (skyLight < 2)
+		{
+			continue;
+		}
+
+		// Propagate to neighbors
+		for (int i = 0; i < 6; i++)
+		{
+			int nx = data.x + DIRECTIONS_TABLE.dx[i];
+			int ny = data.y + DIRECTIONS_TABLE.dy[i];
+			int nz = data.z + DIRECTIONS_TABLE.dz[i];
+
+			size_t neighborIndex;
+			Chunk* neighborChunk = traverseToSideNeighbor(nx, ny, nz, i, neighborIndex);
+			if (!neighborChunk)
+			{
+				continue;
+			}
+
+			const BlockId neighborBlock = neighborChunk->getBlockAt(neighborIndex);
+			const auto* neighborBlockData = AssetRegistry::getBlockData(neighborBlock);
+
+			if (!neighborBlockData) [[unlikely]]
+			{
+				continue;
+			}
+			if (neighborBlockData->absorbsLight)
+			{
+				continue;
+			}
+
+			uint8_t neighborSkyLight = neighborChunk->getLightAt(neighborIndex).skyLight;
+
+			// If we are propagating down and skyLight is 15, lightAbsorption is 0, otherwise 1 
+			uint8_t lightAbsorption = (i == 2 && skyLight == 15) ? 0 : 1;
+			uint8_t lightToSet = skyLight - lightAbsorption;
+
+			// TODO: Try moving this check to the beginning of the loop, so we won't need to get block data for blocks that are already bright enough
+			if (neighborSkyLight >= lightToSet)
+			{
+				continue;
+			}
+
+			if (neighborChunk == this)
+			{
+				lightLevels[neighborIndex].skyLight = lightToSet;
+				localSkyLightBfsQueue.emplace(nx, ny, nz);
+			}
+			else
+			{
+				int neighborNX = nx & CHUNK_LOWER_BITS_MASK;
+				int neighborNY = ny & CHUNK_LOWER_BITS_MASK;
+				int neighborNZ = nz & CHUNK_LOWER_BITS_MASK;
+
+				neighborChunk->lightLevels[neighborIndex].skyLight = lightToSet;
+				neighborChunk->addSkyLightNodeToQueue(neighborNX, neighborNY, neighborNZ);
+			}
+
+			neighborDirtyMask |= getNeighborDirtyMask(nx, ny, nz);
+		}
+	}
+}
+
+void Chunk::propagateBlockLightRemoval(uint32_t& neighborDirtyMask)
+{
+	while (!localBlockLightRemovalBfsQueue.empty())
+	{
+		// Get node data
+		const auto data = localBlockLightRemovalBfsQueue.pop_and_return_unsafe();
+
+		// Propagate to neighbors
+		for (int i = 0; i < 6; i++)
+		{
+			int nx = data.x + DIRECTIONS_TABLE.dx[i];
+			int ny = data.y + DIRECTIONS_TABLE.dy[i];
+			int nz = data.z + DIRECTIONS_TABLE.dz[i];
+
+			size_t neighborIndex;
+			Chunk* neighborChunk = traverseToSideNeighbor(nx, ny, nz, i, neighborIndex);
+			if (!neighborChunk)
+			{
+				continue;
+			}
+
+			BlockId neighborBlock = neighborChunk->getBlockAt(neighborIndex);
+			const auto* neighborBlockData = AssetRegistry::getBlockData(neighborBlock);
+			if (!neighborBlockData || neighborBlockData->absorbsLight)
+			{
+				continue;
+			}
+
+			uint8_t neighborBlockLight = neighborChunk->getLightAt(neighborIndex).blockLight;
+			if (neighborBlockLight > 0 && neighborBlockLight < data.lightLevel)
+			{
+				if (neighborChunk == this)
+				{
+					lightLevels[neighborIndex].blockLight = 0;
+					localBlockLightRemovalBfsQueue.emplace(nx, ny, nz, neighborBlockLight);
+					neighborDirtyMask |= getNeighborDirtyMask(nx, ny, nz);
+				}
+				else
+				{
+					int neighborNX = nx & CHUNK_LOWER_BITS_MASK;
+					int neighborNY = ny & CHUNK_LOWER_BITS_MASK;
+					int neighborNZ = nz & CHUNK_LOWER_BITS_MASK;
+
+					neighborChunk->lightLevels[neighborIndex].blockLight = 0;
+					neighborChunk->addBlockLightRemovalNodeToQueue(neighborNX, neighborNY, neighborNZ, neighborBlockLight);
+					neighborDirtyMask |= getNeighborDirtyMask(nx, ny, nz);
+				}
+			}
+			else if (neighborBlockLight >= data.lightLevel)
+			{
+				if (neighborChunk == this)
+				{
+					localBlockLightBfsQueue.emplace(nx, ny, nz);
+				}
+				else
+				{
+					int neighborNX = nx & CHUNK_LOWER_BITS_MASK;
+					int neighborNY = ny & CHUNK_LOWER_BITS_MASK;
+					int neighborNZ = nz & CHUNK_LOWER_BITS_MASK;
+
+					neighborChunk->addBlockLightNodeToQueue(neighborNX, neighborNY, neighborNZ);
+				}
+			}
+		}
+	}
+}
+
+void Chunk::propagateSkyLightRemoval(uint32_t& neighborDirtyMask)
+{
+	while (!localSkyLightRemovalBfsQueue.empty())
+	{
+		// Get node data
+		const auto data = localSkyLightRemovalBfsQueue.pop_and_return_unsafe();
+
+		// Propagate to neighbors
+		for (int i = 0; i < 6; i++)
+		{
+			int nx = data.x + DIRECTIONS_TABLE.dx[i];
+			int ny = data.y + DIRECTIONS_TABLE.dy[i];
+			int nz = data.z + DIRECTIONS_TABLE.dz[i];
+
+			size_t neighborIndex;
+			Chunk* neighborChunk = traverseToSideNeighbor(nx, ny, nz, i, neighborIndex);
+			if (!neighborChunk)
+			{
+				continue;
+			}
+
+			BlockId neighborBlock = neighborChunk->getBlockAt(neighborIndex);
+			const auto* neighborBlockData = AssetRegistry::getBlockData(neighborBlock);
+			if (!neighborBlockData || neighborBlockData->absorbsLight)
+			{
+				continue;
+			}
+
+			uint8_t neighborSkyLight = neighborChunk->getLightAt(neighborIndex).skyLight;
+			if (neighborSkyLight > 0 &&
+				(neighborSkyLight < data.lightLevel || (data.lightLevel == 15 && i == 2)))
+			{
+				if (neighborChunk == this)
+				{
+					lightLevels[neighborIndex].skyLight = 0;
+					localSkyLightRemovalBfsQueue.emplace(nx, ny, nz, neighborSkyLight);
+					neighborDirtyMask |= getNeighborDirtyMask(nx, ny, nz);
+				}
+				else
+				{
+					int neighborNX = nx & CHUNK_LOWER_BITS_MASK;
+					int neighborNY = ny & CHUNK_LOWER_BITS_MASK;
+					int neighborNZ = nz & CHUNK_LOWER_BITS_MASK;
+
+					neighborChunk->lightLevels[neighborIndex].skyLight = 0;
+					neighborChunk->addSkyLightRemovalNodeToQueue(neighborNX, neighborNY, neighborNZ, neighborSkyLight);
+					neighborDirtyMask |= getNeighborDirtyMask(nx, ny, nz);
+				}
+			}
+			else if (neighborSkyLight >= data.lightLevel)
+			{
+				if (neighborChunk == this)
+				{
+					localSkyLightBfsQueue.emplace(nx, ny, nz);
+				}
+				else
+				{
+					int neighborNX = nx & CHUNK_LOWER_BITS_MASK;
+					int neighborNY = ny & CHUNK_LOWER_BITS_MASK;
+					int neighborNZ = nz & CHUNK_LOWER_BITS_MASK;
+
+					neighborChunk->addSkyLightNodeToQueue(neighborNX, neighborNY, neighborNZ);
+				}
+			}
+		}
+	}
+}
+
 void Chunk::buildLight()
 {
 	if (
@@ -572,7 +847,7 @@ void Chunk::buildLight()
 	const Chunk* topNeighbor = neighbors[getNeighborIndex(0, 1, 0)];
 	uint32_t neighborDirtyMask = 0;
 
-	// Step 1: Collect block light sources
+	// Collect block light sources
 	{
 		for (int x = 0; x < CHUNK_SIZE; x++)
 		{
@@ -602,7 +877,7 @@ void Chunk::buildLight()
 		}
 	}
 
-	// Step 2: Collect sky light sources
+	// Collect sky light sources
 	if (!topNeighbor)
 	{
 		// Create local heightmap for this chunk
@@ -691,7 +966,7 @@ void Chunk::buildLight()
 		}
 	}
 
-	// Step 3: Collect light from neighbors
+	// Collect light from neighbors
 	// TODO: If neighbor block is solid, then check if it's a light source and propagate from it
 	{
 		auto processNeighborFace = [&](int x, int y, int z, int nx, int ny, int nz, const Chunk* neighbor, bool propagatingFromTop)
@@ -814,149 +1089,13 @@ void Chunk::buildLight()
 		}
 	}
 
-	// Check if chunk is loaded
+	// Propagate block light
 	if (!chunkFlags.read(Flag::IsLoadedInWorld)) return;
+	propagateBlockLight(neighborDirtyMask);
 
-	// Step 4: Propagate block light using flood-fill
-	{
-		while (!localBlockLightBfsQueue.empty())
-		{
-			// Get node data
-			const auto data = localBlockLightBfsQueue.pop_and_return_unsafe();
-
-			// Get light level
-			uint8_t blockLight = lightLevels[getIndex(data.x, data.y, data.z)].blockLight;
-			if (blockLight < 2)
-			{
-				continue;
-			}
-			uint8_t lightToSet = blockLight - 1;
-
-			// Propagate to neighbors
-			for (int i = 0; i < 6; i++)
-			{
-				int nx = data.x + DIRECTIONS_TABLE.dx[i];
-				int ny = data.y + DIRECTIONS_TABLE.dy[i];
-				int nz = data.z + DIRECTIONS_TABLE.dz[i];
-
-				size_t neighborIndex;
-				Chunk* neighborChunk = traverseToSideNeighbor(nx, ny, nz, i, neighborIndex);
-				if (!neighborChunk)
-				{
-					continue;
-				}
-
-				const BlockId neighborBlock = neighborChunk->getBlockAt(neighborIndex);
-				const auto* neighborBlockData = AssetRegistry::getBlockData(neighborBlock);
-
-				if (!neighborBlockData) [[unlikely]]
-				{
-					continue;
-				}
-				if (neighborBlockData->absorbsLight)
-				{
-					continue;
-				}
-
-				uint8_t neighborBlockLight = neighborChunk->getLightAt(neighborIndex).blockLight;
-				if (neighborBlockLight >= lightToSet)
-				{
-					continue;
-				}
-
-				if (neighborChunk == this)
-				{
-					lightLevels[neighborIndex].blockLight = lightToSet;
-					localBlockLightBfsQueue.emplace(nx, ny, nz);
-				}
-				else
-				{
-					int neighborNX = nx & CHUNK_LOWER_BITS_MASK;
-					int neighborNY = ny & CHUNK_LOWER_BITS_MASK;
-					int neighborNZ = nz & CHUNK_LOWER_BITS_MASK;
-
-					neighborChunk->lightLevels[neighborIndex].blockLight = lightToSet;
-					neighborChunk->addBlockLightNodeToQueue(neighborNX, neighborNY, neighborNZ);
-				}
-
-				neighborDirtyMask |= getNeighborDirtyMask(nx, ny, nz);
-			}
-		}
-	}
-
-	// Check if chunk is loaded
+	// Propagate sky light
 	if (!chunkFlags.read(Flag::IsLoadedInWorld)) return;
-
-	// Step 5: Propagate sky light using flood-fill
-	{
-		while (!localSkyLightBfsQueue.empty())
-		{
-			// Get node data
-			const auto data = localSkyLightBfsQueue.pop_and_return_unsafe();
-
-			// Get light level
-			uint8_t skyLight = lightLevels[getIndex(data.x, data.y, data.z)].skyLight;
-			if (skyLight < 2)
-			{
-				continue;
-			}
-
-			// Propagate to neighbors
-			for (int i = 0; i < 6; i++)
-			{
-				int nx = data.x + DIRECTIONS_TABLE.dx[i];
-				int ny = data.y + DIRECTIONS_TABLE.dy[i];
-				int nz = data.z + DIRECTIONS_TABLE.dz[i];
-
-				size_t neighborIndex;
-				Chunk* neighborChunk = traverseToSideNeighbor(nx, ny, nz, i, neighborIndex);
-				if (!neighborChunk)
-				{
-					continue;
-				}
-
-				const BlockId neighborBlock = neighborChunk->getBlockAt(neighborIndex);
-				const auto* neighborBlockData = AssetRegistry::getBlockData(neighborBlock);
-
-				if (!neighborBlockData) [[unlikely]]
-				{
-					continue;
-				}
-				if (neighborBlockData->absorbsLight)
-				{
-					continue;
-				}
-
-				uint8_t neighborSkyLight = neighborChunk->getLightAt(neighborIndex).skyLight;
-
-				// If we are propagating down and skyLight is 15, lightAbsorption is 0, otherwise 1 
-				uint8_t lightAbsorption = (i == 2 && skyLight == 15) ? 0 : 1;
-				uint8_t lightToSet = skyLight - lightAbsorption;
-
-				if (neighborSkyLight >= lightToSet)
-				{
-					continue;
-				}
-
-				if (neighborChunk == this)
-				{
-					lightLevels[neighborIndex].skyLight = lightToSet;
-					localSkyLightBfsQueue.emplace(nx, ny, nz);
-				}
-				else
-				{
-					int neighborNX = nx & CHUNK_LOWER_BITS_MASK;
-					int neighborNY = ny & CHUNK_LOWER_BITS_MASK;
-					int neighborNZ = nz & CHUNK_LOWER_BITS_MASK;
-
-					neighborChunk->lightLevels[neighborIndex].skyLight = lightToSet;
-					neighborChunk->addSkyLightNodeToQueue(neighborNX, neighborNY, neighborNZ);
-				}
-
-				neighborDirtyMask |= getNeighborDirtyMask(nx, ny, nz);
-			}
-		}
-	}
+	propagateSkyLight(neighborDirtyMask);
 
 	// Check if chunk is loaded
 	if (!chunkFlags.read(Flag::IsLoadedInWorld)) return;
@@ -1003,260 +1142,22 @@ void Chunk::updateLight()
 	uint32_t neighborDirtyMask = 0;
 
 	// Remove block light
-	while (!localBlockLightRemovalBfsQueue.empty())
-	{
-		// Get node data
-		const auto data = localBlockLightRemovalBfsQueue.pop_and_return_unsafe();
-
-		// Propagate to neighbors
-		for (int i = 0; i < 6; i++)
-		{
-			int nx = data.x + DIRECTIONS_TABLE.dx[i];
-			int ny = data.y + DIRECTIONS_TABLE.dy[i];
-			int nz = data.z + DIRECTIONS_TABLE.dz[i];
-
-			size_t neighborIndex;
-			Chunk* neighborChunk = traverseToSideNeighbor(nx, ny, nz, i, neighborIndex);
-			if (!neighborChunk)
-			{
-				continue;
-			}
-
-			BlockId neighborBlock = neighborChunk->getBlockAt(neighborIndex);
-			const auto* neighborBlockData = AssetRegistry::getBlockData(neighborBlock);
-			if (!neighborBlockData || neighborBlockData->absorbsLight)
-			{
-				continue;
-			}
-
-			uint8_t neighborBlockLight = neighborChunk->getLightAt(neighborIndex).blockLight;
-			if (neighborBlockLight > 0 && neighborBlockLight < data.lightLevel)
-			{
-				if (neighborChunk == this)
-				{
-					lightLevels[neighborIndex].blockLight = 0;
-					localBlockLightRemovalBfsQueue.emplace(nx, ny, nz, neighborBlockLight);
-					neighborDirtyMask |= getNeighborDirtyMask(nx, ny, nz);
-				}
-				else
-				{
-					int neighborNX = nx & CHUNK_LOWER_BITS_MASK;
-					int neighborNY = ny & CHUNK_LOWER_BITS_MASK;
-					int neighborNZ = nz & CHUNK_LOWER_BITS_MASK;
-
-					neighborChunk->lightLevels[neighborIndex].blockLight = 0;
-					neighborChunk->addBlockLightRemovalNodeToQueue(neighborNX, neighborNY, neighborNZ, neighborBlockLight);
-					neighborDirtyMask |= getNeighborDirtyMask(nx, ny, nz);
-				}
-			}
-			else if (neighborBlockLight >= data.lightLevel)
-			{
-				if (neighborChunk == this)
-				{
-					localBlockLightBfsQueue.emplace(nx, ny, nz);
-				}
-				else
-				{
-					int neighborNX = nx & CHUNK_LOWER_BITS_MASK;
-					int neighborNY = ny & CHUNK_LOWER_BITS_MASK;
-					int neighborNZ = nz & CHUNK_LOWER_BITS_MASK;
-
-					neighborChunk->addBlockLightNodeToQueue(neighborNX, neighborNY, neighborNZ);
-				}
-			}
-		}
-	}
+	propagateBlockLightRemoval(neighborDirtyMask);
 
 	// Propagate block light
-	while (!localBlockLightBfsQueue.empty())
-	{
-		// Get node data
-		const auto data = localBlockLightBfsQueue.pop_and_return_unsafe();
-
-		// Get light level
-		uint8_t blockLight = lightLevels[getIndex(data.x, data.y, data.z)].blockLight;
-		if (blockLight < 2)
-		{
-			continue;
-		}
-		uint8_t lightToSet = blockLight - 1;
-
-		// Propagate to neighbors
-		for (int i = 0; i < 6; i++)
-		{
-			int nx = data.x + DIRECTIONS_TABLE.dx[i];
-			int ny = data.y + DIRECTIONS_TABLE.dy[i];
-			int nz = data.z + DIRECTIONS_TABLE.dz[i];
-
-			size_t neighborIndex;
-			Chunk* neighborChunk = traverseToSideNeighbor(nx, ny, nz, i, neighborIndex);
-			if (!neighborChunk)
-			{
-				continue;
-			}
-
-			BlockId neighborBlock = neighborChunk->getBlockAt(neighborIndex);
-			const auto* neighborBlockData = AssetRegistry::getBlockData(neighborBlock);
-			if (!neighborBlockData || neighborBlockData->absorbsLight)
-			{
-				continue;
-			}
-
-			uint8_t neighborBlockLight = neighborChunk->getLightAt(neighborIndex).blockLight;
-			if (neighborBlockLight >= lightToSet)
-			{
-				continue;
-			}
-
-			if (neighborChunk == this)
-			{
-				lightLevels[neighborIndex].blockLight = lightToSet;
-				localBlockLightBfsQueue.emplace(nx, ny, nz);
-				neighborDirtyMask |= getNeighborDirtyMask(nx, ny, nz);
-			}
-			else
-			{
-				int neighborNX = nx & CHUNK_LOWER_BITS_MASK;
-				int neighborNY = ny & CHUNK_LOWER_BITS_MASK;
-				int neighborNZ = nz & CHUNK_LOWER_BITS_MASK;
-
-				neighborChunk->lightLevels[neighborIndex].blockLight = lightToSet;
-				neighborChunk->addBlockLightNodeToQueue(neighborNX, neighborNY, neighborNZ);
-				neighborDirtyMask |= getNeighborDirtyMask(nx, ny, nz);
-			}
-		}
-	}
+	if (!chunkFlags.read(Flag::IsLoadedInWorld)) return;
+	propagateBlockLight(neighborDirtyMask);
 
 	// Remove sky light
-	while (!localSkyLightRemovalBfsQueue.empty())
-	{
-		// Get node data
-		const auto data = localSkyLightRemovalBfsQueue.pop_and_return_unsafe();
-
-		// Propagate to neighbors
-		for (int i = 0; i < 6; i++)
-		{
-			int nx = data.x + DIRECTIONS_TABLE.dx[i];
-			int ny = data.y + DIRECTIONS_TABLE.dy[i];
-			int nz = data.z + DIRECTIONS_TABLE.dz[i];
-
-			size_t neighborIndex;
-			Chunk* neighborChunk = traverseToSideNeighbor(nx, ny, nz, i, neighborIndex);
-			if (!neighborChunk)
-			{
-				continue;
-			}
-
-			BlockId neighborBlock = neighborChunk->getBlockAt(neighborIndex);
-			const auto* neighborBlockData = AssetRegistry::getBlockData(neighborBlock);
-			if (!neighborBlockData || neighborBlockData->absorbsLight)
-			{
-				continue;
-			}
-
-			uint8_t neighborSkyLight = neighborChunk->getLightAt(neighborIndex).skyLight;
-			if (neighborSkyLight > 0 &&
-				(neighborSkyLight < data.lightLevel || (data.lightLevel == 15 && i == 2)))
-			{
-				if (neighborChunk == this)
-				{
-					lightLevels[neighborIndex].skyLight = 0;
-					localSkyLightRemovalBfsQueue.emplace(nx, ny, nz, neighborSkyLight);
-					neighborDirtyMask |= getNeighborDirtyMask(nx, ny, nz);
-				}
-				else
-				{
-					int neighborNX = nx & CHUNK_LOWER_BITS_MASK;
-					int neighborNY = ny & CHUNK_LOWER_BITS_MASK;
-					int neighborNZ = nz & CHUNK_LOWER_BITS_MASK;
-
-					neighborChunk->lightLevels[neighborIndex].skyLight = 0;
-					neighborChunk->addSkyLightRemovalNodeToQueue(neighborNX, neighborNY, neighborNZ, neighborSkyLight);
-					neighborDirtyMask |= getNeighborDirtyMask(nx, ny, nz);
-				}
-			}
-			else if (neighborSkyLight >= data.lightLevel)
-			{
-				if (neighborChunk == this)
-				{
-					localSkyLightBfsQueue.emplace(nx, ny, nz);
-				}
-				else
-				{
-					int neighborNX = nx & CHUNK_LOWER_BITS_MASK;
-					int neighborNY = ny & CHUNK_LOWER_BITS_MASK;
-					int neighborNZ = nz & CHUNK_LOWER_BITS_MASK;
-
-					neighborChunk->addSkyLightNodeToQueue(neighborNX, neighborNY, neighborNZ);
-				}
-			}
-		}
-	}
+	if (!chunkFlags.read(Flag::IsLoadedInWorld)) return;
+	propagateSkyLightRemoval(neighborDirtyMask);
 
 	// Propagate sky light
-	while (!localSkyLightBfsQueue.empty())
-	{
-		// Get node data
-		const auto data = localSkyLightBfsQueue.pop_and_return_unsafe();
-
-		// Get light level
-		uint8_t skyLight = lightLevels[getIndex(data.x, data.y, data.z)].skyLight;
-		if (skyLight < 2)
-		{
-			continue;
-		}
-
-		// Propagate to neighbors
-		for (int i = 0; i < 6; i++)
-		{
-			int nx = data.x + DIRECTIONS_TABLE.dx[i];
-			int ny = data.y + DIRECTIONS_TABLE.dy[i];
-			int nz = data.z + DIRECTIONS_TABLE.dz[i];
-
-			size_t neighborIndex;
-			Chunk* neighborChunk = traverseToSideNeighbor(nx, ny, nz, i, neighborIndex);
-			if (!neighborChunk)
-			{
-				continue;
-			}
-
-			BlockId neighborBlock = neighborChunk->getBlockAt(neighborIndex);
-			const auto* neighborBlockData = AssetRegistry::getBlockData(neighborBlock);
-			if (!neighborBlockData || neighborBlockData->absorbsLight)
-			{
-				continue;
-			}
-
-			uint8_t neighborSkyLight = neighborChunk->getLightAt(neighborIndex).skyLight;
-
-			// If we are propagating down and skyLight is 15, lightAbsorption is 0, otherwise 1
-			uint8_t lightAbsorption = (i == 2 && skyLight == 15) ? 0 : 1;
-			uint8_t lightToSet = skyLight - lightAbsorption;
-			if (neighborSkyLight >= lightToSet)
-			{
-				continue;
-			}
-
-			if (neighborChunk == this)
-			{
-				lightLevels[neighborIndex].skyLight = lightToSet;
-				localSkyLightBfsQueue.emplace(nx, ny, nz);
-				neighborDirtyMask |= getNeighborDirtyMask(nx, ny, nz);
-			}
-			else
-			{
-				int neighborNX = nx & CHUNK_LOWER_BITS_MASK;
-				int neighborNY = ny & CHUNK_LOWER_BITS_MASK;
-				int neighborNZ = nz & CHUNK_LOWER_BITS_MASK;
-
-				neighborChunk->lightLevels[neighborIndex].skyLight = lightToSet;
-				neighborChunk->addSkyLightNodeToQueue(neighborNX, neighborNY, neighborNZ);
-				neighborDirtyMask |= getNeighborDirtyMask(nx, ny, nz);
-			}
-		}
-	}
+	if (!chunkFlags.read(Flag::IsLoadedInWorld)) return;
+	propagateSkyLight(neighborDirtyMask);
 
 	// Apply dirty mask
+	if (!chunkFlags.read(Flag::IsLoadedInWorld)) return;
 	applyNeighborDirtyMask(neighborDirtyMask);
 }
 

@@ -233,6 +233,12 @@ private:
 
 	// Blocks
 	void removeIndexFromMap(BlockId block, uint16_t idx);
+
+	// Light
+	void propagateBlockLight(uint32_t& neighborDirtyMask);
+	void propagateSkyLight(uint32_t& neighborDirtyMask);
+	void propagateBlockLightRemoval(uint32_t& neighborDirtyMask);
+	void propagateSkyLightRemoval(uint32_t& neighborDirtyMask);
 public:
 	// Light
 	void buildLight();
