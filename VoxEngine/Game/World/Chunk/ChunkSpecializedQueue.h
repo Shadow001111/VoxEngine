@@ -36,13 +36,13 @@ class ChunkSpecializedQueue
         {
             throw std::overflow_error("Cannot grow queue beyond maximum capacity");
         }
-        reserve(mCapacity << 1);
+        reallocate_to_new_capacity(mCapacity << 1);
     }
 
     static index_t round_up_to_power_of_two(index_t n)
     {
         if (n == 0) return 1;
-        return static_cast<index_t>(1) << (std::bit_width(static_cast<size_t>(n)) - 1);
+        return 1 << std::bit_width(n);
     }
 
     void reallocate_to_new_capacity(index_t new_capacity)
@@ -70,7 +70,6 @@ class ChunkSpecializedQueue
         mCapacity = new_capacity;
         mFrontIndex = 0;
     }
-
 public:
     explicit ChunkSpecializedQueue(index_t initial_capacity = DEFAULT_CAPACITY)
     {
@@ -165,28 +164,6 @@ public:
         return mData[mFrontIndex];
     }
 
-    void push(const T& value)
-    {
-        if (mSize >= mCapacity)
-        {
-            grow();
-        }
-        const  index_t new_idx = (mFrontIndex + mSize) & (mCapacity - 1);
-        mData[new_idx] = value;
-        mSize++;
-    }
-
-    void push(T&& value)
-    {
-        if (mSize >= mCapacity)
-        {
-            grow();
-        }
-        const index_t new_idx = (mFrontIndex + mSize) & (mCapacity - 1);
-        mData[new_idx] = std::move(value);
-        mSize++;
-    }
-
     template<typename... Args>
     void emplace(Args&&... args) // T& emplace(Args&&... args)
     {
@@ -194,9 +171,19 @@ public:
         {
             grow();
         }
-        const index_t new_idx = (mFrontIndex + mSize) & (mCapacity - 1);
+        const index_t new_idx = (mFrontIndex + mSize) & (mCapacity - index_t(1));
         new (mData + new_idx) T(std::forward<Args>(args)...);
         mSize++;
+    }
+
+    void push(const T& value)
+    {
+		emplace(value);
+    }
+
+    void push(T&& value)
+    {
+		emplace(std::move(value));
     }
 
     void pop()
