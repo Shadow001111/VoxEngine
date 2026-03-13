@@ -18,7 +18,6 @@ thread_local ChunkInstancedMeshFaceStorage::InstancesStorage Chunk::localMeshIns
 std::atomic<bool> Chunk::gHasStructureBlockChanges{ false };
 ChunkRegionManager Chunk::chunkRegionManagerInstance;
 
-const Chunk::DirectionsTable Chunk::DIRECTIONS_TABLE;
 Chunk::CachedBlockIds Chunk::CACHED_BLOCK_IDS;
 
 StructureBlockChangeManager Chunk::structureBlockChangeManager;
@@ -574,9 +573,9 @@ void Chunk::propagateBlockLight(uint32_t& neighborDirtyMask)
 		for (int i = 0; i < 6; i++)
 		{
 			// Calculate neighbor block coordinates
-			int nx = data.x + DIRECTIONS_TABLE.dx[i];
-			int ny = data.y + DIRECTIONS_TABLE.dy[i];
-			int nz = data.z + DIRECTIONS_TABLE.dz[i];
+			int nx = data.x + DirectionsTable::dx[i];
+			int ny = data.y + DirectionsTable::dy[i];
+			int nz = data.z + DirectionsTable::dz[i];
 
 			// Get neighbor chunk and block index
 			size_t neighborBlockIndex;
@@ -689,8 +688,8 @@ void Chunk::propagateSkyLight(uint32_t& neighborDirtyMask)
 				for (int i : { 0, 1, 4, 5 }) // Don't check up and down directions
 				{
 					// Calculate neighbor block coordinates
-					int nx = data.x + DIRECTIONS_TABLE.dx[i];
-					int nz = data.z + DIRECTIONS_TABLE.dz[i];
+					int nx = data.x + DirectionsTable::dx[i];
+					int nz = data.z + DirectionsTable::dz[i];
 
 					// Get neighbor chunk and block index
 					size_t neighborBlockIndex;
@@ -788,9 +787,9 @@ void Chunk::propagateSkyLight(uint32_t& neighborDirtyMask)
 			}
 
 			// Calculate neighbor block coordinates
-			int nx = data.x + DIRECTIONS_TABLE.dx[i];
-			int ny = data.y + DIRECTIONS_TABLE.dy[i];
-			int nz = data.z + DIRECTIONS_TABLE.dz[i];
+			int nx = data.x + DirectionsTable::dx[i];
+			int ny = data.y + DirectionsTable::dy[i];
+			int nz = data.z + DirectionsTable::dz[i];
 
 			// Get neighbor chunk and block index
 			size_t neighborBlockIndex;
@@ -868,9 +867,9 @@ void Chunk::propagateBlockLightRemoval(uint32_t& neighborDirtyMask)
 		for (int i = 0; i < 6; i++)
 		{
 			// Calculate neighbor block coordinates
-			int nx = data.x + DIRECTIONS_TABLE.dx[i];
-			int ny = data.y + DIRECTIONS_TABLE.dy[i];
-			int nz = data.z + DIRECTIONS_TABLE.dz[i];
+			int nx = data.x + DirectionsTable::dx[i];
+			int ny = data.y + DirectionsTable::dy[i];
+			int nz = data.z + DirectionsTable::dz[i];
 
 			// Get neighbor chunk and block index
 			size_t neighborBlockIndex;
@@ -951,9 +950,9 @@ void Chunk::propagateSkyLightRemoval(uint32_t& neighborDirtyMask)
 		for (int i = 0; i < 6; i++)
 		{
 			// Calculate neighbor block coordinates
-			int nx = data.x + DIRECTIONS_TABLE.dx[i];
-			int ny = data.y + DIRECTIONS_TABLE.dy[i];
-			int nz = data.z + DIRECTIONS_TABLE.dz[i];
+			int nx = data.x + DirectionsTable::dx[i];
+			int ny = data.y + DirectionsTable::dy[i];
+			int nz = data.z + DirectionsTable::dz[i];
 
 			// Get neighbor chunk and block index
 			size_t neighborBlockIndex;
@@ -1430,9 +1429,9 @@ void Chunk::updateMesh()
 				);
 				for (const auto& face : model->alignedFaces)
 				{
-					int nx = currentBlockPosition.x + DIRECTIONS_TABLE.dx[face.normal];
-					int ny = currentBlockPosition.y + DIRECTIONS_TABLE.dy[face.normal];
-					int nz = currentBlockPosition.z + DIRECTIONS_TABLE.dz[face.normal];
+					int nx = currentBlockPosition.x + DirectionsTable::dx[face.normal];
+					int ny = currentBlockPosition.y + DirectionsTable::dy[face.normal];
+					int nz = currentBlockPosition.z + DirectionsTable::dz[face.normal];
 
 					size_t neighborIndex;
 					const Chunk* neighborChunk = traverseToSideNeighbor(nx, ny, nz, face.normal, neighborIndex);
@@ -1747,9 +1746,9 @@ void Chunk::setBlockAt(int x, int y, int z, BlockId block, bool saveBlockChanges
 		uint8_t maxSkyLightToSet = 0;
 		for (int i = 0; i < 6; i++)
 		{
-			int nx = x + DIRECTIONS_TABLE.dx[i];
-			int ny = y + DIRECTIONS_TABLE.dy[i];
-			int nz = z + DIRECTIONS_TABLE.dz[i];
+			int nx = x + DirectionsTable::dx[i];
+			int ny = y + DirectionsTable::dy[i];
+			int nz = z + DirectionsTable::dz[i];
 
 			size_t neighborIndex;
 			Chunk* neighborChunk = traverseToSideNeighbor(nx, ny, nz, i, neighborIndex);
