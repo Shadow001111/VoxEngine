@@ -653,9 +653,140 @@ void Chunk::propagateSkyLight(uint32_t& neighborDirtyMask)
 
 		const bool isMaxLightLevel = skyLight == 15;
 
+		// Hot path down
+		if (isMaxLightLevel)
+		{
+			int ny = data.y - 1;
+			while (ny >= 0)
+			{
+				// Propagate down
+				// Calculate neighbor block index
+				size_t belowBlockIndex = getIndex(data.x, ny, data.z);
+
+				// If already fully lit everything below is already handled.
+				if (lightLevels[belowBlockIndex].skyLight == 15)
+					break;
+
+				// Get block data
+				const BlockId block = getBlockAt(belowBlockIndex);
+				const auto* blockData = AssetRegistry::getBlockData(block);
+
+				// If block absorbs light, stop hot path
+				if (!blockData) [[unlikely]]
+				{
+					break;
+				}
+				if (blockData->absorbsLight)
+				{
+					break;
+				}
+
+				// Set light
+				lightLevels[belowBlockIndex].skyLight = 15;
+				neighborDirtyMask |= getNeighborDirtyMask(data.x, ny, data.z);
+
+				// Propagate to the sides
+				for (int i : { 0, 1, 4, 5 }) // Don't check up and down directions
+				{
+					// Calculate neighbor block coordinates
+					int nx = data.x + DIRECTIONS_TABLE.dx[i];
+					int nz = data.z + DIRECTIONS_TABLE.dz[i];
+
+					// Get neighbor chunk and block index
+					size_t neighborBlockIndex;
+					Chunk* neighborChunk;
+
+					const bool isNeighborBlockInSameChunk = ((nx | nz) & CHUNK_UPPER_BITS_MASK) == 0;
+					if (isNeighborBlockInSameChunk)
+					{
+						neighborChunk = this;
+						neighborBlockIndex = getIndex(nx, ny, nz);
+					}
+					else
+					{
+						neighborChunk = neighbors[getSideNeighborIndex(i)];
+						if (!neighborChunk)
+						{
+							continue;
+						}
+						neighborBlockIndex = getIndex(nx & CHUNK_LOWER_BITS_MASK, ny, nz & CHUNK_LOWER_BITS_MASK);
+					}
+
+					// Get neighbor sky light level
+					uint8_t neighborSkyLight = neighborChunk->getLightAt(neighborBlockIndex).skyLight;
+
+					// Calculate light level to set
+					constexpr uint8_t lightToSet = 14;
+
+					// Compare
+					if (neighborSkyLight >= lightToSet)
+					{
+						continue;
+					}
+
+					// Get neighbor block data
+					const BlockId neighborBlock = neighborChunk->getBlockAt(neighborBlockIndex);
+					const auto* neighborBlockData = AssetRegistry::getBlockData(neighborBlock);
+
+					// If block absorbs light, skip
+					if (!neighborBlockData) [[unlikely]]
+					{
+						continue;
+					}
+					if (neighborBlockData->absorbsLight)
+					{
+						continue;
+					}
+
+					// Propagate
+					if (isNeighborBlockInSameChunk)
+					{
+						lightLevels[neighborBlockIndex].skyLight = lightToSet;
+						localSkyLightBfsQueue.emplace(nx, ny, nz);
+					}
+					else
+					{
+						neighborChunk->lightLevels[neighborBlockIndex].skyLight = lightToSet;
+						neighborChunk->addSkyLightNodeToQueue(nx & CHUNK_LOWER_BITS_MASK, ny, nz & CHUNK_LOWER_BITS_MASK);
+					}
+
+					// Accumulate dirty mask
+					neighborDirtyMask |= getNeighborDirtyMask(nx, ny, nz);
+				}
+
+				ny--;
+			}
+
+			// Drained past the chunk bottom, carry max light into the chunk below
+			if (ny < 0)
+			{
+				Chunk* belowChunk = neighbors[getSideNeighborIndex(2)]; // -Y
+				if (belowChunk)
+				{
+					constexpr int belowY = CHUNK_SIZE - 1;
+					const size_t belowIndex = getIndex(data.x, belowY, data.z);
+					if (belowChunk->lightLevels[belowIndex].skyLight < 15)
+					{
+						const auto* blockData = AssetRegistry::getBlockData(belowChunk->blocks[belowIndex]);
+						if (blockData && !blockData->absorbsLight)
+						{
+							belowChunk->lightLevels[belowIndex].skyLight = 15;
+							belowChunk->addSkyLightNodeToQueue(data.x, belowY, data.z);
+							neighborDirtyMask |= getNeighborDirtyMask(data.x, 0, data.z);
+						}
+					}
+				}
+			}
+		}
+
 		// Propagate to neighbors
 		for (int i = 0; i < 6; i++)
 		{
+			if (isMaxLightLevel && i == 2)
+			{
+				continue; // Don't propagate down from max light level, as it doesn't decrease
+			}
+
 			// Calculate neighbor block coordinates
 			int nx = data.x + DIRECTIONS_TABLE.dx[i];
 			int ny = data.y + DIRECTIONS_TABLE.dy[i];
@@ -684,8 +815,8 @@ void Chunk::propagateSkyLight(uint32_t& neighborDirtyMask)
 			// Get neighbor sky light level
 			uint8_t neighborSkyLight = neighborChunk->getLightAt(neighborBlockIndex).skyLight;
 
-			// If we are propagating down and skyLight is 15, lightAbsorption is 0, otherwise 1 
-			uint8_t lightAbsorption = !(i == 2 && isMaxLightLevel);
+			// Calculate light level to set
+			uint8_t lightAbsorption = 1;
 			uint8_t lightToSet = skyLight - lightAbsorption;
 
 			// Compare
