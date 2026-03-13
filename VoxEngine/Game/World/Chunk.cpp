@@ -1092,7 +1092,7 @@ void Chunk::buildLight()
 				}
 			}
 		}
-
+		
 		// Compute array of heights from where to start adding nodes
 		// Adding node to queue if:
 		// 1) Local y is greater than any of surrounding max height
@@ -1111,20 +1111,20 @@ void Chunk::buildLight()
 				const int nzHeight = heightMap[getIndex(x, z - 1)];
 				const int pzHeight = heightMap[getIndex(x, z + 1)];
 				const int pxHeight = heightMap[getIndex(x + 1, z)];
-
+		
 				// Get max height
 				const int maxXHeight = std::max(nxHeight, pxHeight);
 				const int maxZHeight = std::max(pzHeight, nzHeight);
 				const int maxHeight = std::max(maxXHeight, maxZHeight);
-
+		
 				// Set localHeightToStartAddingNodes to the corresponding max height minus one (there can be nothing under toppest block)
 				int localHeightToStartAddingNodes = maxHeight - 1;
 				localHeightToStartAddingNodes = std::max(localHeightToStartAddingNodes, 0); // Must place at bottom, so it can propagate on neighbor chunk
-
+		
 				addNodeHeightMap[getIndex(x, z)] = localHeightToStartAddingNodes;
 			}
 		}
-
+		
 		// Create nodes and fill light levels
 		for (int x = 0; x < CHUNK_SIZE; x++)
 		{
@@ -1132,31 +1132,48 @@ void Chunk::buildLight()
 			{
 				const size_t index = getIndex(x, z);
 				const int firstExposedY = heightMap[index] + 1;
-
+		
 				if (firstExposedY >= CHUNK_SIZE)
 				{
 					continue; // No exposed blocks in this column
 				}
-
+		
 				// Filling light
-				for (int y = firstExposedY; y < CHUNK_SIZE; y++)
+
+				const int localHeightToStartAddingNodes = addNodeHeightMap[index];
+
+				for (int y = localHeightToStartAddingNodes; y < CHUNK_SIZE; y++)
 				{
 					lightLevels[getIndex(x, y, z)].skyLight = 15;
 				}
 
-				// Creating nodes
-				const int localHeightToStartAddingNodes = addNodeHeightMap[index];
-				for (int y = firstExposedY; y <= localHeightToStartAddingNodes; y++)
-				{
-					localSkyLightBfsQueue.emplace(x, y, z);
-				}
-
+				localSkyLightBfsQueue.emplace(x, localHeightToStartAddingNodes, z);
+		
 				// Calculate neighbor dirty mask and accumulate it
 				// Sample it in two places, top and bottom, because it can include top and bottom neighbors, plus middle layer will be included anyway
 				neighborDirtyMask |= getNeighborDirtyMask(x, firstExposedY, z);
 				neighborDirtyMask |= getNeighborDirtyMask(x, MAX_LOCAL_HEIGHT, z);
 			}
 		}
+
+		// // This code above can be simplified to this, but for some reason it results in slower execution
+		// // Maybe because overhead of running propagateSkyLight
+		//for (int x = 0; x < CHUNK_SIZE; x++)
+		//{
+		//	for (int z = 0; z < CHUNK_SIZE; z++)
+		//	{
+		//		size_t index = getIndex(x, CHUNK_SIZE - 1, z);
+		//		BlockId block = blocks[index];
+		//		const auto* blockData = AssetRegistry::getBlockData(block);
+		//		if (!blockData || blockData->absorbsLight)
+		//		{
+		//			continue;
+		//		}
+		//
+		//		lightLevels[index].skyLight = 15;
+		//		localSkyLightBfsQueue.emplace(x, CHUNK_SIZE - 1, z);
+		//	}
+		//}
 	}
 
 	// Collect light from neighbors
