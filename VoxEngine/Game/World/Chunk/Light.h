@@ -1,5 +1,6 @@
 #pragma once
-#include <cstdint>
+#include "ChunkSpecializedQueue.h"
+#include <mutex>
 
 union LightLevel
 {
@@ -18,11 +19,11 @@ union LightLevel
 	LightLevel& operator=(const LightLevel& other);
 };
 
-struct LightNode
+struct LightPropagationNode
 {
 	uint8_t x : 4, y : 4, z : 4;
 
-	LightNode(uint8_t x, uint8_t y, uint8_t z);
+	LightPropagationNode(uint8_t x, uint8_t y, uint8_t z);
 };
 
 struct LightRemovalNode
@@ -30,4 +31,41 @@ struct LightRemovalNode
 	uint8_t x : 4, y : 4, z : 4, lightLevel : 4;
 
 	LightRemovalNode(uint8_t x, uint8_t y, uint8_t z, uint8_t lightLevel);
+};
+
+struct LightPropagationStorage
+{
+	struct LightPropagationQueue
+	{
+		ChunkSpecializedQueue<LightPropagationNode> queue;
+		mutable std::mutex mutex;
+
+		void clear();
+	};
+
+	struct LightRemovalQueue
+	{
+		ChunkSpecializedQueue<LightRemovalNode> queue;
+		mutable std::mutex mutex;
+
+		void clear();
+	};
+
+	LightPropagationQueue blockLightPropagation;
+	LightPropagationQueue skyLightPropagation;
+	LightRemovalQueue blockLightRemoval;
+	LightRemovalQueue skyLightRemoval;
+
+	static thread_local ChunkSpecializedQueue<LightPropagationNode>	threadLocalBlockLightPropagation;
+	static thread_local ChunkSpecializedQueue<LightPropagationNode>	threadLocalSkyLightPropagation;
+	static thread_local	ChunkSpecializedQueue<LightRemovalNode>	threadLocalBlockLightRemoval;
+	static thread_local	ChunkSpecializedQueue<LightRemovalNode>	threadLocalSkyLightRemoval;
+
+	void clear();
+	void swapQueuesWithLocal();
+	void reserve(size_t count); // Not thread safe
+
+	static void reserveLocal(size_t count);
+
+	bool hasNodes() const noexcept;
 };

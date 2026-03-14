@@ -8,11 +8,6 @@
 #include "Core/ASSERT.h"
 #include "Core/Hashes/ivec2Hasher.h"
 
-thread_local ChunkSpecializedQueue<LightNode> Chunk::localBlockLightBfsQueue;
-thread_local ChunkSpecializedQueue<LightRemovalNode> Chunk::localBlockLightRemovalBfsQueue;
-thread_local ChunkSpecializedQueue<LightNode> Chunk::localSkyLightBfsQueue;
-thread_local ChunkSpecializedQueue<LightRemovalNode> Chunk::localSkyLightRemovalBfsQueue;
-
 thread_local ChunkInstancedMeshFaceStorage::InstancesStorage Chunk::localMeshInstances;
 
 std::atomic<bool> Chunk::gHasStructureBlockChanges{ false };
@@ -23,7 +18,7 @@ Chunk::CachedBlockIds Chunk::CACHED_BLOCK_IDS;
 StructureBlockChangeManager Chunk::structureBlockChangeManager;
 
 
-unsigned hash3(unsigned x, unsigned y, unsigned z)
+static unsigned hash3(unsigned x, unsigned y, unsigned z)
 {
 	unsigned data = x * 0x27d4eb2du + y * 0x165667b1u + z * 0x1b873593u;
 	data ^= data >> 15u;
@@ -32,6 +27,11 @@ unsigned hash3(unsigned x, unsigned y, unsigned z)
 	data *= 0xc2b2ae35u;
 	data ^= data >> 16u;
 	return data;
+}
+
+Chunk::Chunk()
+{
+	lightPropagation.reserve(CHUNK_AREA * 6);
 }
 
 Chunk::~Chunk()
@@ -116,23 +116,8 @@ void Chunk::destroy()
 		TerrainGenerator::getInstance().unloadChunkColumnData(position.x, position.z);
 	}
 
-	// Clear light BFS queues
-	{
-		std::lock_guard<std::mutex> lock(blockLightBfsMutex);
-		blockLightBfsQueue.clear();
-	}
-	{
-		std::lock_guard<std::mutex> lock(blockLightRemovalBfsMutex);
-		blockLightRemovalBfsQueue.clear();
-	}
-	{
-		std::lock_guard<std::mutex> lock(skyLightBfsMutex);
-		skyLightBfsQueue.clear();
-	}
-	{
-		std::lock_guard<std::mutex> lock(skyLightRemovalBfsMutex);
-		skyLightRemovalBfsQueue.clear();
-	}
+	// Clear light queues
+	lightPropagation.clear();
 
 	// TODO: Make it async. Mark chunk as processing.
 	saveBlocks();
@@ -142,10 +127,7 @@ void Chunk::destroy()
 void Chunk::globalInit()
 {
 	// Reserve space for light BFS queues
-	localBlockLightBfsQueue.reserve(CHUNK_VOLUME * 2);
-	localBlockLightRemovalBfsQueue.reserve(CHUNK_VOLUME * 2);
-	localSkyLightBfsQueue.reserve(CHUNK_VOLUME * 2);
-	localSkyLightRemovalBfsQueue.reserve(CHUNK_VOLUME * 2);
+	LightPropagationStorage::reserveLocal(CHUNK_VOLUME * 2);
 
 	// Cache block ids
 	CACHED_BLOCK_IDS.airId = AssetRegistry::getBlockNumericalId("core:air");
@@ -555,10 +537,10 @@ void Chunk::removeIndexFromMap(BlockId block, uint16_t idx)
 
 void Chunk::propagateBlockLight(uint32_t& neighborDirtyMask)
 {
-	while (!localBlockLightBfsQueue.empty())
+	while (!LightPropagationStorage::threadLocalBlockLightPropagation.empty())
 	{
 		// Get node data
-		const auto data = localBlockLightBfsQueue.pop_and_return_unsafe();
+		const auto data = LightPropagationStorage::threadLocalBlockLightPropagation.pop_and_return_unsafe();
 
 		// Get light level at current block
 		uint8_t blockLight = lightLevels[getIndex(data.x, data.y, data.z)].blockLight;
@@ -622,11 +604,11 @@ void Chunk::propagateBlockLight(uint32_t& neighborDirtyMask)
 			neighborChunk->lightLevels[neighborBlockIndex].blockLight = lightToSet;
 			if (isNeighborBlockInSameChunk)
 			{
-				localBlockLightBfsQueue.emplace(nx, ny, nz);
+				LightPropagationStorage::threadLocalBlockLightPropagation.emplace(nx, ny, nz);
 			}
 			else
 			{
-				neighborChunk->addBlockLightNodeToQueue(nx & CHUNK_LOWER_BITS_MASK, ny & CHUNK_LOWER_BITS_MASK, nz & CHUNK_LOWER_BITS_MASK);
+				neighborChunk->addBlockLightPropagationNode(nx & CHUNK_LOWER_BITS_MASK, ny & CHUNK_LOWER_BITS_MASK, nz & CHUNK_LOWER_BITS_MASK);
 			}
 
 			// Accumulate dirty mask
@@ -637,10 +619,10 @@ void Chunk::propagateBlockLight(uint32_t& neighborDirtyMask)
 
 void Chunk::propagateSkyLight(uint32_t& neighborDirtyMask)
 {
-	while (!localSkyLightBfsQueue.empty())
+	while (!LightPropagationStorage::threadLocalSkyLightPropagation.empty())
 	{
 		// Get node data
-		const auto data = localSkyLightBfsQueue.pop_and_return_unsafe();
+		const auto data = LightPropagationStorage::threadLocalSkyLightPropagation.pop_and_return_unsafe();
 
 		// Get light level at current block
 		uint8_t skyLight = lightLevels[getIndex(data.x, data.y, data.z)].skyLight;
@@ -740,12 +722,12 @@ void Chunk::propagateSkyLight(uint32_t& neighborDirtyMask)
 					if (isNeighborBlockInSameChunk)
 					{
 						lightLevels[neighborBlockIndex].skyLight = lightToSet;
-						localSkyLightBfsQueue.emplace(nx, ny, nz);
+						LightPropagationStorage::threadLocalSkyLightPropagation.emplace(nx, ny, nz);
 					}
 					else
 					{
 						neighborChunk->lightLevels[neighborBlockIndex].skyLight = lightToSet;
-						neighborChunk->addSkyLightNodeToQueue(nx & CHUNK_LOWER_BITS_MASK, ny, nz & CHUNK_LOWER_BITS_MASK);
+						neighborChunk->addSkyLightPropagationNode(nx & CHUNK_LOWER_BITS_MASK, ny, nz & CHUNK_LOWER_BITS_MASK);
 					}
 
 					// Accumulate dirty mask
@@ -769,7 +751,7 @@ void Chunk::propagateSkyLight(uint32_t& neighborDirtyMask)
 						if (blockData && !blockData->absorbsLight)
 						{
 							belowChunk->lightLevels[belowIndex].skyLight = 15;
-							belowChunk->addSkyLightNodeToQueue(data.x, belowY, data.z);
+							belowChunk->addSkyLightPropagationNode(data.x, belowY, data.z);
 							neighborDirtyMask |= getNeighborDirtyMask(data.x, 0, data.z);
 						}
 					}
@@ -841,11 +823,11 @@ void Chunk::propagateSkyLight(uint32_t& neighborDirtyMask)
 			neighborChunk->lightLevels[neighborBlockIndex].skyLight = lightToSet;
 			if (isNeighborBlockInSameChunk)
 			{
-				localSkyLightBfsQueue.emplace(nx, ny, nz);
+				LightPropagationStorage::threadLocalSkyLightPropagation.emplace(nx, ny, nz);
 			}
 			else
 			{
-				neighborChunk->addSkyLightNodeToQueue(nx & CHUNK_LOWER_BITS_MASK, ny & CHUNK_LOWER_BITS_MASK, nz & CHUNK_LOWER_BITS_MASK);
+				neighborChunk->addSkyLightPropagationNode(nx & CHUNK_LOWER_BITS_MASK, ny & CHUNK_LOWER_BITS_MASK, nz & CHUNK_LOWER_BITS_MASK);
 			}
 
 			// Accumulate dirty mask
@@ -856,10 +838,10 @@ void Chunk::propagateSkyLight(uint32_t& neighborDirtyMask)
 
 void Chunk::propagateBlockLightRemoval(uint32_t& neighborDirtyMask)
 {
-	while (!localBlockLightRemovalBfsQueue.empty())
+	while (!LightPropagationStorage::threadLocalBlockLightRemoval.empty())
 	{
 		// Get node data
-		const auto data = localBlockLightRemovalBfsQueue.pop_and_return_unsafe();
+		const auto data = LightPropagationStorage::threadLocalBlockLightRemoval.pop_and_return_unsafe();
 
 		// Propagate to neighbors
 		for (int i = 0; i < 6; i++)
@@ -910,11 +892,11 @@ void Chunk::propagateBlockLightRemoval(uint32_t& neighborDirtyMask)
 				neighborChunk->lightLevels[neighborBlockIndex].blockLight = 0;
 				if (isNeighborBlockInSameChunk)
 				{
-					localBlockLightRemovalBfsQueue.emplace(nx, ny, nz, neighborBlockLight);
+					LightPropagationStorage::threadLocalBlockLightRemoval.emplace(nx, ny, nz, neighborBlockLight);
 				}
 				else
 				{
-					neighborChunk->addBlockLightRemovalNodeToQueue(nx & CHUNK_LOWER_BITS_MASK, ny & CHUNK_LOWER_BITS_MASK, nz & CHUNK_LOWER_BITS_MASK, neighborBlockLight);
+					neighborChunk->addBlockLightRemovalNode(nx & CHUNK_LOWER_BITS_MASK, ny & CHUNK_LOWER_BITS_MASK, nz & CHUNK_LOWER_BITS_MASK, neighborBlockLight);
 				}
 
 				neighborDirtyMask |= getNeighborDirtyMask(nx, ny, nz);
@@ -923,11 +905,11 @@ void Chunk::propagateBlockLightRemoval(uint32_t& neighborDirtyMask)
 			{
 				if (isNeighborBlockInSameChunk)
 				{
-					localBlockLightBfsQueue.emplace(nx, ny, nz);
+					LightPropagationStorage::threadLocalBlockLightPropagation.emplace(nx, ny, nz);
 				}
 				else
 				{
-					neighborChunk->addBlockLightNodeToQueue(nx & CHUNK_LOWER_BITS_MASK, ny & CHUNK_LOWER_BITS_MASK, nz & CHUNK_LOWER_BITS_MASK);
+					neighborChunk->addBlockLightPropagationNode(nx & CHUNK_LOWER_BITS_MASK, ny & CHUNK_LOWER_BITS_MASK, nz & CHUNK_LOWER_BITS_MASK);
 				}
 			}
 		}
@@ -936,10 +918,10 @@ void Chunk::propagateBlockLightRemoval(uint32_t& neighborDirtyMask)
 
 void Chunk::propagateSkyLightRemoval(uint32_t& neighborDirtyMask)
 {
-	while (!localSkyLightRemovalBfsQueue.empty())
+	while (!LightPropagationStorage::threadLocalSkyLightRemoval.empty())
 	{
 		// Get node data
-		const auto data = localSkyLightRemovalBfsQueue.pop_and_return_unsafe();
+		const auto data = LightPropagationStorage::threadLocalSkyLightRemoval.pop_and_return_unsafe();
 
 		const bool isMaxLightLevel = data.lightLevel == 15;
 
@@ -993,11 +975,11 @@ void Chunk::propagateSkyLightRemoval(uint32_t& neighborDirtyMask)
 				neighborChunk->lightLevels[neighborBlockIndex].skyLight = 0;
 				if (isNeighborBlockInSameChunk)
 				{
-					localSkyLightRemovalBfsQueue.emplace(nx, ny, nz, neighborSkyLight);
+					LightPropagationStorage::threadLocalSkyLightRemoval.emplace(nx, ny, nz, neighborSkyLight);
 				}
 				else
 				{
-					neighborChunk->addSkyLightRemovalNodeToQueue(nx & CHUNK_LOWER_BITS_MASK, ny & CHUNK_LOWER_BITS_MASK, nz & CHUNK_LOWER_BITS_MASK, neighborSkyLight);
+					neighborChunk->addSkyLightRemovalNode(nx & CHUNK_LOWER_BITS_MASK, ny & CHUNK_LOWER_BITS_MASK, nz & CHUNK_LOWER_BITS_MASK, neighborSkyLight);
 				}
 
 				neighborDirtyMask |= getNeighborDirtyMask(nx, ny, nz);
@@ -1006,11 +988,11 @@ void Chunk::propagateSkyLightRemoval(uint32_t& neighborDirtyMask)
 			{
 				if (isNeighborBlockInSameChunk)
 				{
-					localSkyLightBfsQueue.emplace(nx, ny, nz);
+					LightPropagationStorage::threadLocalSkyLightPropagation.emplace(nx, ny, nz);
 				}
 				else
 				{
-					neighborChunk->addSkyLightNodeToQueue(nx & CHUNK_LOWER_BITS_MASK, ny & CHUNK_LOWER_BITS_MASK, nz & CHUNK_LOWER_BITS_MASK);
+					neighborChunk->addSkyLightPropagationNode(nx & CHUNK_LOWER_BITS_MASK, ny & CHUNK_LOWER_BITS_MASK, nz & CHUNK_LOWER_BITS_MASK);
 				}
 			}
 		}
@@ -1058,7 +1040,7 @@ void Chunk::buildLight()
 					}
 
 					lightLevels[index].blockLight = emission;
-					localBlockLightBfsQueue.emplace(x, y, z);
+					LightPropagationStorage::threadLocalBlockLightPropagation.emplace(x, y, z);
 					neighborDirtyMask |= getNeighborDirtyMask(x, y, z);
 				}
 			}
@@ -1142,7 +1124,7 @@ void Chunk::buildLight()
 					lightLevels[getIndex(x, y, z)].skyLight = 15;
 				}
 
-				localSkyLightBfsQueue.emplace(x, localHeightToStartAddingNodes, z);
+				LightPropagationStorage::threadLocalSkyLightPropagation.emplace(x, localHeightToStartAddingNodes, z);
 		
 				// Calculate neighbor dirty mask and accumulate it
 				// Sample it in two places, top and bottom, because it can include top and bottom neighbors, plus middle layer will be included anyway
@@ -1166,7 +1148,7 @@ void Chunk::buildLight()
 		//		}
 		//
 		//		lightLevels[index].skyLight = 15;
-		//		localSkyLightBfsQueue.emplace(x, CHUNK_SIZE - 1, z);
+		//		LightPropagationStorage::threadLocalSkyLightPropagation.queue.emplace(x, CHUNK_SIZE - 1, z);
 		//	}
 		//}
 	}
@@ -1189,7 +1171,7 @@ void Chunk::buildLight()
 				if (lightLevels[index].blockLight + 1 < neighborLight.blockLight)
 				{
 					lightLevels[index].blockLight = neighborLight.blockLight - 1;
-					localBlockLightBfsQueue.emplace(x, y, z);
+					LightPropagationStorage::threadLocalBlockLightPropagation.emplace(x, y, z);
 					neighborDirtyMask |= getNeighborDirtyMask(x, y, z);
 				}
 
@@ -1198,7 +1180,7 @@ void Chunk::buildLight()
 				if (lightLevels[index].skyLight + skyLightAbsorption < neighborLight.skyLight)
 				{
 					lightLevels[index].skyLight = neighborLight.skyLight - skyLightAbsorption;
-					localSkyLightBfsQueue.emplace(x, y, z);
+					LightPropagationStorage::threadLocalSkyLightPropagation.emplace(x, y, z);
 					neighborDirtyMask |= getNeighborDirtyMask(x, y, z);
 				}
 			};
@@ -1322,22 +1304,7 @@ void Chunk::updateLight()
 		return;
 	}
 
-	{
-		std::lock_guard<std::mutex> lock(blockLightBfsMutex);
-		localBlockLightBfsQueue.swap(blockLightBfsQueue);
-	}
-	{
-		std::lock_guard<std::mutex> lock(blockLightRemovalBfsMutex);
-		localBlockLightRemovalBfsQueue.swap(blockLightRemovalBfsQueue);
-	}
-	{
-		std::lock_guard<std::mutex> lock(skyLightBfsMutex);
-		localSkyLightBfsQueue.swap(skyLightBfsQueue);
-	}
-	{
-		std::lock_guard<std::mutex> lock(skyLightRemovalBfsMutex);
-		localSkyLightRemovalBfsQueue.swap(skyLightRemovalBfsQueue);
-	}
+	lightPropagation.swapQueuesWithLocal();
 
 	PROFILE_SCOPE("Update chunk light", ProfileCategory::ChunkLight);
 
@@ -1770,12 +1737,12 @@ void Chunk::setBlockAt(int x, int y, int z, BlockId block, bool saveBlockChanges
 		if (maxBlockLightToSet > 0)
 		{
 			lightLevels[index].blockLight = maxBlockLightToSet;
-			if (maxBlockLightToSet > 1) addBlockLightNodeToQueue(x, y, z);
+			if (maxBlockLightToSet > 1) addBlockLightPropagationNode(x, y, z);
 		}
 		if (maxSkyLightToSet > 0)
 		{
 			lightLevels[index].skyLight = maxSkyLightToSet;
-			if (maxSkyLightToSet > 1) addSkyLightNodeToQueue(x, y, z);
+			if (maxSkyLightToSet > 1) addSkyLightPropagationNode(x, y, z);
 		}
 	}
 	else if (!previousBlockData->absorbsLight && newBlockData->absorbsLight)
@@ -1785,13 +1752,13 @@ void Chunk::setBlockAt(int x, int y, int z, BlockId block, bool saveBlockChanges
 		if (currentBlockLight > 0)
 		{
 			lightLevels[index].blockLight = 0;
-			addBlockLightRemovalNodeToQueue(x, y, z, currentBlockLight);
+			addBlockLightRemovalNode(x, y, z, currentBlockLight);
 		}
 		uint8_t currentSkyLight = lightLevels[index].skyLight;
 		if (currentSkyLight > 0)
 		{
 			lightLevels[index].skyLight = 0;
-			addSkyLightRemovalNodeToQueue(x, y, z, currentSkyLight);
+			addSkyLightRemovalNode(x, y, z, currentSkyLight);
 		}
 	}
 
@@ -1801,13 +1768,13 @@ void Chunk::setBlockAt(int x, int y, int z, BlockId block, bool saveBlockChanges
 		if (previousEmission > newEmission)
 		{
 			lightLevels[index].blockLight = 0;
-			addBlockLightRemovalNodeToQueue(x, y, z, previousEmission);
+			addBlockLightRemovalNode(x, y, z, previousEmission);
 		}
 
 		if (newEmission > 0)
 		{
 			lightLevels[index].blockLight = newEmission;
-			addBlockLightNodeToQueue(x, y, z);
+			addBlockLightPropagationNode(x, y, z);
 		}
 	}
 
@@ -1857,28 +1824,28 @@ void Chunk::setSkyLightAt(size_t index, uint8_t lightLevel)
 	markMeshesDirtyAroundBlock(pos.x, pos.y, pos.z);
 }
 
-void Chunk::addBlockLightNodeToQueue(int x, int y, int z)
+void Chunk::addBlockLightPropagationNode(int x, int y, int z)
 {
-	std::lock_guard<std::mutex> lock(blockLightBfsMutex);
-	blockLightBfsQueue.emplace(x, y, z);
+	std::lock_guard<std::mutex> lock(lightPropagation.blockLightPropagation.mutex);
+	lightPropagation.blockLightPropagation.queue.emplace(x, y, z);
 }
 
-void Chunk::addBlockLightRemovalNodeToQueue(int x, int y, int z, uint8_t lightLevel)
+void Chunk::addBlockLightRemovalNode(int x, int y, int z, uint8_t lightLevel)
 {
-	std::lock_guard<std::mutex> lock(blockLightRemovalBfsMutex);
-	blockLightRemovalBfsQueue.emplace(x, y, z, lightLevel);
+	std::lock_guard<std::mutex> lock(lightPropagation.blockLightRemoval.mutex);
+	lightPropagation.blockLightRemoval.queue.emplace(x, y, z, lightLevel);
 }
 
-void Chunk::addSkyLightNodeToQueue(int x, int y, int z)
+void Chunk::addSkyLightPropagationNode(int x, int y, int z)
 {
-	std::lock_guard<std::mutex> lock(skyLightBfsMutex);
-	skyLightBfsQueue.emplace(x, y, z);
+	std::lock_guard<std::mutex> lock(lightPropagation.skyLightPropagation.mutex);
+	lightPropagation.skyLightPropagation.queue.emplace(x, y, z);
 }
 
-void Chunk::addSkyLightRemovalNodeToQueue(int x, int y, int z, uint8_t lightLevel)
+void Chunk::addSkyLightRemovalNode(int x, int y, int z, uint8_t lightLevel)
 {
-	std::lock_guard<std::mutex> lock(skyLightRemovalBfsMutex);
-	skyLightRemovalBfsQueue.emplace(x, y, z, lightLevel);
+	std::lock_guard<std::mutex> lock(lightPropagation.skyLightRemoval.mutex);
+	lightPropagation.skyLightRemoval.queue.emplace(x, y, z, lightLevel);
 }
 
 void Chunk::markMeshesDirtyAroundBlock(int x, int y, int z)

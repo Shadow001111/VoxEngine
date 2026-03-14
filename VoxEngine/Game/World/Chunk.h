@@ -2,7 +2,6 @@
 #include "Chunk/ChunkMesh/ChunkMesh.h"
 #include "Chunk/Metrics.h"
 #include "Chunk/StructureBlockChanges.h"
-#include "Chunk/ChunkSpecializedQueue.h"
 #include "Chunk/BufferStreamWriter.h"
 #include "Chunk/Light.h"
 #include "Chunk/ChunkIO.h"
@@ -16,7 +15,6 @@
 
 #include "Graphics/DrawCommands.h"
 
-#include <mutex>
 #include <atomic>
 #include <cstdint>
 #include <array>
@@ -128,22 +126,7 @@ private:
 	LightLevel lightLevels[CHUNK_VOLUME];
 
 	// Light propagation
-	ChunkSpecializedQueue<LightNode> blockLightBfsQueue;
-	mutable std::mutex blockLightBfsMutex;
-
-	ChunkSpecializedQueue<LightRemovalNode> blockLightRemovalBfsQueue;
-	mutable std::mutex blockLightRemovalBfsMutex;
-
-	ChunkSpecializedQueue<LightNode> skyLightBfsQueue;
-	mutable std::mutex skyLightBfsMutex;
-	
-	ChunkSpecializedQueue<LightRemovalNode> skyLightRemovalBfsQueue;
-	mutable std::mutex skyLightRemovalBfsMutex;
-
-	static thread_local ChunkSpecializedQueue<LightNode> localBlockLightBfsQueue;
-	static thread_local ChunkSpecializedQueue<LightRemovalNode> localBlockLightRemovalBfsQueue;
-	static thread_local ChunkSpecializedQueue<LightNode> localSkyLightBfsQueue;
-	static thread_local ChunkSpecializedQueue<LightRemovalNode> localSkyLightRemovalBfsQueue;
+	LightPropagationStorage lightPropagation;
 
 	// Mesh
 	ChunkMesh mesh;
@@ -200,7 +183,7 @@ public:
 	}
 
 	// Constructors, destructors, assigments
-	Chunk() = default;
+	Chunk();
 	~Chunk();
 	Chunk(const Chunk&) = delete;
 	Chunk& operator=(const Chunk&) = delete;
@@ -224,7 +207,7 @@ private:
 
 	// IO
 	void loadBlocks() { ChunkIO::loadBlocks(changedBlocks, position, blocks); }
-	void saveBlocks() { ChunkIO::saveBlocks(changedBlocks, position, blocks); }
+	void saveBlocks() const { ChunkIO::saveBlocks(changedBlocks, position, blocks); }
 
 	// Connectivity
 	bool findFloodFillStartIndex(uint16_t& startIndex, const bool* floodFillMask) const;
@@ -244,11 +227,7 @@ public:
 	void updateLight();
 	bool hasLightUpdates() const noexcept
 	{
-		return
-			blockLightBfsQueue.size() ||
-			blockLightRemovalBfsQueue.size() ||
-			skyLightBfsQueue.size() ||
-			skyLightRemovalBfsQueue.size();
+		return lightPropagation.hasNodes();
 	}
 
 	// Mesh
@@ -293,10 +272,10 @@ public:
 	void setSkyLightAt(size_t index, uint8_t lightLevel);
 
 	// Light propagation
-	void addBlockLightNodeToQueue(int x, int y, int z);
-	void addBlockLightRemovalNodeToQueue(int x, int y, int z, uint8_t lightLevel);
-	void addSkyLightNodeToQueue(int x, int y, int z);
-	void addSkyLightRemovalNodeToQueue(int x, int y, int z, uint8_t lightLevel);
+	void addBlockLightPropagationNode(int x, int y, int z);
+	void addBlockLightRemovalNode(int x, int y, int z, uint8_t lightLevel);
+	void addSkyLightPropagationNode(int x, int y, int z);
+	void addSkyLightRemovalNode(int x, int y, int z, uint8_t lightLevel);
 private:
 	// Mesh
 	void markMeshesDirtyAroundBlock(int x, int y, int z);
