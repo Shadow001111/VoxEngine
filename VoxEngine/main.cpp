@@ -452,22 +452,22 @@ static void renderDebugData(const WindowManager& wnd, const Player& player, cons
     ss << "\nXYZ: " << playerPos.x << " " << playerPos.y << " " << playerPos.z;
     ss << "\nBlock: " << localPlayerPos.x << " " << localPlayerPos.y << " " << localPlayerPos.z;
 
-    std::string facingDir;
-    {
-        float absX = std::abs(cameraViewDirection.x);
-        float absY = std::abs(cameraViewDirection.y);
-        float absZ = std::abs(cameraViewDirection.z);
-        if (absX > absY && absX > absZ) {
-            facingDir = (cameraViewDirection.x > 0.0f) ? "+X" : "-X";
-        }
-        else if (absY > absX && absY > absZ) {
-            facingDir = (cameraViewDirection.y > 0.0f) ? "+Y" : "-Y";
-        }
-        else {
-            facingDir = (cameraViewDirection.z > 0.0f) ? "+Z" : "-Z";
-        }
-    }
-    ss << "\nView direction: " << facingDir;
+    //std::string facingDir;
+    //{
+    //    float absX = std::abs(cameraViewDirection.x);
+    //    float absY = std::abs(cameraViewDirection.y);
+    //    float absZ = std::abs(cameraViewDirection.z);
+    //    if (absX > absY && absX > absZ) {
+    //        facingDir = (cameraViewDirection.x > 0.0f) ? "+X" : "-X";
+    //    }
+    //    else if (absY > absX && absY > absZ) {
+    //        facingDir = (cameraViewDirection.y > 0.0f) ? "+Y" : "-Y";
+    //    }
+    //    else {
+    //        facingDir = (cameraViewDirection.z > 0.0f) ? "+Z" : "-Z";
+    //    }
+    //}
+    //ss << "\nView direction: " << facingDir;
 
     // GPU usage
     if (gpuUsageData.enabled)
@@ -478,8 +478,8 @@ static void renderDebugData(const WindowManager& wnd, const Player& player, cons
     }
 
     // Threading
-    const auto& threadPool = ParallelUtils::getGlobalThreadPool();
-    ss << "\nTotal task count:" << formatSize(threadPool.getTaskTotalCount()) << "\n";
+    //const auto& threadPool = ParallelUtils::getGlobalThreadPool();
+    //ss << "\nTotal task count:" << formatSize(threadPool.getTaskTotalCount()) << "\n";
 
     // Render text
     std::string text = ss.str();

@@ -41,7 +41,14 @@ class ChunkSpecializedQueue
 
     static index_t round_up_to_power_of_two(index_t n)
     {
-        if (n == 0) return 1;
+        if (n <= 1) return 1;
+
+        const bool isPowerOfTwo = ((n & (n - 1))) == 0;
+        if (isPowerOfTwo)
+        {
+            return n;
+        }
+
         return 1 << std::bit_width(n);
     }
 

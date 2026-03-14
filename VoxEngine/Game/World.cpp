@@ -250,11 +250,11 @@ const World::DebugData& World::getDebugData(bool updateIntense) const
 	// Chunk region count
 	debugData.chunkRegionCount = chunkRegions.size();
 
-	// Chunk count and block face count
 	if (updateIntense)
 	{
 		debugData.chunkCount = 0;
 		debugData.totalChunkFaceCount = 0;
+
 		for (const auto& [_, chunkRegion] : chunkRegions)
 		{
 			for (Chunk* chunk : chunkRegion->getChunks())
