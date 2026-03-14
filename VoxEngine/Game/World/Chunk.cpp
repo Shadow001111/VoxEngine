@@ -31,7 +31,6 @@ static unsigned hash3(unsigned x, unsigned y, unsigned z)
 
 Chunk::Chunk()
 {
-	lightPropagation.reserve(8192);
 }
 
 Chunk::~Chunk()
@@ -126,9 +125,6 @@ void Chunk::destroy()
 
 void Chunk::globalInit()
 {
-	// Reserve space for light queues
-	LightPropagationStorage::reserveLocal(8192);
-
 	// Cache block ids
 	CACHED_BLOCK_IDS.airId = AssetRegistry::getBlockNumericalId("core:air");
 	CACHED_BLOCK_IDS.waterId = AssetRegistry::getBlockNumericalId("core:water");
