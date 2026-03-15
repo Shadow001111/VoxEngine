@@ -119,8 +119,8 @@ void WorldRenderer::initTextures(const std::vector<std::string>& blockTextureNam
 
 		const size_t textureSize = 128;
 
-		std::vector<float> data;
-		SeamlessPerlinNoise::generatePerlinNoise3D(data, textureSize, textureSize, textureSize, 1.0f / 20.0f, 1, 2.0f, true, 0);
+		std::vector<float> data(textureSize * textureSize * textureSize);
+		SeamlessPerlinNoise::generatePerlinNoise3D(data.data(), textureSize, textureSize, textureSize, 1.0f / 20.0f, 1, 2.0f, true, 0);
 
 		{
 			PROFILE_SCOPE("Noise texture creation", ProfileCategory::General);

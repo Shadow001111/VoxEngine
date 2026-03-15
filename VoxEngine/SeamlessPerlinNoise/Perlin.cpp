@@ -47,24 +47,20 @@ namespace SeamlessPerlinNoise
         return b * t + (1.0f - t) * a;
     }
 
-    glm::vec3 floor(const glm::vec3& v)
-    {
-        return {
-            floorf(v.x),
-            floorf(v.y),
-            floorf(v.z)
-        };
-    }
-
-    // Grad function
     float grad(uint32_t hash, const glm::vec3& p)
     {
         uint32_t h = hash & 15;
         return glm::dot(rand_vector(h) * 2.0f - 1.0f, p);
     }
 
+    float sumOfGeomtricSeries(float firstTerm, float commonRatio, int numberOfTerms)
+    {
+        if (commonRatio == 1.0f) return firstTerm * numberOfTerms;
+        return firstTerm * (1.0f - powf(commonRatio, numberOfTerms)) / (1.0f - commonRatio);
+    }
+
     void generatePerlinNoise3D(
-        std::vector<float>& out,
+        float* out,
         int resolutionX,
         int resolutionY,
         int resolutionZ,
@@ -75,48 +71,47 @@ namespace SeamlessPerlinNoise
         int seed
     )
     {
-        // Prepare vector
-        out.resize(resolutionX * resolutionY * resolutionZ);
+        // Initialize whole array to zero
+        const int resolutionVolume = resolutionX * resolutionY * resolutionZ;
+        for (int i = 0; i < resolutionVolume; i++)
+        {
+            out[i] = 0.0f;
+        }
 
         // Calculate grid resolution
         const float grid_resolution = std::floor(1.0f / perlinSize);
-
         const glm::vec3 invResolution = 1.0f / glm::vec3(resolutionX, resolutionY, resolutionZ);
-
         const glm::vec3 invResolutionMulGridResolution = invResolution * grid_resolution;
 
-        size_t index = 0; // x + y * resX + z * resX * resY
-        for (int z = 0; z < resolutionZ; z++)
+        // Main loop
+        for (int octave = 0; octave < perlinOctaves; octave++)
         {
-            for (int y = 0; y < resolutionY; y++)
-            {
-                for (int x = 0; x < resolutionX; x++)
-                {
-                    glm::vec3 position = glm::vec3(x, y, z) * invResolutionMulGridResolution;
+            const int s = seed + octave;
+            const float attenuation = floorf(powf(perlinLacunarity, static_cast<float>(octave)));
+            const float invAttenuation = 1.0f / attenuation;
+            const glm::vec3 invResolutionMulGridResolutionMulAttenuation = invResolutionMulGridResolution * attenuation;
+            const int period = seamless ?
+                grid_resolution * static_cast<int>(attenuation) :
+                100000000;
 
-                    float sum = 0.0f;
-
-                    for (int i = 0; i < perlinOctaves; i++)
+            float* outHead = out;
+            for (int z = 0; z < resolutionZ; z++)
+                for (int y = 0; y < resolutionY; y++)
+                    for (int x = 0; x < resolutionX; x++)
                     {
-                        int s = seed + i;
-                        float attenuation = floorf(powf(perlinLacunarity, static_cast<float>(i)));
-                        glm::vec3 p = position * attenuation;
+                        glm::vec3 p = glm::vec3(x, y, z) * invResolutionMulGridResolutionMulAttenuation;
 
-                        glm::vec3 pi_f = floor(p);
+                        glm::vec3 pi_f = glm::floor(p);
                         glm::ivec3 pi = pi_f;
 
                         glm::vec3 pf = p - pi_f;
 
                         glm::vec3 f = fade(pf);
 
-                        glm::ivec3 period = seamless ?
-                            glm::ivec3(grid_resolution * static_cast<int>(attenuation)) :
-                            glm::ivec3(100000000);
-
                         // Calculate gradients at cube corners
                         float n000 = grad(
-                            hash_int3((pi + glm::ivec3(0, 0, 0)) % period) + s,
-                            pf - glm::vec3(0, 0, 0)
+                            hash_int3((pi) % period) + s,
+                            pf
                         );
                         float n001 = grad(
                             hash_int3((pi + glm::ivec3(0, 0, 1)) % period) + s,
@@ -156,15 +151,17 @@ namespace SeamlessPerlinNoise
                         float y0 = lerp(x00, x10, f.y);
                         float y1 = lerp(x01, x11, f.y);
 
-                        sum += lerp(y0, y1, f.z) / attenuation;
+                        float value = lerp(y0, y1, f.z) * invAttenuation;
+
+                        *(outHead++) += value;
                     }
+        }
 
-                    // Convert from [-1, 1] to [0, 1] range
-                    float output = sum * 0.5f + 0.5f;
-
-                    out[index++] = output;
-                }
-            }
+        // Normalize array
+        const float halfInvMaxValue = 0.5f / sumOfGeomtricSeries(1.0f, 1.0f / perlinLacunarity, perlinOctaves);
+        for (int i = 0; i < resolutionVolume; i++)
+        {
+            out[i] = out[i] * halfInvMaxValue + 0.5f;
         }
     }
 }
