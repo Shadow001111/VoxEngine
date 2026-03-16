@@ -355,7 +355,7 @@ void WorldChunkManager::collectChunksForLightUpdate()
 	{
 		for (Chunk* chunk : chunkRegion->chunks)
 		{
-			if (!(chunk && chunk->hasLightUpdates())) continue;
+			if (!(chunk && chunk->shouldLightsBeUpdated())) continue;
 
 			glm::ivec3 chunkPosition = chunk->getPosition();
 

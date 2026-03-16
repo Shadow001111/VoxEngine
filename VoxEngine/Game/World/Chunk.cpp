@@ -1292,19 +1292,16 @@ void Chunk::buildLight()
 
 void Chunk::updateLight()
 {
-	if (
-		!isLightBuilt() ||
-		!chunkFlags.read(Flag::IsLoadedInWorld)
-		)
+	if (!chunkFlags.read(Flag::IsLoadedInWorld))
 	{
 		return;
 	}
 
-	lightPropagation.swapQueuesWithLocal();
-
 	PROFILE_SCOPE("Update chunk light", ProfileCategory::ChunkLight);
 
 	FenceGuard scopedFence(processingFence);
+
+	lightPropagation.swapQueuesWithLocal();
 
 	uint32_t neighborDirtyMask = 0;
 
@@ -1330,18 +1327,12 @@ void Chunk::updateLight()
 
 void Chunk::updateMesh()
 {
-	if (
-		!readFlag(Flag::ShouldUpdateMesh) ||
-		!isLightBuilt() ||
-		!chunkFlags.read(Flag::IsLoadedInWorld)
-		)
+	if (!chunkFlags.read(Flag::IsLoadedInWorld))
 	{
 		return;
 	}
 	
 	FenceGuard scopedFence(processingFence);
-
-	setFlag(Flag::ShouldUpdateMesh, false);
 
 	PROFILE_SCOPE("Update chunk mesh", ProfileCategory::ChunkMesh);
 

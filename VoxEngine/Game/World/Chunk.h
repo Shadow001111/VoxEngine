@@ -225,14 +225,11 @@ public:
 	// Light
 	void buildLight();
 	void updateLight();
-	bool hasLightUpdates() const noexcept
-	{
-		return lightPropagation.hasNodes();
-	}
+	bool shouldLightsBeUpdated() noexcept { return isLightBuilt() && lightPropagation.hasNodes(); }
 
 	// Mesh
 	void updateMesh();
-	bool shouldMeshBeUpdated() const { return chunkFlags.read(Flag::ShouldUpdateMesh) && isLightBuilt(); };
+	bool shouldMeshBeUpdated() noexcept { return isLightBuilt() && chunkFlags.readAndSet(Flag::ShouldUpdateMesh, false); };
 	void markMeshDirty();
 	void askForMeshUpload();
 
@@ -297,6 +294,7 @@ public:
 
 	void setFlag(Flag flag, bool value) noexcept { chunkFlags.set(static_cast<unsigned>(flag), value); }
 	bool readFlag(Flag flag) const noexcept { return chunkFlags.read(static_cast<unsigned>(flag)); }
+	bool readAndSetFlag(Flag flag, bool value) noexcept { return chunkFlags.readAndSet(static_cast<unsigned>(flag), value); }
 
 	bool getIsProcessing() const noexcept { return processingFence.isProcessing(); };
 
