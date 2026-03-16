@@ -53,7 +53,7 @@ namespace SeamlessPerlinNoise
         return glm::dot(rand_vector(h) * 2.0f - 1.0f, p);
     }
 
-    float sumOfGeomtricSeries(float firstTerm, float commonRatio, int numberOfTerms)
+    float sumOfGeometricSeries(float firstTerm, float commonRatio, int numberOfTerms)
     {
         if (commonRatio == 1.0f) return firstTerm * numberOfTerms;
         return firstTerm * (1.0f - powf(commonRatio, numberOfTerms)) / (1.0f - commonRatio);
@@ -158,7 +158,7 @@ namespace SeamlessPerlinNoise
         }
 
         // Normalize array
-        const float halfInvMaxValue = 0.5f / sumOfGeomtricSeries(1.0f, 1.0f / perlinLacunarity, perlinOctaves);
+        const float halfInvMaxValue = 0.5f / sumOfGeometricSeries(1.0f, 1.0f / perlinLacunarity, perlinOctaves);
         for (int i = 0; i < resolutionVolume; i++)
         {
             out[i] = out[i] * halfInvMaxValue + 0.5f;

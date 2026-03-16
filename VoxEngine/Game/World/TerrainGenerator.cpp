@@ -10,7 +10,7 @@ static float continentalSpline(float x)
 	return x;
 }
 
-static float sumOfGeomtricSeries(float firstTerm, float commonRatio, int numberOfTerms)
+static float sumOfGeometricSeries(float firstTerm, float commonRatio, int numberOfTerms)
 {
 	if (commonRatio == 1.0f) return firstTerm * numberOfTerms;
 	return firstTerm * (1.0f - powf(commonRatio, numberOfTerms)) / (1.0f - commonRatio);
@@ -367,7 +367,7 @@ void TerrainGenerator::computeLayeredNoise_2D(float* outArray, int chunkX, int c
 	std::fill(outArray, outArray + CHUNK_AREA, 0.0f);
 
 	// Calculate sum
-	const float maxSum = sumOfGeomtricSeries(1.0f, params.amplitudeFactor, params.layerCount);
+	const float maxSum = sumOfGeometricSeries(1.0f, params.amplitudeFactor, params.layerCount);
 
 	// Set initial layer params
 	float layerAmplitude = 1.0f / maxSum;
@@ -400,7 +400,7 @@ void TerrainGenerator::computeLayeredNoise_3D(float* outArray, int chunkX, int c
 	std::fill(outArray, outArray + CHUNK_VOLUME, 0.0f);
 
 	// Calculate sum
-	const float maxSum = sumOfGeomtricSeries(1.0f, params.amplitudeFactor, params.layerCount);
+	const float maxSum = sumOfGeometricSeries(1.0f, params.amplitudeFactor, params.layerCount);
 
 	// Set initial layer params
 	float layerAmplitude = 1.0f / maxSum;
