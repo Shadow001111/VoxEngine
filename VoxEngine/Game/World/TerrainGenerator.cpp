@@ -5,9 +5,15 @@
 #include <intrin.h>
 
 //============================================================================
-float continentalSpline(float x)
+static float continentalSpline(float x)
 {
 	return x;
+}
+
+static float sumOfGeomtricSeries(float firstTerm, float commonRatio, int numberOfTerms)
+{
+	if (commonRatio == 1.0f) return firstTerm * numberOfTerms;
+	return firstTerm * (1.0f - powf(commonRatio, numberOfTerms)) / (1.0f - commonRatio);
 }
 
 
@@ -357,52 +363,55 @@ int TerrainGenerator::computeMaxHeight(const int* heightMap)
 
 void TerrainGenerator::computeLayeredNoise_2D(float* outArray, int chunkX, int chunkZ, const NoiseParams& params)
 {
+	// Zero array
 	std::fill(outArray, outArray + CHUNK_AREA, 0.0f);
 
-	float layerAmplitude = 1.0f;
-	float layerFrequency = params.frequency;
-	float amplitudeSum = 0.0f;
+	// Calculate sum
+	const float maxSum = sumOfGeomtricSeries(1.0f, params.amplitudeFactor, params.layerCount);
 
+	// Set initial layer params
+	float layerAmplitude = 1.0f / maxSum;
+	float layerFrequency = params.frequency;
+
+	// Set start chunk coords
 	const int xStart = chunkX * CHUNK_SIZE;
 	const int zStart = chunkZ * CHUNK_SIZE;
 
+	// Generate noise
 	float* tempNoiseArray = threadLocalData.resources->tempNoiseArray.data();
 	for (int i = 0; i < params.layerCount; i++)
 	{
 		// X and Z are swapped because of FastNoise's coordinate system
 		simplexNoise->GenUniformGrid2D(tempNoiseArray, zStart, xStart, CHUNK_SIZE, CHUNK_SIZE, layerFrequency, seed);
+
 		for (int index = 0; index < CHUNK_AREA; index++)
 		{
 			outArray[index] += tempNoiseArray[index] * layerAmplitude;
 		}
-		amplitudeSum += layerAmplitude;
+
 		layerAmplitude *= params.amplitudeFactor;
 		layerFrequency *= params.frequencyFactor;
-	}
-
-	if (amplitudeSum != 1.0f && amplitudeSum != 0.0f)
-	{
-		float factor = 1.0f / amplitudeSum;
-		for (int i = 0; i < CHUNK_AREA; i++)
-		{
-			outArray[i] *= factor;
-		}
 	}
 }
 
 void TerrainGenerator::computeLayeredNoise_3D(float* outArray, int chunkX, int chunkY, int chunkZ, const NoiseParams& params)
 {
+	// Zero array
 	std::fill(outArray, outArray + CHUNK_VOLUME, 0.0f);
 
-	float layerAmplitude = 1.0f;
+	// Calculate sum
+	const float maxSum = sumOfGeomtricSeries(1.0f, params.amplitudeFactor, params.layerCount);
+
+	// Set initial layer params
+	float layerAmplitude = 1.0f / maxSum;
 	float layerFrequency = params.frequency;
 
-	float amplitudeSum = 0.0f;
-
+	// Set start chunk coords
 	const int xStart = chunkX * CHUNK_SIZE;
 	const int yStart = chunkY * CHUNK_SIZE;
 	const int zStart = chunkZ * CHUNK_SIZE;
 
+	// Generate noise
 	float* tempNoiseArray = threadLocalData.resources->tempNoiseArray.data();
 	for (int i = 0; i < params.layerCount; i++)
 	{
@@ -414,18 +423,8 @@ void TerrainGenerator::computeLayeredNoise_3D(float* outArray, int chunkX, int c
 			outArray[index] += tempNoiseArray[index] * layerAmplitude;
 		}
 
-		amplitudeSum += layerAmplitude;
 		layerAmplitude *= params.amplitudeFactor;
 		layerFrequency *= params.frequencyFactor;
-	}
-
-	if (amplitudeSum != 1.0f && amplitudeSum != 0.0f)
-	{
-		float factor = 1.0f / amplitudeSum;
-		for (int i = 0; i < CHUNK_VOLUME; i++)
-		{
-			outArray[i] *= factor;
-		}
 	}
 }
 
