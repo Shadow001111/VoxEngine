@@ -1797,7 +1797,6 @@ void Chunk::setSkyLightAt(size_t index, uint8_t lightLevel)
 
 void Chunk::addBlockLightPropagationNode(int x, int y, int z)
 {
-	setFlag(Flag::ShouldUpdateLight, true);
 	parentRegion->setFlag(ChunkRegion::Flag::HasLightToUpdate, true);
 	parentRegion->setGlobalFlag(ChunkRegion::Flag::HasLightToUpdate, true);
 
@@ -1807,7 +1806,6 @@ void Chunk::addBlockLightPropagationNode(int x, int y, int z)
 
 void Chunk::addBlockLightRemovalNode(int x, int y, int z, uint8_t lightLevel)
 {
-	setFlag(Flag::ShouldUpdateLight, true);
 	parentRegion->setFlag(ChunkRegion::Flag::HasLightToUpdate, true);
 	parentRegion->setGlobalFlag(ChunkRegion::Flag::HasLightToUpdate, true);
 
@@ -1817,7 +1815,6 @@ void Chunk::addBlockLightRemovalNode(int x, int y, int z, uint8_t lightLevel)
 
 void Chunk::addSkyLightPropagationNode(int x, int y, int z)
 {
-	setFlag(Flag::ShouldUpdateLight, true);
 	parentRegion->setFlag(ChunkRegion::Flag::HasLightToUpdate, true);
 	parentRegion->setGlobalFlag(ChunkRegion::Flag::HasLightToUpdate, true);
 
@@ -1827,7 +1824,6 @@ void Chunk::addSkyLightPropagationNode(int x, int y, int z)
 
 void Chunk::addSkyLightRemovalNode(int x, int y, int z, uint8_t lightLevel)
 {
-	setFlag(Flag::ShouldUpdateLight, true);
 	parentRegion->setFlag(ChunkRegion::Flag::HasLightToUpdate, true);
 	parentRegion->setGlobalFlag(ChunkRegion::Flag::HasLightToUpdate, true);
 
