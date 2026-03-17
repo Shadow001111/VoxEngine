@@ -67,7 +67,6 @@ void Chunk::init(const glm::ivec3& position, const std::array<Chunk*, 27>& newNe
 
 	chunkFlags.reset();
 	chunkFlags.set(Flag::IsLoadedInWorld, true);
-	chunkFlags.set(Flag::ShouldUpdateMesh, false);
 
 	// Reset mesh data
 	mesh.faceStorage.resetRenderFaceCount();
@@ -1275,6 +1274,7 @@ void Chunk::buildLight()
 	setState(State::LightsBuilt);
 
 	// Apply dirty mask
+	neighborDirtyMask |= (1u << getNeighborIndex(0, 0, 0));
 	applyNeighborDirtyMask(neighborDirtyMask);
 }
 
@@ -1797,24 +1797,40 @@ void Chunk::setSkyLightAt(size_t index, uint8_t lightLevel)
 
 void Chunk::addBlockLightPropagationNode(int x, int y, int z)
 {
+	setFlag(Flag::ShouldUpdateLight, true);
+	parentRegion->setFlag(ChunkRegion::Flag::HasLightToUpdate, true);
+	parentRegion->setGlobalFlag(ChunkRegion::Flag::HasLightToUpdate, true);
+
 	std::lock_guard<std::mutex> lock(lightPropagation.blockLightPropagation.mutex);
 	lightPropagation.blockLightPropagation.queue.emplace(x, y, z);
 }
 
 void Chunk::addBlockLightRemovalNode(int x, int y, int z, uint8_t lightLevel)
 {
+	setFlag(Flag::ShouldUpdateLight, true);
+	parentRegion->setFlag(ChunkRegion::Flag::HasLightToUpdate, true);
+	parentRegion->setGlobalFlag(ChunkRegion::Flag::HasLightToUpdate, true);
+
 	std::lock_guard<std::mutex> lock(lightPropagation.blockLightRemoval.mutex);
 	lightPropagation.blockLightRemoval.queue.emplace(x, y, z, lightLevel);
 }
 
 void Chunk::addSkyLightPropagationNode(int x, int y, int z)
 {
+	setFlag(Flag::ShouldUpdateLight, true);
+	parentRegion->setFlag(ChunkRegion::Flag::HasLightToUpdate, true);
+	parentRegion->setGlobalFlag(ChunkRegion::Flag::HasLightToUpdate, true);
+
 	std::lock_guard<std::mutex> lock(lightPropagation.skyLightPropagation.mutex);
 	lightPropagation.skyLightPropagation.queue.emplace(x, y, z);
 }
 
 void Chunk::addSkyLightRemovalNode(int x, int y, int z, uint8_t lightLevel)
 {
+	setFlag(Flag::ShouldUpdateLight, true);
+	parentRegion->setFlag(ChunkRegion::Flag::HasLightToUpdate, true);
+	parentRegion->setGlobalFlag(ChunkRegion::Flag::HasLightToUpdate, true);
+
 	std::lock_guard<std::mutex> lock(lightPropagation.skyLightRemoval.mutex);
 	lightPropagation.skyLightRemoval.queue.emplace(x, y, z, lightLevel);
 }

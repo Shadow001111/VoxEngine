@@ -105,7 +105,8 @@ private:
 	{
 		IsLoadedInWorld = 0,
 		IsLoadedChunkColumnData,
-		ShouldUpdateMesh
+		ShouldUpdateMesh,
+		ShouldUpdateLight
 	};
 
 	// Chunk coordinates
@@ -225,7 +226,7 @@ public:
 	// Light
 	void buildLight();
 	void updateLight();
-	bool shouldUpdateLight() noexcept { return isLightBuilt() && lightPropagation.hasNodes(); }
+	bool shouldUpdateLight() noexcept { return isLightBuilt() && chunkFlags.readAndSet(Flag::ShouldUpdateLight, false); }
 
 	// Mesh
 	void updateMesh();

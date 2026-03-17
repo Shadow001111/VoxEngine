@@ -23,7 +23,8 @@ public:
 	enum class Flag : uint8_t
 	{
 		HasMeshToUpload = 0,
-		HasMeshToUpdate = 1
+		HasMeshToUpdate,
+		HasLightToUpdate
 	};
 
 	ChunkRegion() = default;
