@@ -1276,6 +1276,18 @@ void Chunk::buildLight()
 	// Apply dirty mask
 	neighborDirtyMask |= (1u << getNeighborIndex(0, 0, 0));
 	applyNeighborDirtyMask(neighborDirtyMask);
+
+	// Let neighbor chunks' lights be updated
+	for (int i = 0; i < 6; i++)
+	{
+		auto index = getSideNeighborIndex(i);
+		Chunk* neighbor = neighbors[index];
+		if (neighbor && neighbor->lightPropagation.hasNodes())
+		{
+			neighbor->parentRegion->setFlag(ChunkRegion::Flag::HasLightToUpdate, true);
+			ChunkRegion::setGlobalFlag(ChunkRegion::Flag::HasLightToUpdate, true);
+		}
+	}
 }
 
 void Chunk::updateLight()
@@ -1307,6 +1319,18 @@ void Chunk::updateLight()
 
 	// Apply dirty mask
 	applyNeighborDirtyMask(neighborDirtyMask);
+
+	// Let neighbor chunks' lights be updated
+	for (int i = 0; i < 6; i++)
+	{
+		auto index = getSideNeighborIndex(i);
+		Chunk* neighbor = neighbors[index];
+		if (neighbor && neighbor->lightPropagation.hasNodes())
+		{
+			neighbor->parentRegion->setFlag(ChunkRegion::Flag::HasLightToUpdate, true);
+			ChunkRegion::setGlobalFlag(ChunkRegion::Flag::HasLightToUpdate, true);
+		}
+	}
 }
 
 void Chunk::updateMesh()
@@ -1797,36 +1821,24 @@ void Chunk::setSkyLightAt(size_t index, uint8_t lightLevel)
 
 void Chunk::addBlockLightPropagationNode(int x, int y, int z)
 {
-	parentRegion->setFlag(ChunkRegion::Flag::HasLightToUpdate, true);
-	parentRegion->setGlobalFlag(ChunkRegion::Flag::HasLightToUpdate, true);
-
 	std::lock_guard<std::mutex> lock(lightPropagation.blockLightPropagation.mutex);
 	lightPropagation.blockLightPropagation.queue.emplace(x, y, z);
 }
 
 void Chunk::addBlockLightRemovalNode(int x, int y, int z, uint8_t lightLevel)
 {
-	parentRegion->setFlag(ChunkRegion::Flag::HasLightToUpdate, true);
-	parentRegion->setGlobalFlag(ChunkRegion::Flag::HasLightToUpdate, true);
-
 	std::lock_guard<std::mutex> lock(lightPropagation.blockLightRemoval.mutex);
 	lightPropagation.blockLightRemoval.queue.emplace(x, y, z, lightLevel);
 }
 
 void Chunk::addSkyLightPropagationNode(int x, int y, int z)
 {
-	parentRegion->setFlag(ChunkRegion::Flag::HasLightToUpdate, true);
-	parentRegion->setGlobalFlag(ChunkRegion::Flag::HasLightToUpdate, true);
-
 	std::lock_guard<std::mutex> lock(lightPropagation.skyLightPropagation.mutex);
 	lightPropagation.skyLightPropagation.queue.emplace(x, y, z);
 }
 
 void Chunk::addSkyLightRemovalNode(int x, int y, int z, uint8_t lightLevel)
 {
-	parentRegion->setFlag(ChunkRegion::Flag::HasLightToUpdate, true);
-	parentRegion->setGlobalFlag(ChunkRegion::Flag::HasLightToUpdate, true);
-
 	std::lock_guard<std::mutex> lock(lightPropagation.skyLightRemoval.mutex);
 	lightPropagation.skyLightRemoval.queue.emplace(x, y, z, lightLevel);
 }
