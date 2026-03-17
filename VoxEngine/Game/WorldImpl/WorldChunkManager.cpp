@@ -347,7 +347,7 @@ void WorldChunkManager::collectChunksForLightUpdate()
 	{
 		for (Chunk* chunk : chunkRegion->chunks)
 		{
-			if (!(chunk && chunk->shouldLightsBeUpdated())) continue;
+			if (!(chunk && chunk->shouldUpdateLight())) continue;
 
 			glm::ivec3 chunkPosition = chunk->getPosition();
 
@@ -404,7 +404,7 @@ void WorldChunkManager::updateChunkMeshes()
 
 			for (Chunk* chunk : chunkRegion->chunks)
 			{
-				if (chunk && chunk->shouldMeshBeUpdated())
+				if (chunk && chunk->shouldUpdateMesh())
 				{
 					chunksToProcess.push_back(chunk);
 				}

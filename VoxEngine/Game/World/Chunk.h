@@ -225,11 +225,11 @@ public:
 	// Light
 	void buildLight();
 	void updateLight();
-	bool shouldLightsBeUpdated() noexcept { return isLightBuilt() && lightPropagation.hasNodes(); }
+	bool shouldUpdateLight() noexcept { return isLightBuilt() && lightPropagation.hasNodes(); }
 
 	// Mesh
 	void updateMesh();
-	bool shouldMeshBeUpdated() noexcept { return isLightBuilt() && chunkFlags.readAndSet(Flag::ShouldUpdateMesh, false); };
+	bool shouldUpdateMesh() noexcept { return isLightBuilt() && chunkFlags.readAndSet(Flag::ShouldUpdateMesh, false); };
 	void markMeshDirty();
 	void askForMeshUpload();
 
