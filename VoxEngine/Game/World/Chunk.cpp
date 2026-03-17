@@ -994,11 +994,7 @@ void Chunk::propagateSkyLightRemoval(uint32_t& neighborDirtyMask)
 
 void Chunk::buildLight()
 {
-	if (
-		isLightBuilt() ||
-		!areBlocksBuilt() ||
-		!chunkFlags.read(Flag::IsLoadedInWorld)
-		)
+	if (!chunkFlags.read(Flag::IsLoadedInWorld))
 	{
 		return;
 	}
@@ -1270,15 +1266,10 @@ void Chunk::buildLight()
 	}
 
 	// Propagate block light
-	if (!chunkFlags.read(Flag::IsLoadedInWorld)) return;
 	propagateBlockLight(neighborDirtyMask);
 
 	// Propagate sky light
-	if (!chunkFlags.read(Flag::IsLoadedInWorld)) return;
 	propagateSkyLight(neighborDirtyMask);
-
-	// Check if chunk is loaded
-	if (!chunkFlags.read(Flag::IsLoadedInWorld)) return;
 
 	// Set state
 	setState(State::LightsBuilt);

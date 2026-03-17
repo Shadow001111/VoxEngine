@@ -131,7 +131,7 @@ void WorldChunkManager::update()
 		{
 			updateChunkLights();
 			iterations++;
-			if (iterations >= 10)
+			if (iterations >= 4)
 			{
 				break;
 			}
@@ -278,7 +278,7 @@ void WorldChunkManager::startBuildingChunkLights()
 		for (Chunk* chunk : buildContainers.lights)
 		{
 			// Should always pass the test, but sometimes it doesn't
-			if (!chunk->areBlocksBuilt())
+			if (!chunk->areBlocksBuilt() || chunk->isLightBuilt())
 			{
 				continue;
 			}
