@@ -88,10 +88,10 @@ public:
 	{
 		NotInitialized_NeedsBlocks = 0,
 		BuildingBlocks,
-		BlocksBuilt,
 
-		NeedsLight,
+		BlocksBuit_NeedsLight,
 		BuildingLight,
+
 		LightsBuilt
 	};
 
@@ -300,7 +300,7 @@ public:
 
 	bool getIsLoadedInWorld() const noexcept { return chunkFlags.read(Flag::IsLoadedInWorld); };
 
-	bool areBlocksBuilt() const noexcept { return getState() >= State::BlocksBuilt; };
+	bool areBlocksBuilt() const noexcept { return getState() >= State::BlocksBuit_NeedsLight; };
 	bool isLightBuilt() const noexcept { return getState() >= State::LightsBuilt; };
 
 	// Getters and setters for loaderCount

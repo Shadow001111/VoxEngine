@@ -137,10 +137,7 @@ void Chunk::globalInit()
 
 void Chunk::buildBlocks()
 {
-	if (
-		areBlocksBuilt() ||
-		!chunkFlags.read(Flag::IsLoadedInWorld)
-	)
+	if (!chunkFlags.read(Flag::IsLoadedInWorld))
 	{
 		return;
 	}
@@ -288,7 +285,7 @@ void Chunk::buildBlocks()
 	}
 
 	//
-	setState(State::BlocksBuilt);
+	setState(Chunk::State::BlocksBuit_NeedsLight);
 
 	// Mark itself and neighbors meshes as dirty
 	applyNeighborDirtyMask(-1);
@@ -1309,19 +1306,15 @@ void Chunk::updateLight()
 	propagateBlockLightRemoval(neighborDirtyMask);
 
 	// Propagate block light
-	if (!chunkFlags.read(Flag::IsLoadedInWorld)) return;
 	propagateBlockLight(neighborDirtyMask);
 
 	// Remove sky light
-	if (!chunkFlags.read(Flag::IsLoadedInWorld)) return;
 	propagateSkyLightRemoval(neighborDirtyMask);
 
 	// Propagate sky light
-	if (!chunkFlags.read(Flag::IsLoadedInWorld)) return;
 	propagateSkyLight(neighborDirtyMask);
 
 	// Apply dirty mask
-	if (!chunkFlags.read(Flag::IsLoadedInWorld)) return;
 	applyNeighborDirtyMask(neighborDirtyMask);
 }
 

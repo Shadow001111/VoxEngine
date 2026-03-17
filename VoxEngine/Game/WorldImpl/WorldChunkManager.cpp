@@ -79,7 +79,12 @@ void WorldChunkManager::update()
 	chunkPool.returnProcessingChunksToPool();
 
 	// Start building chunk blocks
-	if (!buildContainers.blocks.empty())
+	bool buildBlocks = false;
+	{
+		std::lock_guard<std::mutex> lock(buildContainers.blocksMutex);
+		buildBlocks = !buildContainers.blocks.empty();
+	}
+	if (buildBlocks)
 	{
 		startBuildingChunkBlocks();
 	}
@@ -106,7 +111,12 @@ void WorldChunkManager::update()
 	}
 
 	// Start building chunk lights
-	if (!buildContainers.lights.empty())
+	bool buildLights = false;
+	{
+		std::lock_guard<std::mutex> lock(buildContainers.lightsMutex);
+		buildLights = !buildContainers.lights.empty();
+	}
+	if (buildLights)
 	{
 		startBuildingChunkLights();
 	}
@@ -209,21 +219,13 @@ void WorldChunkManager::startBuildingChunkBlocks()
 		PROFILE_SCOPE("Collect chunks for block building", ProfileCategory::ChunkBlocks);
 
 		std::lock_guard<std::mutex> lock(buildContainers.blocksMutex);
-		if (buildContainers.blocks.empty())
-		{
-			return;
-		}
-
 		chunksToProcess.reserve(buildContainers.blocks.size());
 		for (Chunk* chunk : buildContainers.blocks)
 		{
-			if (chunk->getState() != Chunk::State::NotInitialized_NeedsBlocks)
+			if (chunk->getState() == Chunk::State::NotInitialized_NeedsBlocks)
 			{
-				continue;
+				chunksToProcess.push_back(chunk);
 			}
-			
-			chunk->setState(Chunk::State::BuildingBlocks);
-			chunksToProcess.push_back(chunk);
 		}
 		buildContainers.blocks.clear();
 	}
@@ -245,18 +247,13 @@ void WorldChunkManager::startBuildingChunkBlocks()
 				{
 					for (Chunk* chunk : batch_)
 					{
+						chunk->setState(Chunk::State::BuildingBlocks);
 						chunk->buildBlocks();
-						if (!chunk->getIsLoadedInWorld())
-						{
-							continue;
-						}
+					}
 
-						chunk->setState(Chunk::State::NeedsLight);
-
-						{
-							std::lock_guard<std::mutex> lock(buildContainers.lightsMutex);
-							buildContainers.lights.insert(chunk);
-						}
+					{
+						std::lock_guard<std::mutex> lock(buildContainers.lightsMutex);
+						buildContainers.lights.insert(batch_.begin(), batch_.end());
 					}
 				});
 		}
@@ -272,11 +269,6 @@ void WorldChunkManager::startBuildingChunkLights()
 		PROFILE_SCOPE("Collect chunks for light building", ProfileCategory::ChunkLight);
 
 		std::lock_guard<std::mutex> lock(buildContainers.lightsMutex);
-		if (buildContainers.lights.empty())
-		{
-			return;
-		}
-
 		const size_t chunkCount = buildContainers.lights.size();
 
 		robin_hood::unordered_flat_set<Chunk*> remainingChunks;
@@ -286,7 +278,7 @@ void WorldChunkManager::startBuildingChunkLights()
 		for (Chunk* chunk : buildContainers.lights)
 		{
 			// Should always pass the test, but sometimes it doesn't
-			if (chunk->getState() != Chunk::State::NeedsLight)
+			if (!chunk->areBlocksBuilt())
 			{
 				continue;
 			}
@@ -306,7 +298,6 @@ void WorldChunkManager::startBuildingChunkLights()
 
 			if (allNeighborsReady)
 			{
-				chunk->setState(Chunk::State::BuildingLight);
 				chunksToProcess.push_back(chunk);
 			}
 			else
@@ -336,6 +327,7 @@ void WorldChunkManager::startBuildingChunkLights()
 				{
 					for (Chunk* chunk : batch_)
 					{
+						chunk->setState(Chunk::State::BuildingLight);
 						chunk->buildLight();
 					}
 				});
