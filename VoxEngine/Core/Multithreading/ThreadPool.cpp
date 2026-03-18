@@ -2,8 +2,6 @@
 
 #include "FileLogger.h"
 
-#include <iostream>
-
 ThreadPool::ThreadPool(unsigned int numThreads)
 {
     if (numThreads == 0)
