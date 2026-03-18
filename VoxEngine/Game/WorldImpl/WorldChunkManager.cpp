@@ -338,15 +338,15 @@ void WorldChunkManager::startBuildingChunkLights()
 
 void WorldChunkManager::collectChunksForLightUpdate()
 {
+	buildContainers.lightUpdateA.clear();
+	buildContainers.lightUpdateB.clear();
+
 	if (!ChunkRegion::readAndSetGlobalFlag(ChunkRegion::Flag::HasLightToUpdate, false))
 	{
 		return;
 	}
 
 	PROFILE_SCOPE("Collect chunks for light update", ProfileCategory::ChunkLight);
-	
-	buildContainers.lightUpdateA.clear();
-	buildContainers.lightUpdateB.clear();
 
 	for (const auto& [_, chunkRegion] : Chunk::chunkRegionManagerInstance.getRegionMap())
 	{

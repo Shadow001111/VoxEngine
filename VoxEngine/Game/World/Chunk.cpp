@@ -1143,6 +1143,7 @@ void Chunk::buildLight()
 
 	// Collect light from neighbors
 	// TODO: If neighbor block is solid, then check if it's a light source and propagate from it
+
 	{
 		auto processNeighborFace = [&](int x, int y, int z, int nx, int ny, int nz, const Chunk* neighbor, bool propagatingFromTop)
 			{
@@ -1296,6 +1297,8 @@ void Chunk::updateLight()
 	{
 		return;
 	}
+
+	ASSERT(lightPropagation.hasNodes());
 
 	PROFILE_SCOPE("Update chunk light", ProfileCategory::ChunkLight);
 
@@ -1599,22 +1602,17 @@ void Chunk::collectNonAlignedTranslucentRenderData(BufferStreamWriter<DrawArrays
 
 Chunk* Chunk::traverseToSideNeighbor(int x, int y, int z, int side, size_t& outIndex) const
 {
-	// Version 1: 0.327s and 0.149s
-	const int check = (x | y | z) & CHUNK_UPPER_BITS_MASK;
-	if (check == 0)
+	if (((x | y | z) & CHUNK_UPPER_BITS_MASK) == 0)
 	{
 		outIndex = getIndex(x, y, z);
 		return const_cast<Chunk*>(this);
 	}
 	
 	Chunk* neighbor = neighbors[getSideNeighborIndex(side)];
-	if (neighbor)
-	{
-		outIndex = getIndex(x & CHUNK_LOWER_BITS_MASK, y & CHUNK_LOWER_BITS_MASK, z & CHUNK_LOWER_BITS_MASK);
-		return neighbor;
-	}
-	
-	return nullptr;
+	if (!neighbor) return nullptr;
+
+	outIndex = getIndex(x & CHUNK_LOWER_BITS_MASK, y & CHUNK_LOWER_BITS_MASK, z & CHUNK_LOWER_BITS_MASK);
+	return neighbor;
 }
 
 Chunk* Chunk::traverseThroughNeighbors(int x, int y, int z, size_t& outIndex) const
@@ -1625,9 +1623,9 @@ Chunk* Chunk::traverseThroughNeighbors(int x, int y, int z, size_t& outIndex) co
 		return const_cast<Chunk*>(this);
 	}
 
-	const int dirX = (x < 0) ? -1 : (x >= CHUNK_SIZE) ? 1 : 0;
-	const int dirY = (y < 0) ? -1 : (y >= CHUNK_SIZE) ? 1 : 0;
-	const int dirZ = (z < 0) ? -1 : (z >= CHUNK_SIZE) ? 1 : 0;
+	const int dirX = (x >= CHUNK_SIZE) - (x < 0);
+	const int dirY = (y >= CHUNK_SIZE) - (y < 0);
+	const int dirZ = (z >= CHUNK_SIZE) - (z < 0);
 
 	Chunk* neighbor = neighbors[getNeighborIndex(dirX, dirY, dirZ)];
 	if (!neighbor) return nullptr;
