@@ -2,11 +2,20 @@
 
 #include "FileLogger.h"
 
-ThreadPool::ThreadPool(size_t numThreads)
+#include <iostream>
+
+ThreadPool::ThreadPool(unsigned int numThreads)
 {
     if (numThreads == 0)
     {
-        numThreads = std::max(1u, std::thread::hardware_concurrency());
+        const unsigned int minThreads = 1;
+        const unsigned int maxThreads = 999;
+
+        numThreads = std::thread::hardware_concurrency();
+        if (numThreads > 1)
+        {
+            numThreads = std::clamp(numThreads - 1, minThreads, maxThreads);
+        }
     }
 
     workers.reserve(numThreads);

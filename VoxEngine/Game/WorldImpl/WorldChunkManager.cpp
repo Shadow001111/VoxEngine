@@ -94,8 +94,6 @@ void WorldChunkManager::update()
 	{
 		Chunk::gHasStructureBlockChanges.store(false, std::memory_order_release);
 
-		PROFILE_SCOPE("Update chunk blocks", ProfileCategory::ChunkBlocks);
-
 		for (const auto& [_, chunkRegion] : Chunk::chunkRegionManagerInstance.getRegionMap())
 		{
 			for (Chunk* chunk : chunkRegion->chunks)
@@ -122,20 +120,18 @@ void WorldChunkManager::update()
 	}
 
 	// Update chunks lights
-	// Sometimes loops forever. Because of sky light propagation.
-	// If not limited, it goes forever. But when limited to 20 iterations, next frame iteration count is low and less than 20. STRANGE.
 	{
-		size_t iterations = 0;
-		collectChunksForLightUpdate();
-		while (!buildContainers.lightUpdateA.empty() || !buildContainers.lightUpdateB.empty())
+		// Making many iterations, so multiple passes won't trigger more mesh updating more than necessary
+		for (int i = 0; i < 40; i++)
 		{
-			updateChunkLights();
-			iterations++;
-			if (iterations >= 4)
+			collectChunksForLightUpdate();
+
+			if (buildContainers.lightUpdateA.empty() && buildContainers.lightUpdateB.empty())
 			{
 				break;
 			}
-			collectChunksForLightUpdate();
+
+			updateChunkLights();
 		}
 	}
 
@@ -373,7 +369,8 @@ void WorldChunkManager::collectChunksForLightUpdate()
 void WorldChunkManager::updateChunkLights()
 {
 	// Using parallelForEach because it will assure that all tasks are done before returning
-	// Update chunks in two separate passes in checkboard pattern to avoid racing conditions (at least between this updateLight group, not including buildLight)
+	// Update chunks in two separate passes in checkboard pattern to make less iterations
+	// Could make this non-blocking, but I don't want to get more work because of it (idk what's better)
 	if (!buildContainers.lightUpdateA.empty())
 	{
 		ParallelUtils::parallelForEach(buildContainers.lightUpdateA, 1, [](Chunk* chunk)

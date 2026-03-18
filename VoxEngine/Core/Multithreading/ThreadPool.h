@@ -24,7 +24,7 @@ class ThreadPool
     // Statistics
     std::atomic<size_t> taskTotalCount{ 0 };
 public:
-	ThreadPool(size_t numThreads = 0);
+	ThreadPool(unsigned int numThreads = 0);
 	~ThreadPool();
 
     ThreadPool(const ThreadPool&) = delete;

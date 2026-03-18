@@ -292,6 +292,8 @@ void Chunk::buildBlocks()
 
 void Chunk::updateStructureBlocks()
 {
+	PROFILE_SCOPE("Update chunk structure blocks", ProfileCategory::ChunkBlocks);
+
 	FenceGuard scopedFence(processingFence);
 
 	auto pendingChanges = structureBlockChangeManager.retrieveAndClearChanges(position);
