@@ -106,7 +106,8 @@ private:
 		IsLoadedInWorld = 0,
 		IsLoadedChunkColumnData,
 		ShouldUpdateMesh,
-		//ShouldUpdateLight
+		//ShouldUpdateLight,
+		CanBeRendered
 	};
 
 	// Chunk coordinates
@@ -128,10 +129,10 @@ private:
 
 	// Light propagation
 	LightPropagationStorage lightPropagation;
-
+public:
 	// Mesh
 	ChunkMesh mesh;
-
+private:
 	static thread_local ChunkInstancedMeshFaceStorage::InstancesStorage localMeshInstances;
 	
 	// Changed blocks
@@ -235,7 +236,8 @@ public:
 	void askForMeshUpload();
 
 	// Render
-	bool canBeRendered() const { return (mesh.faceStorage.alignedCreated || mesh.faceStorage.nonAlignedCreated) && mesh.faceStorage.getRenderFaceCount() > 0; };
+	void updateCanBeRenderedFlag() noexcept;
+	bool canBeRendered() const noexcept { return readFlag(Flag::CanBeRendered); };
 
 	void collectAlignedOpaqueRenderData(BufferStreamWriter<DrawArraysIndirectCommand>& drawCommands, BufferStreamWriter<glm::ivec3>& positions) const;
 	void collectAlignedTranslucentRenderData(BufferStreamWriter<DrawArraysIndirectCommand>& drawCommands, BufferStreamWriter<glm::ivec3>& positions) const;

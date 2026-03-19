@@ -1,10 +1,11 @@
 #include "ChunkMesh.h"
+#include "../../Chunk.h"
 
 #include "Core/Profiler.h"
 
 #include "ChunkInstancedMeshAllocator.h"
 
-DynamicArray<ChunkInstancedMeshFaceStorage*> ChunkMesh::pendingMeshUploads;
+DynamicArray<Chunk*> ChunkMesh::pendingMeshUploads;
 
 void ChunkMesh::sendMeshesToGPU()
 {
@@ -17,9 +18,9 @@ void ChunkMesh::sendMeshesToGPU()
 	PROFILE_SCOPE("Send chunk meshes to GPU", ProfileCategory::ChunkMesh);
 
 	// Mark meshes as being processed
-	for (ChunkInstancedMeshFaceStorage* chunkMesh : pendingMeshUploads)
+	for (Chunk* chunk : pendingMeshUploads)
 	{
-		chunkMesh->processingFence.startProcessing();
+		chunk->mesh.faceStorage.processingFence.startProcessing();
 	}
 
 	// Collect meshes that need memory allocation
@@ -29,8 +30,9 @@ void ChunkMesh::sendMeshesToGPU()
 	DynamicArray<ChunkInstancedMeshFaceStorage*> allocateMemoryNonAlignedMeshRequests;
 	allocateMemoryNonAlignedMeshRequests.reserve(pendingMeshUploads.size() >> 1);
 
-	for (ChunkInstancedMeshFaceStorage* chunkMesh : pendingMeshUploads)
+	for (Chunk* chunk : pendingMeshUploads)
 	{
+		auto* chunkMesh = &chunk->mesh.faceStorage;
 		if (chunkMesh->getAlignedFaceCount() > chunkMesh->getAlignedFaceCapacity())
 		{
 			allocateMemoryAlignedMeshRequests.push_back(chunkMesh);
@@ -53,8 +55,10 @@ void ChunkMesh::sendMeshesToGPU()
 	// But for now, both opaque and transparent parts are dirty, so this bug won't happen
 
 	// Write aligned instances data
-	for (ChunkInstancedMeshFaceStorage* chunkMesh : pendingMeshUploads)
+	for (Chunk* chunk : pendingMeshUploads)
 	{
+		auto* chunkMesh = &chunk->mesh.faceStorage;
+
 		if (!chunkMesh->alignedCreated)
 		{
 			continue;
@@ -83,8 +87,10 @@ void ChunkMesh::sendMeshesToGPU()
 	}
 
 	// Write aligned instances data
-	for (ChunkInstancedMeshFaceStorage* chunkMesh : pendingMeshUploads)
+	for (Chunk* chunk : pendingMeshUploads)
 	{
+		auto* chunkMesh = &chunk->mesh.faceStorage;
+
 		if (!chunkMesh->nonAlignedCreated)
 		{
 			continue;
@@ -113,12 +119,15 @@ void ChunkMesh::sendMeshesToGPU()
 	}
 
 	// 
-	for (ChunkInstancedMeshFaceStorage* chunkMesh : pendingMeshUploads)
+	for (Chunk* chunk : pendingMeshUploads)
 	{
+		auto* chunkMesh = &chunk->mesh.faceStorage;
+
 		chunkMesh->updateRenderFaceCount();
 		chunkMesh->shouldBeUploaded = false;
-		//chunkMesh->clearInstances(); // Can be cleared, but it won't change anything.
 		chunkMesh->processingFence.stopProcessing();
+
+		chunk->updateCanBeRenderedFlag();
 	}
 
 	// Clear pending meshes container

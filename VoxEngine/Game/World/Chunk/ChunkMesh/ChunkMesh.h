@@ -9,7 +9,7 @@ class ChunkMesh
 
 	ChunkInstancedMeshFaceStorage faceStorage;
 
-	static DynamicArray<ChunkInstancedMeshFaceStorage*> pendingMeshUploads;
+	static DynamicArray<Chunk*> pendingMeshUploads;
 public:
 	static void sendMeshesToGPU();
 };

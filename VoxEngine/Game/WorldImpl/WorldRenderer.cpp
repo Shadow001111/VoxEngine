@@ -264,10 +264,16 @@ void WorldRenderer::collectChunksForRendering(const Camera& camera) const
 	const glm::ivec3 cameraChunkPosition = glm::ivec3(glm::floor(cameraPosition / (double)CHUNK_SIZE));
 
 	// Main loop
-	//size_t totalChunkCount = 0;
-	//size_t renderChunkCount = 0;
+	size_t renderRegionCount = 0;
 	for (const auto& [regionPosition, region] : regions)
 	{
+		// Check if have chunks to render
+		if (!region->hasRenderChunks())
+		{
+			continue;
+		}
+		renderRegionCount++;
+
 		// Get region world position
 		glm::dvec3 regionWorldPosition = glm::dvec3(regionPosition) * (double)CHUNK_REGION_SIZE_IN_BLOCKS;
 
@@ -285,10 +291,8 @@ void WorldRenderer::collectChunksForRendering(const Camera& camera) const
 			{
 				continue;
 			}
-			//totalChunkCount++;
 			if (!chunk->canBeRendered())
 			{
-				//renderChunkCount++;
 				continue;
 			}
 
@@ -309,10 +313,6 @@ void WorldRenderer::collectChunksForRendering(const Camera& camera) const
 			chunksToRender.emplace_back(chunk, manhattanDistance);
 		}
 	}
-
-	//float percent = (float)renderChunkCount / (float)totalChunkCount * 100.0f;
-	//std::cout << "Percent: " << percent << "\n";
-	//std::cout << "Chunk count: " << totalChunkCount << "\n";
 }
 
 void WorldRenderer::sortChunksForRendering() const

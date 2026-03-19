@@ -80,6 +80,8 @@ void Chunk::init(const glm::ivec3& position, const std::array<Chunk*, 27>& newNe
 // Cleans up resources
 void Chunk::destroy()
 {
+	chunkFlags.set(Flag::IsLoadedInWorld, false);
+
 	FenceGuard fence(processingFence);
 
 	// Clear neighbors
@@ -104,8 +106,11 @@ void Chunk::destroy()
 	setState(Chunk::State::NotInitialized_NeedsBlocks);
 
 	//
-	chunkFlags.set(Flag::IsLoadedInWorld, false);
 	mesh.faceStorage.clearInstances();
+	if (readFlag(Flag::CanBeRendered))
+	{
+		parentRegion->decrementRenderChunks();
+	}
 
 	// Release chunk column data
 	if (chunkFlags.read(Flag::IsLoadedChunkColumnData))
@@ -1526,8 +1531,9 @@ void Chunk::updateMesh()
 		{
 			mesh.faceStorage.shouldBeUploaded = false;
 
-			// Update render face count if no changes (means no faces at all)
 			mesh.faceStorage.updateRenderFaceCount();
+
+			updateCanBeRenderedFlag();
 		}
 		else
 		{
@@ -1547,16 +1553,33 @@ void Chunk::markMeshDirty()
 
 	// Region flag
 	parentRegion->setFlag(ChunkRegion::Flag::HasMeshToUpdate, true);
-	parentRegion->setGlobalFlag(ChunkRegion::Flag::HasMeshToUpdate, true);
+	ChunkRegion::setGlobalFlag(ChunkRegion::Flag::HasMeshToUpdate, true);
 }
 
 void Chunk::askForMeshUpload()
 {
 	if (mesh.faceStorage.shouldBeUploaded)
 	{
-		mesh.pendingMeshUploads.push_back(&mesh.faceStorage);
+		mesh.pendingMeshUploads.push_back(this);
 	}
-} 
+}
+
+void Chunk::updateCanBeRenderedFlag() noexcept
+{
+	bool newValue = mesh.faceStorage.getRenderFaceCount() > 0;
+	bool oldValue = readAndSetFlag(Flag::CanBeRendered, newValue);
+
+	if (newValue && !oldValue)
+	// Appeared
+	{
+		parentRegion->incrementRenderChunks();
+	}
+	// Disappeared
+	else if (!newValue && oldValue)
+	{
+		parentRegion->decrementRenderChunks();
+	}
+}
 
 void Chunk::collectAlignedOpaqueRenderData(BufferStreamWriter<DrawArraysIndirectCommand>& drawCommands, BufferStreamWriter<glm::ivec3>& positions) const
 {

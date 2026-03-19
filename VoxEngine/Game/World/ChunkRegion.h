@@ -14,7 +14,8 @@ class ChunkRegion
 	friend class WorldChunkManager;
 
 	std::array<Chunk*, CHUNK_REGION_VOLUME> chunks{};
-	uint32_t chunkCount = 0; // Number of chunks currently in region. Used to determine if region is empty and can be removed.
+	uint8_t chunkCount = 0; // Number of chunks currently in region. Used to determine if region is empty and can be removed.
+	std::atomic<uint8_t> renderChunkCount = 0;
 
 	AtomicFlags<uint8_t> flags;
 
@@ -36,17 +37,21 @@ public:
 
 	void init();
 
-	void setFlag(Flag flag, bool value) { flags.set(static_cast<unsigned>(flag), value); }
-	[[nodiscard]] bool readFlag(Flag flag) const { return flags.read(static_cast<unsigned>(flag)); }
-	[[nodiscard]] bool readAndSetFlag(Flag flag, bool value) { return flags.readAndSet(static_cast<unsigned>(flag), value); }
+	void setFlag(Flag flag, bool value) noexcept { flags.set(static_cast<unsigned>(flag), value); }
+	[[nodiscard]] bool readFlag(Flag flag) const noexcept { return flags.read(static_cast<unsigned>(flag)); }
+	[[nodiscard]] bool readAndSetFlag(Flag flag, bool value) noexcept { return flags.readAndSet(static_cast<unsigned>(flag), value); }
 
-	static void setGlobalFlag(Flag flag, bool value) { globalFlags.set(static_cast<unsigned>(flag), value); }
-	[[nodiscard]] static bool readGlobalFlag(Flag flag) { return globalFlags.read(static_cast<unsigned>(flag)); }
-	[[nodiscard]] static bool readAndSetGlobalFlag(Flag flag, bool value) { return globalFlags.readAndSet(static_cast<unsigned>(flag), value); }
+	static void setGlobalFlag(Flag flag, bool value) noexcept { globalFlags.set(static_cast<unsigned>(flag), value); }
+	[[nodiscard]] static bool readGlobalFlag(Flag flag) noexcept { return globalFlags.read(static_cast<unsigned>(flag)); }
+	[[nodiscard]] static bool readAndSetGlobalFlag(Flag flag, bool value) noexcept { return globalFlags.readAndSet(static_cast<unsigned>(flag), value); }
 
-	[[nodiscard]] const auto& getChunks() const { return chunks; };
-	[[nodiscard]] const size_t getChunkCount() const { return chunkCount; };
+	[[nodiscard]] const auto& getChunks() const noexcept { return chunks; };
+	[[nodiscard]] const size_t getChunkCount() const noexcept { return chunkCount; };
 
 	[[nodiscard]] static glm::ivec3 getRegionPosition(const glm::ivec3& chunkPosition);
 	[[nodiscard]] static size_t getChunkIndexInRegion(const glm::ivec3& chunkPosition);
+
+	void incrementRenderChunks() noexcept { renderChunkCount.fetch_add(1, std::memory_order_acq_rel); }
+	void decrementRenderChunks() noexcept { renderChunkCount.fetch_sub(1, std::memory_order_acq_rel); }
+	[[nodiscard]] const bool hasRenderChunks() const noexcept { return renderChunkCount.load(std::memory_order_acquire) > 0; };
 };
