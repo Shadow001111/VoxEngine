@@ -98,7 +98,7 @@ void Camera::setYawPitch(float yaw, float pitch)
 void Camera::setTransform(const Transform& transform)
 {
 	this->transform = transform;
-	this->transform.pitch = glm::clamp(this->transform.pitch, -1.5707f, 1.5707f);
+	this->transform.pitch = glm::clamp(transform.pitch, -1.5707f, 1.5707f);
 	vectorsUpdateRequired = true;
 	frustumUpdateRequired = true;
 }
@@ -132,8 +132,7 @@ void Camera::move(const glm::dvec3& delta)
 void Camera::rotate(float deltaYaw, float deltaPitch)
 {
 	transform.yaw += deltaYaw;
-	transform.pitch += deltaPitch;
-	transform.pitch = glm::clamp(transform.pitch, -1.5707f, 1.5707f);
+	transform.pitch = glm::clamp(transform.pitch + deltaPitch, -1.5707f, 1.5707f);
 	vectorsUpdateRequired = true;
 	frustumUpdateRequired = true;
 }

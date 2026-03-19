@@ -109,7 +109,7 @@ void Chunk::destroy()
 	mesh.faceStorage.clearInstances();
 	if (readFlag(Flag::CanBeRendered))
 	{
-		parentRegion->decrementRenderChunks();
+		parentRegion->decrementRenderChunkCount();
 	}
 
 	// Release chunk column data
@@ -1572,12 +1572,12 @@ void Chunk::updateCanBeRenderedFlag() noexcept
 	if (newValue && !oldValue)
 	// Appeared
 	{
-		parentRegion->incrementRenderChunks();
+		parentRegion->incrementRenderChunkCount();
 	}
 	// Disappeared
 	else if (!newValue && oldValue)
 	{
-		parentRegion->decrementRenderChunks();
+		parentRegion->decrementRenderChunkCount();
 	}
 }
 

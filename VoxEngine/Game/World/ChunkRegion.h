@@ -51,7 +51,8 @@ public:
 	[[nodiscard]] static glm::ivec3 getRegionPosition(const glm::ivec3& chunkPosition);
 	[[nodiscard]] static size_t getChunkIndexInRegion(const glm::ivec3& chunkPosition);
 
-	void incrementRenderChunks() noexcept { renderChunkCount.fetch_add(1, std::memory_order_acq_rel); }
-	void decrementRenderChunks() noexcept { renderChunkCount.fetch_sub(1, std::memory_order_acq_rel); }
+	void incrementRenderChunkCount() noexcept { renderChunkCount.fetch_add(1, std::memory_order_acq_rel); }
+	void decrementRenderChunkCount() noexcept { renderChunkCount.fetch_sub(1, std::memory_order_acq_rel); }
+	[[nodiscard]] size_t getRenderChunkCount() const noexcept { return renderChunkCount.load(std::memory_order_acquire); };
 	[[nodiscard]] const bool hasRenderChunks() const noexcept { return renderChunkCount.load(std::memory_order_acquire) > 0; };
 };
