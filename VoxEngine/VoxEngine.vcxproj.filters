@@ -42,15 +42,6 @@
     <ClCompile Include="Core\Multithreading\ThreadPool.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="Core\Shapes\Box.cpp">
-      <Filter>Исходные файлы</Filter>
-    </ClCompile>
-    <ClCompile Include="Core\Shapes\Plane.cpp">
-      <Filter>Исходные файлы</Filter>
-    </ClCompile>
-    <ClCompile Include="Core\Shapes\Shapes.cpp">
-      <Filter>Исходные файлы</Filter>
-    </ClCompile>
     <ClCompile Include="Core\StringIndexer.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
@@ -163,9 +154,6 @@
       <Filter>Исходные файлы</Filter>
     </ClCompile>
     <ClCompile Include="Core\TimeMeasurer.cpp">
-      <Filter>Исходные файлы</Filter>
-    </ClCompile>
-    <ClCompile Include="Core\Shapes\Frustum.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
     <ClCompile Include="Game\World\ChunkRegion.cpp">

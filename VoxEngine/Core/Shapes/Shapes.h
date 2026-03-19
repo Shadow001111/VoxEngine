@@ -2,5 +2,18 @@
 #include "Box.h"
 #include "Plane.h"
 
-bool isBoxOnOrForwardPlane(const Box& box, const Plane& plane);
-bool isBoxOnOrForwardPlane(const Box& box, const LitePlane& plane);
+template<typename T>
+bool isBoxOnOrForwardPlane(const Box<T>& box, const Plane<T>& plane)
+{
+	T distance = plane.distanceToPoint(box.center);
+	T effectiveRadius = glm::dot(box.halfExtents, glm::abs(plane.normal));
+	return distance >= -effectiveRadius;
+}
+
+template<typename T>
+bool isBoxOnOrForwardPlane(const Box<T>& box, const LitePlane<T>& plane)
+{
+	T distance = plane.distanceToPoint(box.center);
+	T effectiveRadius = glm::dot(box.halfExtents, glm::abs(plane.normal));
+	return distance >= -effectiveRadius;
+}

@@ -253,7 +253,7 @@ void WorldRenderer::collectChunksForRendering(const Camera& camera) const
 	chunksToRender.reserve(regions.size() * CHUNK_REGION_VOLUME);
 
 	// Get frustum
-	const LiteFrustum& frustum = camera.getFrustum();
+	const auto& frustum = camera.getFrustum();
 
 	// Prepare boxes
 	Box chunkShape(glm::dvec3(0.0), glm::dvec3(CHUNK_SIZE >> 1));

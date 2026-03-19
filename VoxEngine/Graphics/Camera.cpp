@@ -142,7 +142,7 @@ glm::dvec3 Camera::getRight() const
 	return right;
 }
 
-const LiteFrustum& Camera::getFrustum() const
+const Camera::FrustumType& Camera::getFrustum() const
 {
 	updateFrustum();
 	return frustum;

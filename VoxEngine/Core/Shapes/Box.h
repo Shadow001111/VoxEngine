@@ -1,11 +1,16 @@
 #pragma once
 #include <glm/vec3.hpp>
 
+template<typename T>
 struct Box
 {
-	glm::dvec3 center, halfExtents;
+	using value_type = T;
 
-	Box();
-	Box(const glm::dvec3& center, const glm::dvec3& halfExtents);
+	glm::vec<3, T> center, halfExtents;
+
+	Box() : center(T(0)), halfExtents(T(0)) {}
+
+	Box(const glm::vec<3, T>& center, const glm::vec<3, T>& halfExtents)
+		: center(center), halfExtents(halfExtents) {
+	}
 };
-

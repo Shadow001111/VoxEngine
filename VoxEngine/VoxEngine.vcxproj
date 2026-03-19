@@ -160,7 +160,6 @@
     <ClCompile Include="Game\World\Chunk\ChunkMesh\ChunkMesh.cpp" />
     <ClCompile Include="Game\World\ChunkRegion.cpp" />
     <ClCompile Include="Core\Decoding\UTFDecoder.cpp" />
-    <ClCompile Include="Core\Shapes\Frustum.cpp" />
     <ClCompile Include="Core\TimeMeasurer.cpp" />
     <ClCompile Include="FileLogger.cpp" />
     <ClCompile Include="Game\DataPackManagment\AssetRegistry.cpp" />
@@ -188,9 +187,7 @@
     <ClCompile Include="Core\StringIndexer.cpp" />
     <ClCompile Include="Core\Multithreading\ProcessingFence.cpp" />
     <ClCompile Include="Core\Profiler.cpp" />
-    <ClCompile Include="Core\Shapes\Shapes.cpp" />
     <ClCompile Include="Core\Multithreading\ThreadPool.cpp" />
-    <ClCompile Include="Core\Shapes\Box.cpp" />
     <ClCompile Include="Graphics\Camera.cpp" />
     <ClCompile Include="glad.c" />
     <ClCompile Include="NvidiaGPUUsage\NvidiaGPUUsage.cpp" />
@@ -201,7 +198,6 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Core\UpdateTimer.cpp" />
     <ClCompile Include="Core\Transform.cpp" />
-    <ClCompile Include="Core\Shapes\Plane.cpp" />
     <ClCompile Include="Graphics\TextRenderer.cpp" />
     <ClCompile Include="OpenGLWrappers\FrameBuffer.cpp" />
     <ClCompile Include="OpenGLWrappers\Texture.cpp" />

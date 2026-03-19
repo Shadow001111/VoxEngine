@@ -10,7 +10,8 @@ class Camera
 	mutable glm::dvec3 up = {};
 	mutable glm::dvec3 right = {};
 
-	mutable LiteFrustum frustum;
+	using FrustumType = Frustum<LitePlane<double>>;
+	mutable FrustumType frustum;
 
 	mutable bool vectorsUpdateRequired = true;
 	mutable bool frustumUpdateRequired = true;
@@ -54,6 +55,6 @@ public:
 	glm::dvec3 getForward() const;
 	glm::dvec3 getUp() const;
 	glm::dvec3 getRight() const;
-	const LiteFrustum& getFrustum() const;
+	const FrustumType& getFrustum() const;
 };
 
