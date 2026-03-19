@@ -27,21 +27,8 @@ void Camera::updateFrustum() const
 
 	updateCameraVectors();
 
-	double tanHF = tan((double)FOV * 0.5);
-	double halfVSide = (double)farPlane * tanHF;
-	double halfHSide = halfVSide * (double)aspectRatio;
-
-	glm::dvec3 nearMultFwd = (double)nearPlane * forward;
-	glm::dvec3 farMultFwd = (double)farPlane * forward;
-
-	frustum.near = LitePlane(transform.position + nearMultFwd, forward);
-	frustum.far = LitePlane(transform.position + farMultFwd, -forward);
-
-	frustum.right = LitePlane(transform.position, glm::cross(farMultFwd - right * halfHSide, up));
-	frustum.left = LitePlane(transform.position, glm::cross(up, farMultFwd + right * halfHSide));
-
-	frustum.top = LitePlane(transform.position, glm::cross(right, farMultFwd - up * halfVSide));
-	frustum.bottom = LitePlane(transform.position, glm::cross(farMultFwd + up * halfVSide, right));
+	frustum.update(transform.position, forward, right, up,
+		(double)FOV, (double)aspectRatio, (double)nearPlane, (double)farPlane);
 }
 
 Camera::Camera(const glm::dvec3 position, float yaw, float pitch, float FOV, float aspectRatio, float nearPlane, float farPlane) :
