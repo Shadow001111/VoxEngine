@@ -378,10 +378,10 @@ void Player::setYawPitch(float yaw, float pitch)
 	transform.pitch = glm::clamp(pitch, -1.5707f, 1.5707f);
 }
 
-void Player::setTransform(const Transform& transform)
+void Player::setTransform(const Transform<double>& transform)
 {
 	this->transform = transform;
-	this->transform.pitch = glm::clamp(this->transform.pitch, -1.5707f, 1.5707f);
+	this->transform.pitch = glm::clamp(this->transform.pitch, -1.5707, 1.5707);
 }
 
 void Player::setGameMode(GameMode gameMode)
@@ -406,5 +406,5 @@ void Player::rotate(float deltaYaw, float deltaPitch)
 {
 	transform.yaw += deltaYaw;
 	transform.pitch += deltaPitch;
-	transform.pitch = glm::clamp(transform.pitch, -1.5707f, 1.5707f);
+	transform.pitch = glm::clamp(transform.pitch, -1.5707, 1.5707);
 }

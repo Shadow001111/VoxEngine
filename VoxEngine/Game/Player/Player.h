@@ -62,7 +62,7 @@ public:
 	void setYaw(float yaw);
 	void setPitch(float pitch);
 	void setYawPitch(float yaw, float pitch);
-	void setTransform(const Transform& transform);
+	void setTransform(const Transform<double>& transform);
 
 	void setGameMode(GameMode gameMode);
 
@@ -72,8 +72,8 @@ public:
 	glm::dvec3 getPosition() const { return transform.position; };
 	float getYaw() const { return transform.yaw; };
 	float getPitch() const { return transform.pitch; };
-	Transform getTransform() const { return transform; };
-	Transform getPreviousTransform() const { return previousTransform; };
+	Transform<double> getTransform() const { return transform; };
+	Transform<double> getPreviousTransform() const { return previousTransform; };
 	Camera& getCamera() { return camera; };
 	const Camera& getCamera() const { return camera; };
 	InputManager& getInputManager() { return input; }

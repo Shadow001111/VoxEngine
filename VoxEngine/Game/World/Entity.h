@@ -23,8 +23,8 @@ private:
 	static Id globalEntityId;
 	Id id = 0;
 protected:
-	Transform transform;
-	Transform previousTransform;
+	Transform<double> transform;
+	Transform<double> previousTransform;
 
 	glm::dvec3 velocity;
 	glm::dvec3 size; // Full extents of the entity's bounding box

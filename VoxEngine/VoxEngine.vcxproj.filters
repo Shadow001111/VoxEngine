@@ -33,9 +33,6 @@
     <ClCompile Include="Core\UpdateTimer.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="Core\Transform.cpp">
-      <Filter>Исходные файлы</Filter>
-    </ClCompile>
     <ClCompile Include="Core\Profiler.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>

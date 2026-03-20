@@ -1,8 +1,6 @@
 #include "Camera.h"
 #include <glm/gtc/matrix_transform.hpp>
 
-glm::dvec3 Camera::worldUp = glm::vec3(0.0, 1.0, 0.0);
-
 void Camera::updateCameraVectors() const
 {
 	if (!vectorsUpdateRequired) return;
@@ -27,11 +25,18 @@ void Camera::updateFrustum() const
 
 	updateCameraVectors();
 
-	frustum.update(transform.position, forward, right, up,
-		(double)FOV, (double)aspectRatio, (double)nearPlane, (double)farPlane);
+	frustum.update(transform.position, forward, right, up, FOV, aspectRatio, nearPlane, farPlane);
 }
 
-Camera::Camera(const glm::dvec3 position, float yaw, float pitch, float FOV, float aspectRatio, float nearPlane, float farPlane) :
+Camera::Camera(
+	const Vec3Type& position,
+	FloatType yaw,
+	FloatType pitch,
+	FloatType FOV,
+	FloatType aspectRatio,
+	FloatType nearPlane,
+	FloatType farPlane
+) :
 	transform(position, yaw, pitch), FOV(FOV), aspectRatio(aspectRatio), nearPlane(nearPlane), farPlane(farPlane)
 {
 }
@@ -60,37 +65,37 @@ void Camera::setPosition(const glm::dvec3& position)
 	frustumUpdateRequired = true;
 }
 
-void Camera::setYaw(float yaw)
+void Camera::setYaw(FloatType yaw)
 {
 	transform.yaw = yaw;
 	vectorsUpdateRequired = true;
 	frustumUpdateRequired = true;
 }
 
-void Camera::setPitch(float pitch)
+void Camera::setPitch(FloatType pitch)
 {
-	transform.pitch = glm::clamp(pitch, -1.5707f, 1.5707f);
+	transform.pitch = glm::clamp(pitch, -HALF_PI, HALF_PI);
 	vectorsUpdateRequired = true;
 	frustumUpdateRequired = true;
 }
 
-void Camera::setYawPitch(float yaw, float pitch)
+void Camera::setYawPitch(FloatType yaw, FloatType pitch)
 {
 	transform.yaw = yaw;
-	transform.pitch = glm::clamp(pitch, -1.5707f, 1.5707f);
+	transform.pitch = glm::clamp(pitch, -HALF_PI, HALF_PI);
 	vectorsUpdateRequired = true;
 	frustumUpdateRequired = true;
 }
 
-void Camera::setTransform(const Transform& transform)
+void Camera::setTransform(const TransformType& transform)
 {
 	this->transform = transform;
-	this->transform.pitch = glm::clamp(transform.pitch, -1.5707f, 1.5707f);
+	this->transform.pitch = glm::clamp(transform.pitch, -HALF_PI, HALF_PI);
 	vectorsUpdateRequired = true;
 	frustumUpdateRequired = true;
 }
 
-void Camera::setFOV(float fov)
+void Camera::setFOV(FloatType fov)
 {
 	if (fov < 1.0f) fov = 1.0f;
 	if (fov > 90.0f) fov = 90.0f;
@@ -98,45 +103,45 @@ void Camera::setFOV(float fov)
 	frustumUpdateRequired = true;
 }
 
-void Camera::setAspectRatio(float aspect)
+void Camera::setAspectRatio(FloatType aspect)
 {
 	aspectRatio = aspect;
 	frustumUpdateRequired = true;
 }
 
-void Camera::setFarPlane(float farPlane)
+void Camera::setFarPlane(FloatType farPlane)
 {
 	this->farPlane = farPlane;
 	frustumUpdateRequired = true;
 }
 
-void Camera::move(const glm::dvec3& delta)
+void Camera::move(const Vec3Type& delta)
 {
 	transform.position += delta;
 	frustumUpdateRequired = true;
 }
 
-void Camera::rotate(float deltaYaw, float deltaPitch)
+void Camera::rotate(FloatType deltaYaw, FloatType deltaPitch)
 {
 	transform.yaw += deltaYaw;
-	transform.pitch = glm::clamp(transform.pitch + deltaPitch, -1.5707f, 1.5707f);
+	transform.pitch = glm::clamp(transform.pitch + deltaPitch, -HALF_PI, HALF_PI);
 	vectorsUpdateRequired = true;
 	frustumUpdateRequired = true;
 }
 
-glm::dvec3 Camera::getForward() const
+Camera::Vec3Type Camera::getForward() const
 {
 	updateCameraVectors();
 	return forward;
 }
 
-glm::dvec3 Camera::getUp() const
+Camera::Vec3Type Camera::getUp() const
 {
 	updateCameraVectors();
 	return up;
 }
 
-glm::dvec3 Camera::getRight() const
+Camera::Vec3Type Camera::getRight() const
 {
 	updateCameraVectors();
 	return right;

@@ -4,57 +4,62 @@
 
 class Camera
 {
-	Transform transform;
+	using FloatType = double;
+	using Vec3Type = glm::vec<3, FloatType>;
+	using TransformType = Transform<FloatType>;
 
-	mutable glm::dvec3 forward = {};
-	mutable glm::dvec3 up = {};
-	mutable glm::dvec3 right = {};
+	constexpr static Vec3Type worldUp = { 0, 1, 0 };
+	constexpr static FloatType HALF_PI = 1.5707;
 
-	using FrustumType = Frustum<LitePlane<double>>;
+	TransformType transform;
+
+	mutable Vec3Type forward = {};
+	mutable Vec3Type up = {};
+	mutable Vec3Type right = {};
+
+	using FrustumType = Frustum<LitePlane<FloatType>>;
 	mutable FrustumType frustum;
 
 	mutable bool vectorsUpdateRequired = true;
 	mutable bool frustumUpdateRequired = true;
 
-	static glm::dvec3 worldUp;
-
-	float FOV; // Radians
-	float aspectRatio;
-	float nearPlane, farPlane;
+	FloatType FOV; // Radians
+	FloatType aspectRatio;
+	FloatType nearPlane, farPlane;
 
 	void updateCameraVectors() const;
 	void updateFrustum() const;
 public:
-	Camera(const glm::dvec3 position, float yaw, float pitch, float FOV, float aspectRatio, float nearPlane, float farPlane);
+	Camera(const Vec3Type& position, FloatType yaw, FloatType pitch, FloatType FOV, FloatType aspectRatio, FloatType nearPlane, FloatType farPlane);
 
 	glm::mat4 getViewMatrix() const;
-	glm::mat4 getViewMatrixModified(const glm::dvec3& posMod) const;
+	glm::mat4 getViewMatrixModified(const Vec3Type& posMod) const;
 	glm::mat4 getProjectionMatrix() const;
 
-	void setPosition(const glm::dvec3& position);
-	void setYaw(float yaw);
-	void setPitch(float pitch);
-	void setYawPitch(float yaw, float pitch);
-	void setTransform(const Transform& transform);
-	void setFOV(float fov);
-	void setAspectRatio(float aspect);
-	void setFarPlane(float farPlane);
+	void setPosition(const Vec3Type& position);
+	void setYaw(FloatType yaw);
+	void setPitch(FloatType pitch);
+	void setYawPitch(FloatType yaw, FloatType pitch);
+	void setTransform(const TransformType& transform);
+	void setFOV(FloatType fov);
+	void setAspectRatio(FloatType aspect);
+	void setFarPlane(FloatType farPlane);
 
-	void move(const glm::dvec3& delta);
-	void rotate(float deltaYaw, float deltaPitch);
+	void move(const Vec3Type& delta);
+	void rotate(FloatType deltaYaw, FloatType deltaPitch);
 
-	glm::dvec3 getPosition() const { return transform.position; };
-	float getYaw() const { return transform.yaw; };
-	float getPitch() const { return transform.pitch; };
-	Transform getTransform() const { return transform; };
-	float getFOV() const { return FOV; };
-	float getAspectRatio() const { return aspectRatio; };
-	float getNear() const { return nearPlane; };
-	float getFar() const { return farPlane; };
+	Vec3Type getPosition() const { return transform.position; };
+	FloatType getYaw() const { return transform.yaw; };
+	FloatType getPitch() const { return transform.pitch; };
+	TransformType getTransform() const { return transform; };
+	FloatType getFOV() const { return FOV; };
+	FloatType getAspectRatio() const { return aspectRatio; };
+	FloatType getNear() const { return nearPlane; };
+	FloatType getFar() const { return farPlane; };
 
-	glm::dvec3 getForward() const;
-	glm::dvec3 getUp() const;
-	glm::dvec3 getRight() const;
+	Vec3Type getForward() const;
+	Vec3Type getUp() const;
+	Vec3Type getRight() const;
 	const FrustumType& getFrustum() const;
 };
 

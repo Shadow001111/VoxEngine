@@ -197,7 +197,6 @@
     <ClCompile Include="Core\Hashes\ivec2Hasher.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Core\UpdateTimer.cpp" />
-    <ClCompile Include="Core\Transform.cpp" />
     <ClCompile Include="Graphics\TextRenderer.cpp" />
     <ClCompile Include="OpenGLWrappers\FrameBuffer.cpp" />
     <ClCompile Include="OpenGLWrappers\Texture.cpp" />
