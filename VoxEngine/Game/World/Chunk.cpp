@@ -391,78 +391,78 @@ void Chunk::generateTree(const glm::ivec3& rootPosition)
 	}
 }
 
-bool Chunk::findFloodFillStartIndex(uint16_t& startIndex, const bool* floodFillMask) const
-{
-	//for (uint16_t i = startIndex; i < CHUNK_VOLUME; i++)
+//bool Chunk::findFloodFillStartIndex(uint16_t& startIndex, const bool* floodFillMask) const
+//{
+//	//for (uint16_t i = startIndex; i < CHUNK_VOLUME; i++)
 	//{
 	//	if (floodFillMask[i])
 	//	{
 	//		// Already visited
 	//		continue;
 	//	}
-
-	//	Block block = blocks[i];
+//
+//	//	Block block = blocks[i];
 	//	const BlockData* blockData = BlockRegistry::getBlockData(block);
 	//	if (!blockData->properties.areFacesTransparent)
 	//	{
 	//		// Block isn't transparent
 	//		continue;
 	//	}
-
-	//	startIndex = i;
+//
+//	//	startIndex = i;
 	//	return true;
 	//}
 	//return false;
-	return false;
-}
-
-void Chunk::computeConnectivity()
-{
-	//PROFILE_SCOPE("Compute chunk connectivity", ProfileCategory::General);
-
-	//constexpr glm::ivec3 dirs[6] =
+//	return false;
+//}
+//
+//void Chunk::computeConnectivity()
+//{
+//	//PROFILE_SCOPE("Compute chunk connectivity", ProfileCategory::General);
+//
+//	//constexpr glm::ivec3 dirs[6] =
 	//{
 	//	{-1, 0, 0}, {1, 0, 0},
 	//	{0, -1, 0}, {0, 1, 0},
 	//	{0, 0, -1}, {0, 0, 1}
 	//};
-
-	//// Reset regions
+//
+//	//// Reset regions
 	//bool visitedCells[CHUNK_VOLUME]; // TODO: Can be a bitset
 	//std::fill(visitedCells, visitedCells + CHUNK_VOLUME, false);
-
-	//SymmetricBitMatrix<6> chunkConnectivity; // 6x6 matrix
+//
+//	//SymmetricBitMatrix<6> chunkConnectivity; // 6x6 matrix
 	//chunkConnectivity.fill(false);
-
-	//uint16_t startIndex = 0;
-
-	//std::vector<glm::ivec3> cellsToVisit;
-
-	////static std::mutex mtx;
+//
+//	//uint16_t startIndex = 0;
+//
+//	//std::vector<glm::ivec3> cellsToVisit;
+//
+//	////static std::mutex mtx;
 	////std::lock_guard<std::mutex> lock(mtx);
-
-	//while (true)
+//
+//	//while (true)
 	//{
 	//	// Find start index
 	//	if (!findFloodFillStartIndex(startIndex, visitedCells))
 	//	{
 	//		break;
 	//	}
-
-	//	glm::ivec3 startPos = getPositionFromIndex(startIndex);
+//
+//	//	glm::ivec3 startPos = getPositionFromIndex(startIndex);
 	//	visitedCells[startIndex] = true; // Mark as visited
 	//	startIndex++; // Increment, so 'findFloodFillStartIndex' will look immediately at next block
-
-	//	bool regionConnectivity[6] = { false, false, false, false, false, false }; // TODO: Can be a bitset
-
-	//	cellsToVisit.push_back(startPos);
+//
+//	//	bool regionConnectivity[6] = { false, false, false, false, false, false }; // TODO: Can be a bitset
+//
+//	//	cellsToVisit.push_back(startPos);
 	//	while (!cellsToVisit.empty())
 	//	{
 	//		// Get cell
 	//		glm::ivec3 cell = cellsToVisit.back();
 	//		cellsToVisit.pop_back();
-
-	//		// Check if cell is on chunk border
+//
+//	//		// Check if cell is on chunk border
 	//		regionConnectivity[0] |= cell.x == 0;
 	//		regionConnectivity[1] |= cell.x == (CHUNK_SIZE - 1);
 	//		regionConnectivity[2] |= cell.y == 0;
@@ -482,26 +482,26 @@ void Chunk::computeConnectivity()
 	//				continue;
 	//			}
 	//			size_t neighborIndex = getIndex(neighborPos.x, neighborPos.y, neighborPos.z);
-
-	//			// Check if neighbor is visited
+//
+//	//			// Check if neighbor is visited
 	//			if (visitedCells[neighborIndex])
 	//			{
 	//				continue;
 	//			}
 	//			visitedCells[neighborIndex] = true;
-
-	//			// Check if neighbor is in opaque block
+//
+//	//			// Check if neighbor is in opaque block
 	//			Block block = blocks[neighborIndex];
 	//			if (!GET_BLOCK_PROPERTIES(block).areFacesTransparent)
 	//			{
 	//				continue;
 	//			}
-
-	//			cellsToVisit.push_back(neighborPos);
+//
+//	//			cellsToVisit.push_back(neighborPos);
 	//		}
 	//	}
-
-	//	// Region is filled
+//
+//	//	// Region is filled
 	//	for (int i = 0; i < 5; i++)
 	//	{
 	//		for (int j = i + 1; j < 6; j++)
@@ -510,9 +510,9 @@ void Chunk::computeConnectivity()
 	//		}
 	//	}
 	//}
-
-	//// Check flood fill mask if it filled all the space
-}
+//
+//	//// Check flood fill mask if it filled all the space
+//}
 
 void Chunk::removeIndexFromMap(BlockId block, uint16_t idx)
 {
