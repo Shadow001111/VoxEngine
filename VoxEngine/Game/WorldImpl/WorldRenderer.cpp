@@ -272,11 +272,11 @@ void WorldRenderer::collectChunksForRendering(const Camera& camera) const
 			continue;
 		}
 
-		// Get region world position
-		glm::dvec3 regionWorldPosition = glm::dvec3(regionPosition) * (double)CHUNK_REGION_SIZE_IN_BLOCKS;
+		// Get region world position and set shape center
+		glm::dvec3 regionWorldPosition = glm::dvec3(regionPosition * CHUNK_REGION_SIZE_IN_BLOCKS);
+		regionShape.center = regionWorldPosition + regionShape.halfExtents;
 
 		// Check if region is visible
-		regionShape.center = regionWorldPosition + regionShape.halfExtents;
 		if (!frustum.checkBox(regionShape))
 		{
 			continue;
@@ -285,11 +285,7 @@ void WorldRenderer::collectChunksForRendering(const Camera& camera) const
 		// Iterate over chunks in region
 		for (const Chunk* chunk : region->getChunks())
 		{
-			if (chunk == nullptr)
-			{
-				continue;
-			}
-			if (!chunk->canBeRendered())
+			if (chunk == nullptr || !chunk->canBeRendered())
 			{
 				continue;
 			}
@@ -297,17 +293,21 @@ void WorldRenderer::collectChunksForRendering(const Camera& camera) const
 			// Get chunk position
 			glm::ivec3 chunkPosition = chunk->getPosition();
 
-			// Check if chunk is visible
-			glm::dvec3 chunkWorldPosition = glm::dvec3(chunkPosition) * (double)CHUNK_SIZE;
+			// Get chunk world position and set shape center
+			glm::dvec3 chunkWorldPosition = glm::dvec3(chunkPosition << CHUNK_SIZE_LOG2);
 			chunkShape.center = chunkWorldPosition + chunkShape.halfExtents;
+
+			// Check if chunk is visible
 			if (!frustum.checkBox(chunkShape))
 			{
 				continue;
 			}
 
-			// Calculate distance from chunk to camera and add to render list
+			// Calculate distance from chunk to camera
 			glm::ivec3 delta = glm::abs(chunkPosition - cameraChunkPosition);
 			unsigned int manhattanDistance = delta.x + delta.y + delta.z;
+
+			// Add to render array
 			chunksToRender.emplace_back(chunk, manhattanDistance);
 		}
 	}
