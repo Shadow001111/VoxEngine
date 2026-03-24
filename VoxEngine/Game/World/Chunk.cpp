@@ -1798,6 +1798,13 @@ void Chunk::setBlockAt(int x, int y, int z, BlockId block, bool saveBlockChanges
 
 	// Mark meshes as dirty
 	markMeshesDirtyAroundBlock(x, y, z);
+	
+	// Allow update light
+	if (lightPropagation.hasNodes())
+	{
+		parentRegion->setFlag(ChunkRegion::Flag::HasLightToUpdate, true);
+		ChunkRegion::setGlobalFlag(ChunkRegion::Flag::HasLightToUpdate, true);
+	}
 }
 
 void Chunk::setLightAt(int x, int y, int z, LightLevel lightValue)
