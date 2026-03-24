@@ -5,7 +5,7 @@
 
 #include "Graphics/TextureLoader.h"
 
-#include "SeamlessPerlinNoise/Perlin.h"
+#include "NoiseLib/Perlin.h"
 
 struct ViewRays
 {
@@ -113,13 +113,28 @@ void WorldRenderer::initTextures(const std::vector<std::string>& blockTextureNam
 
 	// Perlin noise texture
 	{
+		using NoiseGenerator3D = NoiseLib::Base::BaseNoiseGenerator<
+			true,
+			false,
+			NoiseLib::Perlin::scalar2DSeamless,
+			NoiseLib::Perlin::simd2DSeamless,
+			NoiseLib::Perlin::scalar3DSeamless,
+			NoiseLib::Perlin::simd3DSeamless
+		>;
+
 		TextureLoader::TextureLoadParams textureLoadParametrs;
 		textureLoadParametrs.desiredChannels = 1;
 
 		const size_t textureSize = 128;
 
 		std::vector<float> data(textureSize * textureSize * textureSize);
-		SeamlessPerlinNoise::generatePerlinNoise3D(data.data(), textureSize, textureSize, textureSize, 1.0f / 20.0f, 1, 2.0f, true, 0);
+		NoiseGenerator3D::gen3D(
+			data.data(),
+			0,
+			{ textureSize, textureSize, textureSize },
+			1.0f / 20.0f,
+			{0, 0, 0}
+		);
 
 		{
 			PROFILE_SCOPE("Noise texture creation", ProfileCategory::General);

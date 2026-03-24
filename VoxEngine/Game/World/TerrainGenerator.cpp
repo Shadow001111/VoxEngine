@@ -2,20 +2,14 @@
 
 #include "Core/Profiler.h"
 
-#include <intrin.h>
+#include "NoiseLib/Perlin.h"
+#include "NoiseLib/Simplex.h"
 
 //============================================================================
 static float continentalSpline(float x)
 {
 	return x;
 }
-
-static float sumOfGeometricSeries(float firstTerm, float commonRatio, int numberOfTerms)
-{
-	if (commonRatio == 1.0f) return firstTerm * numberOfTerms;
-	return firstTerm * (1.0f - powf(commonRatio, numberOfTerms)) / (1.0f - commonRatio);
-}
-
 
 #define MIN_FUNCTION(a, b) a < b ? a : b
 #define MAX_FUNCTION(a, b) a > b ? a : b
@@ -65,13 +59,29 @@ void TerrainGenerator::ChunkColumnDataPool::release(ChunkColumnData* chunkColumn
 //============================================================================
 //TerrainGenerator
 
-int TerrainGenerator::seed = 0;
+int TerrainGenerator::worldSeed = 0;
 thread_local TerrainGenerator::ThreadLocalData TerrainGenerator::threadLocalData;
-FastNoise::SmartNode<FastNoise::Simplex> TerrainGenerator::simplexNoise;
+
+using NoiseGenerator2D = NoiseLib::Base::BaseNoiseGenerator<
+	false,
+	true,
+	NoiseLib::Perlin::scalar2D,
+	NoiseLib::Perlin::simd2D,
+	NoiseLib::Perlin::scalar3D,
+	NoiseLib::Perlin::simd3D
+>;
+
+using NoiseGenerator3D = NoiseLib::Base::BaseNoiseGenerator<
+	false,
+	true,
+	NoiseLib::Simplex::scalar2D,
+	NoiseLib::Simplex::simd2D,
+	NoiseLib::Simplex::scalar3D,
+	NoiseLib::Simplex::simd3D
+>;
 
 TerrainGenerator::TerrainGenerator()
 {
-	simplexNoise = FastNoise::New<FastNoise::Simplex>();
 }
 
 TerrainGenerator& TerrainGenerator::getInstance()
@@ -191,7 +201,7 @@ void TerrainGenerator::computeCaveMask(bool* outArray, int chunkX, int chunkY, i
 		PROFILE_SCOPE("Cave mask: compute noises", ProfileCategory::TerrainGeneration);
 
 		NoiseParams params;
-		params.frequency = 0.01f;
+		params.frequency = 0.2f;
 		params.layerCount = 3;
 		computeLayeredNoise_3D(caveNoiseArray, chunkX, chunkY, chunkZ, params);
 	}
@@ -199,6 +209,7 @@ void TerrainGenerator::computeCaveMask(bool* outArray, int chunkX, int chunkY, i
 	{
 		PROFILE_SCOPE("Cave mask: combine noises", ProfileCategory::TerrainGeneration);
 
+		// TODO: Redo this with Simd class
 		//for (int i = 0; i < CHUNK_VOLUME; i++)
 		//{
 		//	float value = caveNoiseArray[i];
@@ -278,10 +289,10 @@ float TerrainGenerator::calculateHeight(float continentalNoise, float erosionNoi
 {
 	// Params
 	constexpr float continentalAmplitude = 100.0f;
-	constexpr float erosionAmplitude = 10.0f;
-	constexpr float erosionThreshold = 0.8f;
+	constexpr float erosionAmplitude = 20.0f;
+	constexpr float erosionThreshold = 0.65f;
 	constexpr float weirdnessAmplitude = 20.0f;
-	constexpr float beachThreshold = 10.0f / continentalAmplitude;
+	constexpr float beachThreshold = 0.2f / continentalAmplitude;
 
 	// Precompute for small performance
 	constexpr float invBeachThreshold = 1.0f / beachThreshold;
@@ -297,7 +308,7 @@ float TerrainGenerator::calculateHeight(float continentalNoise, float erosionNoi
 	// Erosion
 	erosionNoise = (erosionNoise + 1.0f) * 0.5f;
 
-	float erosionNormalized = MAX_FUNCTION(erosionNoise - erosionThreshold, 0.0f) * invOneMinusErosionThreshold;
+	float erosionNormalized = std::max(erosionNoise - erosionThreshold, 0.0f) * invOneMinusErosionThreshold;
 	height -= erosionNormalized * erosionAmplitude * oceanToBeach;
 
 	// Weirdness
@@ -313,28 +324,27 @@ void TerrainGenerator::computeInitialHeightMap(int* heightMap, int chunkX, int c
 	PROFILE_SCOPE("Compute height map", ProfileCategory::TerrainGeneration);
 
 	// Computing continental noise array
-	alignas(SIMD_ALIGNMENT) float continentalNoiseArray[CHUNK_AREA];
-	alignas(SIMD_ALIGNMENT) float erosionNoiseArray[CHUNK_AREA];
-	alignas(SIMD_ALIGNMENT) float weirdnessNoiseArray[CHUNK_AREA];
+	alignas(SimdF::bytes) float continentalNoiseArray[CHUNK_AREA];
+	alignas(SimdF::bytes) float erosionNoiseArray[CHUNK_AREA];
+	alignas(SimdF::bytes) float weirdnessNoiseArray[CHUNK_AREA];
 
 	{
 		NoiseParams params;
-		params.frequency = 0.0001f;
+		params.frequency = 0.001f;
 		params.layerCount = 3;
 		computeLayeredNoise_2D(continentalNoiseArray, chunkX, chunkZ, params);
 	}
 	{
 		NoiseParams params;
-		params.frequency = 0.01f;
+		params.frequency = 0.2f;
 		params.layerCount = 1;
 		computeLayeredNoise_2D(erosionNoiseArray, chunkX, chunkZ, params);
 	}
 	{
 		NoiseParams params;
-		params.frequency = 0.005f;
+		params.frequency = 0.1f;
 		params.layerCount = 3;
-		params.amplitudeFactor = 0.25f;
-		params.frequencyFactor = 4.0f;
+		params.lacunarity = 4.0f;
 		computeLayeredNoise_2D(weirdnessNoiseArray, chunkX, chunkZ, params);
 	}
 
@@ -363,69 +373,30 @@ int TerrainGenerator::computeMaxHeight(const int* heightMap)
 
 void TerrainGenerator::computeLayeredNoise_2D(float* outArray, int chunkX, int chunkZ, const NoiseParams& params)
 {
-	// Zero array
-	std::fill(outArray, outArray + CHUNK_AREA, 0.0f);
-
-	// Calculate sum
-	const float maxSum = sumOfGeometricSeries(1.0f, params.amplitudeFactor, params.layerCount);
-
-	// Set initial layer params
-	float layerAmplitude = 1.0f / maxSum;
-	float layerFrequency = params.frequency;
-
-	// Set start chunk coords
-	const int xStart = chunkX * CHUNK_SIZE;
-	const int zStart = chunkZ * CHUNK_SIZE;
-
-	// Generate noise
-	float* tempNoiseArray = threadLocalData.resources->tempNoiseArray.data();
-	for (int i = 0; i < params.layerCount; i++)
-	{
-		// X and Z are swapped because of FastNoise's coordinate system
-		simplexNoise->GenUniformGrid2D(tempNoiseArray, zStart, xStart, CHUNK_SIZE, CHUNK_SIZE, layerFrequency, seed);
-
-		for (int index = 0; index < CHUNK_AREA; index++)
-		{
-			outArray[index] += tempNoiseArray[index] * layerAmplitude;
-		}
-
-		layerAmplitude *= params.amplitudeFactor;
-		layerFrequency *= params.frequencyFactor;
-	}
+	NoiseGenerator2D::genLayered2D
+	(
+		outArray,
+		worldSeed,
+		{ CHUNK_SIZE, CHUNK_SIZE },
+		1.0f / params.frequency,
+		glm::vec2(chunkZ, chunkX) * (float)CHUNK_SIZE,
+		params.layerCount,
+		params.lacunarity
+	);
 }
 
 void TerrainGenerator::computeLayeredNoise_3D(float* outArray, int chunkX, int chunkY, int chunkZ, const NoiseParams& params)
 {
-	// Zero array
-	std::fill(outArray, outArray + CHUNK_VOLUME, 0.0f);
-
-	// Calculate sum
-	const float maxSum = sumOfGeometricSeries(1.0f, params.amplitudeFactor, params.layerCount);
-
-	// Set initial layer params
-	float layerAmplitude = 1.0f / maxSum;
-	float layerFrequency = params.frequency;
-
-	// Set start chunk coords
-	const int xStart = chunkX * CHUNK_SIZE;
-	const int yStart = chunkY * CHUNK_SIZE;
-	const int zStart = chunkZ * CHUNK_SIZE;
-
-	// Generate noise
-	float* tempNoiseArray = threadLocalData.resources->tempNoiseArray.data();
-	for (int i = 0; i < params.layerCount; i++)
-	{
-		// X and Z are swapped because of FastNoise's coordinate system
-		simplexNoise->GenUniformGrid3D(tempNoiseArray, zStart, yStart, xStart, CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE, layerFrequency, seed);
-
-		for (int index = 0; index < CHUNK_VOLUME; index++)
-		{
-			outArray[index] += tempNoiseArray[index] * layerAmplitude;
-		}
-
-		layerAmplitude *= params.amplitudeFactor;
-		layerFrequency *= params.frequencyFactor;
-	}
+	NoiseGenerator3D::genLayered3D
+	(
+		outArray,
+		worldSeed,
+		{ CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE },
+		1.0f / params.frequency,
+		{ chunkZ * CHUNK_SIZE, chunkY * CHUNK_SIZE, chunkX * CHUNK_SIZE },
+		params.layerCount,
+		params.lacunarity
+	);
 }
 
 //============================================================================

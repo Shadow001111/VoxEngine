@@ -27,7 +27,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #ifdef NDEBUG
-constexpr int CHUNK_LOAD_DISTANCE = 8;
+constexpr int CHUNK_LOAD_DISTANCE = 24;
 #else
 constexpr int CHUNK_LOAD_DISTANCE = 3;
 #endif

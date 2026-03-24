@@ -1,21 +1,13 @@
 #pragma once
 #include "Chunk/Metrics.h"
 
-#define FASTNOISE_STATIC_LIB
-#include "FastNoise/FastNoise.h"
-
+#include "Core/Simd.h"
 #include "Core/MemoryAllocation/FixedArenaObjectPool.h"
 #include "Core/Hashes/ivec2Hasher.h"
 
 #include "robin_hood.h"
 #include <mutex>
 #include <array>
-
-#ifdef __AVX2__
-constexpr int SIMD_ALIGNMENT = 32;
-#else
-constexpr int SIMD_ALIGNMENT = 16;
-#endif
 
 class ChunkColumnData
 {
@@ -64,14 +56,14 @@ class TerrainGenerator
 	robin_hood::unordered_flat_map<glm::ivec2, ChunkColumnData*, ivec2Hasher> chunkColumnData;
 	mutable std::mutex dataMutex; // Protects chunkColumnData map
 	
-	static int seed;
+	static int worldSeed;
 
 	struct ThreadLocalData
 	{
 		struct Resources
 		{
-			alignas(SIMD_ALIGNMENT) std::array<float, CHUNK_VOLUME> tempNoiseArray{};
-			alignas(SIMD_ALIGNMENT) std::array<float, CHUNK_VOLUME> caveNoiseArray{};
+			alignas(SimdF::bytes) std::array<float, CHUNK_VOLUME> tempNoiseArray{};
+			alignas(SimdF::bytes) std::array<float, CHUNK_VOLUME> caveNoiseArray{};
 		};
 
 		std::unique_ptr<Resources> resources;
@@ -80,7 +72,6 @@ class TerrainGenerator
 	};
 
 	static thread_local ThreadLocalData threadLocalData;
-	static FastNoise::SmartNode<FastNoise::Simplex> simplexNoise;
 
 	TerrainGenerator();
 	~TerrainGenerator() = default;
@@ -112,8 +103,7 @@ private:
 		float frequency = 1.0f;
 
 		int layerCount = 1;
-		float amplitudeFactor = 0.5f;
-		float frequencyFactor = 2.0f;
+		float lacunarity = 2.0f;
 	};
 
 	static void computeLayeredNoise_2D(float* outArray, int chunkX, int chunkZ, const NoiseParams& params);

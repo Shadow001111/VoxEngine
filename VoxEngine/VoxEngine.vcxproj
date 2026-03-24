@@ -112,7 +112,7 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(SolutionDir)Libraries\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>glfw3.lib;opengl32.lib;freetype.lib;OpenAL32.lib;FastNoiseD.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>glfw3.lib;opengl32.lib;freetype.lib;OpenAL32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <IgnoreAllDefaultLibraries>
       </IgnoreAllDefaultLibraries>
       <IgnoreSpecificDefaultLibraries>MSVCRTD;LIBCMT;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
@@ -142,7 +142,7 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(SolutionDir)Libraries\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>glfw3.lib;opengl32.lib;freetype.lib;OpenAL32.lib;FastNoise.lib;%(AdditionalDependencies);freetype.lib</AdditionalDependencies>
+      <AdditionalDependencies>glfw3.lib;opengl32.lib;freetype.lib;OpenAL32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <IgnoreAllDefaultLibraries>
       </IgnoreAllDefaultLibraries>
       <IgnoreSpecificDefaultLibraries>MSVCRTD;LIBCMT;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
@@ -190,6 +190,9 @@
     <ClCompile Include="Core\Multithreading\ThreadPool.cpp" />
     <ClCompile Include="Graphics\Camera.cpp" />
     <ClCompile Include="glad.c" />
+    <ClCompile Include="NoiseLib\Base.cpp" />
+    <ClCompile Include="NoiseLib\Perlin.cpp" />
+    <ClCompile Include="NoiseLib\Simplex.cpp" />
     <ClCompile Include="NvidiaGPUUsage\NvidiaGPUUsage.cpp" />
     <ClCompile Include="OpenGLWrappers\VertexArray.cpp" />
     <ClCompile Include="OpenGLWrappers\Shader.cpp" />
@@ -204,7 +207,6 @@
     <ClCompile Include="OpenGLWrappers\ImmutableBuffer.cpp" />
     <ClCompile Include="Core\Random.cpp" />
     <ClCompile Include="Game\SoundManager.cpp" />
-    <ClCompile Include="SeamlessPerlinNoise\Perlin.cpp" />
     <ClCompile Include="Core\Stream\StreamReader.cpp" />
     <ClCompile Include="Core\Stream\StreamWriter.cpp" />
     <ClCompile Include="WindowManager.cpp" />
@@ -215,6 +217,8 @@
     <ClInclude Include="Core\Container\Dequeue.h" />
     <ClInclude Include="Core\Container\DynamicArray.h" />
     <ClInclude Include="Core\Container\Queue.h" />
+    <ClInclude Include="Core\MemoryAllocation\AlignedStorage.h" />
+    <ClInclude Include="Core\Simd.h" />
     <ClInclude Include="Game\World\ChunkRegionManager.h" />
     <ClInclude Include="Game\World\Chunk\ChunkIO.h" />
     <ClInclude Include="Game\World\Chunk\ChunkMesh\ChunkMesh.h" />
@@ -273,6 +277,9 @@
     <ClInclude Include="Core\Shapes\Box.h" />
     <ClInclude Include="Graphics\Camera.h" />
     <ClInclude Include="Graphics\quad_vertices.h" />
+    <ClInclude Include="NoiseLib\Base.h" />
+    <ClInclude Include="NoiseLib\Perlin.h" />
+    <ClInclude Include="NoiseLib\Simplex.h" />
     <ClInclude Include="NvidiaGPUUsage\NvidiaGPUUsage.h" />
     <ClInclude Include="OpenGLWrappers\VertexArray.h" />
     <ClInclude Include="OpenGLWrappers\Shader.h" />
@@ -288,7 +295,6 @@
     <ClInclude Include="OpenGLWrappers\ImmutableBuffer.h" />
     <ClInclude Include="Core\Random.h" />
     <ClInclude Include="Game\SoundManager.h" />
-    <ClInclude Include="SeamlessPerlinNoise\Perlin.h" />
     <ClInclude Include="Core\Stream\StreamReader.h" />
     <ClInclude Include="Core\Stream\StreamWriter.h" />
     <ClInclude Include="WindowManager.h" />
