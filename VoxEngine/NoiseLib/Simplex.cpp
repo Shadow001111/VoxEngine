@@ -169,7 +169,7 @@ namespace NoiseLib::Simplex
         const SimdF G2x2 =  SimdF::fill_lanes_with_value(SCALAR_G2 * 2.0f);
         const SimdF oneF =  SimdF::fill_lanes_with_value(1.0f);
         const SimdI oneI =  SimdI::fill_lanes_with_value(1);
-        const SimdF half =  SimdF::fill_lanes_with_value(0.5f);
+        const SimdF thresh =SimdF::fill_lanes_with_value(0.5f);
         const SimdF zero =  SimdF::fill_lanes_with_zero();
 
         // --- Skew input point into the simplex lattice -----------------------
@@ -219,12 +219,14 @@ namespace NoiseLib::Simplex
         // so they contribute exactly 0 to the sum — no branches, no blends on t4.
         auto kernel = [&](SimdI h, SimdF dx, SimdF dy) -> SimdF
         {
-            SimdF t = half - (dx * dx + dy * dy);
+            //SimdF t = half - (dx * dx + dy * dy);
+            SimdF t = SimdF::neg_mul_add(dx, dx, SimdF::neg_mul_add(dy, dy, thresh));
+
             SimdF ok = t > zero;
             t = t & ok;     // zero out inactive lanes
             SimdF t2 = t * t;
             SimdF t4 = t2 * t2;
-            return (t4 * grad2_simd(h, dx, dy)) & ok;
+            return t4 * grad2_simd(h, dx, dy);
         };
 
         SimdF vn = kernel(vh0, d0x, d0y) + kernel(vh1, vd1x, vd1y) + kernel(vh2, vd2x, vd2y);
@@ -325,12 +327,12 @@ namespace NoiseLib::Simplex
         // --- Radial kernel: max(0, 0.6 - |d|^2)^4 * grad ----------------------
         auto kernel = [&](SimdI h, SimdF dx, SimdF dy, SimdF dz) -> SimdF
             {
-                SimdF tc = thresh - (dx * dx + dy * dy + dz * dz);
+                SimdF tc = SimdF::neg_mul_add(dx, dx, SimdF::neg_mul_add(dy, dy, SimdF::neg_mul_add(dz, dz, thresh)));
                 SimdF ok = tc > zero;
                 tc = tc & ok;            // zero inactive lanes before squaring
                 SimdF tc2 = tc * tc;
                 SimdF tc4 = tc2 * tc2;
-                return (tc4 * grad3_simd(h, dx, dy, dz)) & ok;
+                return tc4 * grad3_simd(h, dx, dy, dz);
             };
 
         SimdF vn = kernel(vh0, d0x, d0y, d0z)

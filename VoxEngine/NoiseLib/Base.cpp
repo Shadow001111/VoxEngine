@@ -112,6 +112,7 @@ namespace NoiseLib::Base
         auto idxF = idx.to_float();
         auto periodF = period.to_float();
         auto div = idxF / periodF;
-        return (idxF - periodF * SimdF::floor(div)).to_int32();
+        //return (idxF - periodF * SimdF::floor(div)).to_int32();
+        return SimdF::neg_mul_add(periodF, SimdF::floor(div), idxF).to_int32();
     }
 }

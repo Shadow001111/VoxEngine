@@ -219,6 +219,8 @@ namespace NoiseLib::Perlin
         SimdF mbit1 = (bit1 == one).as_float();  // sign of second component
         SimdF mbit2 = (bit2 == one).as_float();  // axis selector
 
+        // TODO: Try saving results of opposite signs
+
         // The 16 gradients fall into three groups (matching grad3 scalar):
         //   A (bit3==bit2, i.e. indices 0-3 and 12-15): (±1, ±1,  0) -> ±dx ± dy
         //   B (bit3=0, bit2=1, i.e. indices  4-7):      (±1,  0, ±1) -> ±dx ± dz
@@ -243,7 +245,8 @@ namespace NoiseLib::Perlin
         const SimdF ten = SimdF::fill_lanes_with_value(10.0f);
         
         SimdF t3 = t * t * t;
-        return t3 * (t * (t * six - fifteen) + ten);
+        //return t3 * (t * (t * six - fifteen) + ten);
+        return t3 * SimdF::mul_add(t, SimdF::mul_sub(t, six, fifteen), ten);
     }
 
     SimdF simd2D(const SimdF& vpx, const SimdF& vpy, const SimdI& vseed)
@@ -263,7 +266,7 @@ namespace NoiseLib::Perlin
         SimdF fx = fade_simd(pfracx);
         SimdF fy = fade_simd(pfracy);
 
-        // Four corner hashes — z is always 0 for 2D
+        // Four corner hashes
         SimdI pix1 = pix + oneI;
         SimdI piy1 = piy + oneI;
         SimdI vh00 = NoiseLib::Base::hash_int2_simd(pix,  piy ) + vseed;
@@ -278,9 +281,9 @@ namespace NoiseLib::Perlin
         SimdF n11 = grad2_simd(vh11, pfracx - oneF, pfracy - oneF);
 
         // Bilinear interpolation
-        SimdF x0 = n00 + fx * (n10 - n00);
-        SimdF x1 = n01 + fx * (n11 - n01);
-        return x0 + fy * (x1 - x0);
+        SimdF x0 = SimdF::mul_add(fx, n10 - n00, n00);
+        SimdF x1 = SimdF::mul_add(fx, n11 - n01, n01);
+        return SimdF::mul_add(fy, x1 - x0, x0);
     }
 
     SimdF simd3D(const SimdF& vpx, const SimdF& vpy, const SimdF& vpz, const SimdI& vseed)
@@ -333,15 +336,15 @@ namespace NoiseLib::Perlin
         SimdF n111 = grad3_simd(vh111, pfracx - oneF, pfracy - oneF, pfracz - oneF);
 
         // Trilinear interpolation
-        SimdF x00 = n000 + fx * (n100 - n000);
-        SimdF x10 = n010 + fx * (n110 - n010);
-        SimdF x01 = n001 + fx * (n101 - n001);
-        SimdF x11 = n011 + fx * (n111 - n011);
+        SimdF x00 = SimdF::mul_add(fx, n100 - n000, n000);
+        SimdF x10 = SimdF::mul_add(fx, n110 - n010, n010);
+        SimdF x01 = SimdF::mul_add(fx, n101 - n001, n001);
+        SimdF x11 = SimdF::mul_add(fx, n111 - n011, n011);
 
-        SimdF y0 = x00 + fy * (x10 - x00);
-        SimdF y1 = x01 + fy * (x11 - x01);
+        SimdF y0 = SimdF::mul_add(fy, x10 - x00, x00);
+        SimdF y1 = SimdF::mul_add(fy, x11 - x01, x01);
 
-        return y0 + fz * (y1 - y0);
+        return SimdF::mul_add(fz, y1 - y0, y0);
     }
 
     SimdF simd2DSeamless(const SimdF& vpx, const SimdF& vpy, const SimdI& vperiod, const SimdI& vseed)
@@ -361,7 +364,7 @@ namespace NoiseLib::Perlin
         SimdF fx = fade_simd(pfracx);
         SimdF fy = fade_simd(pfracy);
 
-        // Four corner hashes — z is always 0 for 2D
+        // Four corner hashes
         SimdI pix1 = pix + oneI;
         SimdI piy1 = piy + oneI;
         SimdI vh00 = NoiseLib::Base::hash_int2_simd(NoiseLib::Base::wrap_simd(pix, vperiod), NoiseLib::Base::wrap_simd(piy, vperiod)) + vseed;
@@ -376,9 +379,9 @@ namespace NoiseLib::Perlin
         SimdF n11 = grad2_simd(vh11, pfracx - oneF, pfracy - oneF);
 
         // Bilinear interpolation
-        SimdF x0 = n00 + fx * (n10 - n00);
-        SimdF x1 = n01 + fx * (n11 - n01);
-        return x0 + fy * (x1 - x0);
+        SimdF x0 = SimdF::mul_add(fx, n10 - n00, n00);
+        SimdF x1 = SimdF::mul_add(fx, n11 - n01, n01);
+        return SimdF::mul_add(fy, x1 - x0, x0);
     }
 
     SimdF simd3DSeamless(const SimdF& vpx, const SimdF& vpy, const SimdF& vpz, const SimdI& vperiod, const SimdI& vseed)
@@ -431,14 +434,14 @@ namespace NoiseLib::Perlin
         SimdF n111 = grad3_simd(vh111, pfracx - oneF, pfracy - oneF, pfracz - oneF);
 
         // Trilinear interpolation
-        SimdF x00 = n000 + fx * (n100 - n000);
-        SimdF x10 = n010 + fx * (n110 - n010);
-        SimdF x01 = n001 + fx * (n101 - n001);
-        SimdF x11 = n011 + fx * (n111 - n011);
+        SimdF x00 = SimdF::mul_add(fx, n100 - n000, n000);
+        SimdF x10 = SimdF::mul_add(fx, n110 - n010, n010);
+        SimdF x01 = SimdF::mul_add(fx, n101 - n001, n001);
+        SimdF x11 = SimdF::mul_add(fx, n111 - n011, n011);
 
-        SimdF y0 = x00 + fy * (x10 - x00);
-        SimdF y1 = x01 + fy * (x11 - x01);
+        SimdF y0 = SimdF::mul_add(fy, x10 - x00, x00);
+        SimdF y1 = SimdF::mul_add(fy, x11 - x01, x01);
 
-        return y0 + fz * (y1 - y0);
+        return SimdF::mul_add(fz, y1 - y0, y0);
     }
 }
