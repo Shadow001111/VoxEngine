@@ -63,21 +63,23 @@ int TerrainGenerator::worldSeed = 0;
 thread_local TerrainGenerator::ThreadLocalData TerrainGenerator::threadLocalData;
 
 using NoiseGenerator2D = NoiseLib::Base::BaseNoiseGenerator<
-	false,
-	true,
 	NoiseLib::Perlin::scalar2D,
 	NoiseLib::Perlin::simd2D,
 	NoiseLib::Perlin::scalar3D,
-	NoiseLib::Perlin::simd3D
+	NoiseLib::Perlin::simd3D,
+	false,
+	true,
+	false
 >;
 
 using NoiseGenerator3D = NoiseLib::Base::BaseNoiseGenerator<
-	false,
-	true,
 	NoiseLib::Simplex::scalar2D,
 	NoiseLib::Simplex::simd2D,
 	NoiseLib::Simplex::scalar3D,
-	NoiseLib::Simplex::simd3D
+	NoiseLib::Simplex::simd3D,
+	false,
+	true,
+	false
 >;
 
 TerrainGenerator::TerrainGenerator()
@@ -209,64 +211,46 @@ void TerrainGenerator::computeCaveMask(bool* outArray, int chunkX, int chunkY, i
 	{
 		PROFILE_SCOPE("Cave mask: combine noises", ProfileCategory::TerrainGeneration);
 
-		// TODO: Redo this with Simd class
-		//for (int i = 0; i < CHUNK_VOLUME; i++)
-		//{
-		//	float value = caveNoiseArray[i];
-		//	value = ABS_FUNCTION(value);
-		//
-		//	outArray[i] = value < 0.1f;
-		//}
+		// TODO: Try using '0x7FFF7FFF' this mask next, what's the difference?
+		// TODO: Add ability to use SimdF<128>.
+		static_assert((CHUNK_VOLUME % SimdF::lanes) == 0, "Add tail logic!");
 
-#ifdef __AVX2__
-		// AVX/AVX2 implementation
+		const SimdF absMask = SimdI::fill_lanes_with_value(0x7fffffff).as_float();
+		const SimdF threshold = SimdF::fill_lanes_with_value(0.1f);
+		for (int i = 0; i + SimdF::lanes < CHUNK_VOLUME; i += SimdF::lanes)
 		{
-			const __m256 abs_mask = _mm256_castsi256_ps(_mm256_set1_epi32(0x7fffffff)); // sign-strip mask
-			const __m256 threshold = _mm256_set1_ps(0.1f);
+			// Load values
+			SimdF values = SimdF::load(caveNoiseArray + i);
 
-			for (int i = 0; i < CHUNK_VOLUME; i += 8)
+			// Convert values to absolute (positive)
+			values &= absMask;
+
+			// Create a comparison mask
+			SimdI comparisons = (values < threshold).as_int32();
+
+			// Pack bools: 32-bit -> 16-bit -> 8-bit
+#ifdef SIMD_AVX2
 			{
-				__m256 values = _mm256_load_ps(&caveNoiseArray[i]);          // load 8 floats
-				__m256 absoluteValues = _mm256_and_ps(values, abs_mask);      // abs(x)
-				__m256 cmpResult = _mm256_cmp_ps(absoluteValues, threshold, _CMP_LT_OQ);  // abs(x) < 0.1f
-				__m256i comparisons = _mm256_castps_si256(cmpResult);
+				__m128i lo = _mm256_extracti128_si256(comparisons.reg, 0);
+				__m128i hi = _mm256_extracti128_si256(comparisons.reg, 1);
 
-				// Pack bools: 32-bit -> 16-bit -> 8-bit
-				// AVX2 packs operate within 128-bit lanes, so we need to account for that
-				__m128i lo = _mm256_extracti128_si256(comparisons, 0);
-				__m128i hi = _mm256_extracti128_si256(comparisons, 1);
-
-				lo = _mm_packs_epi32(lo, hi);    // 8x 32-bit -> 8x 16-bit (SSE2, fits in 128-bit)
-				lo = _mm_packs_epi16(lo, lo);    // 8x 16-bit -> 8x  8-bit (result in lower 64 bits)
+				lo = _mm_packs_epi32(lo, hi);    // 8x 32-bit -> 8x 16-bit
+				lo = _mm_packs_epi16(lo, lo);    // 8x 16-bit -> 8x  8-bit
 
 				// Store 8 bools at once
 				*((int64_t*)(outArray + i)) = _mm_cvtsi128_si64(lo);
 			}
-		}
-		// I don't wanna do AVX
-#else
-		// SSE implementation
-		{
-			const __m128 abs_mask = _mm_castsi128_ps(_mm_set1_epi32(0x7fffffff)); // sign-strip mask
-			const __m128 threshold = _mm_set1_ps(0.1f);
-			//const __m128i true_mask = _mm_set1_epi8(1);
-
-			for (int i = 0; i < CHUNK_VOLUME; i += 4)
+#elifdef SIMD_SSE
 			{
-				__m128 values = _mm_load_ps(&caveNoiseArray[i]);         // load 4 floats
-				__m128 absoluteValues = _mm_and_ps(values, abs_mask);     // abs(x)
-				__m128i comparisons = _mm_castps_si128(_mm_cmplt_ps(absoluteValues, threshold));     // abs(x) < 0.1f
-
-				// Pack bools
-				comparisons = _mm_packs_epi32(comparisons, comparisons);
-				comparisons = _mm_packs_epi16(comparisons, comparisons);
+				comparisons.reg = _mm_packs_epi32(comparisons.reg, comparisons.reg);
+				comparisons.reg = _mm_packs_epi16(comparisons.reg, comparisons.reg);
 				//comparisons = _mm_and_si128(comparisons, true_mask); // Convert to 0 or 1, but it's not necessary for storing in bool array
 
 				// Store 4 bools at once
-				*((int32_t*)(outArray + i)) = _mm_cvtsi128_si32(comparisons);
+				*((int32_t*)(outArray + i)) = _mm_cvtsi128_si32(comparisons.reg);
 			}
-		}
 #endif
+		}
 	}
 }
 
@@ -285,6 +269,7 @@ void TerrainGenerator::initChunkColumnData(ChunkColumnData* column, int chunkX, 
 	column->setToInitialized();
 }
 
+// TODO: Make it use SIMD
 float TerrainGenerator::calculateHeight(float continentalNoise, float erosionNoise, float weirdnessNoise)
 {
 	// Params

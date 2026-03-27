@@ -1,13 +1,15 @@
 #pragma once
 #include <cstdint>
 #include <type_traits>
-#include <immintrin.h>
+#include <immintrin.h> // TODO: include only version of instructions that are needed
 
 // Compile-time register width
 #if defined(__AVX2__)
 inline constexpr std::size_t kSimdBits = 256;
+#define SIMD_AVX2
 #else // SSE by default
 inline constexpr std::size_t kSimdBits = 128;
+#define SIMD_SSE
 #endif
 
 inline constexpr std::size_t kSimdBytes = kSimdBits / 8;

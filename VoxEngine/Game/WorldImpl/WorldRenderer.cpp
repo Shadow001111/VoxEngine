@@ -114,12 +114,13 @@ void WorldRenderer::initTextures(const std::vector<std::string>& blockTextureNam
 	// Perlin noise texture
 	{
 		using NoiseGenerator3D = NoiseLib::Base::BaseNoiseGenerator<
-			true,
-			false,
 			NoiseLib::Perlin::scalar2DSeamless,
 			NoiseLib::Perlin::simd2DSeamless,
 			NoiseLib::Perlin::scalar3DSeamless,
-			NoiseLib::Perlin::simd3DSeamless
+			NoiseLib::Perlin::simd3DSeamless,
+			true,
+			false,
+			true
 		>;
 
 		TextureLoader::TextureLoadParams textureLoadParametrs;

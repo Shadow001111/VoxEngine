@@ -2,7 +2,6 @@
 
 #include "Core/UpdateTimer.h"
 #include "Core/Profiler.h"
-#include "Core/Multithreading/ThreadPool.h"
 
 #include "Game/World.h"
 #include "Game/Player/Player.h"
@@ -27,7 +26,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #ifdef NDEBUG
-constexpr int CHUNK_LOAD_DISTANCE = 8;
+constexpr int CHUNK_LOAD_DISTANCE = 24;
 #else
 constexpr int CHUNK_LOAD_DISTANCE = 3;
 #endif

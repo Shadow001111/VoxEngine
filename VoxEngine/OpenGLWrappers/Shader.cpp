@@ -13,12 +13,11 @@ Shader::~Shader()
     }
 }
 
-Shader::Shader(Shader&& other) noexcept
-    : id(other.id),
+Shader::Shader(Shader&& other) noexcept :
+    id(other.id),
     uniformLocationCache(std::move(other.uniformLocationCache))
 {
     other.id = 0;
-    other.uniformLocationCache.clear();
 }
 
 Shader& Shader::operator=(Shader&& other) noexcept
@@ -34,7 +33,6 @@ Shader& Shader::operator=(Shader&& other) noexcept
         uniformLocationCache = std::move(other.uniformLocationCache);
 
         other.id = 0;
-        other.uniformLocationCache.clear();
     }
     return *this;
 }

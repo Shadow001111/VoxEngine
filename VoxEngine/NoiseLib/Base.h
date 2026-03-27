@@ -24,12 +24,13 @@ namespace NoiseLib::Base
     //  'step' must satisfy (1.0f / step) being a whole number (e.g. 0.5, 0.25, 0.125).
     //  The period is derived as (float)(1.0f / step) and passed directly to wrap().
     template<
-        bool IsSeamless,
-        bool IsDataAligned,
         auto Scalar2DFunc,
         auto Simd2DFunc,
         auto Scalar3DFunc,
-        auto Simd3DFunc
+        auto Simd3DFunc,
+        bool IsSeamless = false,
+        bool IsDataAligned = false,
+        bool HasTail = true
     >
     class BaseNoiseGenerator
     {
@@ -103,22 +104,25 @@ namespace NoiseLib::Base
                     xSamplePoints += xStep;
                 }
 
-                // Scalar tail (handles resolution.x not divisible by LANE_COUNT)
-                for (; x < resolution.x; x++)
+                if constexpr (HasTail)
                 {
-                    glm::vec2 p = (glm::vec2(x, y) + initialOffset) * baseScale;
-
-                    float value;
-                    if constexpr (IsSeamless)
+                    // Scalar tail (handles resolution.x not divisible by LANE_COUNT)
+                    for (; x < resolution.x; x++)
                     {
-                        value = Scalar2DFunc(p, period, seed);
-                    }
-                    else
-                    {
-                        value = Scalar2DFunc(p, seed);
-                    }
+                        glm::vec2 p = (glm::vec2(x, y) + initialOffset) * baseScale;
 
-                    outRow[x] = value;
+                        float value;
+                        if constexpr (IsSeamless)
+                        {
+                            value = Scalar2DFunc(p, period, seed);
+                        }
+                        else
+                        {
+                            value = Scalar2DFunc(p, seed);
+                        }
+
+                        outRow[x] = value;
+                    }
                 }
             }
         }
@@ -225,22 +229,25 @@ namespace NoiseLib::Base
                         xSamplePoints += xStep;
                     }
 
-                    // Scalar tail (handles resolution.x not divisible by LANE_COUNT)
-                    for (; x < resolution.x; x++)
+                    if constexpr (HasTail)
                     {
-                        glm::vec2 p = (glm::vec2(x, y) + initialOffset) * scale;
-
-                        float value;
-                        if constexpr (IsSeamless)
+                        // Scalar tail (handles resolution.x not divisible by LANE_COUNT)
+                        for (; x < resolution.x; x++)
                         {
-                            value = Scalar2DFunc(p, period, octaveSeed);
-                        }
-                        else
-                        {
-                            value = Scalar2DFunc(p, octaveSeed);
-                        }
+                            glm::vec2 p = (glm::vec2(x, y) + initialOffset) * scale;
 
-                        outRow[x] += value * invAttenuation;
+                            float value;
+                            if constexpr (IsSeamless)
+                            {
+                                value = Scalar2DFunc(p, period, octaveSeed);
+                            }
+                            else
+                            {
+                                value = Scalar2DFunc(p, octaveSeed);
+                            }
+
+                            outRow[x] += value * invAttenuation;
+                        }
                     }
                 }
 
@@ -269,9 +276,12 @@ namespace NoiseLib::Base
                 }
             }
 
-            for (; i < resolutionArea; i++)
+            if constexpr (HasTail)
             {
-                out[i] *= invMaxValue;
+                for (; i < resolutionArea; i++)
+                {
+                    out[i] *= invMaxValue;
+                }
             }
         }
 
@@ -347,22 +357,25 @@ namespace NoiseLib::Base
                         xSamplePoints += xStep;
                     }
 
-                    // Scalar tail
-                    for (; x < resolution.x; x++)
+                    if constexpr (HasTail)
                     {
-                        glm::vec3 p = (glm::vec3(x, y, z) + initialOffset) * baseScale;
-
-                        float value;
-                        if constexpr (IsSeamless)
+                        // Scalar tail
+                        for (; x < resolution.x; x++)
                         {
-                            value = Scalar3DFunc(p, period, seed);
-                        }
-                        else
-                        {
-                            value = Scalar3DFunc(p, seed);
-                        }
+                            glm::vec3 p = (glm::vec3(x, y, z) + initialOffset) * baseScale;
 
-                        outRow[x] = value;
+                            float value;
+                            if constexpr (IsSeamless)
+                            {
+                                value = Scalar3DFunc(p, period, seed);
+                            }
+                            else
+                            {
+                                value = Scalar3DFunc(p, seed);
+                            }
+
+                            outRow[x] = value;
+                        }
                     }
                 }
             }
@@ -473,22 +486,25 @@ namespace NoiseLib::Base
                             xSamplePoints += xStep;
                         }
 
-                        // Scalar tail
-                        for (; x < resolution.x; x++)
+                        if constexpr (HasTail)
                         {
-                            glm::vec3 p = (glm::vec3(x, y, z) + initialOffset) * scale;
-
-                            float value;
-                            if constexpr (IsSeamless)
+                            // Scalar tail
+                            for (; x < resolution.x; x++)
                             {
-                                value = Scalar3DFunc(p, period, octaveSeed);
-                            }
-                            else
-                            {
-                                value = Scalar3DFunc(p, octaveSeed);
-                            }
+                                glm::vec3 p = (glm::vec3(x, y, z) + initialOffset) * scale;
 
-                            outRow[x] += value * invAttenuation;
+                                float value;
+                                if constexpr (IsSeamless)
+                                {
+                                    value = Scalar3DFunc(p, period, octaveSeed);
+                                }
+                                else
+                                {
+                                    value = Scalar3DFunc(p, octaveSeed);
+                                }
+
+                                outRow[x] += value * invAttenuation;
+                            }
                         }
                     }
                 }
@@ -518,9 +534,12 @@ namespace NoiseLib::Base
                 }
             }
 
-            for (; i < resolutionVolume; i++)
+            if constexpr (HasTail)
             {
-                out[i] *= invMaxValue;
+                for (; i < resolutionVolume; i++)
+                {
+                    out[i] *= invMaxValue;
+                }
             }
         }
     };
