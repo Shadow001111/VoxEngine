@@ -195,8 +195,6 @@ void TerrainGenerator::unloadChunkColumnData(int chunkX, int chunkZ)
 
 void TerrainGenerator::computeCaveMask(bool* outArray, int chunkX, int chunkY, int chunkZ) const
 {
-	// TODO: Try computing low-resolution noise array and interpolate it
-
 	float* caveNoiseArray = threadLocalData.resources->caveNoiseArray.data();
 
 	{
@@ -211,8 +209,6 @@ void TerrainGenerator::computeCaveMask(bool* outArray, int chunkX, int chunkY, i
 	{
 		PROFILE_SCOPE("Cave mask: combine noises", ProfileCategory::TerrainGeneration);
 
-		// TODO: Try using '0x7FFF7FFF' this mask next, what's the difference?
-		// TODO: Add ability to use SimdF<128>.
 		static_assert((CHUNK_VOLUME % SimdF::lanes) == 0, "Add tail logic!");
 
 		const SimdF absMask = SimdI::fill_lanes_with_value(0x7fffffff).as_float();
