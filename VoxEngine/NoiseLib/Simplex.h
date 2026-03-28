@@ -7,4 +7,6 @@ namespace NoiseLib::Simplex
     float scalar3D(const glm::vec3& p, int seed);
     SimdF simd2D(const SimdF& vpx, const SimdF& vpy, const SimdI& vseed);
     SimdF simd3D(const SimdF& vpx, const SimdF& vpy, const SimdF& vpz, const SimdI& vseed);
+
+    SimdF simd3D_Ver2(const SimdF& vpx, const SimdF& vpy, const SimdF& vpz, const SimdI& vseed);
 }

@@ -114,10 +114,10 @@ namespace NoiseLib::Simplex
 
     static SimdF grad2_simd(const SimdI& hash, const SimdF& dx, const SimdF& dy)
     {
-        const SimdI one =  SimdI::fill_lanes_with_value(1);
-        const SimdI two =  SimdI::fill_lanes_with_value(2);
-        const SimdI four = SimdI::fill_lanes_with_value(4);
-        const SimdF SIGN = SimdF::fill_lanes_with_value(-0.0f);
+        const SimdI one =  SimdI(1);
+        const SimdI two =  SimdI(2);
+        const SimdI four = SimdI(4);
+        const SimdF SIGN = SimdF(-0.0f);
 
         SimdF mbit0 = (((hash & one ) == one )).as_float();
         SimdF mbit1 = (((hash & two ) == two )).as_float();
@@ -135,8 +135,8 @@ namespace NoiseLib::Simplex
 
     static SimdF grad3_simd(const SimdI& hash, const SimdF& dx, const SimdF& dy, const SimdF& dz)
     {
-        const SimdI one = SimdI::fill_lanes_with_value(1);
-        const SimdF SIGN = SimdF::fill_lanes_with_value(-0.0f);
+        const SimdI one = SimdI(1);
+        const SimdF SIGN = SimdF(-0.0f);
 
         SimdI bit0 = hash & one;
         SimdI bit1 = (hash >> 1) & one;
@@ -159,17 +159,70 @@ namespace NoiseLib::Simplex
         return SimdF::blendv(ga, groupBC, mask_bc);
     }
 
+    static SimdI hashPrimes3D(
+        SimdI seed,
+        SimdI x,
+        SimdI y,
+        SimdI z)
+    {
+        SimdI hash = seed;
+
+        hash ^= x;
+        hash ^= y;
+        hash ^= z;
+
+        hash *= SimdI(0xB7E0A5F5);
+
+        return (hash >> 15) ^ hash;
+    }
+
+    static SimdF GetGradientDotCommon(SimdI hash, SimdF fX, SimdF fY, SimdF fZ)
+    {
+        SimdI hasha13 = hash & SimdI(13);
+        
+        // if h > 7 then y, else x
+        SimdI gt7 = hash << 28;
+        //if constexpr (SIMD & FastSIMD::FeatureFlag::SSE41)
+        //{
+        //    gt7 = hash << 28; // top 4 bits become the sign bits
+        //}
+        //else
+        //{
+        //    gt7 = hasha13 > SimdI(7);
+        //}
+
+        SimdF u = SimdF::blendv(fX, fY, gt7.as_float());
+
+        // if h < 4 then y else if h is 12 or 14 then x else z
+        SimdF v = SimdF::blendv(fZ, fX, (hasha13 == SimdI(12)).as_float());
+        v = SimdF::blendv(v, fY, (hasha13 < SimdI(2)).as_float());
+
+        // if h1 then -u else u
+        // if h2 then -v else v
+        SimdF h1 = (hash << 31).as_float();
+        SimdF h2 = ((hash >> 1) << 31).as_float();
+
+        // then add them
+        return (u ^ h1) + (v ^ h2);
+    }
+
+    static SimdF scaleOutput(SimdF v, SimdF min, SimdF max)
+    {
+        const SimdF half = SimdF(0.5f);
+        return (v * (max - min) + (max + min)) * half;
+    }
+
     SimdF simd2D(const SimdF& vpx, const SimdF& vpy, const SimdI& vseed)
     {
         constexpr float SCALAR_F2 = 0.36602540378f;   // (sqrt(3)-1)/2
         constexpr float SCALAR_G2 = 0.21132486541f;   // (3-sqrt(3))/6
 
-        const SimdF F2 =    SimdF::fill_lanes_with_value(SCALAR_F2);
-        const SimdF G2 =    SimdF::fill_lanes_with_value(SCALAR_G2);
-        const SimdF G2x2 =  SimdF::fill_lanes_with_value(SCALAR_G2 * 2.0f);
-        const SimdF oneF =  SimdF::fill_lanes_with_value(1.0f);
-        const SimdI oneI =  SimdI::fill_lanes_with_value(1);
-        const SimdF thresh =SimdF::fill_lanes_with_value(0.5f);
+        const SimdF F2 =    SimdF(SCALAR_F2);
+        const SimdF G2 =    SimdF(SCALAR_G2);
+        const SimdF G2x2 =  SimdF(SCALAR_G2 * 2.0f);
+        const SimdF oneF =  SimdF(1.0f);
+        const SimdI oneI =  SimdI(1);
+        const SimdF thresh =SimdF(0.5f);
         const SimdF zero =  SimdF::fill_lanes_with_zero();
 
         // --- Skew input point into the simplex lattice -----------------------
@@ -231,7 +284,7 @@ namespace NoiseLib::Simplex
 
         SimdF vn = kernel(vh0, d0x, d0y) + kernel(vh1, vd1x, vd1y) + kernel(vh2, vd2x, vd2y);
 
-        const SimdF outputFactor = SimdF::fill_lanes_with_value(70.0f);
+        const SimdF outputFactor = SimdF(70.0f);
 
         return vn * outputFactor;
     }
@@ -241,14 +294,14 @@ namespace NoiseLib::Simplex
         constexpr float SCALAR_F3 = 1.0f / 3.0f;
         constexpr float SCALAR_G3 = 1.0f / 6.0f;
 
-        const SimdF F3 = SimdF::fill_lanes_with_value(SCALAR_F3);
-        const SimdF G3 = SimdF::fill_lanes_with_value(SCALAR_G3);
-        const SimdF G3x2 = SimdF::fill_lanes_with_value(SCALAR_G3 * 2.0f);
-        const SimdF G3x3 = SimdF::fill_lanes_with_value(SCALAR_G3 * 3.0f);
-        const SimdF oneF = SimdF::fill_lanes_with_value(1.0f);
-        const SimdI oneI = SimdI::fill_lanes_with_value(1);
-        const SimdI allOnes = SimdI::fill_lanes_with_value(-1);
-        const SimdF thresh = SimdF::fill_lanes_with_value(0.6f);
+        const SimdF F3 = SimdF(SCALAR_F3);
+        const SimdF G3 = SimdF(SCALAR_G3);
+        const SimdF G3x2 = SimdF(SCALAR_G3 * 2.0f);
+        const SimdF G3x3 = SimdF(SCALAR_G3 * 3.0f);
+        const SimdF oneF = SimdF(1.0f);
+        const SimdI oneI = SimdI(1);
+        const SimdI allOnes = SimdI(-1);
+        const SimdF thresh = SimdF(0.6f);
         const SimdF zero = SimdF::fill_lanes_with_zero();
 
         // --- Skew into simplex lattice -----------------------------------------
@@ -340,6 +393,101 @@ namespace NoiseLib::Simplex
             + kernel(vh2, d2x, d2y, d2z)
             + kernel(vh3, d3x, d3y, d3z);
 
-        return vn * SimdF::fill_lanes_with_value(32.0f);
+        return vn * SimdF(32.0f);
+    }
+
+    SimdF simd3D_Ver2(const SimdF& vpx, const SimdF& vpy, const SimdF& vpz, const SimdI& vseed)
+    {
+        constexpr float kSkew3 = 1.0 / 3.0;
+        constexpr float kReflectUnskew3 = -1.0 / 2.0;
+        constexpr float kFalloffRadiusSquared = 0.6;
+
+        //const SimdF vKReflectUnskew3 = SimdF(kReflectUnskew3);
+        const SimdF vKReflectUnskew3Mul3Plus1 = SimdF(kReflectUnskew3 * 3 + 1);
+
+        const SimdI primeX = SimdI(0xF797C5C7);
+        const SimdI primeY = SimdI(0x6C060C89);
+        const SimdI primeZ = SimdI(0x465FD04F);
+        const SimdF oneF = SimdF(1.0f);
+        const SimdF zeroF = SimdF::fill_lanes_with_zero();
+
+        SimdF skewDelta = SimdF(kSkew3) * (vpx + vpy + vpz);
+        SimdF xSkewed = vpx + skewDelta;
+        SimdF ySkewed = vpy + skewDelta;
+        SimdF zSkewed = vpz + skewDelta;
+
+        SimdF xSkewedBase = SimdF::floor(xSkewed);
+        SimdF ySkewedBase = SimdF::floor(ySkewed);
+        SimdF zSkewedBase = SimdF::floor(zSkewed);
+        SimdF dxSkewed = xSkewed - xSkewedBase;
+        SimdF dySkewed = ySkewed - ySkewedBase;
+        SimdF dzSkewed = zSkewed - zSkewedBase;
+
+        SimdI xPrimedBase = xSkewedBase.to_int32() * primeX;
+        SimdI yPrimedBase = ySkewedBase.to_int32() * primeY;
+        SimdI zPrimedBase = zSkewedBase.to_int32() * primeZ;
+
+        SimdF xGreaterEqualY = dxSkewed >= dySkewed;
+        SimdF yGreaterEqualZ = dySkewed >= dzSkewed;
+        SimdF xGreaterEqualZ = dxSkewed >= dzSkewed;
+
+        SimdF unskewDelta = SimdF(kReflectUnskew3) * (dxSkewed + dySkewed + dzSkewed);
+        SimdF dx0 = dxSkewed + unskewDelta;
+        SimdF dy0 = dySkewed + unskewDelta;
+        SimdF dz0 = dzSkewed + unskewDelta;
+
+        SimdF maskX1 = xGreaterEqualY & xGreaterEqualZ;
+        SimdF maskY1 = SimdF::bitwise_andnot(yGreaterEqualZ, xGreaterEqualY);
+        SimdF maskZ1 = xGreaterEqualZ | yGreaterEqualZ; // Inv masked
+
+        SimdF nMaskX2 = xGreaterEqualY | xGreaterEqualZ; // Inv masked
+        SimdF nMaskY2 = SimdF::bitwise_andnot(xGreaterEqualY, yGreaterEqualZ);
+        SimdF nMaskZ2 = xGreaterEqualZ & yGreaterEqualZ;
+
+        SimdF dx3 = dx0 - vKReflectUnskew3Mul3Plus1;
+        SimdF dy3 = dy0 - vKReflectUnskew3Mul3Plus1;
+        SimdF dz3 = dz0 - vKReflectUnskew3Mul3Plus1;
+
+        SimdF dx1 = dx3 - (maskX1  & oneF);
+        SimdF dy1 = dy3 - (maskY1  & oneF);
+        SimdF dz1 = dz3 - (~maskZ1 & oneF);
+
+        SimdF dx2 = dx0 + (nMaskX2 & oneF);
+        SimdF dy2 = dy0 + (nMaskY2 & oneF);
+        SimdF dz2 = dz0 + (nMaskZ2 & oneF);
+
+        SimdF vKFalloffRadiusSquared = SimdF(kFalloffRadiusSquared);
+
+        SimdF falloff0 = SimdF::neg_mul_add(dz0, dz0, SimdF::neg_mul_add(dy0, dy0, SimdF::neg_mul_add(dx0, dx0, vKFalloffRadiusSquared)));
+        SimdF falloff1 = SimdF::neg_mul_add(dz1, dz1, SimdF::neg_mul_add(dy1, dy1, SimdF::neg_mul_add(dx1, dx1, vKFalloffRadiusSquared)));
+        SimdF falloff2 = SimdF::neg_mul_add(dz2, dz2, SimdF::neg_mul_add(dy2, dy2, SimdF::neg_mul_add(dx2, dx2, vKFalloffRadiusSquared)));
+        SimdF falloff3 = falloff0 - (unskewDelta + SimdF(3.0 / 4.0));
+
+        falloff0 = SimdF::max(falloff0, zeroF);
+        falloff1 = SimdF::max(falloff1, zeroF);
+        falloff2 = SimdF::max(falloff2, zeroF);
+        falloff3 = SimdF::max(falloff3, zeroF);
+
+        falloff0 *= falloff0; falloff0 *= falloff0;
+        falloff1 *= falloff1; falloff1 *= falloff1;
+        falloff2 *= falloff2; falloff2 *= falloff2;
+        falloff3 *= falloff3; falloff3 *= falloff3;
+
+        SimdF gradientRampValue0 = GetGradientDotCommon(hashPrimes3D(vseed, xPrimedBase, yPrimedBase, zPrimedBase), dx0, dy0, dz0);
+        SimdF gradientRampValue1 = GetGradientDotCommon(hashPrimes3D(vseed,
+            xPrimedBase + (primeX &  maskX1.as_int32()),
+            yPrimedBase + (primeY &  maskY1.as_int32()),
+            zPrimedBase + (primeZ & ~maskZ1.as_int32())), dx1, dy1, dz1);
+        SimdF gradientRampValue2 = GetGradientDotCommon(hashPrimes3D(vseed,
+            xPrimedBase + (primeX &  nMaskX2.as_int32()),
+            yPrimedBase + (primeY & ~nMaskY2.as_int32()),
+            zPrimedBase + (primeZ & ~nMaskZ2.as_int32())), dx2, dy2, dz2);
+        SimdF gradientRampValue3 = GetGradientDotCommon(hashPrimes3D(vseed, xPrimedBase + primeX, yPrimedBase + primeY, zPrimedBase + primeZ), dx3, dy3, dz3);
+
+        SimdF value = SimdF::mul_add(gradientRampValue3, falloff3, SimdF::mul_add(gradientRampValue2, falloff2, SimdF::mul_add(gradientRampValue1, falloff1, gradientRampValue0 * falloff0)));
+
+        SimdF vKBounding = SimdF(0.030586399137973785400390625f);
+
+        return scaleOutput(value, -vKBounding, vKBounding);
     }
 }

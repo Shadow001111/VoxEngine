@@ -5,7 +5,7 @@
 #include "Game/DataPackManagment/AssetRegistry.h"
 
 #include "Core/Profiler.h"
-#include "Core/ASSERT.h"
+#include "Core/Assert.h"
 #include "Core/Hashes/ivec2Hasher.h"
 
 thread_local ChunkInstancedMeshFaceStorage::InstancesStorage Chunk::localMeshInstances;
@@ -1935,7 +1935,7 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(unsigned int& ao, unsigned int
 
 	std::pair<LightLevel, bool> neighborData[8];
 
-	unsigned int ao0, ao1, ao2, ao3;
+	unsigned int ao0 = 0, ao1 = 0, ao2 = 0, ao3 = 0;
 	LightLevel lightLevels[4];
 
 	auto getSafe = [this, &neighborData, normal](size_t dataIdx, int x_, int y_, int z_)

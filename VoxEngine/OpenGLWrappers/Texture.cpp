@@ -196,7 +196,7 @@ namespace TextureCompression
 		return GL_COMPRESSED_RGBA; // Unreachable, but keeps compilers happy
 	}
 
-	std::size_t calcCompressedSize(Format format, int width, int height)
+	size_t calcCompressedSize(Format format, int width, int height)
 	{
 		// Block-compressed formats always work on 4x4 pixel blocks.
 		// Round dimensions up to the next multiple of 4.
@@ -209,7 +209,7 @@ namespace TextureCompression
 		case Format::BC4:
 		case Format::BC4_SIGNED:
 			// 8 bytes per 4x4 block
-			return static_cast<std::size_t>(blocksX * blocksY * 8);
+			return static_cast<size_t>(blocksX * blocksY * 8);
 
 		case Format::BC3:
 		case Format::BC5:
@@ -218,24 +218,24 @@ namespace TextureCompression
 		case Format::BC6H_SIGNED:
 		case Format::BC7:
 			// 16 bytes per 4x4 block
-			return static_cast<std::size_t>(blocksX * blocksY * 16);
+			return static_cast<size_t>(blocksX * blocksY * 16);
 
 		case Format::ASTC_4x4:
 			// 16 bytes per 4x4 block
-			return static_cast<std::size_t>(blocksX * blocksY * 16);
+			return static_cast<size_t>(blocksX * blocksY * 16);
 
 		case Format::ASTC_6x6:
 		{
 			int bx = (width + 5) / 6;
 			int by = (height + 5) / 6;
-			return static_cast<std::size_t>(bx * by * 16);
+			return static_cast<size_t>(bx * by * 16);
 		}
 
 		case Format::ASTC_8x8:
 		{
 			int bx = (width + 7) / 8;
 			int by = (height + 7) / 8;
-			return static_cast<std::size_t>(bx * by * 16);
+			return static_cast<size_t>(bx * by * 16);
 		}
 
 		default:
@@ -287,11 +287,11 @@ Texture::~Texture()
 }
 
 Texture::Texture(Texture&& other) noexcept :
-	id(other.id), type(other.type),
-	internalFormat(other.internalFormat),
-	width(other.width), height(other.height), depth(other.depth), mipLevels(other.mipLevels),
+	id(other.id), type(other.type), internalFormat(other.internalFormat),
 	parametrs(other.parametrs),
-	handle(other.handle), resident(other.resident)
+	width(other.width), height(other.height), depth(other.depth),
+	mipLevels(other.mipLevels),
+	resident(other.resident), handle(other.handle)
 
 {
 	other.id = 0;
@@ -299,8 +299,8 @@ Texture::Texture(Texture&& other) noexcept :
 	other.height = 0;
 	other.depth = 0;
 	other.mipLevels = 1;
-	other.handle = 0;
 	other.resident = 0;
+	other.handle = 0;
 }
 
 Texture& Texture::operator=(Texture&& other) noexcept
@@ -312,21 +312,21 @@ Texture& Texture::operator=(Texture&& other) noexcept
 		id = other.id;
 		type = other.type;
 		internalFormat = other.internalFormat;
+		parametrs = other.parametrs;
 		width = other.width;
 		height = other.height;
 		depth = other.depth;
 		mipLevels = other.mipLevels;
-		parametrs = other.parametrs;
-		handle = other.handle;
 		resident = other.resident;
+		handle = other.handle;
 
 		other.id = 0;
 		other.width = 0;
 		other.height = 0;
 		other.depth = 0;
 		other.mipLevels = 1;
-		other.handle = 0;
 		other.resident = 0;
+		other.handle = 0;
 	}
 	return *this;
 }
@@ -737,7 +737,7 @@ void Texture::uploadSubData2DArray(
 	glTextureSubImage3D(id, level, xOffset, yOffset, layer, width, height, 1, format, dataType, data);
 }
 
-void Texture::uploadCompressedData(const void* data, std::size_t dataSize, mip_level level)
+void Texture::uploadCompressedData(const void* data, size_t dataSize, mip_level level)
 {
 	if (!isCompressed())
 	{
@@ -788,7 +788,7 @@ void Texture::uploadCompressedData(const void* data, std::size_t dataSize, mip_l
 	}
 }
 
-void Texture::uploadCompressedSubData2D(const void* data, std::size_t dataSize, texture_size xOffset, texture_size yOffset, texture_size width, texture_size height, mip_level level)
+void Texture::uploadCompressedSubData2D(const void* data, size_t dataSize, texture_size xOffset, texture_size yOffset, texture_size width, texture_size height, mip_level level)
 {
 	if (type != GL_TEXTURE_2D)
 	{
@@ -825,7 +825,7 @@ void Texture::uploadCompressedSubData2D(const void* data, std::size_t dataSize, 
 		internalFormat, static_cast<GLsizei>(dataSize), data);
 }
 
-void Texture::uploadCompressedSubData2DArray(const void* data, std::size_t dataSize, texture_size xOffset, texture_size yOffset, texture_size layer, texture_size width, texture_size height, mip_level level)
+void Texture::uploadCompressedSubData2DArray(const void* data, size_t dataSize, texture_size xOffset, texture_size yOffset, texture_size layer, texture_size width, texture_size height, mip_level level)
 {
 	if (type != GL_TEXTURE_2D_ARRAY)
 	{

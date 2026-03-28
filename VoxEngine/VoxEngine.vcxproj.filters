@@ -446,5 +446,8 @@
     <ClInclude Include="Core\MemoryAllocation\AlignedStorage.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
+    <ClInclude Include="Core\Multithreading\move_only_function.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

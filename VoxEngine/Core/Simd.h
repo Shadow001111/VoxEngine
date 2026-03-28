@@ -5,14 +5,14 @@
 
 // Compile-time register width
 #if defined(__AVX2__)
-inline constexpr std::size_t kSimdBits = 256;
+inline constexpr size_t kSimdBits = 256;
 #define SIMD_AVX2
 #else // SSE by default
-inline constexpr std::size_t kSimdBits = 128;
+inline constexpr size_t kSimdBits = 128;
 #define SIMD_SSE
 #endif
 
-inline constexpr std::size_t kSimdBytes = kSimdBits / 8;
+inline constexpr size_t kSimdBytes = kSimdBits / 8;
 
 // Allowed element types
 template<typename T>
@@ -22,7 +22,7 @@ concept SimdElement =
     std::is_same_v<T, float>;
 
 // Register type trait
-template<typename T, std::size_t Bits> struct SimdReg;
+template<typename T, size_t Bits> struct SimdReg;
 template<> struct SimdReg<float, 128> { using type = __m128; };
 template<> struct SimdReg<float, 256> { using type = __m256; };
 template<> struct SimdReg<int32_t, 128> { using type = __m128i; };
@@ -37,15 +37,15 @@ struct Simd
     using value_type = T;
     using reg_type = typename SimdReg<T, kSimdBits>::type;
 
-    static constexpr std::size_t bits = kSimdBits;
-    static constexpr std::size_t bytes = kSimdBytes;
-    static constexpr std::size_t lanes = bytes / sizeof(T);
+    static constexpr size_t bits = kSimdBits;
+    static constexpr size_t bytes = kSimdBytes;
+    static constexpr size_t lanes = bytes / sizeof(T);
 
     reg_type reg;
 
     // Construction
 
-    [[nodiscard]] static Simd fill_lanes_with_value(T val) noexcept
+    [[nodiscard]] static Simd fill_lanes_with_value(const T& val) noexcept
     {
         Simd s;
         if constexpr (std::is_same_v<T, float>)
@@ -83,6 +83,13 @@ struct Simd
             return Simd<int32_t>::fill_lanes_with_value(-1).as_float();
         else
             return fill_lanes_with_value(static_cast<T>(-1));
+    }
+
+    Simd() = default;
+
+    Simd(const T& val) noexcept
+    {
+        *this = fill_lanes_with_value(val);
     }
 
     // Loads in reverse order
@@ -369,12 +376,26 @@ struct Simd
         return s;
     }
 
+    [[nodiscard]] static Simd negate(const Simd& a) noexcept
+    {
+        if constexpr (std::is_same_v<T, float>)
+        {
+            const Simd sign_mask = Simd<int32_t>::fill_lanes_with_value(0x80000000).as_float();
+            return bitwise_xor(a, sign_mask);
+        }
+        else
+        {
+            return sub(fill_lanes_with_zero(), a);
+        }
+    }
+
     [[nodiscard]] Simd operator+(const Simd& other) const noexcept { return add(*this, other); }
     [[nodiscard]] Simd operator-(const Simd& other) const noexcept { return sub(*this, other); }
     [[nodiscard]] Simd operator*(const Simd& other) const noexcept { return mul(*this, other); }
     [[nodiscard]] Simd operator/(const Simd& other) const noexcept
         requires (std::is_same_v<T, float>)
         { return div(*this, other); }
+    [[nodiscard]] Simd operator-() const noexcept { return negate(*this); }
 
     Simd& operator+=(const Simd& other) noexcept { *this = add(*this, other); return *this; }
     Simd& operator-=(const Simd& other) noexcept { *this = sub(*this, other); return *this; }
@@ -544,6 +565,40 @@ struct Simd
         {
             if constexpr (bits == 256) s.reg = _mm256_blendv_epi8(a.reg, b.reg, mask.reg);
             else                       s.reg = _mm_blendv_epi8(a.reg, b.reg, mask.reg);
+        }
+        return s;
+    }
+
+    // Min / max
+
+    [[nodiscard]] static Simd min(const Simd& a, const Simd& b) noexcept
+    {
+        Simd s;
+        if constexpr (std::is_same_v<T, float>)
+        {
+            if constexpr (bits == 256) s.reg = _mm256_min_ps(a.reg, b.reg);
+            else                       s.reg = _mm_min_ps(a.reg, b.reg);
+        }
+        else
+        {
+            if constexpr (bits == 256) s.reg = _mm256_min_epi32(a.reg, b.reg);
+            else                       s.reg = _mm_min_epi32(a.reg, b.reg);
+        }
+        return s;
+    }
+
+    [[nodiscard]] static Simd max(const Simd& a, const Simd& b) noexcept
+    {
+        Simd s;
+        if constexpr (std::is_same_v<T, float>)
+        {
+            if constexpr (bits == 256) s.reg = _mm256_max_ps(a.reg, b.reg);
+            else                       s.reg = _mm_max_ps(a.reg, b.reg);
+        }
+        else
+        {
+            if constexpr (bits == 256) s.reg = _mm256_max_epi32(a.reg, b.reg);
+            else                       s.reg = _mm_max_epi32(a.reg, b.reg);
         }
         return s;
     }

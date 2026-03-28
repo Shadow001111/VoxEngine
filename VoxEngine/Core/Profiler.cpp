@@ -317,7 +317,6 @@ void Profiler::printProfileReport()
     printTableHeader(ss);
 
     auto sortedData = getAllProfileData();
-    const ProfileData* frameData = getProfileData("Frame Total");
 
     // Track time per category and total time
     robin_hood::unordered_flat_map<ProfileCategory, double> categoryTotals;
@@ -325,7 +324,6 @@ void Profiler::printProfileReport()
 
     for (const auto& pair : sortedData)
     {
-        const auto& name = pair.first;
         const auto& data = pair.second;
 
         categoryTotals[data.category] += data.totalTime;

@@ -185,10 +185,10 @@ namespace NoiseLib::Perlin
 
     static SimdF grad2_simd(const SimdI& hash, const SimdF& dx, const SimdF& dy)
     {
-        const SimdI one = SimdI::fill_lanes_with_value(1);
-        const SimdI two = SimdI::fill_lanes_with_value(2);
-        const SimdI four = SimdI::fill_lanes_with_value(4);
-        const SimdF SIGN = SimdF::fill_lanes_with_value(-0.0f);
+        const SimdI one = SimdI(1);
+        const SimdI two = SimdI(2);
+        const SimdI four = SimdI(4);
+        const SimdF SIGN = SimdF(-0.0f);
 
         SimdF mbit0 = (((hash & one) == one)).as_float();
         SimdF mbit1 = (((hash & two) == two)).as_float();
@@ -206,8 +206,8 @@ namespace NoiseLib::Perlin
 
     static SimdF grad3_simd(const SimdI& hash, const SimdF& dx, const SimdF& dy, const SimdF& dz)
     {
-        const SimdI one = SimdI::fill_lanes_with_value(1);
-        const SimdF SIGN = SimdF::fill_lanes_with_value(-0.0f);
+        const SimdI one = SimdI(1);
+        const SimdF SIGN = SimdF(-0.0f);
 
         // Extract bits 0-3
         SimdI bit0 = hash & one;
@@ -240,9 +240,9 @@ namespace NoiseLib::Perlin
     static SimdF fade_simd(const SimdF& t)
     {
         // t^3 * (t * (6t - 15) + 10)
-        const SimdF six = SimdF::fill_lanes_with_value(6.0f);
-        const SimdF fifteen = SimdF::fill_lanes_with_value(15.0f);
-        const SimdF ten = SimdF::fill_lanes_with_value(10.0f);
+        const SimdF six = SimdF(6.0f);
+        const SimdF fifteen = SimdF(15.0f);
+        const SimdF ten = SimdF(10.0f);
         
         SimdF t3 = t * t * t;
         //return t3 * (t * (t * six - fifteen) + ten);
@@ -251,8 +251,8 @@ namespace NoiseLib::Perlin
 
     SimdF simd2D(const SimdF& vpx, const SimdF& vpy, const SimdI& vseed)
     {
-        const SimdF oneF = SimdF::fill_lanes_with_value(1.0f);
-        const SimdI oneI = SimdI::fill_lanes_with_value(1);
+        const SimdF oneF = SimdF(1.0f);
+        const SimdI oneI = SimdI(1);
 
         // Integer cell and fractional offset
         SimdF pfx = SimdF::floor(vpx);
@@ -288,8 +288,8 @@ namespace NoiseLib::Perlin
 
     SimdF simd3D(const SimdF& vpx, const SimdF& vpy, const SimdF& vpz, const SimdI& vseed)
     {
-        const SimdF oneF = SimdF::fill_lanes_with_value(1.0f);
-        const SimdI oneI = SimdI::fill_lanes_with_value(1);
+        const SimdF oneF = SimdF(1.0f);
+        const SimdI oneI = SimdI(1);
 
         // Integer cell and fractional offsets
         SimdF pfx = SimdF::floor(vpx);
@@ -349,8 +349,8 @@ namespace NoiseLib::Perlin
 
     SimdF simd2DSeamless(const SimdF& vpx, const SimdF& vpy, const SimdI& vperiod, const SimdI& vseed)
     {
-        const SimdF oneF = SimdF::fill_lanes_with_value(1.0f);
-        const SimdI oneI = SimdI::fill_lanes_with_value(1);
+        const SimdF oneF = SimdF(1.0f);
+        const SimdI oneI = SimdI(1);
 
         // Integer cell and fractional offset
         SimdF pfx = SimdF::floor(vpx);
@@ -386,8 +386,8 @@ namespace NoiseLib::Perlin
 
     SimdF simd3DSeamless(const SimdF& vpx, const SimdF& vpy, const SimdF& vpz, const SimdI& vperiod, const SimdI& vseed)
     {
-        const SimdF oneF = SimdF::fill_lanes_with_value(1.0f);
-        const SimdI oneI = SimdI::fill_lanes_with_value(1);
+        const SimdF oneF = SimdF(1.0f);
+        const SimdI oneI = SimdI(1);
 
         // Integer cell and fractional offsets
         SimdF pfx = SimdF::floor(vpx);

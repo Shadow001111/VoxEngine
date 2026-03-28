@@ -2463,3 +2463,73 @@ namespace robin_hood {
         MaxLoadFactor100, Key, void, Hash, KeyEqual>;
 
 } // namespace robin_hood
+
+// PATCH: structured binding support for robin_hood::pair.
+// Clang (including clang-cl) requires std::tuple_size / std::tuple_element /
+// std::get specializations for structured bindings to work. MSVC tolerates
+// their absence and falls back to aggregate decomposition, but clang does not.
+namespace std { // NOLINT(cert-dcl58-cpp)
+
+    template <typename T1, typename T2>
+    struct tuple_size<robin_hood::pair<T1, T2>>
+        : integral_constant<size_t, 2> {
+    };
+
+    template <typename T1, typename T2>
+    struct tuple_element<0, robin_hood::pair<T1, T2>> {
+        using type = T1;
+    };
+
+    template <typename T1, typename T2>
+    struct tuple_element<1, robin_hood::pair<T1, T2>> {
+        using type = T2;
+    };
+
+    template <typename T1, typename T2>
+    struct tuple_size<const robin_hood::pair<T1, T2>>
+        : integral_constant<size_t, 2> {
+    };
+
+    template <typename T1, typename T2>
+    struct tuple_element<0, const robin_hood::pair<T1, T2>> {
+        using type = const T1;
+    };
+
+    template <typename T1, typename T2>
+    struct tuple_element<1, const robin_hood::pair<T1, T2>> {
+        using type = const T2;
+    };
+
+} // namespace std
+
+namespace robin_hood {
+
+    template <size_t I, typename T1, typename T2>
+    constexpr auto& get(pair<T1, T2>& p) noexcept {
+        static_assert(I < 2, "robin_hood::pair index out of range");
+        if constexpr (I == 0) return p.first;
+        else                  return p.second;
+    }
+
+    template <size_t I, typename T1, typename T2>
+    constexpr const auto& get(const pair<T1, T2>& p) noexcept {
+        static_assert(I < 2, "robin_hood::pair index out of range");
+        if constexpr (I == 0) return p.first;
+        else                  return p.second;
+    }
+
+    template <size_t I, typename T1, typename T2>
+    constexpr auto&& get(pair<T1, T2>&& p) noexcept {
+        static_assert(I < 2, "robin_hood::pair index out of range");
+        if constexpr (I == 0) return std::move(p.first);
+        else                  return std::move(p.second);
+    }
+
+    template <size_t I, typename T1, typename T2>
+    constexpr const auto&& get(const pair<T1, T2>&& p) noexcept {
+        static_assert(I < 2, "robin_hood::pair index out of range");
+        if constexpr (I == 0) return std::move(p.first);
+        else                  return std::move(p.second);
+    }
+
+} // namespace robin_hood

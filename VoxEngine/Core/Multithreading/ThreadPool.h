@@ -8,9 +8,19 @@
 
 #include "Core/Container/Queue.h"
 
+#if defined(__cpp_lib_move_only_function) && __cpp_lib_move_only_function >= 202110L
+#include <functional>
+template <class F>
+using move_only_function_impl = std::move_only_function<F>;
+#else
+#include "move_only_function.h"
+template <class F>
+using move_only_function_impl = move_only_function<F>;
+#endif
+
 class ThreadPool
 {
-    using Task = std::move_only_function<void()>;
+    using Task = move_only_function_impl<void()>;
     using TaskQueue = Queue<Task>;
 
     DynamicArray<std::thread> workers;

@@ -1,7 +1,6 @@
 #pragma once
 #include <glad/glad.h>
 #include <cstdint>
-#include <cstddef>
 
 // ============================================================================
 //  TextureCompression
@@ -140,7 +139,7 @@ namespace TextureCompression
 
 	// Calculates the byte size of one mip level of pre-compressed data.
 	// Returns 0 for NONE / unknown formats.
-	std::size_t calcCompressedSize(Format format, int width, int height);
+	size_t calcCompressedSize(Format format, int width, int height);
 
 	// Human-readable name, useful for logging.
 	const char* getName(Format format);
@@ -244,14 +243,14 @@ public:
 		texture_size width, texture_size height, GLenum dataType, mip_level level = 0);
 
 	void uploadCompressedData(
-		const void* data, std::size_t dataSize, mip_level level = 0);
+		const void* data, size_t dataSize, mip_level level = 0);
 	void uploadCompressedSubData2D(
-		const void* data, std::size_t dataSize,
+		const void* data, size_t dataSize,
 		texture_size xOffset, texture_size yOffset,
 		texture_size width, texture_size height,
 		mip_level level = 0);
 	void uploadCompressedSubData2DArray(
-		const void* data, std::size_t dataSize,
+		const void* data, size_t dataSize,
 		texture_size xOffset, texture_size yOffset, texture_size layer,
 		texture_size width, texture_size height,
 		mip_level level = 0);

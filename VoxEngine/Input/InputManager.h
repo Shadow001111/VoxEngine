@@ -70,6 +70,6 @@ public:
 	const glm::dvec2& getMouseDelta() const { return returnMouseDelta; }
 	const glm::dvec2& getScrollDelta() const { return returnScrollDelta; }
 
-	const glm::dvec2& getNormalizedMousePosition() const;
+	glm::dvec2 getNormalizedMousePosition() const;
 };
 

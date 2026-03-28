@@ -55,10 +55,10 @@ void InputManager::processInput()
         state.pressed = currentlyPressed;
 
         // Determine justPressed: pressed now but wasn't pressed before
-        state.justPressed = (state.pressed && !state.previousPressed);
+        state.justPressed = (uint8_t)((bool)state.pressed && !(bool)state.previousPressed);
 
         // Determine justReleased: not pressed now but was pressed before
-        state.justReleased = (!state.pressed && state.previousPressed);
+        state.justReleased = (uint8_t)(!(bool)state.pressed && (bool)state.previousPressed);
     }
 
     // Add new keys that were pressed but aren't in the keyStates map yet
@@ -91,10 +91,10 @@ void InputManager::processInput()
         state.pressed = currentlyPressed;
 
         // Determine justPressed: pressed now but wasn't pressed before
-        state.justPressed = (state.pressed && !state.previousPressed);
+        state.justPressed = (uint8_t)((bool)state.pressed && !(bool)state.previousPressed);
 
         // Determine justReleased: not pressed now but was pressed before
-        state.justReleased = (!state.pressed && state.previousPressed);
+        state.justReleased = (uint8_t)(!(bool)state.pressed && (bool)state.previousPressed);
     }
 
     // Reset for next frame
@@ -138,7 +138,7 @@ bool InputManager::isMouseButtonJustReleased(int button) const
     return (button < mouseButtonStates.size() && button >= 0) && mouseButtonStates[button].justReleased;
 }
 
-const glm::dvec2& InputManager::getNormalizedMousePosition() const
+glm::dvec2 InputManager::getNormalizedMousePosition() const
 {
     if (widthHeightPtr == nullptr)
     {

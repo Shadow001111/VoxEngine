@@ -29,112 +29,8 @@ void Entity::update(double deltaTime)
 		velocity.y = glm::max(velocity.y, MIN_Y_VELOCITY);
 	}
 
-	const glm::dvec3 oldPos = transform.position;
-	const glm::dvec3 oldVel = velocity;
-
 	// Move
 	moveAndCheckForCollisions_DDA(velocity * deltaTime);
-}
-
-void Entity::moveAndCheckForCollisions(const glm::dvec3& dpos)
-{
-	for (int axis = 0; axis < 3; axis++)
-	{
-		double sign = copysign(1.0, dpos[axis]);
-		double add = sign < 0.0;
-
-		transform.position[axis] += dpos[axis];
-
-		int minX, maxX;
-		int minY, maxY;
-		int minZ, maxZ;
-
-		if (axis == 0)
-		{
-			minX = maxX = (int)floor(transform.position.x + sign * size.x);
-
-			minY = (int)floor(transform.position.y - size.y);
-			maxY = (int)floor(transform.position.y + size.y);
-
-			minZ = (int)floor(transform.position.z - size.z);
-			maxZ = (int)floor(transform.position.z + size.z);
-		}
-		else if (axis == 1)
-		{
-			minX = (int)floor(transform.position.x - size.x);
-			maxX = (int)floor(transform.position.x + size.x);
-
-			minY = maxY = (int)floor(transform.position.y + sign * size.y);
-
-			minZ = (int)floor(transform.position.z - size.z);
-			maxZ = (int)floor(transform.position.z + size.z);
-		}
-		else
-		{
-			minX = (int)floor(transform.position.x - size.x);
-			maxX = (int)floor(transform.position.x + size.x);
-
-			minY = (int)floor(transform.position.y - size.y);
-			maxY = (int)floor(transform.position.y + size.y);
-
-			minZ = maxZ = (int)floor(transform.position.z + sign * size.z);
-		}
-
-		bool foundCollision = false;
-		for (int x = minX; x <= maxX && !foundCollision; x++)
-		{
-			for (int y = minY; y <= maxY && !foundCollision; y++)
-			{
-				for (int z = minZ; z <= maxZ && !foundCollision; z++)
-				{
-					glm::ivec3 blockPos = { x, y, z };
-					if (isBlockSolidAt(blockPos))
-					{
-						transform.position[axis] = (double)blockPos[axis] + add - sign * (size[axis] + 1e-6);
-						velocity[axis] = 0.0;
-						foundCollision = true;
-						break;
-					}
-				}
-			}
-		}
-
-		if (axis == 1 && foundCollision && sign < 0.0)
-		{
-			onGround = true;
-		}
-	}
-}
-
-void Entity::moveAndCheckForCollisions_SpeedSafe(const glm::dvec3& dpos)
-{
-	for (int axis = 0; axis < 3; axis++)
-	{
-		auto delta = dpos[axis];
-
-		double absoluteDelta = abs(delta);
-		double deltaDir = copysign(1.0, delta);
-		while (absoluteDelta > 0.0)
-		{
-			// Move by a single block
-			double moveAmount = absoluteDelta < 1.0f ? absoluteDelta : 1.0f;
-			absoluteDelta -= moveAmount;
-			transform.position[axis] += moveAmount * deltaDir;
-
-			// Check collision
-			glm::ivec3 collisionPos{};
-			if (!isAnyBlocksSolidInside(deltaDir, axis, collisionPos))
-			{
-				continue;
-			}
-
-			// Resolve collision
-			double add = deltaDir < 0.0 ? 1.0 : 0.0;
-			transform.position[axis] = (double)collisionPos[axis] + add - deltaDir * (size[axis] + 1e-6);
-			velocity[axis] = 0.0;
-			break;
-		}
-	}
 }
 
 void Entity::moveAndCheckForCollisions_DDA(const glm::dvec3& dpos)
@@ -162,7 +58,7 @@ void Entity::moveAndCheckForCollisions_DDA(const glm::dvec3& dpos)
 			}
 			else
 			{
-				deltaDist[i] = std::numeric_limits<double>::infinity();
+				deltaDist[i] = std::numeric_limits<double>::max();
 			}
 		}
 
@@ -179,7 +75,7 @@ void Entity::moveAndCheckForCollisions_DDA(const glm::dvec3& dpos)
 			}
 			else
 			{
-				sideDist[i] = std::numeric_limits<double>::infinity();
+				sideDist[i] = std::numeric_limits<double>::max();
 			}
 		}
 
@@ -287,44 +183,6 @@ bool Entity::checkCollisionTiles(const glm::dvec3& pos, const glm::dvec3& move, 
 
 	glm::ivec3 collisionPos;
 	return isAnyBlocksSolidAt(minBounds, maxBounds, collisionPos);
-}
-
-bool Entity::isAnyBlocksSolidInside(double sign, int axis, glm::ivec3& outPos) const
-{
-	double add = sign < 0.0 ? 1.0 : 0.0;
-
-	int minX, maxX, minY, maxY, minZ, maxZ;
-
-	if (axis == 0)  // X-axis
-	{
-		minX = maxX = (int)floor(transform.position.x + sign * size.x);
-		minY = (int)floor(transform.position.y - size.y);
-		maxY = (int)floor(transform.position.y + size.y);
-		minZ = (int)floor(transform.position.z - size.z);
-		maxZ = (int)floor(transform.position.z + size.z);
-	}
-	else if (axis == 1)  // Y-axis
-	{
-		minX = (int)floor(transform.position.x - size.x);
-		maxX = (int)floor(transform.position.x + size.x);
-		minY = maxY = (int)floor(transform.position.y + sign * size.y);
-		minZ = (int)floor(transform.position.z - size.z);
-		maxZ = (int)floor(transform.position.z + size.z);
-	}
-	else  // Z-axis
-	{
-		minX = (int)floor(transform.position.x - size.x);
-		maxX = (int)floor(transform.position.x + size.x);
-		minY = (int)floor(transform.position.y - size.y);
-		maxY = (int)floor(transform.position.y + size.y);
-		minZ = maxZ = (int)floor(transform.position.z + sign * size.z);
-	}
-
-	// Check collision in the sweep area
-	glm::ivec3 minBounds = { minX, minY, minZ };
-	glm::ivec3 maxBounds = { maxX, maxY, maxZ };
-
-	return isAnyBlocksSolidAt(minBounds, maxBounds, outPos);
 }
 
 bool Entity::isAnyBlocksSolidAt(const glm::ivec3& min, const glm::ivec3& max, glm::ivec3& outPos) const

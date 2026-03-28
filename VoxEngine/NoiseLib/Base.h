@@ -64,7 +64,6 @@ namespace NoiseLib::Base
             const SimdF xScale = SimdF::fill_lanes_with_value(baseScale.x);
             const SimdI vPeriod = SimdI::fill_lanes_with_value(period);
             const SimdI vSeed = SimdI::fill_lanes_with_value(seed);
-            const SimdF half = SimdF::fill_lanes_with_value(0.5f);
 
             constexpr int LANE_COUNT = SimdF::lanes;
             const SimdF xStep = SimdF::fill_lanes_with_value((float)LANE_COUNT * baseScale.x);
@@ -314,7 +313,6 @@ namespace NoiseLib::Base
             const SimdF xScale = SimdF::fill_lanes_with_value(baseScale.x);
             const SimdI vPeriod = SimdI::fill_lanes_with_value(period);
             const SimdI vSeed = SimdI::fill_lanes_with_value(seed);
-            const SimdF half = SimdF::fill_lanes_with_value(0.5f);
 
             constexpr int LANE_COUNT = SimdF::lanes;
             const SimdF xStep = SimdF::fill_lanes_with_value((float)LANE_COUNT * baseScale.x);

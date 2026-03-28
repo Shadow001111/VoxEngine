@@ -319,7 +319,7 @@ void WorldChunkManager::startBuildingChunkLights()
 			size_t batchEnd = std::min(i + CHUNKS_PER_BATCH, chunkCount);
 			std::vector<Chunk*> batch(chunksToProcess.begin() + i, chunksToProcess.begin() + batchEnd);
 
-			pool.enqueue([this, batch_ = std::move(batch)]()
+			pool.enqueue([batch_ = std::move(batch)]()
 				{
 					for (Chunk* chunk : batch_)
 					{
@@ -433,7 +433,7 @@ void WorldChunkManager::updateChunkMeshes()
 		size_t batchEnd = std::min(i + CHUNKS_PER_BATCH, chunkCount);
 		std::vector<Chunk*> batch(chunksToProcess.begin() + i, chunksToProcess.begin() + batchEnd);
 
-		pool.enqueue([this, batch_ = std::move(batch)]()
+		pool.enqueue([batch_ = std::move(batch)]()
 			{
 				for (Chunk* chunk : batch_)
 				{

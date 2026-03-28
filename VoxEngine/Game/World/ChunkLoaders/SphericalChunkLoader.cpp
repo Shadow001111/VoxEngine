@@ -7,7 +7,7 @@ std::vector<glm::ivec3> SphericalChunkLoader::getPositionsToLoad(const glm::ivec
     {
         int r = loadRadius + 1;
         int approximateSphereVolume = 4 * r * r * r;
-        positions.reserve(r);
+        positions.reserve(approximateSphereVolume);
     }
 
     // Corners

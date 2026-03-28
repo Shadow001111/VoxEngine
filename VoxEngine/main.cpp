@@ -26,7 +26,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #ifdef NDEBUG
-constexpr int CHUNK_LOAD_DISTANCE = 24;
+constexpr int CHUNK_LOAD_DISTANCE = 8;
 #else
 constexpr int CHUNK_LOAD_DISTANCE = 3;
 #endif
@@ -193,7 +193,7 @@ static void renderInventory(const float aspectRatio, const GUIInventory& invento
     // Settings
     constexpr float TEXTURE_PX = 24.0f;
     constexpr float EMPTY_PX = 16.0f;
-    constexpr float SELECTED_PX = 22.0f;
+    //constexpr float SELECTED_PX = 22.0f;
     constexpr float ITEM_PX = EMPTY_PX - 4.0f;
 
     // Get invetory dimensions
@@ -209,7 +209,7 @@ static void renderInventory(const float aspectRatio, const GUIInventory& invento
 
     // Calculate image scales
     const float emptyScale = (TEXTURE_PX / EMPTY_PX) * slotSize;
-    const float selectedScale = emptyScale;
+    //const float selectedScale = emptyScale;
     const float itemScale = (ITEM_PX / EMPTY_PX) * slotSize;
 
     // Get projection
@@ -344,52 +344,52 @@ static void renderHotbarAndInventory(const float aspectRatio, const ContainerUI&
     }
 }
 
-static void renderDepthBuffer(const float aspectRatio, const ContainerUI& c, const Player& player)
-{
-    c.dbdVAO.bind();
-    c.dbdShader.use();
-
-    auto textureOpt = c.fbo->getTexture("depth");
-    if (!textureOpt.has_value())
-    {
-        return;
-    }
-
-    const auto* texture = textureOpt.value();
-
-    if (Texture::getExtensions().bindless)
-    {
-        c.dbdShader.setHandleui64ARB("sampleTexture", texture->getHandle());
-    }
-    else
-    {
-        texture->bindUnit(0);
-    }
-
-    const float scale = 0.3f;
-    
-    float newWidth = aspectRatio * scale;
-    float quadRightBorder = newWidth;
-    float translateXBy = (aspectRatio - quadRightBorder);
-    float translateYBy = 1.0f - scale;
-
-    glm::mat4 model = glm::identity<glm::mat4>();
-    model = glm::translate(model, glm::vec3(translateXBy, translateYBy, 0.0f));
-    model = glm::scale(model, glm::vec3(aspectRatio * scale, scale, 1.0f));
-
-    glm::mat4 proj = glm::ortho(-aspectRatio, aspectRatio, -1.0f, 1.0f);
-
-    c.dbdShader.setMat4("model", model);
-    c.dbdShader.setMat4("projection", proj);
-
-    const auto& camera = player.getCamera();
-    float near = camera.getNear();
-    float far = camera.getFar();
-
-    c.dbdShader.setVec2("nearFar", near, far);
-
-    glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-}
+//static void renderDepthBuffer(const float aspectRatio, const ContainerUI& c, const Player& player)
+//{
+//    c.dbdVAO.bind();
+//    c.dbdShader.use();
+//
+//    auto textureOpt = c.fbo->getTexture("depth");
+//    if (!textureOpt.has_value())
+//    {
+//        return;
+//    }
+//
+//    const auto* texture = textureOpt.value();
+//
+//    if (Texture::getExtensions().bindless)
+//    {
+//        c.dbdShader.setHandleui64ARB("sampleTexture", texture->getHandle());
+//    }
+//    else
+//    {
+//        texture->bindUnit(0);
+//    }
+//
+//    const float scale = 0.3f;
+//    
+//    float newWidth = aspectRatio * scale;
+//    float quadRightBorder = newWidth;
+//    float translateXBy = (aspectRatio - quadRightBorder);
+//    float translateYBy = 1.0f - scale;
+//
+//    glm::mat4 model = glm::identity<glm::mat4>();
+//    model = glm::translate(model, glm::vec3(translateXBy, translateYBy, 0.0f));
+//    model = glm::scale(model, glm::vec3(aspectRatio * scale, scale, 1.0f));
+//
+//    glm::mat4 proj = glm::ortho(-aspectRatio, aspectRatio, -1.0f, 1.0f);
+//
+//    c.dbdShader.setMat4("model", model);
+//    c.dbdShader.setMat4("projection", proj);
+//
+//    const auto& camera = player.getCamera();
+//    float near = camera.getNear();
+//    float far = camera.getFar();
+//
+//    c.dbdShader.setVec2("nearFar", near, far);
+//
+//    glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+//}
 
 static void renderUI(const float aspectRatio, const ContainerUI& c, const Player& player)
 {
@@ -442,9 +442,9 @@ static void renderDebugData(const WindowManager& wnd, const Player& player, cons
     ss << "\nChunk position buffer: " << formatSizeBinary(renderStats.chunkPositionBufferSizeInBytes);
 
     // Player orientation
-    const Camera& camera = player.getCamera();
+    //const Camera& camera = player.getCamera();
     const auto& playerPos = player.getPosition();
-    const auto& cameraViewDirection = camera.getForward();
+    //const auto& cameraViewDirection = camera.getForward();
 
     glm::ivec3 localPlayerPos = glm::ivec3(glm::mod(glm::mod(playerPos, (double)CHUNK_SIZE) + (double)CHUNK_SIZE, (double)CHUNK_SIZE));
 

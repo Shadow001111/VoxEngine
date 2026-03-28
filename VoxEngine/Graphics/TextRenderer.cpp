@@ -284,7 +284,6 @@ void TextRenderer::renderTextInternal(const void* text, size_t textLength, UTFDe
     codepoints.reserve(textLength);
 
     size_t index = 0;
-    float totalWidth = 0.0f;
     float maxLineWidth = 0.0f;
     int lineCount = 1;
     float currentLineWidth = 0.0f;
@@ -607,11 +606,10 @@ void TextRenderer::setCurrentFont(const std::string& fontName)
     }
     
 	// Make previous font texture non-resident if needed
-    //if (previousFont && previousFont != inst.currentFont && Texture::getExtensions().bindless)
-    //{
-    //    previousFont->textureArray.makeNonResident();
-    //}
-	previousFont = inst.currentFont;
+    if (previousFont && previousFont != inst.currentFont && Texture::getExtensions().bindless)
+    {
+        previousFont->textureArray.makeNonResident();
+    }
 }
 
 void TextRenderer::startTextRendering()
