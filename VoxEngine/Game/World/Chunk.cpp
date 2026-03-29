@@ -209,14 +209,14 @@ void Chunk::buildBlocks()
 	// Caves
 	if (computeCaveMask)
 	{
-		bool caveMask[CHUNK_VOLUME];
+		alignas(SimdF::bytes) bool caveMask[CHUNK_VOLUME];
 		TerrainGenerator::getInstance().computeCaveMask(caveMask, position.x, position.y, position.z);
 
 		PROFILE_SCOPE("Generate caves", ProfileCategory::ChunkBlocks);
 
 		for (int i = 0; i < CHUNK_VOLUME; i++)
 		{
-			if (blocks[i] == CACHED_BLOCK_IDS.stoneId && caveMask[i])
+			if (caveMask[i] && blocks[i] == CACHED_BLOCK_IDS.stoneId)
 			{
 				blocks[i] = CACHED_BLOCK_IDS.airId;
 			}

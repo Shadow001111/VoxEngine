@@ -17,36 +17,6 @@ namespace NoiseLib::Perlin
         return b * t + (1.0f - t) * a;
     }
 
-    static float grad3(uint32_t hash, const glm::vec3& p)
-    {
-        static const glm::vec3 gradients[16] = {
-            // Unique
-            {1,1,0},{-1,1,0},{1,-1,0},{-1,-1,0},
-            {1,0,1},{-1,0,1},{1,0,-1},{-1,0,-1},
-            {0,1,1},{0,-1,1},{0,1,-1},{0,-1,-1},
-
-            // Repeated
-            { 1,1,0 },{-1,1,0},{1,-1,0},{-1,-1,0},
-        };
-
-        return glm::dot(gradients[hash & 15], p);
-    }
-
-    static float grad2(uint32_t hash, const glm::vec2& p)
-    {
-        switch (hash & 7)
-        {
-        case 0: return  p.x + p.y;
-        case 1: return -p.x + p.y;
-        case 2: return  p.x - p.y;
-        case 3: return -p.x - p.y;
-        case 4: return  p.x;
-        case 5: return -p.x;
-        case 6: return  p.y;
-        default:return -p.y;
-        }
-    }
-
     float scalar2D(const glm::vec2& p, int seed)
     {
         glm::vec2 pi_f = floor(p);
@@ -61,10 +31,10 @@ namespace NoiseLib::Perlin
         glm::ivec2 c01 = glm::ivec2(pi.x, pi.y + 1);
         glm::ivec2 c11 = glm::ivec2(pi.x + 1, pi.y + 1);
 
-        float n00 = grad2(NoiseLib::Base::hash_int2(c00) + seed, pf);
-        float n10 = grad2(NoiseLib::Base::hash_int2(c10) + seed, pf - glm::vec2(1, 0));
-        float n01 = grad2(NoiseLib::Base::hash_int2(c01) + seed, pf - glm::vec2(0, 1));
-        float n11 = grad2(NoiseLib::Base::hash_int2(c11) + seed, pf - glm::vec2(1, 1));
+        float n00 = NoiseLib::Base::grad2(NoiseLib::Base::hash_int2(c00) + seed, pf);
+        float n10 = NoiseLib::Base::grad2(NoiseLib::Base::hash_int2(c10) + seed, pf - glm::vec2(1, 0));
+        float n01 = NoiseLib::Base::grad2(NoiseLib::Base::hash_int2(c01) + seed, pf - glm::vec2(0, 1));
+        float n11 = NoiseLib::Base::grad2(NoiseLib::Base::hash_int2(c11) + seed, pf - glm::vec2(1, 1));
 
         float x0 = lerp(n00, n10, f.x);
         float x1 = lerp(n01, n11, f.x);
@@ -92,14 +62,14 @@ namespace NoiseLib::Perlin
         glm::ivec3 c111 = pi + glm::ivec3(1, 1, 1);
 
         // Calculate gradients at cube corners
-        float n000 = grad3(NoiseLib::Base::hash_int3(c000) + seed, pf);
-        float n001 = grad3(NoiseLib::Base::hash_int3(c001) + seed, pf - glm::vec3(0, 0, 1));
-        float n010 = grad3(NoiseLib::Base::hash_int3(c010) + seed, pf - glm::vec3(0, 1, 0));
-        float n011 = grad3(NoiseLib::Base::hash_int3(c011) + seed, pf - glm::vec3(0, 1, 1));
-        float n100 = grad3(NoiseLib::Base::hash_int3(c100) + seed, pf - glm::vec3(1, 0, 0));
-        float n101 = grad3(NoiseLib::Base::hash_int3(c101) + seed, pf - glm::vec3(1, 0, 1));
-        float n110 = grad3(NoiseLib::Base::hash_int3(c110) + seed, pf - glm::vec3(1, 1, 0));
-        float n111 = grad3(NoiseLib::Base::hash_int3(c111) + seed, pf - glm::vec3(1, 1, 1));
+        float n000 = NoiseLib::Base::grad3(NoiseLib::Base::hash_int3(c000) + seed, pf);
+        float n001 = NoiseLib::Base::grad3(NoiseLib::Base::hash_int3(c001) + seed, pf - glm::vec3(0, 0, 1));
+        float n010 = NoiseLib::Base::grad3(NoiseLib::Base::hash_int3(c010) + seed, pf - glm::vec3(0, 1, 0));
+        float n011 = NoiseLib::Base::grad3(NoiseLib::Base::hash_int3(c011) + seed, pf - glm::vec3(0, 1, 1));
+        float n100 = NoiseLib::Base::grad3(NoiseLib::Base::hash_int3(c100) + seed, pf - glm::vec3(1, 0, 0));
+        float n101 = NoiseLib::Base::grad3(NoiseLib::Base::hash_int3(c101) + seed, pf - glm::vec3(1, 0, 1));
+        float n110 = NoiseLib::Base::grad3(NoiseLib::Base::hash_int3(c110) + seed, pf - glm::vec3(1, 1, 0));
+        float n111 = NoiseLib::Base::grad3(NoiseLib::Base::hash_int3(c111) + seed, pf - glm::vec3(1, 1, 1));
 
         // Interpolate
         float x00 = lerp(n000, n100, f.x);
@@ -127,10 +97,10 @@ namespace NoiseLib::Perlin
         glm::ivec2 c01 = NoiseLib::Base::wrap(glm::ivec2(pi.x    , pi.y + 1), period);
         glm::ivec2 c11 = NoiseLib::Base::wrap(glm::ivec2(pi.x + 1, pi.y + 1), period);
 
-        float n00 = grad2(NoiseLib::Base::hash_int2(c00) + seed, pf);
-        float n10 = grad2(NoiseLib::Base::hash_int2(c10) + seed, pf - glm::vec2(1, 0));
-        float n01 = grad2(NoiseLib::Base::hash_int2(c01) + seed, pf - glm::vec2(0, 1));
-        float n11 = grad2(NoiseLib::Base::hash_int2(c11) + seed, pf - glm::vec2(1, 1));
+        float n00 = NoiseLib::Base::grad2(NoiseLib::Base::hash_int2(c00) + seed, pf);
+        float n10 = NoiseLib::Base::grad2(NoiseLib::Base::hash_int2(c10) + seed, pf - glm::vec2(1, 0));
+        float n01 = NoiseLib::Base::grad2(NoiseLib::Base::hash_int2(c01) + seed, pf - glm::vec2(0, 1));
+        float n11 = NoiseLib::Base::grad2(NoiseLib::Base::hash_int2(c11) + seed, pf - glm::vec2(1, 1));
 
         float x0 = lerp(n00, n10, f.x);
         float x1 = lerp(n01, n11, f.x);
@@ -158,14 +128,14 @@ namespace NoiseLib::Perlin
         glm::ivec3 c111 = NoiseLib::Base::wrap(pi + glm::ivec3(1, 1, 1), period);
 
         // Calculate gradients at cube corners
-        float n000 = grad3(NoiseLib::Base::hash_int3(c000) + seed, pf);
-        float n001 = grad3(NoiseLib::Base::hash_int3(c001) + seed, pf - glm::vec3(0, 0, 1));
-        float n010 = grad3(NoiseLib::Base::hash_int3(c010) + seed, pf - glm::vec3(0, 1, 0));
-        float n011 = grad3(NoiseLib::Base::hash_int3(c011) + seed, pf - glm::vec3(0, 1, 1));
-        float n100 = grad3(NoiseLib::Base::hash_int3(c100) + seed, pf - glm::vec3(1, 0, 0));
-        float n101 = grad3(NoiseLib::Base::hash_int3(c101) + seed, pf - glm::vec3(1, 0, 1));
-        float n110 = grad3(NoiseLib::Base::hash_int3(c110) + seed, pf - glm::vec3(1, 1, 0));
-        float n111 = grad3(NoiseLib::Base::hash_int3(c111) + seed, pf - glm::vec3(1, 1, 1));
+        float n000 = NoiseLib::Base::grad3(NoiseLib::Base::hash_int3(c000) + seed, pf);
+        float n001 = NoiseLib::Base::grad3(NoiseLib::Base::hash_int3(c001) + seed, pf - glm::vec3(0, 0, 1));
+        float n010 = NoiseLib::Base::grad3(NoiseLib::Base::hash_int3(c010) + seed, pf - glm::vec3(0, 1, 0));
+        float n011 = NoiseLib::Base::grad3(NoiseLib::Base::hash_int3(c011) + seed, pf - glm::vec3(0, 1, 1));
+        float n100 = NoiseLib::Base::grad3(NoiseLib::Base::hash_int3(c100) + seed, pf - glm::vec3(1, 0, 0));
+        float n101 = NoiseLib::Base::grad3(NoiseLib::Base::hash_int3(c101) + seed, pf - glm::vec3(1, 0, 1));
+        float n110 = NoiseLib::Base::grad3(NoiseLib::Base::hash_int3(c110) + seed, pf - glm::vec3(1, 1, 0));
+        float n111 = NoiseLib::Base::grad3(NoiseLib::Base::hash_int3(c111) + seed, pf - glm::vec3(1, 1, 1));
 
         // Interpolate
         float x00 = lerp(n000, n100, f.x);
@@ -182,60 +152,6 @@ namespace NoiseLib::Perlin
     // =========================================================================
     // SIMD
     // =========================================================================
-
-    static SimdF grad2_simd(const SimdI& hash, const SimdF& dx, const SimdF& dy)
-    {
-        const SimdI one = SimdI(1);
-        const SimdI two = SimdI(2);
-        const SimdI four = SimdI(4);
-        const SimdF SIGN = SimdF(-0.0f);
-
-        SimdF mbit0 = (((hash & one) == one)).as_float();
-        SimdF mbit1 = (((hash & two) == two)).as_float();
-        SimdF mbit2 = (((hash & four) == four)).as_float();
-
-        SimdF gx = SimdF::blendv(dx, dx ^ SIGN, mbit0);
-        SimdF gy = SimdF::blendv(dy, dy ^ SIGN, mbit1);
-        SimdF both = gx + gy;
-
-        SimdF single_unsigned = SimdF::blendv(dx, dy, mbit1);
-        SimdF single = SimdF::blendv(single_unsigned, single_unsigned ^ SIGN, mbit0);
-
-        return SimdF::blendv(both, single, mbit2);
-    }
-
-    static SimdF grad3_simd(const SimdI& hash, const SimdF& dx, const SimdF& dy, const SimdF& dz)
-    {
-        const SimdI one = SimdI(1);
-        const SimdF SIGN = SimdF(-0.0f);
-
-        // Extract bits 0-3
-        SimdI bit0 = hash & one;
-        SimdI bit1 = (hash >> 1) & one;
-        SimdI bit2 = (hash >> 2) & one;
-        SimdI bit3 = (hash >> 3) & one;
-
-        SimdF mbit0 = (bit0 == one).as_float();  // sign of first component
-        SimdF mbit1 = (bit1 == one).as_float();  // sign of second component
-        SimdF mbit2 = (bit2 == one).as_float();  // axis selector
-
-        // TODO: Try saving results of opposite signs
-
-        // The 16 gradients fall into three groups (matching grad3 scalar):
-        //   A (bit3==bit2, i.e. indices 0-3 and 12-15): (±1, ±1,  0) -> ±dx ± dy
-        //   B (bit3=0, bit2=1, i.e. indices  4-7):      (±1,  0, ±1) -> ±dx ± dz
-        //   C (bit3=1, bit2=0, i.e. indices 8-11):      ( 0, ±1, ±1) -> ±dy ± dz
-        SimdF ga = SimdF::blendv(dx, dx ^ SIGN, mbit0) + SimdF::blendv(dy, dy ^ SIGN, mbit1);
-        SimdF gb = SimdF::blendv(dx, dx ^ SIGN, mbit0) + SimdF::blendv(dz, dz ^ SIGN, mbit1);
-        SimdF gc = SimdF::blendv(dy, dy ^ SIGN, mbit0) + SimdF::blendv(dz, dz ^ SIGN, mbit1);
-
-        // mask_bc: set when bit3 != bit2 (groups B or C)
-        SimdF mask_bc = ((bit2 ^ bit3) == one).as_float();
-        // Within BC: bit2=1 -> group B, bit2=0 -> group C
-        SimdF groupBC = SimdF::blendv(gc, gb, mbit2);
-
-        return SimdF::blendv(ga, groupBC, mask_bc);
-    }
 
     static SimdF fade_simd(const SimdF& t)
     {
@@ -275,10 +191,10 @@ namespace NoiseLib::Perlin
         SimdI vh11 = NoiseLib::Base::hash_int2_simd(pix1, piy1) + vseed;
 
         // Gradient contributions
-        SimdF n00 = grad2_simd(vh00, pfracx, pfracy);
-        SimdF n10 = grad2_simd(vh10, pfracx - oneF, pfracy);
-        SimdF n01 = grad2_simd(vh01, pfracx, pfracy - oneF);
-        SimdF n11 = grad2_simd(vh11, pfracx - oneF, pfracy - oneF);
+        SimdF n00 = NoiseLib::Base::grad2_simd(vh00, pfracx, pfracy);
+        SimdF n10 = NoiseLib::Base::grad2_simd(vh10, pfracx - oneF, pfracy);
+        SimdF n01 = NoiseLib::Base::grad2_simd(vh01, pfracx, pfracy - oneF);
+        SimdF n11 = NoiseLib::Base::grad2_simd(vh11, pfracx - oneF, pfracy - oneF);
 
         // Bilinear interpolation
         SimdF x0 = SimdF::mul_add(fx, n10 - n00, n00);
@@ -326,14 +242,14 @@ namespace NoiseLib::Perlin
         SimdI vh111 = NoiseLib::Base::hash_int3_simd(pix1, piy1, piz1) + vseed;
 
         // Gradient contributions at each corner
-        SimdF n000 = grad3_simd(vh000, pfracx, pfracy, pfracz);
-        SimdF n100 = grad3_simd(vh100, pfracx - oneF, pfracy, pfracz);
-        SimdF n010 = grad3_simd(vh010, pfracx, pfracy - oneF, pfracz);
-        SimdF n110 = grad3_simd(vh110, pfracx - oneF, pfracy - oneF, pfracz);
-        SimdF n001 = grad3_simd(vh001, pfracx, pfracy, pfracz - oneF);
-        SimdF n101 = grad3_simd(vh101, pfracx - oneF, pfracy, pfracz - oneF);
-        SimdF n011 = grad3_simd(vh011, pfracx, pfracy - oneF, pfracz - oneF);
-        SimdF n111 = grad3_simd(vh111, pfracx - oneF, pfracy - oneF, pfracz - oneF);
+        SimdF n000 = NoiseLib::Base::grad3_simd(vh000, pfracx, pfracy, pfracz);
+        SimdF n100 = NoiseLib::Base::grad3_simd(vh100, pfracx - oneF, pfracy, pfracz);
+        SimdF n010 = NoiseLib::Base::grad3_simd(vh010, pfracx, pfracy - oneF, pfracz);
+        SimdF n110 = NoiseLib::Base::grad3_simd(vh110, pfracx - oneF, pfracy - oneF, pfracz);
+        SimdF n001 = NoiseLib::Base::grad3_simd(vh001, pfracx, pfracy, pfracz - oneF);
+        SimdF n101 = NoiseLib::Base::grad3_simd(vh101, pfracx - oneF, pfracy, pfracz - oneF);
+        SimdF n011 = NoiseLib::Base::grad3_simd(vh011, pfracx, pfracy - oneF, pfracz - oneF);
+        SimdF n111 = NoiseLib::Base::grad3_simd(vh111, pfracx - oneF, pfracy - oneF, pfracz - oneF);
 
         // Trilinear interpolation
         SimdF x00 = SimdF::mul_add(fx, n100 - n000, n000);
@@ -373,10 +289,10 @@ namespace NoiseLib::Perlin
         SimdI vh11 = NoiseLib::Base::hash_int2_simd(NoiseLib::Base::wrap_simd(pix1, vperiod), NoiseLib::Base::wrap_simd(piy1, vperiod)) + vseed;
 
         // Gradient contributions
-        SimdF n00 = grad2_simd(vh00, pfracx, pfracy);
-        SimdF n10 = grad2_simd(vh10, pfracx - oneF, pfracy);
-        SimdF n01 = grad2_simd(vh01, pfracx, pfracy - oneF);
-        SimdF n11 = grad2_simd(vh11, pfracx - oneF, pfracy - oneF);
+        SimdF n00 = NoiseLib::Base::grad2_simd(vh00, pfracx, pfracy);
+        SimdF n10 = NoiseLib::Base::grad2_simd(vh10, pfracx - oneF, pfracy);
+        SimdF n01 = NoiseLib::Base::grad2_simd(vh01, pfracx, pfracy - oneF);
+        SimdF n11 = NoiseLib::Base::grad2_simd(vh11, pfracx - oneF, pfracy - oneF);
 
         // Bilinear interpolation
         SimdF x0 = SimdF::mul_add(fx, n10 - n00, n00);
@@ -424,14 +340,14 @@ namespace NoiseLib::Perlin
         SimdI vh111 = NoiseLib::Base::hash_int3_simd(pix1, piy1, piz1) + vseed;
 
         // Gradient contributions at each corner
-        SimdF n000 = grad3_simd(vh000, pfracx, pfracy, pfracz);
-        SimdF n100 = grad3_simd(vh100, pfracx - oneF, pfracy, pfracz);
-        SimdF n010 = grad3_simd(vh010, pfracx, pfracy - oneF, pfracz);
-        SimdF n110 = grad3_simd(vh110, pfracx - oneF, pfracy - oneF, pfracz);
-        SimdF n001 = grad3_simd(vh001, pfracx, pfracy, pfracz - oneF);
-        SimdF n101 = grad3_simd(vh101, pfracx - oneF, pfracy, pfracz - oneF);
-        SimdF n011 = grad3_simd(vh011, pfracx, pfracy - oneF, pfracz - oneF);
-        SimdF n111 = grad3_simd(vh111, pfracx - oneF, pfracy - oneF, pfracz - oneF);
+        SimdF n000 = NoiseLib::Base::grad3_simd(vh000, pfracx, pfracy, pfracz);
+        SimdF n100 = NoiseLib::Base::grad3_simd(vh100, pfracx - oneF, pfracy, pfracz);
+        SimdF n010 = NoiseLib::Base::grad3_simd(vh010, pfracx, pfracy - oneF, pfracz);
+        SimdF n110 = NoiseLib::Base::grad3_simd(vh110, pfracx - oneF, pfracy - oneF, pfracz);
+        SimdF n001 = NoiseLib::Base::grad3_simd(vh001, pfracx, pfracy, pfracz - oneF);
+        SimdF n101 = NoiseLib::Base::grad3_simd(vh101, pfracx - oneF, pfracy, pfracz - oneF);
+        SimdF n011 = NoiseLib::Base::grad3_simd(vh011, pfracx, pfracy - oneF, pfracz - oneF);
+        SimdF n111 = NoiseLib::Base::grad3_simd(vh111, pfracx - oneF, pfracy - oneF, pfracz - oneF);
 
         // Trilinear interpolation
         SimdF x00 = SimdF::mul_add(fx, n100 - n000, n000);

@@ -6,32 +6,6 @@ namespace NoiseLib::Simplex
     // Scalar helpers
     // =========================================================================
 
-    static float grad2(uint32_t hash, const glm::vec2& p)
-    {
-        switch (hash & 7)
-        {
-        case 0: return  p.x + p.y;
-        case 1: return -p.x + p.y;
-        case 2: return  p.x - p.y;
-        case 3: return -p.x - p.y;
-        case 4: return  p.x;
-        case 5: return -p.x;
-        case 6: return  p.y;
-        default:return -p.y;
-        }
-    }
-
-    static float grad3(uint32_t hash, const glm::vec3& p)
-    {
-        static const glm::vec3 gradients[16] = {
-            { 1, 1, 0}, {-1, 1, 0}, { 1,-1, 0}, {-1,-1, 0},
-            { 1, 0, 1}, {-1, 0, 1}, { 1, 0,-1}, {-1, 0,-1},
-            { 0, 1, 1}, { 0,-1, 1}, { 0, 1,-1}, { 0,-1,-1},
-            { 1, 1, 0}, {-1, 1, 0}, { 1,-1, 0}, {-1,-1, 0},
-        };
-        return glm::dot(gradients[hash & 15u], p);
-    }
-
     float scalar2D(const glm::vec2& p, int seed)
     {
         constexpr float F2 = 0.36602540378f;
@@ -53,7 +27,7 @@ namespace NoiseLib::Simplex
                 float tc = 0.5f - glm::dot(d, d);
                 if (tc <= 0.0f) return 0.0f;
                 tc *= tc;
-                return tc * tc * grad2(NoiseLib::Base::hash_int2(cell) + seed, d);
+                return tc * tc * NoiseLib::Base::grad2(NoiseLib::Base::hash_int2(cell) + seed, d);
             };
 
         n += contrib(pi, d0);
@@ -98,7 +72,7 @@ namespace NoiseLib::Simplex
                 float tc = 0.6f - glm::dot(d, d);
                 if (tc <= 0.0f) return 0.0f;
                 tc *= tc;
-                return tc * tc * grad3(NoiseLib::Base::hash_int3(cell) + seed, d);
+                return tc * tc * NoiseLib::Base::grad3(NoiseLib::Base::hash_int3(cell) + seed, d);
             };
 
         n += contrib3(pi, d0);
@@ -111,106 +85,6 @@ namespace NoiseLib::Simplex
     // =========================================================================
     // SIMD helpers
     // =========================================================================
-
-    static SimdF grad2_simd(const SimdI& hash, const SimdF& dx, const SimdF& dy)
-    {
-        const SimdI one =  SimdI(1);
-        const SimdI two =  SimdI(2);
-        const SimdI four = SimdI(4);
-        const SimdF SIGN = SimdF(-0.0f);
-
-        SimdF mbit0 = (((hash & one ) == one )).as_float();
-        SimdF mbit1 = (((hash & two ) == two )).as_float();
-        SimdF mbit2 = (((hash & four) == four)).as_float();
-
-        SimdF gx = SimdF::blendv(dx, dx ^ SIGN, mbit0);
-        SimdF gy = SimdF::blendv(dy, dy ^ SIGN, mbit1);
-        SimdF both = gx + gy;
-
-        SimdF single_unsigned = SimdF::blendv(dx, dy, mbit1);
-        SimdF single = SimdF::blendv(single_unsigned, single_unsigned ^ SIGN, mbit0);
-
-        return SimdF::blendv(both, single, mbit2);
-    }
-
-    static SimdF grad3_simd(const SimdI& hash, const SimdF& dx, const SimdF& dy, const SimdF& dz)
-    {
-        const SimdI one = SimdI(1);
-        const SimdF SIGN = SimdF(-0.0f);
-
-        SimdI bit0 = hash & one;
-        SimdI bit1 = (hash >> 1) & one;
-        SimdI bit2 = (hash >> 2) & one;
-        SimdI bit3 = (hash >> 3) & one;
-
-        SimdF mbit0 = (bit0 == one).as_float();
-        SimdF mbit1 = (bit1 == one).as_float();
-        SimdF mbit2 = (bit2 == one).as_float();
-        SimdF mask_bc = ((bit2 ^ bit3) == one).as_float();
-
-        // Group A (bit3==bit2): ±dx ± dy
-        // Group B (bit3!=bit2, bit2==1): ±dx ± dz
-        // Group C (bit3!=bit2, bit2==0): ±dy ± dz
-        SimdF ga = SimdF::blendv(dx, dx ^ SIGN, mbit0) + SimdF::blendv(dy, dy ^ SIGN, mbit1);
-        SimdF gb = SimdF::blendv(dx, dx ^ SIGN, mbit0) + SimdF::blendv(dz, dz ^ SIGN, mbit1);
-        SimdF gc = SimdF::blendv(dy, dy ^ SIGN, mbit0) + SimdF::blendv(dz, dz ^ SIGN, mbit1);
-
-        SimdF groupBC = SimdF::blendv(gc, gb, mbit2);
-        return SimdF::blendv(ga, groupBC, mask_bc);
-    }
-
-    static SimdI hashPrimes3D(
-        SimdI seed,
-        SimdI x,
-        SimdI y,
-        SimdI z)
-    {
-        SimdI hash = seed;
-
-        hash ^= x;
-        hash ^= y;
-        hash ^= z;
-
-        hash *= SimdI(0xB7E0A5F5);
-
-        return (hash >> 15) ^ hash;
-    }
-
-    static SimdF GetGradientDotCommon(SimdI hash, SimdF fX, SimdF fY, SimdF fZ)
-    {
-        SimdI hasha13 = hash & SimdI(13);
-        
-        // if h > 7 then y, else x
-        SimdI gt7 = hash << 28;
-        //if constexpr (SIMD & FastSIMD::FeatureFlag::SSE41)
-        //{
-        //    gt7 = hash << 28; // top 4 bits become the sign bits
-        //}
-        //else
-        //{
-        //    gt7 = hasha13 > SimdI(7);
-        //}
-
-        SimdF u = SimdF::blendv(fX, fY, gt7.as_float());
-
-        // if h < 4 then y else if h is 12 or 14 then x else z
-        SimdF v = SimdF::blendv(fZ, fX, (hasha13 == SimdI(12)).as_float());
-        v = SimdF::blendv(v, fY, (hasha13 < SimdI(2)).as_float());
-
-        // if h1 then -u else u
-        // if h2 then -v else v
-        SimdF h1 = (hash << 31).as_float();
-        SimdF h2 = ((hash >> 1) << 31).as_float();
-
-        // then add them
-        return (u ^ h1) + (v ^ h2);
-    }
-
-    static SimdF scaleOutput(SimdF v, SimdF min, SimdF max)
-    {
-        const SimdF half = SimdF(0.5f);
-        return (v * (max - min) + (max + min)) * half;
-    }
 
     SimdF simd2D(const SimdF& vpx, const SimdF& vpy, const SimdI& vseed)
     {
@@ -240,8 +114,6 @@ namespace NoiseLib::Simplex
         SimdF d0y = (vpy - pfy) + t;
 
         // --- Triangle selection (branchless) ---------------------------------
-        // Scalar: i1 = (d0.x > d0.y) ? (1,0) : (0,1)
-        // AVX2:   compare gives an all-ones/-zeros lane mask; AND with 1 gives 0 or 1
         SimdF vcmp = d0x > d0y;
         SimdI vcmpI = vcmp.as_int32();
 
@@ -249,10 +121,10 @@ namespace NoiseLib::Simplex
         SimdI vi1y = SimdI::bitwise_andnot(vcmpI, oneI);
 
         // --- Corner offsets --------------------------------------------------
-        SimdF vd1x = (d0x - vi1x.to_float()) + G2;
-        SimdF vd1y = (d0y - vi1y.to_float()) + G2;
-        SimdF vd2x = (d0x - oneF)            + G2x2;
-        SimdF vd2y = (d0y - oneF)            + G2x2;
+        SimdF d1x = (d0x - vi1x.to_float()) + G2;
+        SimdF d1y = (d0y - vi1y.to_float()) + G2;
+        SimdF d2x = (d0x - oneF)            + G2x2;
+        SimdF d2y = (d0y - oneF)            + G2x2;
 
         // --- Wrapped cell indices for the three corners ----------------------
         SimdI vc0x = pix;
@@ -268,25 +140,27 @@ namespace NoiseLib::Simplex
         SimdI vh2 = NoiseLib::Base::hash_int2_simd(vc2x, vc2y) + vseed;
 
         // --- Radial kernel: max(0, 0.5 - |d|^2)^4 * grad --------------------
-        // The t > 0 guard is a mask: inactive lanes are zeroed before squaring,
-        // so they contribute exactly 0 to the sum — no branches, no blends on t4.
-        auto kernel = [&](SimdI h, SimdF dx, SimdF dy) -> SimdF
-        {
-            //SimdF t = half - (dx * dx + dy * dy);
-            SimdF t = SimdF::neg_mul_add(dx, dx, SimdF::neg_mul_add(dy, dy, thresh));
+        SimdF tc0 = SimdF::neg_mul_add(d0x, d0x, SimdF::neg_mul_add(d0y, d0y, thresh));
+        SimdF tc1 = SimdF::neg_mul_add(d1x, d1x, SimdF::neg_mul_add(d1y, d1y, thresh));
+        SimdF tc2 = SimdF::neg_mul_add(d2x, d2x, SimdF::neg_mul_add(d2y, d2y, thresh));
 
-            SimdF ok = t > zero;
-            t = t & ok;     // zero out inactive lanes
-            SimdF t2 = t * t;
-            SimdF t4 = t2 * t2;
-            return t4 * grad2_simd(h, dx, dy);
-        };
+        tc0 = SimdF::max(tc0, zero);
+        tc1 = SimdF::max(tc1, zero);
+        tc2 = SimdF::max(tc2, zero);
 
-        SimdF vn = kernel(vh0, d0x, d0y) + kernel(vh1, vd1x, vd1y) + kernel(vh2, vd2x, vd2y);
+        tc0 *= tc0; tc0 *= tc0;
+        tc1 *= tc1; tc1 *= tc1;
+        tc2 *= tc2; tc2 *= tc2;
 
-        const SimdF outputFactor = SimdF(70.0f);
+        SimdF g0 = NoiseLib::Base::grad2_simd(vh0, d0x, d0y);
+        SimdF g1 = NoiseLib::Base::grad2_simd(vh1, d1x, d1y);
+        SimdF g2 = NoiseLib::Base::grad2_simd(vh2, d2x, d2y);
 
-        return vn * outputFactor;
+        SimdF vn = tc0 * g0;
+        vn = SimdF::mul_add(tc1, g1, vn);
+        vn = SimdF::mul_add(tc2, g2, vn);
+
+        return vn * SimdF(70.0f);
     }
 
     SimdF simd3D(const SimdF& vpx, const SimdF& vpy, const SimdF& vpz, const SimdI& vseed)
@@ -321,27 +195,18 @@ namespace NoiseLib::Simplex
         SimdF d0z = (vpz - pfz) + t;
 
         // --- Branchless simplex ordering ----------------------------------------
-        // Integer masks: -1 (all-ones) = true, 0 = false
-        SimdI mxy = (d0x >= d0y).as_int32();   // x >= y
-        SimdI mxz = (d0x >= d0z).as_int32();   // x >= z
-        SimdI myz = (d0y >= d0z).as_int32();   // y >= z
+        SimdI mxy = (d0x >= d0y).as_int32();
+        SimdI mxz = (d0x >= d0z).as_int32();
+        SimdI myz = (d0y >= d0z).as_int32();
 
         SimdI notMxy = mxy ^ allOnes;
         SimdI notMxz = mxz ^ allOnes;
         SimdI notMyz = myz ^ allOnes;
 
-        // i1: unit vector for the largest component
-        //   i1x = (x>=y) AND (x>=z)
-        //   i1y = NOT(x>=y) AND (y>=z) → bitwise_andnot(a,b) = (~a)&b
-        //   i1z = remainder (exactly one of i1x/y/z is 1)
         SimdI vi1x = (mxy & mxz) & oneI;
         SimdI vi1y = SimdI::bitwise_andnot(mxy, myz) & oneI;
         SimdI vi1z = oneI - vi1x - vi1y;
 
-        // i2: "not the minimum" gets 1
-        //   x is min iff ~mxy AND ~mxz  →  i2x = mxy | mxz
-        //   y is min iff mxy AND ~myz   →  i2y = ~mxy | myz
-        //   z is min iff mxz AND myz    →  i2z = ~mxz | ~myz
         SimdI vi2x = (mxy | mxz) & oneI;
         SimdI vi2y = (notMxy | myz) & oneI;
         SimdI vi2z = (notMxz | notMyz) & oneI;
@@ -358,15 +223,15 @@ namespace NoiseLib::Simplex
         SimdI vc0x = pix;
         SimdI vc0y = piy;
         SimdI vc0z = piz;
-
+        
         SimdI vc1x = pix + vi1x;
         SimdI vc1y = piy + vi1y;
         SimdI vc1z = piz + vi1z;
-
+        
         SimdI vc2x = pix + vi2x;
         SimdI vc2y = piy + vi2y;
         SimdI vc2z = piz + vi2z;
-
+        
         SimdI vc3x = pix + oneI;
         SimdI vc3y = piy + oneI;
         SimdI vc3z = piz + oneI;
@@ -378,116 +243,31 @@ namespace NoiseLib::Simplex
         SimdI vh3 = NoiseLib::Base::hash_int3_simd(vc3x, vc3y, vc3z) + vseed;
 
         // --- Radial kernel: max(0, 0.6 - |d|^2)^4 * grad ----------------------
-        auto kernel = [&](SimdI h, SimdF dx, SimdF dy, SimdF dz) -> SimdF
-            {
-                SimdF tc = SimdF::neg_mul_add(dx, dx, SimdF::neg_mul_add(dy, dy, SimdF::neg_mul_add(dz, dz, thresh)));
-                SimdF ok = tc > zero;
-                tc = tc & ok;            // zero inactive lanes before squaring
-                SimdF tc2 = tc * tc;
-                SimdF tc4 = tc2 * tc2;
-                return tc4 * grad3_simd(h, dx, dy, dz);
-            };
+        SimdF tc0 = SimdF::neg_mul_add(d0x, d0x, SimdF::neg_mul_add(d0y, d0y, SimdF::neg_mul_add(d0z, d0z, thresh)));
+        SimdF tc1 = SimdF::neg_mul_add(d1x, d1x, SimdF::neg_mul_add(d1y, d1y, SimdF::neg_mul_add(d1z, d1z, thresh)));
+        SimdF tc2 = SimdF::neg_mul_add(d2x, d2x, SimdF::neg_mul_add(d2y, d2y, SimdF::neg_mul_add(d2z, d2z, thresh)));
+        SimdF tc3 = SimdF::neg_mul_add(d3x, d3x, SimdF::neg_mul_add(d3y, d3y, SimdF::neg_mul_add(d3z, d3z, thresh)));
 
-        SimdF vn = kernel(vh0, d0x, d0y, d0z)
-            + kernel(vh1, d1x, d1y, d1z)
-            + kernel(vh2, d2x, d2y, d2z)
-            + kernel(vh3, d3x, d3y, d3z);
+        tc0 = SimdF::max(tc0, zero);
+        tc1 = SimdF::max(tc1, zero);
+        tc2 = SimdF::max(tc2, zero);
+        tc3 = SimdF::max(tc3, zero);
+
+        tc0 *= tc0; tc0 *= tc0;
+        tc1 *= tc1; tc1 *= tc1;
+        tc2 *= tc2; tc2 *= tc2;
+        tc3 *= tc3; tc3 *= tc3;
+
+        SimdF g0 = NoiseLib::Base::grad3_simd(vh0, d0x, d0y, d0z);
+        SimdF g1 = NoiseLib::Base::grad3_simd(vh1, d1x, d1y, d1z);
+        SimdF g2 = NoiseLib::Base::grad3_simd(vh2, d2x, d2y, d2z);
+        SimdF g3 = NoiseLib::Base::grad3_simd(vh3, d3x, d3y, d3z);
+
+        SimdF vn = tc0 * g0;
+        vn = SimdF::mul_add(tc1, g1, vn);
+        vn = SimdF::mul_add(tc2, g2, vn);
+        vn = SimdF::mul_add(tc3, g3, vn);
 
         return vn * SimdF(32.0f);
-    }
-
-    SimdF simd3D_Ver2(const SimdF& vpx, const SimdF& vpy, const SimdF& vpz, const SimdI& vseed)
-    {
-        constexpr float kSkew3 = 1.0 / 3.0;
-        constexpr float kReflectUnskew3 = -1.0 / 2.0;
-        constexpr float kFalloffRadiusSquared = 0.6;
-
-        //const SimdF vKReflectUnskew3 = SimdF(kReflectUnskew3);
-        const SimdF vKReflectUnskew3Mul3Plus1 = SimdF(kReflectUnskew3 * 3 + 1);
-
-        const SimdI primeX = SimdI(0xF797C5C7);
-        const SimdI primeY = SimdI(0x6C060C89);
-        const SimdI primeZ = SimdI(0x465FD04F);
-        const SimdF oneF = SimdF(1.0f);
-        const SimdF zeroF = SimdF::fill_lanes_with_zero();
-
-        SimdF skewDelta = SimdF(kSkew3) * (vpx + vpy + vpz);
-        SimdF xSkewed = vpx + skewDelta;
-        SimdF ySkewed = vpy + skewDelta;
-        SimdF zSkewed = vpz + skewDelta;
-
-        SimdF xSkewedBase = SimdF::floor(xSkewed);
-        SimdF ySkewedBase = SimdF::floor(ySkewed);
-        SimdF zSkewedBase = SimdF::floor(zSkewed);
-        SimdF dxSkewed = xSkewed - xSkewedBase;
-        SimdF dySkewed = ySkewed - ySkewedBase;
-        SimdF dzSkewed = zSkewed - zSkewedBase;
-
-        SimdI xPrimedBase = xSkewedBase.to_int32() * primeX;
-        SimdI yPrimedBase = ySkewedBase.to_int32() * primeY;
-        SimdI zPrimedBase = zSkewedBase.to_int32() * primeZ;
-
-        SimdF xGreaterEqualY = dxSkewed >= dySkewed;
-        SimdF yGreaterEqualZ = dySkewed >= dzSkewed;
-        SimdF xGreaterEqualZ = dxSkewed >= dzSkewed;
-
-        SimdF unskewDelta = SimdF(kReflectUnskew3) * (dxSkewed + dySkewed + dzSkewed);
-        SimdF dx0 = dxSkewed + unskewDelta;
-        SimdF dy0 = dySkewed + unskewDelta;
-        SimdF dz0 = dzSkewed + unskewDelta;
-
-        SimdF maskX1 = xGreaterEqualY & xGreaterEqualZ;
-        SimdF maskY1 = SimdF::bitwise_andnot(yGreaterEqualZ, xGreaterEqualY);
-        SimdF maskZ1 = xGreaterEqualZ | yGreaterEqualZ; // Inv masked
-
-        SimdF nMaskX2 = xGreaterEqualY | xGreaterEqualZ; // Inv masked
-        SimdF nMaskY2 = SimdF::bitwise_andnot(xGreaterEqualY, yGreaterEqualZ);
-        SimdF nMaskZ2 = xGreaterEqualZ & yGreaterEqualZ;
-
-        SimdF dx3 = dx0 - vKReflectUnskew3Mul3Plus1;
-        SimdF dy3 = dy0 - vKReflectUnskew3Mul3Plus1;
-        SimdF dz3 = dz0 - vKReflectUnskew3Mul3Plus1;
-
-        SimdF dx1 = dx3 - (maskX1  & oneF);
-        SimdF dy1 = dy3 - (maskY1  & oneF);
-        SimdF dz1 = dz3 - (~maskZ1 & oneF);
-
-        SimdF dx2 = dx0 + (nMaskX2 & oneF);
-        SimdF dy2 = dy0 + (nMaskY2 & oneF);
-        SimdF dz2 = dz0 + (nMaskZ2 & oneF);
-
-        SimdF vKFalloffRadiusSquared = SimdF(kFalloffRadiusSquared);
-
-        SimdF falloff0 = SimdF::neg_mul_add(dz0, dz0, SimdF::neg_mul_add(dy0, dy0, SimdF::neg_mul_add(dx0, dx0, vKFalloffRadiusSquared)));
-        SimdF falloff1 = SimdF::neg_mul_add(dz1, dz1, SimdF::neg_mul_add(dy1, dy1, SimdF::neg_mul_add(dx1, dx1, vKFalloffRadiusSquared)));
-        SimdF falloff2 = SimdF::neg_mul_add(dz2, dz2, SimdF::neg_mul_add(dy2, dy2, SimdF::neg_mul_add(dx2, dx2, vKFalloffRadiusSquared)));
-        SimdF falloff3 = falloff0 - (unskewDelta + SimdF(3.0 / 4.0));
-
-        falloff0 = SimdF::max(falloff0, zeroF);
-        falloff1 = SimdF::max(falloff1, zeroF);
-        falloff2 = SimdF::max(falloff2, zeroF);
-        falloff3 = SimdF::max(falloff3, zeroF);
-
-        falloff0 *= falloff0; falloff0 *= falloff0;
-        falloff1 *= falloff1; falloff1 *= falloff1;
-        falloff2 *= falloff2; falloff2 *= falloff2;
-        falloff3 *= falloff3; falloff3 *= falloff3;
-
-        SimdF gradientRampValue0 = GetGradientDotCommon(hashPrimes3D(vseed, xPrimedBase, yPrimedBase, zPrimedBase), dx0, dy0, dz0);
-        SimdF gradientRampValue1 = GetGradientDotCommon(hashPrimes3D(vseed,
-            xPrimedBase + (primeX &  maskX1.as_int32()),
-            yPrimedBase + (primeY &  maskY1.as_int32()),
-            zPrimedBase + (primeZ & ~maskZ1.as_int32())), dx1, dy1, dz1);
-        SimdF gradientRampValue2 = GetGradientDotCommon(hashPrimes3D(vseed,
-            xPrimedBase + (primeX &  nMaskX2.as_int32()),
-            yPrimedBase + (primeY & ~nMaskY2.as_int32()),
-            zPrimedBase + (primeZ & ~nMaskZ2.as_int32())), dx2, dy2, dz2);
-        SimdF gradientRampValue3 = GetGradientDotCommon(hashPrimes3D(vseed, xPrimedBase + primeX, yPrimedBase + primeY, zPrimedBase + primeZ), dx3, dy3, dz3);
-
-        SimdF value = SimdF::mul_add(gradientRampValue3, falloff3, SimdF::mul_add(gradientRampValue2, falloff2, SimdF::mul_add(gradientRampValue1, falloff1, gradientRampValue0 * falloff0)));
-
-        SimdF vKBounding = SimdF(0.030586399137973785400390625f);
-
-        return scaleOutput(value, -vKBounding, vKBounding);
     }
 }

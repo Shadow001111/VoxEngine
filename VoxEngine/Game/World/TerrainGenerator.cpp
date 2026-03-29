@@ -62,19 +62,9 @@ void TerrainGenerator::ChunkColumnDataPool::release(ChunkColumnData* chunkColumn
 int TerrainGenerator::worldSeed = 0;
 thread_local TerrainGenerator::ThreadLocalData TerrainGenerator::threadLocalData;
 
-using NoiseGenerator2D = NoiseLib::Base::BaseNoiseGenerator<
+using CombinedNoiseGenerator = NoiseLib::Base::BaseNoiseGenerator<
 	NoiseLib::Perlin::scalar2D,
 	NoiseLib::Perlin::simd2D,
-	NoiseLib::Perlin::scalar3D,
-	NoiseLib::Perlin::simd3D,
-	false,
-	true,
-	false
->;
-
-using NoiseGenerator3D = NoiseLib::Base::BaseNoiseGenerator<
-	NoiseLib::Simplex::scalar2D,
-	NoiseLib::Simplex::simd2D,
 	NoiseLib::Simplex::scalar3D,
 	NoiseLib::Simplex::simd3D,
 	false,
@@ -209,11 +199,16 @@ void TerrainGenerator::computeCaveMask(bool* outArray, int chunkX, int chunkY, i
 	{
 		PROFILE_SCOPE("Cave mask: combine noises", ProfileCategory::TerrainGeneration);
 
+		//for (int i = 0; i < CHUNK_VOLUME; i++)
+		//{
+		//	outArray[i] = std::abs(caveNoiseArray[i]) < 0.1f;
+		//}
+
 		static_assert((CHUNK_VOLUME % SimdF::lanes) == 0, "Add tail logic!");
 
 		const SimdF absMask = SimdI::fill_lanes_with_value(0x7fffffff).as_float();
 		const SimdF threshold = SimdF::fill_lanes_with_value(0.1f);
-		for (int i = 0; i + SimdF::lanes < CHUNK_VOLUME; i += SimdF::lanes)
+		for (int i = 0; i + SimdF::lanes <= CHUNK_VOLUME; i += SimdF::lanes)
 		{
 			// Load values
 			SimdF values = SimdF::load(caveNoiseArray + i);
@@ -234,7 +229,7 @@ void TerrainGenerator::computeCaveMask(bool* outArray, int chunkX, int chunkY, i
 				lo = _mm_packs_epi16(lo, lo);    // 8x 16-bit -> 8x  8-bit
 
 				// Store 8 bools at once
-				*((int64_t*)(outArray + i)) = _mm_cvtsi128_si64(lo);
+				_mm_storel_epi64(reinterpret_cast<__m128i*>(outArray + i), lo);
 			}
 #elifdef SIMD_SSE
 			{
@@ -354,7 +349,7 @@ int TerrainGenerator::computeMaxHeight(const int* heightMap)
 
 void TerrainGenerator::computeLayeredNoise_2D(float* outArray, int chunkX, int chunkZ, const NoiseParams& params)
 {
-	NoiseGenerator2D::genLayered2D
+	CombinedNoiseGenerator::genLayered2D
 	(
 		outArray,
 		worldSeed,
@@ -368,7 +363,7 @@ void TerrainGenerator::computeLayeredNoise_2D(float* outArray, int chunkX, int c
 
 void TerrainGenerator::computeLayeredNoise_3D(float* outArray, int chunkX, int chunkY, int chunkZ, const NoiseParams& params)
 {
-	NoiseGenerator3D::genLayered3D
+	CombinedNoiseGenerator::genLayered3D
 	(
 		outArray,
 		worldSeed,

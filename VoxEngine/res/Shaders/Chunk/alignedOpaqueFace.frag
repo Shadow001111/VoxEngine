@@ -39,7 +39,7 @@ float interpolateLight_Quad()
 {
     float v0 = mix(light[0], light[1], uv.x);
     float v1 = mix(light[3], light[2], uv.x);
-    return mix(v0, v1, uv.y);
+    return 1.0 - mix(v0, v1, uv.y) * 0.01;
 }
 
 void main()

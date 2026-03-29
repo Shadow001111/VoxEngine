@@ -18,6 +18,11 @@ namespace NoiseLib::Base
     glm::ivec3 wrap(const glm::ivec3& idx, int period);
     SimdI wrap_simd(const SimdI& idx, const SimdI& period);
 
+    float grad2(uint32_t hash, const glm::vec2& p);
+    float grad3(uint32_t hash, const glm::vec3& p);
+    SimdF grad2_simd(const SimdI& hash, const SimdF& dx, const SimdF& dy);
+    SimdF grad3_simd(const SimdI& hash, const SimdF& dx, const SimdF& dy, const SimdF& dz);
+
     // Non-seamless (default) noise:
     //  'step' can be any positive value.
     // Seamless (tiling) noise:
@@ -439,10 +444,10 @@ namespace NoiseLib::Base
 
                 for (int z = 0; z < resolution.z; z++)
                 {
-                    const SimdF zSamplePoints = SimdF::fill_lanes_with_value((z + initialOffset.z) * baseScale.z);
+                    const SimdF zSamplePoints = SimdF::fill_lanes_with_value((z + initialOffset.z) * scale.z);
                     for (int y = 0; y < resolution.y; y++)
                     {
-                        const SimdF ySamplePoints = SimdF::fill_lanes_with_value((y + initialOffset.y) * baseScale.y);
+                        const SimdF ySamplePoints = SimdF::fill_lanes_with_value((y + initialOffset.y) * scale.y);
                         float* outRow = out + z * resolution.y * resolution.x + y * resolution.x;
 
                         // SIMD loop
