@@ -222,23 +222,22 @@ void TerrainGenerator::computeCaveMask(bool* outArray, int chunkX, int chunkY, i
 			// Pack bools: 32-bit -> 16-bit -> 8-bit
 #ifdef SIMD_AVX2
 			{
-				__m128i lo = _mm256_extracti128_si256(comparisons.reg, 0);
-				__m128i hi = _mm256_extracti128_si256(comparisons.reg, 1);
+				Simd128I low = SimdI::extract_int_128<0>(comparisons);
+				Simd128I high = SimdI::extract_int_128<1>(comparisons);
 
-				lo = _mm_packs_epi32(lo, hi);    // 8x 32-bit -> 8x 16-bit
-				lo = _mm_packs_epi16(lo, lo);    // 8x 16-bit -> 8x  8-bit
+				low = Simd128I::narrow_saturate_32_to_16(low, high);
+				low = Simd128I::narrow_saturate_16_to_8(low, low);
 
 				// Store 8 bools at once
-				_mm_storel_epi64(reinterpret_cast<__m128i*>(outArray + i), lo);
+				low.store_lower_int_64(reinterpret_cast<int32_t*>(outArray + i));
 			}
 #elifdef SIMD_SSE
 			{
-				comparisons.reg = _mm_packs_epi32(comparisons.reg, comparisons.reg);
-				comparisons.reg = _mm_packs_epi16(comparisons.reg, comparisons.reg);
-				//comparisons = _mm_and_si128(comparisons, true_mask); // Convert to 0 or 1, but it's not necessary for storing in bool array
+				comparisons = Simd128I::narrow_saturate_32_to_16(comparisons, comparisons);
+				comparisons = Simd128I::narrow_saturate_16_to_8(comparisons, comparisons);
 
 				// Store 4 bools at once
-				*((int32_t*)(outArray + i)) = _mm_cvtsi128_si32(comparisons.reg);
+				*((int32_t*)(outArray + i)) = comparisons.get_least_significant_int_32();
 			}
 #endif
 		}

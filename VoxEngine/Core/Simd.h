@@ -1,7 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <type_traits>
-#include <immintrin.h> // TODO: include only version of instructions that are needed
+#include <immintrin.h>
 
 // Compile-time register width
 #if defined(__AVX2__)
@@ -18,7 +18,7 @@ inline constexpr size_t kSimdBytes = kSimdBits / 8;
 template<typename T>
 concept SimdElement =
     std::is_same_v<T, int32_t> ||
-    std::is_same_v<T, uint32_t> ||
+    //std::is_same_v<T, uint32_t> ||
     std::is_same_v<T, float>;
 
 // Register type trait
@@ -27,18 +27,22 @@ template<> struct SimdReg<float, 128> { using type = __m128; };
 template<> struct SimdReg<float, 256> { using type = __m256; };
 template<> struct SimdReg<int32_t, 128> { using type = __m128i; };
 template<> struct SimdReg<int32_t, 256> { using type = __m256i; };
-template<> struct SimdReg<uint32_t, 128> { using type = __m128i; };
-template<> struct SimdReg<uint32_t, 256> { using type = __m256i; };
+//template<> struct SimdReg<uint32_t, 128> { using type = __m128i; };
+//template<> struct SimdReg<uint32_t, 256> { using type = __m256i; };
 
 // Simd<T>
-template<SimdElement T>
+template<SimdElement T, size_t Bits = kSimdBits>
 struct Simd
 {
-    using value_type = T;
-    using reg_type = typename SimdReg<T, kSimdBits>::type;
+    static_assert(Bits == 128 || Bits == 256);
+#if !defined(SIMD_AVX2)
+    static_assert(Bits < 256, "256-bit SIMD requires AVX2");
+#endif
 
-    static constexpr size_t bits = kSimdBits;
-    static constexpr size_t bytes = kSimdBytes;
+    using value_type = T;
+    using reg_type = typename SimdReg<T, Bits>::type;
+
+    static constexpr size_t bytes = Bits / 8;
     static constexpr size_t lanes = bytes / sizeof(T);
 
     reg_type reg;
@@ -50,12 +54,12 @@ struct Simd
         Simd s;
         if constexpr (std::is_same_v<T, float>)
         {
-            if constexpr (bits == 256) s.reg = _mm256_set1_ps(val);
+            if constexpr (Bits == 256) s.reg = _mm256_set1_ps(val);
             else                       s.reg = _mm_set1_ps(val);
         }
         else
         {
-            if constexpr (bits == 256) s.reg = _mm256_set1_epi32(static_cast<int32_t>(val));
+            if constexpr (Bits == 256) s.reg = _mm256_set1_epi32(static_cast<int32_t>(val));
             else                       s.reg = _mm_set1_epi32(static_cast<int32_t>(val));
         }
         return s;
@@ -66,12 +70,12 @@ struct Simd
         Simd s;
         if constexpr (std::is_same_v<T, float>)
         {
-            if constexpr (bits == 256) s.reg = _mm256_setzero_ps();
+            if constexpr (Bits == 256) s.reg = _mm256_setzero_ps();
             else                       s.reg = _mm_setzero_ps();
         }
         else
         {
-            if constexpr (bits == 256) s.reg = _mm256_setzero_si256();
+            if constexpr (Bits == 256) s.reg = _mm256_setzero_si256();
             else                       s.reg = _mm_setzero_si128();
         }
         return s;
@@ -80,7 +84,7 @@ struct Simd
     [[nodiscard]] static Simd fill_lanes_with_full_value() noexcept
     {
         if constexpr (std::is_same_v<T, float>)
-            return Simd<int32_t>::fill_lanes_with_value(-1).as_float();
+            return Simd<int32_t, Bits>::fill_lanes_with_value(-1).as_float();
         else
             return fill_lanes_with_value(static_cast<T>(-1));
     }
@@ -101,7 +105,7 @@ struct Simd
         static_assert((std::is_convertible_v<Args, T> && ...));
         
         Simd s;
-        if constexpr (bits == 256) s.reg = _mm256_set_ps(static_cast<T>(vals)...);
+        if constexpr (Bits == 256) s.reg = _mm256_set_ps(static_cast<T>(vals)...);
         else                       s.reg = _mm_set_ps(static_cast<T>(vals)...);
         return s;
     }
@@ -110,17 +114,15 @@ struct Simd
 
     [[nodiscard]] static Simd load(const T* ptr) noexcept
     {
-        // Requires ptr to be aligned to `bytes` (16 or 32 bytes).
-        // UB and potential fault if not — use loadu() when unsure.
         Simd s;
         if constexpr (std::is_same_v<T, float>)
         {
-            if constexpr (bits == 256) s.reg = _mm256_load_ps(ptr);
+            if constexpr (Bits == 256) s.reg = _mm256_load_ps(ptr);
             else                       s.reg = _mm_load_ps(ptr);
         }
         else
         {
-            if constexpr (bits == 256) s.reg = _mm256_load_si256(reinterpret_cast<const __m256i*>(ptr));
+            if constexpr (Bits == 256) s.reg = _mm256_load_si256(reinterpret_cast<const __m256i*>(ptr));
             else                       s.reg = _mm_load_si128(reinterpret_cast<const __m128i*>(ptr));
         }
         return s;
@@ -131,12 +133,12 @@ struct Simd
         Simd s;
         if constexpr (std::is_same_v<T, float>)
         {
-            if constexpr (bits == 256) s.reg = _mm256_loadu_ps(ptr);
+            if constexpr (Bits == 256) s.reg = _mm256_loadu_ps(ptr);
             else                       s.reg = _mm_loadu_ps(ptr);
         }
         else
         {
-            if constexpr (bits == 256) s.reg = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(ptr));
+            if constexpr (Bits == 256) s.reg = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(ptr));
             else                       s.reg = _mm_loadu_si128(reinterpret_cast<const __m128i*>(ptr));
         }
         return s;
@@ -146,15 +148,14 @@ struct Simd
 
     void store(T* ptr) const noexcept
     {
-        // ptr must be aligned to `bytes`. UB if not.
         if constexpr (std::is_same_v<T, float>)
         {
-            if constexpr (bits == 256) _mm256_store_ps(ptr, reg);
+            if constexpr (Bits == 256) _mm256_store_ps(ptr, reg);
             else                       _mm_store_ps(ptr, reg);
         }
         else
         {
-            if constexpr (bits == 256) _mm256_store_si256(reinterpret_cast<__m256i*>(ptr), reg);
+            if constexpr (Bits == 256) _mm256_store_si256(reinterpret_cast<__m256i*>(ptr), reg);
             else                       _mm_store_si128(reinterpret_cast<__m128i*>(ptr), reg);
         }
     }
@@ -163,14 +164,27 @@ struct Simd
     {
         if constexpr (std::is_same_v<T, float>)
         {
-            if constexpr (bits == 256) _mm256_storeu_ps(ptr, reg);
+            if constexpr (Bits == 256) _mm256_storeu_ps(ptr, reg);
             else                       _mm_storeu_ps(ptr, reg);
         }
         else
         {
-            if constexpr (bits == 256) _mm256_storeu_si256(reinterpret_cast<__m256i*>(ptr), reg);
+            if constexpr (Bits == 256) _mm256_storeu_si256(reinterpret_cast<__m256i*>(ptr), reg);
             else                       _mm_storeu_si128(reinterpret_cast<__m128i*>(ptr), reg);
         }
+    }
+
+    void store_lower_int_64(T* ptr) const noexcept
+        requires (std::is_same_v<T, int32_t> && Bits == 128)
+    {
+        _mm_storel_epi64(reinterpret_cast<__m128i*>(ptr), reg);
+    }
+
+    // Get
+    int32_t get_least_significant_int_32() const noexcept
+        requires (std::is_same_v<T, int32_t> && Bits == 128)
+    {
+        return _mm_cvtsi128_si32(reg);
     }
 
     // Bitwise operations
@@ -180,12 +194,12 @@ struct Simd
         Simd s;
         if constexpr (std::is_same_v<T, float>)
         {
-            if constexpr (bits == 256) s.reg = _mm256_and_ps(a.reg, b.reg);
+            if constexpr (Bits == 256) s.reg = _mm256_and_ps(a.reg, b.reg);
             else                       s.reg = _mm_and_ps(a.reg, b.reg);
         }
         else
         {
-            if constexpr (bits == 256) s.reg = _mm256_and_si256(a.reg, b.reg);
+            if constexpr (Bits == 256) s.reg = _mm256_and_si256(a.reg, b.reg);
             else                       s.reg = _mm_and_si128(a.reg, b.reg);
         }
         return s;
@@ -196,12 +210,12 @@ struct Simd
         Simd s;
         if constexpr (std::is_same_v<T, float>)
         {
-            if constexpr (bits == 256) s.reg = _mm256_or_ps(a.reg, b.reg);
+            if constexpr (Bits == 256) s.reg = _mm256_or_ps(a.reg, b.reg);
             else                       s.reg = _mm_or_ps(a.reg, b.reg);
         }
         else
         {
-            if constexpr (bits == 256) s.reg = _mm256_or_si256(a.reg, b.reg);
+            if constexpr (Bits == 256) s.reg = _mm256_or_si256(a.reg, b.reg);
             else                       s.reg = _mm_or_si128(a.reg, b.reg);
         }
         return s;
@@ -212,12 +226,12 @@ struct Simd
         Simd s;
         if constexpr (std::is_same_v<T, float>)
         {
-            if constexpr (bits == 256) s.reg = _mm256_xor_ps(a.reg, b.reg);
+            if constexpr (Bits == 256) s.reg = _mm256_xor_ps(a.reg, b.reg);
             else                       s.reg = _mm_xor_ps(a.reg, b.reg);
         }
         else
         {
-            if constexpr (bits == 256) s.reg = _mm256_xor_si256(a.reg, b.reg);
+            if constexpr (Bits == 256) s.reg = _mm256_xor_si256(a.reg, b.reg);
             else                       s.reg = _mm_xor_si128(a.reg, b.reg);
         }
         return s;
@@ -234,12 +248,12 @@ struct Simd
         Simd s;
         if constexpr (std::is_same_v<T, float>)
         {
-            if constexpr (bits == 256) s.reg = _mm256_andnot_ps(a.reg, b.reg);
+            if constexpr (Bits == 256) s.reg = _mm256_andnot_ps(a.reg, b.reg);
             else                       s.reg = _mm_andnot_ps(a.reg, b.reg);
         }
         else
         {
-            if constexpr (bits == 256) s.reg = _mm256_andnot_si256(a.reg, b.reg);
+            if constexpr (Bits == 256) s.reg = _mm256_andnot_si256(a.reg, b.reg);
             else                       s.reg = _mm_andnot_si128(a.reg, b.reg);
         }
         return s;
@@ -249,7 +263,7 @@ struct Simd
         requires (!std::is_same_v<T, float>)
     {
         Simd s;
-        if constexpr (bits == 256) s.reg = _mm256_slli_epi32(a.reg, count);
+        if constexpr (Bits == 256) s.reg = _mm256_slli_epi32(a.reg, count);
         else                       s.reg = _mm_slli_epi32(a.reg, count);
         return s;
     }
@@ -258,7 +272,7 @@ struct Simd
         requires (!std::is_same_v<T, float>)
     {
         Simd s;
-        if constexpr (bits == 256) s.reg = _mm256_srli_epi32(a.reg, count);
+        if constexpr (Bits == 256) s.reg = _mm256_srli_epi32(a.reg, count);
         else                       s.reg = _mm_srli_epi32(a.reg, count);
         return s;
     }
@@ -283,12 +297,12 @@ struct Simd
         Simd s;
         if constexpr (std::is_same_v<T, float>)
         {
-            if constexpr (bits == 256) s.reg = _mm256_add_ps(a.reg, b.reg);
+            if constexpr (Bits == 256) s.reg = _mm256_add_ps(a.reg, b.reg);
             else                       s.reg = _mm_add_ps(a.reg, b.reg);
         }
         else
         {
-            if constexpr (bits == 256) s.reg = _mm256_add_epi32(a.reg, b.reg);
+            if constexpr (Bits == 256) s.reg = _mm256_add_epi32(a.reg, b.reg);
             else                       s.reg = _mm_add_epi32(a.reg, b.reg);
         }
         return s;
@@ -299,12 +313,12 @@ struct Simd
         Simd s;
         if constexpr (std::is_same_v<T, float>)
         {
-            if constexpr (bits == 256) s.reg = _mm256_sub_ps(a.reg, b.reg);
+            if constexpr (Bits == 256) s.reg = _mm256_sub_ps(a.reg, b.reg);
             else                       s.reg = _mm_sub_ps(a.reg, b.reg);
         }
         else
         {
-            if constexpr (bits == 256) s.reg = _mm256_sub_epi32(a.reg, b.reg);
+            if constexpr (Bits == 256) s.reg = _mm256_sub_epi32(a.reg, b.reg);
             else                       s.reg = _mm_sub_epi32(a.reg, b.reg);
         }
         return s;
@@ -315,13 +329,13 @@ struct Simd
         Simd s;
         if constexpr (std::is_same_v<T, float>)
         {
-            if constexpr (bits == 256) s.reg = _mm256_mul_ps(a.reg, b.reg);
+            if constexpr (Bits == 256) s.reg = _mm256_mul_ps(a.reg, b.reg);
             else                       s.reg = _mm_mul_ps(a.reg, b.reg);
         }
         else
         {
-            // mullo: low 32 bits of each 32x32->64 product (wrapping, same for signed/unsigned)
-            if constexpr (bits == 256) s.reg = _mm256_mullo_epi32(a.reg, b.reg);
+            // mullo: low 32 Bits of each 32x32->64 product (wrapping, same for signed/unsigned)
+            if constexpr (Bits == 256) s.reg = _mm256_mullo_epi32(a.reg, b.reg);
             else                       s.reg = _mm_mullo_epi32(a.reg, b.reg);
         }
         return s;
@@ -331,7 +345,7 @@ struct Simd
         requires (std::is_same_v<T, float>)
     {
         Simd s;
-        if constexpr (bits == 256) s.reg = _mm256_div_ps(a.reg, b.reg);
+        if constexpr (Bits == 256) s.reg = _mm256_div_ps(a.reg, b.reg);
         else                       s.reg = _mm_div_ps(a.reg, b.reg);
         return s;
     }
@@ -341,7 +355,7 @@ struct Simd
         requires std::is_same_v<T, float>
     {
         Simd s;
-        if constexpr (bits == 256) s.reg = _mm256_fmadd_ps(a.reg, b.reg, c.reg);
+        if constexpr (Bits == 256) s.reg = _mm256_fmadd_ps(a.reg, b.reg, c.reg);
         else                       s.reg = _mm_fmadd_ps(a.reg, b.reg, c.reg);
         return s;
     }
@@ -351,7 +365,7 @@ struct Simd
         requires std::is_same_v<T, float>
     {
         Simd s;
-        if constexpr (bits == 256) s.reg = _mm256_fmsub_ps(a.reg, b.reg, c.reg);
+        if constexpr (Bits == 256) s.reg = _mm256_fmsub_ps(a.reg, b.reg, c.reg);
         else                       s.reg = _mm_fmsub_ps(a.reg, b.reg, c.reg);
         return s;
     }
@@ -361,7 +375,7 @@ struct Simd
         requires std::is_same_v<T, float>
     {
         Simd s;
-        if constexpr (bits == 256) s.reg = _mm256_fnmadd_ps(a.reg, b.reg, c.reg);
+        if constexpr (Bits == 256) s.reg = _mm256_fnmadd_ps(a.reg, b.reg, c.reg);
         else                       s.reg = _mm_fnmadd_ps(a.reg, b.reg, c.reg);
         return s;
     }
@@ -371,7 +385,7 @@ struct Simd
         requires std::is_same_v<T, float>
     {
         Simd s;
-        if constexpr (bits == 256) s.reg = _mm256_fnmsub_ps(a.reg, b.reg, c.reg);
+        if constexpr (Bits == 256) s.reg = _mm256_fnmsub_ps(a.reg, b.reg, c.reg);
         else                       s.reg = _mm_fnmsub_ps(a.reg, b.reg, c.reg);
         return s;
     }
@@ -380,7 +394,7 @@ struct Simd
     {
         if constexpr (std::is_same_v<T, float>)
         {
-            const Simd sign_mask = Simd<int32_t>::fill_lanes_with_value(0x80000000).as_float();
+            const Simd sign_mask = Simd<int32_t, Bits>::fill_lanes_with_value(0x80000000).as_float();
             return bitwise_xor(a, sign_mask);
         }
         else
@@ -408,7 +422,7 @@ struct Simd
     {
         Simd s;
         constexpr int kNearest = _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC;
-        if constexpr (bits == 256) s.reg = _mm256_round_ps(a.reg, kNearest);
+        if constexpr (Bits == 256) s.reg = _mm256_round_ps(a.reg, kNearest);
         else                       s.reg = _mm_round_ps(a.reg, kNearest);
         return s;
     }
@@ -416,7 +430,7 @@ struct Simd
     [[nodiscard]] static Simd floor(const Simd& a) noexcept requires std::is_same_v<T, float>
     {
         Simd s;
-        if constexpr (bits == 256) s.reg = _mm256_floor_ps(a.reg);
+        if constexpr (Bits == 256) s.reg = _mm256_floor_ps(a.reg);
         else                       s.reg = _mm_floor_ps(a.reg);
         return s;
     }
@@ -424,7 +438,7 @@ struct Simd
     [[nodiscard]] static Simd ceil(const Simd& a) noexcept requires std::is_same_v<T, float>
     {
         Simd s;
-        if constexpr (bits == 256) s.reg = _mm256_ceil_ps(a.reg);
+        if constexpr (Bits == 256) s.reg = _mm256_ceil_ps(a.reg);
         else                       s.reg = _mm_ceil_ps(a.reg);
         return s;
     }
@@ -436,12 +450,12 @@ struct Simd
         Simd s;
         if constexpr (std::is_same_v<T, float>)
         {
-            if constexpr (bits == 256) s.reg = _mm256_cmp_ps(a.reg, b.reg, _CMP_EQ_OQ);
+            if constexpr (Bits == 256) s.reg = _mm256_cmp_ps(a.reg, b.reg, _CMP_EQ_OQ);
             else                       s.reg = _mm_cmpeq_ps(a.reg, b.reg);
         }
         else
         {
-            if constexpr (bits == 256) s.reg = _mm256_cmpeq_epi32(a.reg, b.reg);
+            if constexpr (Bits == 256) s.reg = _mm256_cmpeq_epi32(a.reg, b.reg);
             else                       s.reg = _mm_cmpeq_epi32(a.reg, b.reg);
         }
         return s;
@@ -452,14 +466,14 @@ struct Simd
         Simd s;
         if constexpr (std::is_same_v<T, float>)
         {
-            if constexpr (bits == 256) s.reg = _mm256_cmp_ps(a.reg, b.reg, _CMP_NEQ_OQ);
+            if constexpr (Bits == 256) s.reg = _mm256_cmp_ps(a.reg, b.reg, _CMP_NEQ_OQ);
             else                       s.reg = _mm_cmpneq_ps(a.reg, b.reg);
         }
         else
         {
             Simd eq = compare_equal(a, b);
             Simd ones = fill_lanes_with_full_value();
-            if constexpr (bits == 256) s.reg = _mm256_xor_si256(eq.reg, ones.reg);
+            if constexpr (Bits == 256) s.reg = _mm256_xor_si256(eq.reg, ones.reg);
             else                       s.reg = _mm_xor_si128(eq.reg, ones.reg);
         }
         return s;
@@ -470,12 +484,12 @@ struct Simd
         Simd s;
         if constexpr (std::is_same_v<T, float>)
         {
-            if constexpr (bits == 256) s.reg = _mm256_cmp_ps(a.reg, b.reg, _CMP_LT_OQ);
+            if constexpr (Bits == 256) s.reg = _mm256_cmp_ps(a.reg, b.reg, _CMP_LT_OQ);
             else                       s.reg = _mm_cmplt_ps(a.reg, b.reg);
         }
         else if constexpr (std::is_same_v<T, int32_t>)
         {
-            if constexpr (bits == 256) s.reg = _mm256_cmpgt_epi32(b.reg, a.reg);
+            if constexpr (Bits == 256) s.reg = _mm256_cmpgt_epi32(b.reg, a.reg);
             else                       s.reg = _mm_cmpgt_epi32(b.reg, a.reg);
         }
         else // uint32_t — bias into signed range
@@ -491,14 +505,14 @@ struct Simd
         Simd s;
         if constexpr (std::is_same_v<T, float>)
         {
-            if constexpr (bits == 256) s.reg = _mm256_cmp_ps(a.reg, b.reg, _CMP_LE_OQ);
+            if constexpr (Bits == 256) s.reg = _mm256_cmp_ps(a.reg, b.reg, _CMP_LE_OQ);
             else                       s.reg = _mm_cmple_ps(a.reg, b.reg);
         }
         else
         {
             Simd gt = compare_greater(a, b);
             Simd ones = fill_lanes_with_full_value();
-            if constexpr (bits == 256) s.reg = _mm256_xor_si256(gt.reg, ones.reg);
+            if constexpr (Bits == 256) s.reg = _mm256_xor_si256(gt.reg, ones.reg);
             else                       s.reg = _mm_xor_si128(gt.reg, ones.reg);
         }
         return s;
@@ -509,12 +523,12 @@ struct Simd
         Simd s;
         if constexpr (std::is_same_v<T, float>)
         {
-            if constexpr (bits == 256) s.reg = _mm256_cmp_ps(a.reg, b.reg, _CMP_GT_OQ);
+            if constexpr (Bits == 256) s.reg = _mm256_cmp_ps(a.reg, b.reg, _CMP_GT_OQ);
             else                       s.reg = _mm_cmpgt_ps(a.reg, b.reg);
         }
         else if constexpr (std::is_same_v<T, int32_t>)
         {
-            if constexpr (bits == 256) s.reg = _mm256_cmpgt_epi32(a.reg, b.reg);
+            if constexpr (Bits == 256) s.reg = _mm256_cmpgt_epi32(a.reg, b.reg);
             else                       s.reg = _mm_cmpgt_epi32(a.reg, b.reg);
         }
         else // uint32_t
@@ -530,14 +544,14 @@ struct Simd
         Simd s;
         if constexpr (std::is_same_v<T, float>)
         {
-            if constexpr (bits == 256) s.reg = _mm256_cmp_ps(a.reg, b.reg, _CMP_GE_OQ);
+            if constexpr (Bits == 256) s.reg = _mm256_cmp_ps(a.reg, b.reg, _CMP_GE_OQ);
             else                       s.reg = _mm_cmpge_ps(a.reg, b.reg);
         }
         else
         {
             Simd lt = compare_less(a, b);
             Simd ones = fill_lanes_with_full_value();
-            if constexpr (bits == 256) s.reg = _mm256_xor_si256(lt.reg, ones.reg);
+            if constexpr (Bits == 256) s.reg = _mm256_xor_si256(lt.reg, ones.reg);
             else                       s.reg = _mm_xor_si128(lt.reg, ones.reg);
         }
         return s;
@@ -558,12 +572,12 @@ struct Simd
         Simd s;
         if constexpr (std::is_same_v<T, float>)
         {
-            if constexpr (bits == 256) s.reg = _mm256_blendv_ps(a.reg, b.reg, mask.reg);
+            if constexpr (Bits == 256) s.reg = _mm256_blendv_ps(a.reg, b.reg, mask.reg);
             else                       s.reg = _mm_blendv_ps(a.reg, b.reg, mask.reg);
         }
         else
         {
-            if constexpr (bits == 256) s.reg = _mm256_blendv_epi8(a.reg, b.reg, mask.reg);
+            if constexpr (Bits == 256) s.reg = _mm256_blendv_epi8(a.reg, b.reg, mask.reg);
             else                       s.reg = _mm_blendv_epi8(a.reg, b.reg, mask.reg);
         }
         return s;
@@ -576,12 +590,12 @@ struct Simd
         Simd s;
         if constexpr (std::is_same_v<T, float>)
         {
-            if constexpr (bits == 256) s.reg = _mm256_min_ps(a.reg, b.reg);
+            if constexpr (Bits == 256) s.reg = _mm256_min_ps(a.reg, b.reg);
             else                       s.reg = _mm_min_ps(a.reg, b.reg);
         }
         else
         {
-            if constexpr (bits == 256) s.reg = _mm256_min_epi32(a.reg, b.reg);
+            if constexpr (Bits == 256) s.reg = _mm256_min_epi32(a.reg, b.reg);
             else                       s.reg = _mm_min_epi32(a.reg, b.reg);
         }
         return s;
@@ -592,14 +606,45 @@ struct Simd
         Simd s;
         if constexpr (std::is_same_v<T, float>)
         {
-            if constexpr (bits == 256) s.reg = _mm256_max_ps(a.reg, b.reg);
+            if constexpr (Bits == 256) s.reg = _mm256_max_ps(a.reg, b.reg);
             else                       s.reg = _mm_max_ps(a.reg, b.reg);
         }
         else
         {
-            if constexpr (bits == 256) s.reg = _mm256_max_epi32(a.reg, b.reg);
+            if constexpr (Bits == 256) s.reg = _mm256_max_epi32(a.reg, b.reg);
             else                       s.reg = _mm_max_epi32(a.reg, b.reg);
         }
+        return s;
+    }
+
+    // Extract
+    // TODO: Add more
+
+    template<int Index>
+    [[nodiscard]] static Simd<T, 128> extract_int_128(const Simd& a) noexcept
+        requires (std::is_same_v<T, int32_t> && Bits == 256)
+    {
+        Simd<T, 128> s;
+        s.reg = _mm256_extracti128_si256(a.reg, Index);
+        return s;
+    }
+
+    // Narrow-sature
+    // TODO: Add more
+
+    [[nodiscard]] static Simd<T, 128> narrow_saturate_16_to_8(const Simd& low, const Simd& high) noexcept
+        requires (std::is_same_v<T, int32_t>&& Bits == 128)
+    {
+        Simd<T, 128> s;
+        s.reg = _mm_packs_epi16(low.reg, high.reg);
+        return s;
+    }
+
+    [[nodiscard]] static Simd<T, 128> narrow_saturate_32_to_16(const Simd& low, const Simd& high) noexcept
+        requires (std::is_same_v<T, int32_t> && Bits == 128)
+    {
+        Simd<T, 128> s;
+        s.reg = _mm_packs_epi32(low.reg, high.reg);
         return s;
     }
 
@@ -609,7 +654,7 @@ struct Simd
         requires std::is_same_v<T, float>
     {
         Simd<int32_t> s;
-        if constexpr (bits == 256) s.reg = _mm256_cvttps_epi32(reg);
+        if constexpr (Bits == 256) s.reg = _mm256_cvttps_epi32(reg);
         else                       s.reg = _mm_cvttps_epi32(reg);
         return s;
     }
@@ -618,7 +663,7 @@ struct Simd
         requires (std::is_same_v<T, int32_t> || std::is_same_v<T, uint32_t>)
     {
         Simd<float> s;
-        if constexpr (bits == 256) s.reg = _mm256_cvtepi32_ps(reg);
+        if constexpr (Bits == 256) s.reg = _mm256_cvtepi32_ps(reg);
         else                       s.reg = _mm_cvtepi32_ps(reg);
         return s;
     }
@@ -629,7 +674,7 @@ struct Simd
         requires std::is_same_v<T, float>
     {
         Simd<int32_t> s;
-        if constexpr (bits == 256) s.reg = _mm256_castps_si256(reg);
+        if constexpr (Bits == 256) s.reg = _mm256_castps_si256(reg);
         else                       s.reg = _mm_castps_si128(reg);
         return s;
     }
@@ -638,11 +683,15 @@ struct Simd
         requires (std::is_same_v<T, int32_t> || std::is_same_v<T, uint32_t>)
     {
         Simd<float> s;
-        if constexpr (bits == 256) s.reg = _mm256_castsi256_ps(reg);
+        if constexpr (Bits == 256) s.reg = _mm256_castsi256_ps(reg);
         else                       s.reg = _mm_castsi128_ps(reg);
         return s;
     }
 };
 
-using SimdF = Simd<float>;
+using SimdF = Simd<float>; // default = max available
 using SimdI = Simd<int32_t>;
+using Simd128F = Simd<float, 128>;
+using Simd128I = Simd<int32_t, 128>;
+using Simd256F = Simd<float, 256>;
+using Simd256I = Simd<int32_t, 256>;
