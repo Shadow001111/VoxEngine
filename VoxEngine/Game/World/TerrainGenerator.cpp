@@ -259,7 +259,6 @@ void TerrainGenerator::initChunkColumnData(ChunkColumnData* column, int chunkX, 
 	column->setToInitialized();
 }
 
-// TODO: Make it use SIMD
 float TerrainGenerator::calculateHeight(float continentalNoise, float erosionNoise, float weirdnessNoise)
 {
 	// Params
