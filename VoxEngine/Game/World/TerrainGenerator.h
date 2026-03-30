@@ -60,15 +60,10 @@ class TerrainGenerator
 
 	struct ThreadLocalData
 	{
-		struct Resources
-		{
-			alignas(SimdF::bytes) std::array<float, CHUNK_VOLUME> tempNoiseArray{};
-			alignas(SimdF::bytes) std::array<float, CHUNK_VOLUME> caveNoiseArray{};
-		};
-
-		std::unique_ptr<Resources> resources;
-
-		ThreadLocalData();
+		alignas(SimdF::bytes) std::array<float, CHUNK_AREA> continentalNoiseArray;
+		alignas(SimdF::bytes) std::array<float, CHUNK_AREA> erosionNoiseArray;
+		alignas(SimdF::bytes) std::array<float, CHUNK_AREA> weirdnessNoiseArray;
+		alignas(SimdF::bytes) std::array<float, CHUNK_VOLUME> caveNoiseArray{};
 	};
 
 	static thread_local ThreadLocalData threadLocalData;

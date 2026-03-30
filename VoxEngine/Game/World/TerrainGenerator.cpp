@@ -67,9 +67,9 @@ using CombinedNoiseGenerator = NoiseLib::Base::BaseNoiseGenerator<
 	NoiseLib::Perlin::simd2D,
 	NoiseLib::Simplex::scalar3D,
 	NoiseLib::Simplex::simd3D,
-	false,
-	true,
-	false
+	false, // Not seamless
+	true,  // Aligned data
+	false  // No tail
 >;
 
 TerrainGenerator::TerrainGenerator()
@@ -185,7 +185,7 @@ void TerrainGenerator::unloadChunkColumnData(int chunkX, int chunkZ)
 
 void TerrainGenerator::computeCaveMask(bool* outArray, int chunkX, int chunkY, int chunkZ) const
 {
-	float* caveNoiseArray = threadLocalData.resources->caveNoiseArray.data();
+	float* caveNoiseArray = threadLocalData.caveNoiseArray.data();
 
 	{
 		PROFILE_SCOPE("Cave mask: compute noises", ProfileCategory::TerrainGeneration);
@@ -298,37 +298,33 @@ void TerrainGenerator::computeInitialHeightMap(int* heightMap, int chunkX, int c
 {
 	PROFILE_SCOPE("Compute height map", ProfileCategory::TerrainGeneration);
 
-	// Computing continental noise array
-	alignas(SimdF::bytes) float continentalNoiseArray[CHUNK_AREA];
-	alignas(SimdF::bytes) float erosionNoiseArray[CHUNK_AREA];
-	alignas(SimdF::bytes) float weirdnessNoiseArray[CHUNK_AREA];
-
+	// Compute noise arrays
 	{
 		NoiseParams params;
 		params.frequency = 0.001f;
 		params.layerCount = 3;
-		computeLayeredNoise_2D(continentalNoiseArray, chunkX, chunkZ, params);
+		computeLayeredNoise_2D(threadLocalData.continentalNoiseArray.data(), chunkX, chunkZ, params);
 	}
 	{
 		NoiseParams params;
 		params.frequency = 0.2f;
 		params.layerCount = 1;
-		computeLayeredNoise_2D(erosionNoiseArray, chunkX, chunkZ, params);
+		computeLayeredNoise_2D(threadLocalData.erosionNoiseArray.data(), chunkX, chunkZ, params);
 	}
 	{
 		NoiseParams params;
 		params.frequency = 0.1f;
 		params.layerCount = 3;
 		params.lacunarity = 4.0f;
-		computeLayeredNoise_2D(weirdnessNoiseArray, chunkX, chunkZ, params);
+		computeLayeredNoise_2D(threadLocalData.weirdnessNoiseArray.data(), chunkX, chunkZ, params);
 	}
 
 	// Fill height map
 	for (size_t i = 0; i < CHUNK_AREA; i++)
 	{
-		float continentalNoise = continentalNoiseArray[i];
-		float erosionNoise = erosionNoiseArray[i];
-		float weirdnessNoise = weirdnessNoiseArray[i];
+		float continentalNoise = threadLocalData.continentalNoiseArray[i];
+		float erosionNoise = threadLocalData.erosionNoiseArray[i];
+		float weirdnessNoise = threadLocalData.weirdnessNoiseArray[i];
 		heightMap[i] = (int)calculateHeight(continentalNoise, erosionNoise, weirdnessNoise);
 	}
 }
@@ -372,14 +368,6 @@ void TerrainGenerator::computeLayeredNoise_3D(float* outArray, int chunkX, int c
 		params.layerCount,
 		params.lacunarity
 	);
-}
-
-//============================================================================
-// ThreadLocalData
-
-TerrainGenerator::ThreadLocalData::ThreadLocalData() :
-	resources(std::make_unique<Resources>())
-{
 }
 
 //============================================================================
