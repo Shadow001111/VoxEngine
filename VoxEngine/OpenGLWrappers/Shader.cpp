@@ -3,54 +3,44 @@
 #include <sstream>
 #include <iostream>
 #include <glm/gtc/type_ptr.hpp>
+#include <utility>
 
 Shader::~Shader()
 {
-    if (id)
-    {
-        glDeleteProgram(id);
-        id = 0;
-    }
+    destroy();
 }
 
 Shader::Shader(Shader&& other) noexcept :
-    id(other.id),
+    id(std::exchange(other.id, 0)),
     uniformLocationCache(std::move(other.uniformLocationCache))
 {
-    other.id = 0;
 }
 
 Shader& Shader::operator=(Shader&& other) noexcept
 {
     if (this != &other)
     {
-        if (id)
-        {
-            glDeleteProgram(id);
-        }
+        if (id) glDeleteProgram(id);
 
-        id = other.id;
+        id = std::exchange(other.id, 0);
         uniformLocationCache = std::move(other.uniformLocationCache);
-
-        other.id = 0;
     }
     return *this;
 }
 
 void Shader::create(const std::vector<ShaderSource>& sources)
 {
-    if (id)
-    {
-        glDeleteProgram(id);
-        uniformLocationCache.clear();
-    }
+    destroy();
 
     std::vector<GLuint> shaderIDs;
     for (const auto& src : sources)
     {
         std::string code = loadShaderSource(src.path);
         GLuint shader = compileShader(src.type, code);
-        shaderIDs.push_back(shader);
+        if (shader > 0)
+        {
+            shaderIDs.push_back(shader);
+        }
     }
 
     id = glCreateProgram();
@@ -61,12 +51,28 @@ void Shader::create(const std::vector<ShaderSource>& sources)
     }
 
     glLinkProgram(id);
-    checkCompileErrors(id, "PROGRAM");
+
+    bool success = checkCompileErrors(id, "PROGRAM");
+    if (!success)
+    {
+        destroy();
+        return;
+    }
 
     for (GLuint shader : shaderIDs)
     {
         glDeleteShader(shader);
     }
+}
+
+void Shader::destroy()
+{
+    if (id)
+    {
+        glDeleteProgram(id);
+        id = 0;
+    }
+    uniformLocationCache.clear();
 }
 
 void Shader::use() const
@@ -77,8 +83,7 @@ void Shader::use() const
 GLint Shader::getUniformLocation(const std::string& name) const
 {
     auto it = uniformLocationCache.find(name);
-    if (it != uniformLocationCache.end())
-        return it->second;
+    if (it != uniformLocationCache.end()) return it->second;
 
     GLint location = glGetUniformLocation(id, name.c_str());
     if (location == -1)
@@ -196,7 +201,8 @@ GLuint Shader::compileShader(GLenum type, const std::string& source) const
     glCompileShader(shader);
 
     std::string typeStr;
-    switch (type) {
+    switch (type)
+    {
         case GL_VERTEX_SHADER: typeStr = "VERTEX"; break;
         case GL_FRAGMENT_SHADER: typeStr = "FRAGMENT"; break;
         case GL_COMPUTE_SHADER: typeStr = "COMPUTE"; break;
@@ -205,11 +211,16 @@ GLuint Shader::compileShader(GLenum type, const std::string& source) const
         case GL_TESS_EVALUATION_SHADER: typeStr = "TESS_EVALUATION"; break;
         default: typeStr = "UNKNOWN"; break;
     }
-    checkCompileErrors(shader, typeStr);
+    bool success = checkCompileErrors(shader, typeStr);
+    if (!success)
+    {
+        glDeleteShader(shader);
+        return 0;
+    }
     return shader;
 }
 
-void Shader::checkCompileErrors(GLuint shader, const std::string& type) const
+bool Shader::checkCompileErrors(GLuint shader, const std::string& type) const
 {
     GLint success;
     GLchar infoLog[1024];
@@ -218,7 +229,7 @@ void Shader::checkCompileErrors(GLuint shader, const std::string& type) const
         glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
         if (!success)
         {
-            glGetShaderInfoLog(shader, 1024, nullptr, infoLog);
+            glGetShaderInfoLog(shader, sizeof(infoLog), nullptr, infoLog);
             std::cerr << "[Shader]: Shader compilation error (" << type << "):\n" << infoLog<< "\n";
         }
     }
@@ -227,8 +238,9 @@ void Shader::checkCompileErrors(GLuint shader, const std::string& type) const
         glGetProgramiv(shader, GL_LINK_STATUS, &success);
         if (!success)
         {
-            glGetProgramInfoLog(shader, 1024, nullptr, infoLog);
+            glGetProgramInfoLog(shader, sizeof(infoLog), nullptr, infoLog);
             std::cerr << "[Shader]: Program linking error:\n" << infoLog<< "\n";
         }
     }
+    return success;
 }

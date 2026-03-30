@@ -1,14 +1,14 @@
 #include "VertexArray.h"
+#include <utility>
 
 VertexArray::~VertexArray()
 {
-    if (id) glDeleteVertexArrays(1, &id);
+    destroy();
 }
 
-VertexArray::VertexArray(VertexArray&& other) noexcept
-    : id(other.id)
+VertexArray::VertexArray(VertexArray&& other) noexcept :
+    id(std::exchange(other.id, 0))
 {
-    other.id = 0;
 }
 
 VertexArray& VertexArray::operator=(VertexArray&& other) noexcept
@@ -16,10 +16,7 @@ VertexArray& VertexArray::operator=(VertexArray&& other) noexcept
     if (this != &other)
     {
         if (id) glDeleteVertexArrays(1, &id);
-
-        id = other.id;
-
-        other.id = 0;
+        id = std::exchange(other.id, 0);
     }
     return *this;
 }
@@ -32,7 +29,11 @@ void VertexArray::create()
 
 void VertexArray::destroy()
 {
-    if (id) glDeleteVertexArrays(1, &id);
+    if (id)
+    {
+        glDeleteVertexArrays(1, &id);
+        id = 0;
+    }
 }
 
 void VertexArray::bind() const

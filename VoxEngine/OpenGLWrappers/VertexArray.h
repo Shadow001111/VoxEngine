@@ -35,5 +35,5 @@ public:
     void bindVertexBuffer(GLuint bindingIndex, GLuint bufferId, GLintptr offset, GLsizei stride);
     void bindElementBuffer(GLuint bufferId);
 
-    GLuint getID() const { return id; };
+    [[nodiscard]] GLuint getID() const { return id; };
 };

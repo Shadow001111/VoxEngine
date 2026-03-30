@@ -1,5 +1,6 @@
 #include "ImmutableBuffer.h"
 #include <iostream>
+#include <utility>
 
 #define BUFFER_SAFETY_CHECKS 1
 
@@ -9,17 +10,12 @@ ImmutableBuffer::~ImmutableBuffer()
 }
 
 ImmutableBuffer::ImmutableBuffer(ImmutableBuffer&& other) noexcept :
-    target(other.target),
-    id(other.id),
-    flags(other.flags),
-    capacity(other.capacity),
-	persistentMappedPtr(other.persistentMappedPtr)
+    target(std::exchange(other.target, 0)),
+    id(std::exchange(other.id, 0)),
+    flags(std::exchange(other.flags, 0)),
+    capacity(std::exchange(other.capacity, 0)),
+	persistentMappedPtr(std::exchange(other.persistentMappedPtr, nullptr))
 {
-    other.id = 0;
-    other.flags = 0;
-    other.capacity = 0;
-    other.target = 0;
-	other.persistentMappedPtr = nullptr;
 }
 
 ImmutableBuffer& ImmutableBuffer::operator=(ImmutableBuffer&& other) noexcept
@@ -28,17 +24,11 @@ ImmutableBuffer& ImmutableBuffer::operator=(ImmutableBuffer&& other) noexcept
     {
         if (id) glDeleteBuffers(1, &id);
 
-        target = other.target;
-        id = other.id;
-        flags = other.flags;
-        capacity = other.capacity;
-		persistentMappedPtr = other.persistentMappedPtr;
-
-        other.id = 0;
-        other.flags = 0;
-        other.capacity = 0;
-        other.target = 0;
-		other.persistentMappedPtr = nullptr;
+        target = std::exchange(other.target, 0);
+        id = std::exchange(other.id, 0);
+        flags = std::exchange(other.flags, 0);
+        capacity = std::exchange(other.capacity, 0);
+        persistentMappedPtr = std::exchange(other.persistentMappedPtr, nullptr);
     }
     return *this;
 }

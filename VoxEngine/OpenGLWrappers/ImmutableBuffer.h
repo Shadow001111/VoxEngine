@@ -4,8 +4,8 @@
 class ImmutableBuffer
 {
     GLenum target = 0;
-    GLbitfield flags = 0;
     GLuint id = 0;
+    GLbitfield flags = 0;
     size_t capacity = 0;
     void* persistentMappedPtr = nullptr;
 public:
@@ -47,10 +47,10 @@ public:
     void unmap();
     void flushMappedRange(GLsizeiptr size, GLintptr offset);
 
-    GLuint getID() const noexcept { return id; }
-    size_t getCapacity() const noexcept { return capacity; }
-    GLbitfield getFlags() const noexcept { return flags; }
-    bool isMappable() const noexcept { return (flags & (GL_MAP_READ_BIT | GL_MAP_WRITE_BIT)) != 0; }
-    bool isMappablePersistently() const noexcept { return (flags & (GL_MAP_READ_BIT | GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT)) != 0; }
-    void* getPersistentMappedPtr() const noexcept { return persistentMappedPtr; };
+    [[nodiscard]] GLuint getID() const noexcept { return id; }
+    [[nodiscard]] size_t getCapacity() const noexcept { return capacity; }
+    [[nodiscard]] GLbitfield getFlags() const noexcept { return flags; }
+    [[nodiscard]] bool isMappable() const noexcept { return (flags & (GL_MAP_READ_BIT | GL_MAP_WRITE_BIT)) != 0; }
+    [[nodiscard]] bool isMappablePersistently() const noexcept { return (flags & (GL_MAP_READ_BIT | GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT)) != 0; }
+    [[nodiscard]] void* getPersistentMappedPtr() const noexcept { return persistentMappedPtr; };
 };

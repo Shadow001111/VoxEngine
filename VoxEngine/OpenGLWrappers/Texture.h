@@ -191,6 +191,8 @@ private:
 
 	void applyParametrs() const;
 public:
+	static void initGlobalData();
+
 	Texture() = default;
 	~Texture();
 
@@ -200,7 +202,8 @@ public:
 	Texture(Texture&& other) noexcept;
 	Texture& operator=(Texture&& other) noexcept;
 
-	static void initGlobalData();
+	// Destroy
+	void destroy();
 
 	// Texture creation functions for different types
 	void create1D(texture_size width, GLenum internalFormat, mip_level mipLevels = 1);
@@ -271,23 +274,23 @@ public:
 	void makeNonResident();
 
 	// Getters
-	GLuint getID() const { return id; }
-	GLenum getType() const { return type; }
-	GLenum getInternalFormat() const { return internalFormat; }
-	texture_size getWidth() const { return width; }
-	texture_size getHeight() const { return height; }
-	texture_size getDepth() const { return depth; }
-	mip_level getMipLevels() const { return mipLevels; }
-	bool isResident() const { return resident; }
-	GLuint64 getHandle() const { return handle; }
+	[[nodiscard]] GLuint getID() const { return id; }
+	[[nodiscard]] GLenum getType() const { return type; }
+	[[nodiscard]] GLenum getInternalFormat() const { return internalFormat; }
+	[[nodiscard]] texture_size getWidth() const { return width; }
+	[[nodiscard]] texture_size getHeight() const { return height; }
+	[[nodiscard]] texture_size getDepth() const { return depth; }
+	[[nodiscard]] mip_level getMipLevels() const { return mipLevels; }
+	[[nodiscard]] bool isResident() const { return resident; }
+	[[nodiscard]] GLuint64 getHandle() const { return handle; }
 
-	GLenum getFormatFromInternalFormat() const;
+	[[nodiscard]] GLenum getFormatFromInternalFormat() const;
 
-	const char* getInternalFormatName() const;
+	[[nodiscard]] const char* getInternalFormatName() const;
 
-	static bool isFormatCompressed(GLenum internalFormat);
-	bool isCompressed() const;
+	[[nodiscard]] static bool isFormatCompressed(GLenum internalFormat);
+	[[nodiscard]] bool isCompressed() const;
 
-	static const GlobalData& getGlobalData() { return globalData; }
-	static const Extensions& getExtensions() { return globalData.extensions; }
+	[[nodiscard]] static const GlobalData& getGlobalData() { return globalData; }
+	[[nodiscard]] static const Extensions& getExtensions() { return globalData.extensions; }
 };

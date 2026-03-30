@@ -151,17 +151,6 @@ namespace TextureLoader
         }
     }
 
-    static GLenum getFormat(int channels)
-    {
-        switch (channels)
-        {
-        case 1: return GL_RED;
-        case 2: return GL_RG;
-        case 3: return GL_RGB;
-        default: return GL_RGBA;
-        }
-    }
-
     static int calculateMipmapLevels(int width, int height, bool createMipmaps)
     {
         if (!createMipmaps) return 1;

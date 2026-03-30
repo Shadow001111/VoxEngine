@@ -1,6 +1,6 @@
 #include "Texture.h"
 #include <iostream>
-
+#include <utility>
 
 namespace TextureCompression
 {
@@ -281,56 +281,6 @@ void Texture::applyParametrs() const
 	glTextureParameteri(id, GL_TEXTURE_MAX_ANISOTROPY, parametrs.anisotropy);
 }
 
-Texture::~Texture()
-{
-	if (id) glDeleteTextures(1, &id);
-}
-
-Texture::Texture(Texture&& other) noexcept :
-	id(other.id), type(other.type), internalFormat(other.internalFormat),
-	parametrs(other.parametrs),
-	width(other.width), height(other.height), depth(other.depth),
-	mipLevels(other.mipLevels),
-	resident(other.resident), handle(other.handle)
-
-{
-	other.id = 0;
-	other.width = 0;
-	other.height = 0;
-	other.depth = 0;
-	other.mipLevels = 1;
-	other.resident = 0;
-	other.handle = 0;
-}
-
-Texture& Texture::operator=(Texture&& other) noexcept
-{
-	if (this != &other)
-	{
-		if (id) glDeleteTextures(1, &id);
-
-		id = other.id;
-		type = other.type;
-		internalFormat = other.internalFormat;
-		parametrs = other.parametrs;
-		width = other.width;
-		height = other.height;
-		depth = other.depth;
-		mipLevels = other.mipLevels;
-		resident = other.resident;
-		handle = other.handle;
-
-		other.id = 0;
-		other.width = 0;
-		other.height = 0;
-		other.depth = 0;
-		other.mipLevels = 1;
-		other.resident = 0;
-		other.handle = 0;
-	}
-	return *this;
-}
-
 void Texture::initGlobalData()
 {
 	// Extensions
@@ -341,6 +291,54 @@ void Texture::initGlobalData()
 
 	// Compression formats support
 	TextureCompression::init();
+}
+
+Texture::~Texture()
+{
+	destroy();
+}
+
+Texture::Texture(Texture&& other) noexcept :
+	id(std::exchange(other.id, 0)),
+	type(other.type),
+	internalFormat(other.internalFormat),
+	parametrs(other.parametrs),
+	width(std::exchange(other.width, 0)),
+	height(std::exchange(other.height, 0)),
+	depth(std::exchange(other.depth, 0)),
+	mipLevels(std::exchange(other.mipLevels, 0)),
+	resident(std::exchange(other.resident, 0)),
+	handle(std::exchange(other.handle, 0))
+{
+}
+
+Texture& Texture::operator=(Texture&& other) noexcept
+{
+	if (this != &other)
+	{
+		if (id) glDeleteTextures(1, &id);
+
+		id = std::exchange(other.id, 0);
+		type = other.type;
+		internalFormat = other.internalFormat;
+		parametrs = other.parametrs;
+		width = std::exchange(other.width, 0);
+		height = std::exchange(other.height, 0);
+		depth = std::exchange(other.depth, 0);
+		mipLevels = std::exchange(other.mipLevels, 0);
+		resident = std::exchange(other.resident, 0);
+		handle = std::exchange(other.handle, 0);
+	}
+	return *this;
+}
+
+void Texture::destroy()
+{
+	if (id)
+	{
+		glDeleteTextures(1, &id);
+		id = 0;
+	}
 }
 
 void Texture::create1D(texture_size width, GLenum internalFormat, mip_level mipLevels)

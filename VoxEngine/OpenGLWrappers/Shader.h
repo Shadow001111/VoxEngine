@@ -26,6 +26,7 @@ public:
     Shader& operator=(Shader&& other) noexcept;
 
     void create(const std::vector<ShaderSource>& sources);
+    void destroy();
 
     void use() const;
 
@@ -51,7 +52,7 @@ public:
 
     void setHandleui64ARB(const std::string& name, GLuint64 handle) const;
 
-    GLuint getID() const { return id; }
+    [[nodiscard]] GLuint getID() const { return id; }
 private:
     GLint getUniformLocation(const std::string& name) const;
 
@@ -59,5 +60,5 @@ private:
     
     GLuint compileShader(GLenum type, const std::string& source) const;
 
-    void checkCompileErrors(GLuint shader, const std::string& type) const;
+    [[nodiscard]] bool checkCompileErrors(GLuint shader, const std::string& type) const;
 };

@@ -86,18 +86,18 @@ public:
     void clearDrawBuffer(const std::string& name, const float* clearValue) const;
 
     // Texture access
-    std::optional<Texture*> getTexture(const std::string& name);
-    std::optional<const Texture*> getTexture(const std::string& name) const;
-    bool hasTexture(const std::string& name) const;
+    [[nodiscard]] std::optional<Texture*> getTexture(const std::string& name);
+    [[nodiscard]] std::optional<const Texture*> getTexture(const std::string& name) const;
+    [[nodiscard]] bool hasTexture(const std::string& name) const;
 
     // Getters
-    bool isComplete() const;
-    GLuint getID() const { return id; }
-    int getWidth() const { return width; }
-    int getHeight() const { return height; }
+    [[nodiscard]] bool isComplete() const;
+    [[nodiscard]] GLuint getID() const { return id; }
+    [[nodiscard]] int getWidth() const { return width; }
+    [[nodiscard]] int getHeight() const { return height; }
 private:
-    GLenum getAttachmentPoint(AttachmentType type);
-    void createAndAttachTexture(Attachment& attachment, GLenum internalFormat, const Texture::Parameters& params);
-    void createStandaloneTexture(Attachment& attachment, GLenum internalFormat, const Texture::Parameters& params);
+    [[nodiscard]] GLenum getAttachmentPoint(AttachmentType type);
+    void createAndAttachTexture(Attachment& attachment, GLenum internalFormat, const Texture::Parameters& params) const;
+    void createStandaloneTexture(Attachment& attachment, GLenum internalFormat, const Texture::Parameters& params) const;
 	void makeTextureBindlessIfNeeded(Attachment& attachment, bool bindless);
 };

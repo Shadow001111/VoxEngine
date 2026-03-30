@@ -96,7 +96,6 @@ private:
 	struct NoiseParams
 	{
 		float frequency = 1.0f;
-
 		int layerCount = 1;
 		float lacunarity = 2.0f;
 	};

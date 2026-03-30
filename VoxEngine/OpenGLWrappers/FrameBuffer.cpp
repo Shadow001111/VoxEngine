@@ -1,5 +1,5 @@
 #include "FrameBuffer.h"
-
+#include <utility>
 #include <iostream>
 
 FrameBuffer::~FrameBuffer()
@@ -7,13 +7,12 @@ FrameBuffer::~FrameBuffer()
     destroy();
 }
 
-FrameBuffer::FrameBuffer(FrameBuffer&& other) noexcept
-    : id(other.id), width(other.width), height(other.height),
+FrameBuffer::FrameBuffer(FrameBuffer&& other) noexcept :
+    id(std::exchange(other.id, 0)),
+    width(std::exchange(other.width, 0)),
+    height(std::exchange(other.height, 0)),
     attachments(std::move(other.attachments))
 {
-    other.id = 0;
-    other.width = 0;
-    other.height = 0;
 }
 
 FrameBuffer& FrameBuffer::operator=(FrameBuffer&& other) noexcept
@@ -22,14 +21,10 @@ FrameBuffer& FrameBuffer::operator=(FrameBuffer&& other) noexcept
     {
         if (id) destroy();
 
-        id = other.id;
-        width = other.width;
-        height = other.height;
+        id = std::exchange(other.id, 0);
+        width = std::exchange(other.width, 0);
+        height = std::exchange(other.height, 0);
         attachments = std::move(other.attachments);
-
-        other.id = 0;
-        other.width = 0;
-        other.height = 0;
     }
     return *this;
 }
@@ -49,7 +44,6 @@ void FrameBuffer::create(int width, int height)
 
 void FrameBuffer::destroy()
 {
-    // Clean up
     if (id)
     {
         for (auto& pair : attachments)
@@ -449,7 +443,7 @@ GLenum FrameBuffer::getAttachmentPoint(AttachmentType type)
     return GL_COLOR_ATTACHMENT0;
 }
 
-void FrameBuffer::createAndAttachTexture(Attachment& attachment, GLenum internalFormat, const Texture::Parameters& params)
+void FrameBuffer::createAndAttachTexture(Attachment& attachment, GLenum internalFormat, const Texture::Parameters& params) const
 {
     attachment.texture.create2D(width, height, internalFormat);
     attachment.texture.setParameters(params);
@@ -460,7 +454,7 @@ void FrameBuffer::createAndAttachTexture(Attachment& attachment, GLenum internal
     }
 }
 
-void FrameBuffer::createStandaloneTexture(Attachment& attachment, GLenum internalFormat, const Texture::Parameters& params)
+void FrameBuffer::createStandaloneTexture(Attachment& attachment, GLenum internalFormat, const Texture::Parameters& params) const
 {
     int tWidth = static_cast<int>(width * attachment.resolutionFactor);
     int tHeight = static_cast<int>(height * attachment.resolutionFactor);
