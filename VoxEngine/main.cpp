@@ -18,15 +18,13 @@
 
 #include "FileLogger.h"
 
-#include "NvidiaGPUUsage/NvidiaGPUUsage.h"
-
 #include <iostream>
 #include <sstream>
 #include <iomanip>
 #include <glm/gtc/matrix_transform.hpp>
 
 #ifdef NDEBUG
-constexpr int CHUNK_LOAD_DISTANCE = 24;
+constexpr int CHUNK_LOAD_DISTANCE = 8;
 #else
 constexpr int CHUNK_LOAD_DISTANCE = 3;
 #endif
@@ -95,20 +93,12 @@ struct ContainerUI
     Shader dbdShader;
 };
 
-struct GPUUsageMetrics
-{
-    bool enabled = false;
-    float gpuUtilization = 0.0f;
-    uint64_t memoryUsage = 0;
-};
-
 struct DebugUIMetrics
 {
     double fps = 0.0;
     double frameTimeMs = 0.0;  // Accumulated milliseconds per frame
 
 	World::DebugData worldDebugData;
-    GPUUsageMetrics gpuUsageMetrics;
 };
 
 static void setupContainerUI(ContainerUI& c)
@@ -407,7 +397,6 @@ static void renderDebugData(const WindowManager& wnd, const Player& player, cons
     // Get data refs
 	const auto& worldData = metrics.worldDebugData;
 	const auto& renderStats = worldData.renderStats;
-    const auto& gpuUsageData = metrics.gpuUsageMetrics;
 
     //
     const float rowHeight = 0.06f;
@@ -467,14 +456,6 @@ static void renderDebugData(const WindowManager& wnd, const Player& player, cons
     //    }
     //}
     //ss << "\nView direction: " << facingDir;
-
-    // GPU usage
-    if (gpuUsageData.enabled)
-    {
-        ss << "\nGPU utilization: " << gpuUsageData.gpuUtilization << "%";
-        ss << "\nGPU memory usage: " << formatSizeBinary(gpuUsageData.memoryUsage);
-        std::cout << (gpuUsageData.memoryUsage >> 20) << "\n";
-    }
 
     // Threading
     //const auto& threadPool = ParallelUtils::getGlobalThreadPool();
@@ -554,9 +535,6 @@ static int gameFunc()
         .openglDebug = true,
         .strictAspectRatio = true
         });
-
-    // NVML
-    NvidiaGPUUsage nvidiaGPUUsage;
 
     // Init textures
     Texture::initGlobalData();
@@ -640,7 +618,6 @@ static int gameFunc()
 
     // Frequent UI data
     DebugUIMetrics uiMetrics;
-    uiMetrics.gpuUsageMetrics.enabled = false;// nvidiaGPUUsage.isNVMLAvailable();
     double accumulatedTime = 0.0f;
     int accumulatedFrames = 0;
 
@@ -772,12 +749,6 @@ static int gameFunc()
             uiMetrics.frameTimeMs = accumulatedTime / accumulatedFrames * 1000.0;
             accumulatedTime = 0.0;
             accumulatedFrames = 0;
-
-            if (uiMetrics.gpuUsageMetrics.enabled)
-            {
-                uiMetrics.gpuUsageMetrics.memoryUsage = nvidiaGPUUsage.getProcessGPUMemory().value_or(0);
-                uiMetrics.gpuUsageMetrics.gpuUtilization = nvidiaGPUUsage.getOverallGPUUtilization().value_or(0);
-            }
         }
 
         if (profilerUpdateTimer.shouldUpdate())
@@ -785,7 +756,6 @@ static int gameFunc()
             Profiler::printProfileReport();
         }
     }
-    //Profiler::printProfileReport();
     return 0;
 }
 

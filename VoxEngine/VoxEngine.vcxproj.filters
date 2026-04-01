@@ -165,9 +165,6 @@
     <ClCompile Include="Game\World\Chunk\ChunkIO.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="NvidiaGPUUsage\NvidiaGPUUsage.cpp">
-      <Filter>Исходные файлы</Filter>
-    </ClCompile>
     <ClCompile Include="Core\Stream\StreamReader.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
@@ -408,9 +405,6 @@
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Game\World\Chunk\ChunkIO.h">
-      <Filter>Файлы заголовков</Filter>
-    </ClInclude>
-    <ClInclude Include="NvidiaGPUUsage\NvidiaGPUUsage.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Core\Stream\StreamReader.h">

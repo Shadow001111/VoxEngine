@@ -196,7 +196,6 @@
     <ClCompile Include="NoiseLib\Base.cpp" />
     <ClCompile Include="NoiseLib\Perlin.cpp" />
     <ClCompile Include="NoiseLib\Simplex.cpp" />
-    <ClCompile Include="NvidiaGPUUsage\NvidiaGPUUsage.cpp" />
     <ClCompile Include="OpenGLWrappers\VertexArray.cpp" />
     <ClCompile Include="OpenGLWrappers\Shader.cpp" />
     <ClCompile Include="Core\Hashes\ivec3Hasher.cpp" />
@@ -283,7 +282,6 @@
     <ClInclude Include="NoiseLib\Base.h" />
     <ClInclude Include="NoiseLib\Perlin.h" />
     <ClInclude Include="NoiseLib\Simplex.h" />
-    <ClInclude Include="NvidiaGPUUsage\NvidiaGPUUsage.h" />
     <ClInclude Include="OpenGLWrappers\VertexArray.h" />
     <ClInclude Include="OpenGLWrappers\Shader.h" />
     <ClInclude Include="Core\UpdateTimer.h" />
