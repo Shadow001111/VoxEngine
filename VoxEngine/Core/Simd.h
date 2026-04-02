@@ -403,6 +403,15 @@ struct Simd
         }
     }
 
+    [[nodiscard]] static Simd sqrt(const Simd& a) noexcept
+        requires std::is_same_v<T, float>
+    {
+        Simd s;
+        if constexpr (Bits == 256) s.reg = _mm256_sqrt_ps(a.reg);
+        else                       s.reg = _mm_sqrt_ps(a.reg);
+        return s;
+    }
+
     [[nodiscard]] Simd operator+(const Simd& other) const noexcept { return add(*this, other); }
     [[nodiscard]] Simd operator-(const Simd& other) const noexcept { return sub(*this, other); }
     [[nodiscard]] Simd operator*(const Simd& other) const noexcept { return mul(*this, other); }
@@ -416,7 +425,7 @@ struct Simd
     Simd& operator*=(const Simd& other) noexcept { *this = mul(*this, other); return *this; }
     Simd& operator/=(const Simd& other) noexcept { *this = div(*this, other); return *this; }
 
-    // Rounding - float only (integers are already exact)
+    // Rounding
 
     [[nodiscard]] static Simd round(const Simd& a) noexcept requires std::is_same_v<T, float>
     {
@@ -618,7 +627,6 @@ struct Simd
     }
 
     // Extract
-    // TODO: Add more
 
     template<int Index>
     [[nodiscard]] static Simd<T, 128> extract_int_128(const Simd& a) noexcept
@@ -630,7 +638,6 @@ struct Simd
     }
 
     // Narrow-sature
-    // TODO: Add more
 
     [[nodiscard]] static Simd<T, 128> narrow_saturate_16_to_8(const Simd& low, const Simd& high) noexcept
         requires (std::is_same_v<T, int32_t>&& Bits == 128)
