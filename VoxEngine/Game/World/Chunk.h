@@ -128,17 +128,18 @@ public:
 		return { (idx / 9) - 1, (idx / 3 % 3) - 1, (idx % 3) - 1 };
 	}
 
-	static constexpr inline int getSideNeighborIndex(int side) noexcept
+	static constexpr int getSideNeighborIndex(int side) noexcept
 	{
-		static constexpr std::array<int, 6> sideToNeighborIndex = {
-			getNeighborIndex(-1, 0, 0), // Left
-			getNeighborIndex(1, 0, 0),  // Right
-			getNeighborIndex(0, -1, 0), // Down
-			getNeighborIndex(0, 1, 0),  // Up
-			getNeighborIndex(0, 0, -1), // Back
-			getNeighborIndex(0, 0, 1)   // Front
-		};
-		return sideToNeighborIndex[side];
+		switch (side)
+		{
+		case 0: return getNeighborIndex(-1, 0, 0);
+		case 1: return getNeighborIndex(1, 0, 0);
+		case 2: return getNeighborIndex(0, -1, 0);
+		case 3: return getNeighborIndex(0, 1, 0);
+		case 4: return getNeighborIndex(0, 0, -1);
+		case 5: return getNeighborIndex(0, 0, 1);
+		}
+		return 0;
 	}
 
 	static glm::ivec3 getPositionFromIndex(int index) noexcept // Took 'size_t', but now takes 'int' because think it will be cheaper (less casts)

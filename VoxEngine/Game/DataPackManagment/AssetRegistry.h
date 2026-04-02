@@ -90,13 +90,13 @@ public:
 	static ItemId getItemNumericalId(const std::string& stringId);
 
 	// Always returns valid pointer - never nullptr
-	static inline const BlockData* getBlockDataSafe(BlockId numericalId) noexcept
+	[[nodiscard]] static __forceinline const BlockData* getBlockDataSafe(BlockId numericalId) noexcept
 	{
-		return numericalId < blockDataStorage.size() ? blockDataStorage.data() + numericalId : blockDataStorage.data() + FALLBACK_BLOCK_ID;
+		return blockDataStorage.data() + (numericalId < blockDataStorage.size() ? numericalId : FALLBACK_BLOCK_ID);
 	}
 
 	// Returns nullptr if ID is out of bounds
-	static inline const BlockData* getBlockData(BlockId numericalId) noexcept
+	[[nodiscard]] static __forceinline const BlockData* getBlockData(BlockId numericalId) noexcept
 	{
 		return numericalId < blockDataStorage.size() ? blockDataStorage.data() + numericalId : nullptr;
 	}

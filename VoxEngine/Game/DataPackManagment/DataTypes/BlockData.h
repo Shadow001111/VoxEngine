@@ -1,11 +1,11 @@
 #pragma once
 #include <cstdint>
-#include <vector>
 #include <string>
 #include "../ObjectTypes.h"
 
 #include "Core/Container/DynamicArray.h"
 
+// TODO: Reduce size
 struct BlockData
 {
 	struct TextureSlot
@@ -39,7 +39,7 @@ struct BlockData
 
 	// Sounds
 	// TODO: Keep ids only
-	std::vector<std::string> breakSounds;
-	std::vector<std::string> placeSounds;
-	std::vector<std::string> stepSounds;
+	DynamicArray<std::string> breakSounds;
+	DynamicArray<std::string> placeSounds;
+	DynamicArray<std::string> stepSounds;
 };

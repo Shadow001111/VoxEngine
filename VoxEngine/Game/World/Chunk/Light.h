@@ -23,12 +23,16 @@ struct LightPropagationNode
 {
 	uint8_t x : 4, y : 4, z : 4;
 
+	LightPropagationNode();
+
 	LightPropagationNode(uint8_t x, uint8_t y, uint8_t z);
 };
 
 struct LightRemovalNode
 {
 	uint8_t x : 4, y : 4, z : 4, lightLevel : 4;
+
+	LightRemovalNode();
 
 	LightRemovalNode(uint8_t x, uint8_t y, uint8_t z, uint8_t lightLevel);
 };

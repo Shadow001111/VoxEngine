@@ -19,10 +19,20 @@ LightLevel& LightLevel::operator=(const LightLevel& other)
 }
 
 
+LightPropagationNode::LightPropagationNode() :
+	x(0), y(0), z(0)
+{
+}
+
 LightPropagationNode::LightPropagationNode(uint8_t x, uint8_t y, uint8_t z) :
 	x(x), y(y), z(z)
 {}
 
+
+LightRemovalNode::LightRemovalNode() :
+	x(0), y(0), z(0), lightLevel(0)
+{
+}
 
 LightRemovalNode::LightRemovalNode(uint8_t x, uint8_t y, uint8_t z, uint8_t lightLevel) :
 	x(x), y(y), z(z), lightLevel(lightLevel)

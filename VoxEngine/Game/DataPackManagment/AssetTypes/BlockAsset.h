@@ -1,7 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <string>
-#include <vector>
+#include "Core/Container/DynamicArray.h"
 
 struct BlockAsset
 {
@@ -29,11 +29,11 @@ struct BlockAsset
 
 	// Visuals
 	std::string modelName;
-	std::vector<TextureInfo> textureInfo;
+	DynamicArray<TextureInfo> textureInfo;
 
 	// Sounds
-	std::vector<std::string> breakSounds;
-	std::vector<std::string> placeSounds;
-	std::vector<std::string> stepSounds;
+	DynamicArray<std::string> breakSounds;
+	DynamicArray<std::string> placeSounds;
+	DynamicArray<std::string> stepSounds;
 };
 
