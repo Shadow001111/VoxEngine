@@ -219,6 +219,24 @@ public:
         }
     }
 
+    void copy_to(T* dst) const noexcept
+    {
+        if (mSize == 0) return;
+
+        if (mFrontIndex + mSize <= mCapacity)
+        {
+            // Contiguous - single copy
+            std::memcpy(dst, mData + mFrontIndex, mSize * sizeof(T));
+        }
+        else
+        {
+            // Wrapped - copy front segment first, then back segment
+            const index_t first_part = mCapacity - mFrontIndex;
+            std::memcpy(dst, mData + mFrontIndex, first_part * sizeof(T));
+            std::memcpy(dst + first_part, mData, (mSize - first_part) * sizeof(T));
+        }
+    }
+
     // === UNSAFE METHODS ===
     // Caller must ensure the queue is not empty
 

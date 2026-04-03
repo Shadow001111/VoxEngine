@@ -696,6 +696,10 @@ void Chunk::propagateSkyLight(uint32_t& neighborDirtyMask)
 		{
 			int ny = data.y;
 			size_t belowIndex = selfIndex;
+
+			std::array<int, 4> nxs = { data.x - 1, data.x + 1, data.x, data.x };
+			std::array<int, 4> nzs = { data.z, data.z, data.z - 1, data.z + 1 };
+
 			while (--ny >= 0)
 			{
 				belowIndex -= CoordinatesStride3D::y; // Move down one block in the column
@@ -711,10 +715,10 @@ void Chunk::propagateSkyLight(uint32_t& neighborDirtyMask)
 				lightLevels[belowIndex].skyLight = 15;
 				neighborDirtyMask |= getNeighborDirtyMask(data.x, ny, data.z);
 
-				for (int dir : horizontalDirections)
+				for (int i = 0; i < horizontalDirections.size(); i++)
 				{
-					const int nx = data.x + DirectionsTable::dx[dir];
-					const int nz = data.z + DirectionsTable::dz[dir];
+					const int nx = nxs[i];
+					const int nz = nzs[i];
 					tryPropagate(nx, ny, nz, 14, false);
 				}
 			}
