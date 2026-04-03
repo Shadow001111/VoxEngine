@@ -1872,27 +1872,29 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(
 			const Chunk* chunk = traverseThroughNeighbors(x_, y_, z_, index);
 
 			//neighborData[dataIdx].isSolid = true; // Already solid by default
-			if (chunk)
-			{
-				auto data = chunk->getBlockAndLightAt(index);
-				neighborData[dataIdx].lightLevel = data.second;
-				const auto* blockData = AssetRegistry::getBlockData(data.first);
-				neighborData[dataIdx].isSolid = blockData && blockData->faceCulling[normal ^ 1];
-			}
+			if (!chunk) return;
+
+			BlockId block = chunk->blocks[index];
+			LightLevel lightLevel = chunk->lightLevels[index];
+
+			neighborData[dataIdx].lightLevel = lightLevel;
+
+			const auto* blockData = AssetRegistry::getBlockData(block);
+			neighborData[dataIdx].isSolid = blockData && blockData->faceCulling[normal ^ 1];
 		};
 
 	switch (normal)
 	{
 	case 0: // -X face
-
-		getSafe(0, x - 1, y - 1, z - 1);
-		getSafe(1, x - 1, y - 1, z);
-		getSafe(2, x - 1, y - 1, z + 1);
-		getSafe(3, x - 1, y, z - 1);
-		getSafe(4, x - 1, y, z + 1);
-		getSafe(5, x - 1, y + 1, z - 1);
-		getSafe(6, x - 1, y + 1, z);
-		getSafe(7, x - 1, y + 1, z + 1);
+		x--;
+		getSafe(0, x, y - 1, z - 1);
+		getSafe(1, x, y - 1, z    );
+		getSafe(2, x, y - 1, z + 1);
+		getSafe(3, x, y    , z - 1);
+		getSafe(4, x, y    , z + 1);
+		getSafe(5, x, y + 1, z - 1);
+		getSafe(6, x, y + 1, z)    ;
+		getSafe(7, x, y + 1, z + 1);
 
 		calculateVertexAmbientOcclusionAndLight(ao0, lightLevels[0], centerFaceLight, neighborData[1], neighborData[3], neighborData[0]);
 		calculateVertexAmbientOcclusionAndLight(ao1, lightLevels[1], centerFaceLight, neighborData[1], neighborData[4], neighborData[2]);
@@ -1900,14 +1902,15 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(
 		calculateVertexAmbientOcclusionAndLight(ao3, lightLevels[3], centerFaceLight, neighborData[6], neighborData[3], neighborData[5]);
 		break;
 	case 1: // +X face
-		getSafe(0, x + 1, y - 1, z - 1);
-		getSafe(1, x + 1, y - 1, z);
-		getSafe(2, x + 1, y - 1, z + 1);
-		getSafe(3, x + 1, y, z - 1);
-		getSafe(4, x + 1, y, z + 1);
-		getSafe(5, x + 1, y + 1, z - 1);
-		getSafe(6, x + 1, y + 1, z);
-		getSafe(7, x + 1, y + 1, z + 1);
+		x++;
+		getSafe(0, x, y - 1, z - 1);
+		getSafe(1, x, y - 1, z    );
+		getSafe(2, x, y - 1, z + 1);
+		getSafe(3, x, y    , z - 1);
+		getSafe(4, x, y    , z + 1);
+		getSafe(5, x, y + 1, z - 1);
+		getSafe(6, x, y + 1, z    );
+		getSafe(7, x, y + 1, z + 1);
 
 		calculateVertexAmbientOcclusionAndLight(ao0, lightLevels[0], centerFaceLight, neighborData[1], neighborData[4], neighborData[2]);
 		calculateVertexAmbientOcclusionAndLight(ao1, lightLevels[1], centerFaceLight, neighborData[1], neighborData[3], neighborData[0]);
@@ -1915,14 +1918,15 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(
 		calculateVertexAmbientOcclusionAndLight(ao3, lightLevels[3], centerFaceLight, neighborData[6], neighborData[4], neighborData[7]);
 		break;
 	case 2: // -Y face
-		getSafe(0, x - 1, y - 1, z - 1);
-		getSafe(1, x, y - 1, z - 1);
-		getSafe(2, x + 1, y - 1, z - 1);
-		getSafe(3, x - 1, y - 1, z);
-		getSafe(4, x + 1, y - 1, z);
-		getSafe(5, x - 1, y - 1, z + 1);
-		getSafe(6, x, y - 1, z + 1);
-		getSafe(7, x + 1, y - 1, z + 1);
+		y--;
+		getSafe(0, x - 1, y, z - 1);
+		getSafe(1, x    , y, z - 1);
+		getSafe(2, x + 1, y, z - 1);
+		getSafe(3, x - 1, y, z    );
+		getSafe(4, x + 1, y, z    );
+		getSafe(5, x - 1, y, z + 1);
+		getSafe(6, x    , y, z + 1);
+		getSafe(7, x + 1, y, z + 1);
 
 		calculateVertexAmbientOcclusionAndLight(ao0, lightLevels[0], centerFaceLight, neighborData[1], neighborData[4], neighborData[2]);
 		calculateVertexAmbientOcclusionAndLight(ao1, lightLevels[1], centerFaceLight, neighborData[1], neighborData[3], neighborData[0]);
@@ -1930,14 +1934,15 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(
 		calculateVertexAmbientOcclusionAndLight(ao3, lightLevels[3], centerFaceLight, neighborData[6], neighborData[4], neighborData[7]);
 		break;
 	case 3: // +Y face
-		getSafe(0, x - 1, y + 1, z - 1);
-		getSafe(1, x, y + 1, z - 1);
-		getSafe(2, x + 1, y + 1, z - 1);
-		getSafe(3, x - 1, y + 1, z);
-		getSafe(4, x + 1, y + 1, z);
-		getSafe(5, x - 1, y + 1, z + 1);
-		getSafe(6, x, y + 1, z + 1);
-		getSafe(7, x + 1, y + 1, z + 1);
+		y++;
+		getSafe(0, x - 1, y, z - 1);
+		getSafe(1, x    , y, z - 1);
+		getSafe(2, x + 1, y, z - 1);
+		getSafe(3, x - 1, y, z    );
+		getSafe(4, x + 1, y, z    );
+		getSafe(5, x - 1, y, z + 1);
+		getSafe(6, x    , y, z + 1);
+		getSafe(7, x + 1, y, z + 1);
 
 		calculateVertexAmbientOcclusionAndLight(ao0, lightLevels[0], centerFaceLight, neighborData[4], neighborData[1], neighborData[2]);
 		calculateVertexAmbientOcclusionAndLight(ao1, lightLevels[1], centerFaceLight, neighborData[3], neighborData[1], neighborData[0]);
@@ -1945,14 +1950,15 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(
 		calculateVertexAmbientOcclusionAndLight(ao3, lightLevels[3], centerFaceLight, neighborData[4], neighborData[6], neighborData[7]);
 		break;
 	case 4: // -Z face
-		getSafe(0, x - 1, y - 1, z - 1);
-		getSafe(1, x, y - 1, z - 1);
-		getSafe(2, x + 1, y - 1, z - 1);
-		getSafe(3, x - 1, y, z - 1);
-		getSafe(4, x + 1, y, z - 1);
-		getSafe(5, x - 1, y + 1, z - 1);
-		getSafe(6, x, y + 1, z - 1);
-		getSafe(7, x + 1, y + 1, z - 1);
+		z--;
+		getSafe(0, x - 1, y - 1, z);
+		getSafe(1, x    , y - 1, z);
+		getSafe(2, x + 1, y - 1, z);
+		getSafe(3, x - 1, y    , z);
+		getSafe(4, x + 1, y    , z);
+		getSafe(5, x - 1, y + 1, z);
+		getSafe(6, x    , y + 1, z);
+		getSafe(7, x + 1, y + 1, z);
 
 		calculateVertexAmbientOcclusionAndLight(ao0, lightLevels[0], centerFaceLight, neighborData[1], neighborData[4], neighborData[2]);
 		calculateVertexAmbientOcclusionAndLight(ao1, lightLevels[1], centerFaceLight, neighborData[1], neighborData[3], neighborData[0]);
@@ -1960,14 +1966,15 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(
 		calculateVertexAmbientOcclusionAndLight(ao3, lightLevels[3], centerFaceLight, neighborData[6], neighborData[4], neighborData[7]);
 		break;
 	case 5: // +Z face
-		getSafe(0, x - 1, y - 1, z + 1);
-		getSafe(1, x, y - 1, z + 1);
-		getSafe(2, x + 1, y - 1, z + 1);
-		getSafe(3, x - 1, y, z + 1);
-		getSafe(4, x + 1, y, z + 1);
-		getSafe(5, x - 1, y + 1, z + 1);
-		getSafe(6, x, y + 1, z + 1);
-		getSafe(7, x + 1, y + 1, z + 1);
+		z++;
+		getSafe(0, x - 1, y - 1, z);
+		getSafe(1, x    , y - 1, z);
+		getSafe(2, x + 1, y - 1, z);
+		getSafe(3, x - 1, y    , z);
+		getSafe(4, x + 1, y    , z);
+		getSafe(5, x - 1, y + 1, z);
+		getSafe(6, x    , y + 1, z);
+		getSafe(7, x + 1, y + 1, z);
 
 		calculateVertexAmbientOcclusionAndLight(ao0, lightLevels[0], centerFaceLight, neighborData[1], neighborData[3], neighborData[0]);
 		calculateVertexAmbientOcclusionAndLight(ao1, lightLevels[1], centerFaceLight, neighborData[1], neighborData[4], neighborData[2]);
@@ -1976,8 +1983,9 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(
 		break;
 	}
 
-	//
 	ao = ao0 | (ao1 << 2) | (ao2 << 4) | (ao3 << 6);
+
+	static_assert(sizeof(light) >= sizeof(lightLevels), "light packing too small");
 	light = *((uint32_t*)lightLevels);
 }
 
