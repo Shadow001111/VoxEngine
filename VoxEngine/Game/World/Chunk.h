@@ -69,6 +69,13 @@ class Chunk
 		static constexpr std::array<int, 6> dz{ 0, 0, 0, 0, -1, 1 };
 	};
 
+	struct CoordinatesStride3D
+	{
+		static constexpr int x = CHUNK_AREA;
+		static constexpr int y = CHUNK_SIZE;
+		static constexpr int z = 1;
+	};
+
 	struct CachedBlockIds
 	{
 		BlockId airId;
@@ -280,7 +287,7 @@ public:
 private:
 	// Blocks
 	void generateTree(const glm::ivec3& position);
-	void removeIndexFromMap(BlockId block, uint16_t idx);
+	void removeBlockChange(BlockId block, uint16_t idx);
 
 	// IO
 	void loadBlocks() { ChunkIO::loadBlocks(changedBlocks, position, blocks); }

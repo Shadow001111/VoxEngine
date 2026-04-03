@@ -514,7 +514,7 @@ void Chunk::generateTree(const glm::ivec3& rootPosition)
 //	//// Check flood fill mask if it filled all the space
 //}
 
-void Chunk::removeIndexFromMap(BlockId block, uint16_t idx)
+void Chunk::removeBlockChange(BlockId block, uint16_t idx)
 {
 	auto it = changedBlocks.find(block);
 	if (it == changedBlocks.end()) return;
@@ -614,8 +614,8 @@ void Chunk::propagateBlockLight(uint32_t& neighborDirtyMask)
 
 void Chunk::propagateSkyLight(uint32_t& neighborDirtyMask)
 {
-	constexpr std::array<int, 4> HorizontalDirs{ 0, 1, 4, 5 };
-	constexpr std::array<int, 6> AllDirs{ 0, 1, 2, 3, 4, 5 };
+	constexpr std::array<int, 6> allDirections{ 0, 1, 4, 5, 2, 3 };
+	constexpr std::array<int, 4> horizontalDirections{ 0, 1, 4, 5 };
 
 	auto tryPropagate = [&](int nx, int ny, int nz, uint8_t lightToSet, bool includeYInSameChunkCheck) -> bool
 		{
@@ -634,7 +634,7 @@ void Chunk::propagateSkyLight(uint32_t& neighborDirtyMask)
 			else
 			{
 				// Neighbor chunk lookup is only needed when we actually cross a boundary
-				// For SOME reason its faster to recompute than to just pass the direction. I don't know why.
+				// For SOME reason its faster to recompute than to just pass the direction. I don't know why. It doesn't make any sense.
 				const int neighborChunkSide = includeYInSameChunkCheck ? 
 					(nx < 0) ? 0 : (nx >= CHUNK_SIZE ? 1 : (ny < 0 ? 2 : (ny >= CHUNK_SIZE ? 3 : (nz < 0 ? 4 : 5)))) :
 					(nx < 0) ? 0 : (nx >= CHUNK_SIZE ? 1 : (nz < 0 ? 4 : 5));
@@ -655,7 +655,7 @@ void Chunk::propagateSkyLight(uint32_t& neighborDirtyMask)
 			if (dstLight.skyLight >= lightToSet)
 				return false;
 
-			const BlockId neighborBlock = neighborChunk->getBlockAt(neighborBlockIndex);
+			const BlockId neighborBlock = neighborChunk->blocks[neighborBlockIndex];
 			const auto* neighborBlockData = AssetRegistry::getBlockData(neighborBlock);
 			if (!neighborBlockData || neighborBlockData->absorbsLight)
 				return false;
@@ -691,17 +691,19 @@ void Chunk::propagateSkyLight(uint32_t& neighborDirtyMask)
 		const uint8_t nextLight = static_cast<uint8_t>(skyLight - 1);
 
 		// Fast vertical-down column fill when the source is full sunlight
-		if (skyLight == 15)
+		const bool isFullSunlight = skyLight == 15;
+		if (isFullSunlight)
 		{
 			int ny = data.y;
+			size_t belowIndex = selfIndex;
 			while (--ny >= 0)
 			{
-				const size_t belowIndex = getIndex(data.x, ny, data.z);
+				belowIndex -= CoordinatesStride3D::y; // Move down one block in the column
 
 				if (lightLevels[belowIndex].skyLight == 15)
 					break;
 
-				const BlockId block = getBlockAt(belowIndex);
+				const BlockId block = blocks[belowIndex];
 				const auto* blockData = AssetRegistry::getBlockData(block);
 				if (!blockData || blockData->absorbsLight)
 					break;
@@ -709,7 +711,7 @@ void Chunk::propagateSkyLight(uint32_t& neighborDirtyMask)
 				lightLevels[belowIndex].skyLight = 15;
 				neighborDirtyMask |= getNeighborDirtyMask(data.x, ny, data.z);
 
-				for (int dir : HorizontalDirs)
+				for (int dir : horizontalDirections)
 				{
 					const int nx = data.x + DirectionsTable::dx[dir];
 					const int nz = data.z + DirectionsTable::dz[dir];
@@ -740,12 +742,10 @@ void Chunk::propagateSkyLight(uint32_t& neighborDirtyMask)
 			}
 		}
 
-		// Standard 6-direction propagation
-		for (int dir : AllDirs)
+		const int dirCount = isFullSunlight ? 4 : 6; // Skip vertical directions if source is full sunlight
+		for (int i = 0; i < dirCount; i++)
 		{
-			if (skyLight == 15 && dir == 2)
-				continue; // handled separately above
-
+			int dir = allDirections[i];
 			const int nx = data.x + DirectionsTable::dx[dir];
 			const int ny = data.y + DirectionsTable::dy[dir];
 			const int nz = data.z + DirectionsTable::dz[dir];
@@ -1610,7 +1610,7 @@ void Chunk::setBlockAt(int x, int y, int z, BlockId block, bool saveBlockChanges
 	// Update changedBlocks map
 	if (saveBlockChanges)
 	{
-		removeIndexFromMap(previousBlock, static_cast<uint16_t>(index));
+		removeBlockChange(previousBlock, static_cast<uint16_t>(index));
 		changedBlocks[block].push_back(static_cast<uint16_t>(index));
 	}
 
