@@ -1800,6 +1800,11 @@ void Chunk::markMeshesDirtyAroundBlock(int x, int y, int z)
 	applyNeighborDirtyMask(dirtyMask);
 }
 
+constexpr unsigned int getMagicNumberForDivision(unsigned int divisor, unsigned int precision)
+{
+	return (1u << precision) / divisor + 1;
+}
+
 void Chunk::calculateVertexAmbientOcclusionAndLight(
 	unsigned int& ao,
 	LightLevel& light,
@@ -1809,67 +1814,40 @@ void Chunk::calculateVertexAmbientOcclusionAndLight(
 	const LightLevelAndIsSolid& corner
 ) const
 {
-	// Tried to pass 'LightLevelAndIsSolid' arguments by value, but it made the code slower, even if they are just 2 bytes each.
-	// Passing even one byte by reference make everything faster, probably compiler stuff.
-	
-	//if (side1.isSolid && side2.isSolid)
-	//{
-	//	ao = 0;
-	//	light = centerLight;
-	//	return;
-	//}
-	//
-	//unsigned int blockLightSum = centerLight.blockLight;
-	//unsigned int skyLightSum = centerLight.skyLight;
-	//unsigned int count = 1;
-	//
-	//if (!side1.isSolid)
-	//{
-	//	blockLightSum += side1.lightLevel.blockLight;
-	//	skyLightSum += side1.lightLevel.skyLight;
-	//	count++;
-	//}
-	//
-	//if (!side2.isSolid)
-	//{
-	//	blockLightSum += side2.lightLevel.blockLight;
-	//	skyLightSum += side2.lightLevel.skyLight;
-	//	count++;
-	//}
-	//
-	//if (!corner.isSolid)
-	//{
-	//	blockLightSum += corner.lightLevel.blockLight;
-	//	skyLightSum += corner.lightLevel.skyLight;
-	//	count++;
-	//}
-	//
-	//ao = count - 1; // 3 - (side1.isSolid + side2.isSolid + corner.isSolid)
-	//light.blockLight = blockLightSum / count;
-	//light.skyLight = skyLightSum / count;
+	// Tried to pass 'LightLevelAndIsSolid' arguments by value, but it made the code slower, even if they are just 2 bytes each
+	// Passing even one byte by reference make everything faster, probably compiler stuff
 
+	// Division fuckery
+	constexpr std::array<unsigned int, 4> magicNumbers = {
+		getMagicNumberForDivision(1, 8),
+		getMagicNumberForDivision(2, 8),
+		getMagicNumberForDivision(3, 8),
+		getMagicNumberForDivision(4, 8)
+	};
+
+	// Main thingy
 	const unsigned bothSolid = side1.isSolid & side2.isSolid;
 	const unsigned use1 = !side1.isSolid;
 	const unsigned use2 = !side2.isSolid;
 	const unsigned useC = !corner.isSolid & !bothSolid;
 
-	const unsigned count = 1u + use1 + use2 + useC;
-
-	light.blockLight = (
+	const unsigned blockLightSum =
 		centerLight.blockLight +
 		use1 * side1.lightLevel.blockLight +
 		use2 * side2.lightLevel.blockLight +
-		useC * corner.lightLevel.blockLight
-		) / count;
+		useC * corner.lightLevel.blockLight;
 
-	light.skyLight = (
+	const unsigned skyLightSum =
 		centerLight.skyLight +
 		use1 * side1.lightLevel.skyLight +
 		use2 * side2.lightLevel.skyLight +
-		useC * corner.lightLevel.skyLight
-		) / count;
+		useC * corner.lightLevel.skyLight;
 
-	ao = (1u - bothSolid) * (3u - (side1.isSolid + side2.isSolid + corner.isSolid));
+	const unsigned count = use1 + use2 + useC;
+	const unsigned int magicNumber = magicNumbers[count];
+	light.blockLight = (blockLightSum * magicNumber) >> 8u;
+	light.skyLight = (skyLightSum * magicNumber) >> 8u;
+	ao = (1u - bothSolid) * count;
 }
 
 void Chunk::calculateFaceAmbientOcclusionAndLight(
