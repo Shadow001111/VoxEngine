@@ -87,6 +87,12 @@ class Chunk
 		BlockId oakLeavesId;
 	};
 
+	struct LightLevelAndIsSolid
+	{
+		LightLevel lightLevel;
+		bool isSolid = true;
+	};
+
 	struct BlockVertexLightData
 	{
 		unsigned int ao[8];      // AO values for each vertex
@@ -306,7 +312,7 @@ private:
 	// Mesh
 	void markMeshesDirtyAroundBlock(int x, int y, int z);
 
-	void calculateVertexAmbientOcclusionAndLight(unsigned int& ao, LightLevel& light, LightLevel centerLight, const std::pair<LightLevel, bool>& side1, const std::pair<LightLevel, bool>& side2, const std::pair<LightLevel, bool>& corner) const;
+	void calculateVertexAmbientOcclusionAndLight(unsigned int& ao, LightLevel& light, const LightLevel& centerLight, const LightLevelAndIsSolid& side1, const LightLevelAndIsSolid& side2, const LightLevelAndIsSolid& corner) const;
 	void calculateFaceAmbientOcclusionAndLight(unsigned int& ao, unsigned int& light, int x, int y, int z, int normal, LightLevel centerFaceLight) const;
 	
 	void calculateBlockVertexLight(BlockVertexLightData& result, int x, int y, int z) const;

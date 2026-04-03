@@ -1302,18 +1302,34 @@ void Chunk::updateMesh()
 				);
 				for (const auto& face : model->alignedFaces)
 				{
+					// Get neighbor block coordinates
 					int nx = currentBlockPosition.x + DirectionsTable::dx[face.normal];
 					int ny = currentBlockPosition.y + DirectionsTable::dy[face.normal];
 					int nz = currentBlockPosition.z + DirectionsTable::dz[face.normal];
 
-					size_t neighborIndex;
-					const Chunk* neighborChunk = traverseToSideNeighbor(nx, ny, nz, face.normal, neighborIndex);
-					if (!neighborChunk)
-					{
-						continue;
-					}
+					// Get neighbor chunk and block index
+					size_t neighborBlockIndex;
+					const Chunk* neighborChunk;
 
-					BlockId neighborBlock = neighborChunk->getBlockAt(neighborIndex);
+					const bool inSameChunk = ((nx | ny | nz) & CHUNK_UPPER_BITS_MASK) == 0;
+
+					if (inSameChunk)
+					{
+						neighborChunk = this;
+						neighborBlockIndex = getIndex(nx, ny, nz);
+					}
+					else
+					{
+						neighborChunk = neighbors[getSideNeighborIndex(face.normal)];
+						if (!neighborChunk)
+						{
+							continue;
+						}
+						neighborBlockIndex = getIndex(nx & CHUNK_LOWER_BITS_MASK, ny & CHUNK_LOWER_BITS_MASK, nz & CHUNK_LOWER_BITS_MASK);
+					}
+					
+					// Get neighbor block and data
+					BlockId neighborBlock = neighborChunk->blocks[neighborBlockIndex];
 					if (block == neighborBlock)
 					{
 						continue;
@@ -1326,7 +1342,7 @@ void Chunk::updateMesh()
 					}
 
 					// Calculate shading
-					LightLevel neighborLight = neighborChunk->getLightAt(neighborIndex);
+					LightLevel neighborLight = neighborChunk->lightLevels[neighborBlockIndex];
 					unsigned int ao, light;
 					calculateFaceAmbientOcclusionAndLight(ao, light, currentBlockPosition.x, currentBlockPosition.y, currentBlockPosition.z, face.normal, neighborLight);
 
@@ -1446,7 +1462,7 @@ void Chunk::updateMesh()
 
 			// Region flag
 			parentRegion->setFlag(ChunkRegion::Flag::HasMeshToUpload, true);
-			parentRegion->setGlobalFlag(ChunkRegion::Flag::HasMeshToUpload, true);
+			ChunkRegion::setGlobalFlag(ChunkRegion::Flag::HasMeshToUpload, true);
 		}
 	}
 }
@@ -1787,74 +1803,103 @@ void Chunk::markMeshesDirtyAroundBlock(int x, int y, int z)
 void Chunk::calculateVertexAmbientOcclusionAndLight(
 	unsigned int& ao,
 	LightLevel& light,
-	LightLevel centerLight,
-	const std::pair<LightLevel, bool>& side1,
-	const std::pair<LightLevel, bool>& side2,
-	const std::pair<LightLevel, bool>& corner
+	const LightLevel& centerLight,
+	const LightLevelAndIsSolid& side1,
+	const LightLevelAndIsSolid& side2,
+	const LightLevelAndIsSolid& corner
 ) const
 {
-	if (side1.second && side2.second)
-	{
-		ao = 0;
-		light = centerLight;
-		return;
-	}
+	// Tried to pass 'LightLevelAndIsSolid' arguments by value, but it made the code slower, even if they are just 2 bytes each.
+	// Passing even one byte by reference make everything faster, probably compiler stuff.
+	
+	//if (side1.isSolid && side2.isSolid)
+	//{
+	//	ao = 0;
+	//	light = centerLight;
+	//	return;
+	//}
+	//
+	//unsigned int blockLightSum = centerLight.blockLight;
+	//unsigned int skyLightSum = centerLight.skyLight;
+	//unsigned int count = 1;
+	//
+	//if (!side1.isSolid)
+	//{
+	//	blockLightSum += side1.lightLevel.blockLight;
+	//	skyLightSum += side1.lightLevel.skyLight;
+	//	count++;
+	//}
+	//
+	//if (!side2.isSolid)
+	//{
+	//	blockLightSum += side2.lightLevel.blockLight;
+	//	skyLightSum += side2.lightLevel.skyLight;
+	//	count++;
+	//}
+	//
+	//if (!corner.isSolid)
+	//{
+	//	blockLightSum += corner.lightLevel.blockLight;
+	//	skyLightSum += corner.lightLevel.skyLight;
+	//	count++;
+	//}
+	//
+	//ao = count - 1; // 3 - (side1.isSolid + side2.isSolid + corner.isSolid)
+	//light.blockLight = blockLightSum / count;
+	//light.skyLight = skyLightSum / count;
 
-	unsigned int blockLightSum = centerLight.blockLight;
-	unsigned int skyLightSum = centerLight.skyLight;
-	unsigned int count = 1;
+	const unsigned bothSolid = side1.isSolid & side2.isSolid;
+	const unsigned use1 = !side1.isSolid;
+	const unsigned use2 = !side2.isSolid;
+	const unsigned useC = !corner.isSolid & !bothSolid;
 
-	if (!side1.second)
-	{
-		blockLightSum += side1.first.blockLight;
-		skyLightSum += side1.first.skyLight;
-		count++;
-	}
+	const unsigned count = 1u + use1 + use2 + useC;
 
-	if (!side2.second)
-	{
-		blockLightSum += side2.first.blockLight;
-		skyLightSum += side2.first.skyLight;
-		count++;
-	}
+	light.blockLight = (
+		centerLight.blockLight +
+		use1 * side1.lightLevel.blockLight +
+		use2 * side2.lightLevel.blockLight +
+		useC * corner.lightLevel.blockLight
+		) / count;
 
-	if (!corner.second)
-	{
-		blockLightSum += corner.first.blockLight;
-		skyLightSum += corner.first.skyLight;
-		count++;
-	}
+	light.skyLight = (
+		centerLight.skyLight +
+		use1 * side1.lightLevel.skyLight +
+		use2 * side2.lightLevel.skyLight +
+		useC * corner.lightLevel.skyLight
+		) / count;
 
-	unsigned int avgBlockLight = blockLightSum / count;
-	unsigned int avgSkyLight = skyLightSum / count;
-
-	ao = 3 - (side1.second + side2.second + corner.second);
-	light.blockLight = avgBlockLight;
-	light.skyLight = avgSkyLight;
+	ao = (1u - bothSolid) * (3u - (side1.isSolid + side2.isSolid + corner.isSolid));
 }
 
-void Chunk::calculateFaceAmbientOcclusionAndLight(unsigned int& ao, unsigned int& light, int x, int y, int z, int normal, LightLevel centerFaceLight) const
+void Chunk::calculateFaceAmbientOcclusionAndLight(
+	unsigned int& ao,
+	unsigned int& light,
+	int x, int y, int z,
+	int normal,
+	LightLevel centerFaceLight
+) const
 {
 	// For each face normal, we need to check 8 neighbors around the face
 	// The AO calculation depends on which direction the face is facing
 
-	std::pair<LightLevel, bool> neighborData[8];
+	LightLevelAndIsSolid neighborData[8];
 
 	unsigned int ao0 = 0, ao1 = 0, ao2 = 0, ao3 = 0;
 	LightLevel lightLevels[4];
 
 	auto getSafe = [this, &neighborData, normal](size_t dataIdx, int x_, int y_, int z_)
 		{
-			size_t idx;
-			const Chunk* c = traverseThroughNeighbors(x_, y_, z_, idx);
+			size_t index;
+			const Chunk* chunk = traverseThroughNeighbors(x_, y_, z_, index);
 
-			neighborData[dataIdx].second = true;
-			if (c)
+			//neighborData[dataIdx].isSolid = true; // Already solid by default
+			if (chunk)
 			{
-				auto data = c->getBlockAndLightAt(idx);
-				neighborData[dataIdx].first = data.second;
+				auto data = chunk->getBlockAndLightAt(index);
+				neighborData[dataIdx].lightLevel = data.second;
 				const auto* blockData = AssetRegistry::getBlockData(data.first);
-				neighborData[dataIdx].second = blockData && blockData->faceCulling[normal ^ 1];
+				neighborData[dataIdx].isSolid = blockData && blockData->faceCulling[normal ^ 1];
 			}
 		};
 
@@ -1871,7 +1916,6 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(unsigned int& ao, unsigned int
 		getSafe(6, x - 1, y + 1, z);
 		getSafe(7, x - 1, y + 1, z + 1);
 
-		// TODO: Data can be a pair of light level and solid boolean
 		calculateVertexAmbientOcclusionAndLight(ao0, lightLevels[0], centerFaceLight, neighborData[1], neighborData[3], neighborData[0]);
 		calculateVertexAmbientOcclusionAndLight(ao1, lightLevels[1], centerFaceLight, neighborData[1], neighborData[4], neighborData[2]);
 		calculateVertexAmbientOcclusionAndLight(ao2, lightLevels[2], centerFaceLight, neighborData[6], neighborData[4], neighborData[7]);
@@ -1956,7 +2000,7 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(unsigned int& ao, unsigned int
 
 	//
 	ao = ao0 | (ao1 << 2) | (ao2 << 4) | (ao3 << 6);
-	light = *((unsigned int*)lightLevels);
+	light = *((uint32_t*)lightLevels);
 }
 
 void Chunk::calculateBlockVertexLight(BlockVertexLightData& result, int x, int y, int z) const
