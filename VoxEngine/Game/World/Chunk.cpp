@@ -290,9 +290,6 @@ void Chunk::buildBlocks()
 
 	//
 	setState(Chunk::State::BlocksBuit_NeedsLight);
-
-	// Mark itself and neighbors meshes as dirty
-	applyNeighborDirtyMask(-1);
 }
 
 void Chunk::updateStructureBlocks()
@@ -534,8 +531,9 @@ void Chunk::removeBlockChange(BlockId block, uint16_t idx)
 	if (vec.empty()) changedBlocks.erase(it);
 }
 
-void Chunk::propagateBlockLight(uint32_t& neighborDirtyMask)
+uint32_t Chunk::propagateBlockLight()
 {
+	uint32_t neighborDirtyMask = 0;
 	while (!LightPropagationStorage::threadLocalBlockLightPropagation.empty())
 	{
 		// Get node data
@@ -610,12 +608,16 @@ void Chunk::propagateBlockLight(uint32_t& neighborDirtyMask)
 			neighborDirtyMask |= getNeighborDirtyMask(nx, ny, nz);
 		}
 	}
+
+	return neighborDirtyMask;
 }
 
-void Chunk::propagateSkyLight(uint32_t& neighborDirtyMask)
+uint32_t Chunk::propagateSkyLight()
 {
 	constexpr std::array<int, 6> allDirections{ 0, 1, 4, 5, 2, 3 };
 	constexpr std::array<int, 4> horizontalDirections{ 0, 1, 4, 5 };
+
+	uint32_t neighborDirtyMask = 0;
 
 	auto tryPropagate = [&](int nx, int ny, int nz, uint8_t lightToSet, bool includeYInSameChunkCheck) -> bool
 		{
@@ -757,10 +759,13 @@ void Chunk::propagateSkyLight(uint32_t& neighborDirtyMask)
 			tryPropagate(nx, ny, nz, nextLight, true);
 		}
 	}
+
+	return neighborDirtyMask;
 }
 
-void Chunk::propagateBlockLightRemoval(uint32_t& neighborDirtyMask)
+uint32_t Chunk::propagateBlockLightRemoval()
 {
+	uint32_t neighborDirtyMask = 0;
 	while (!LightPropagationStorage::threadLocalBlockLightRemoval.empty())
 	{
 		// Get node data
@@ -833,10 +838,13 @@ void Chunk::propagateBlockLightRemoval(uint32_t& neighborDirtyMask)
 			}
 		}
 	}
+
+	return neighborDirtyMask;
 }
 
-void Chunk::propagateSkyLightRemoval(uint32_t& neighborDirtyMask)
+uint32_t Chunk::propagateSkyLightRemoval()
 {
+	uint32_t neighborDirtyMask = 0;
 	while (!LightPropagationStorage::threadLocalSkyLightRemoval.empty())
 	{
 		// Get node data
@@ -912,6 +920,8 @@ void Chunk::propagateSkyLightRemoval(uint32_t& neighborDirtyMask)
 			}
 		}
 	}
+
+	return neighborDirtyMask;
 }
 
 void Chunk::buildLight()
@@ -926,7 +936,6 @@ void Chunk::buildLight()
 	PROFILE_SCOPE("Build chunk light", ProfileCategory::ChunkLight);
 
 	const Chunk* topNeighbor = neighbors[getNeighborIndex(0, 1, 0)];
-	uint32_t neighborDirtyMask = 1u << getNeighborIndex(0, 0, 0); // Include self
 
 	// Collect block light sources
 	for (int x = 0; x < CHUNK_SIZE; x++)
@@ -951,7 +960,6 @@ void Chunk::buildLight()
 
 				lightLevels[index].blockLight = emission;
 				LightPropagationStorage::threadLocalBlockLightPropagation.emplace(x, y, z);
-				neighborDirtyMask |= getNeighborDirtyMask(x, y, z);
 			}
 		}
 	}
@@ -1030,11 +1038,6 @@ void Chunk::buildLight()
 				}
 
 				LightPropagationStorage::threadLocalSkyLightPropagation.emplace(x, localHeightToStartAddingNodes, z);
-		
-				// Calculate neighbor dirty mask and accumulate it
-				// Sample it in two places, top and bottom, because it can include top and bottom neighbors, plus middle layer will be included anyway
-				neighborDirtyMask |= getNeighborDirtyMask(x, firstExposedY, z);
-				neighborDirtyMask |= getNeighborDirtyMask(x, MAX_LOCAL_HEIGHT, z);
 			}
 		}
 
@@ -1078,7 +1081,6 @@ void Chunk::buildLight()
 				{
 					currentLight.blockLight = neighborLight.blockLight - 1;
 					LightPropagationStorage::threadLocalBlockLightPropagation.emplace(x, y, z);
-					neighborDirtyMask |= getNeighborDirtyMask(x, y, z);
 				}
 
 				// Sky light
@@ -1087,7 +1089,6 @@ void Chunk::buildLight()
 				{
 					currentLight.skyLight = neighborLight.skyLight - skyLightAbsorption;
 					LightPropagationStorage::threadLocalSkyLightPropagation.emplace(x, y, z);
-					neighborDirtyMask |= getNeighborDirtyMask(x, y, z);
 				}
 			};
 
@@ -1170,17 +1171,16 @@ void Chunk::buildLight()
 		}
 	}
 
-	// Propagate block light
-	propagateBlockLight(neighborDirtyMask);
-
-	// Propagate sky light
-	propagateSkyLight(neighborDirtyMask);
+	// Propagate light
+	propagateBlockLight();
+	propagateSkyLight();
 
 	// Set state
 	setState(State::LightsBuilt);
 
 	// Apply dirty mask
-	applyNeighborDirtyMask(neighborDirtyMask);
+	//applyNeighborDirtyMask(neighborDirtyMask);
+	applyNeighborDirtyMask(-1); // Update all neighbors, because 'buildLight' is called after 'buildBlocks', so every neighbor is dirty
 
 	// Let neighbor chunks' lights be updated
 	bool hasNeighborToUpdate = false;
@@ -1216,16 +1216,16 @@ void Chunk::updateLight()
 	uint32_t neighborDirtyMask = 0;
 
 	// Remove block light
-	propagateBlockLightRemoval(neighborDirtyMask);
+	neighborDirtyMask |= propagateBlockLightRemoval();
 
 	// Propagate block light
-	propagateBlockLight(neighborDirtyMask);
+	neighborDirtyMask |= propagateBlockLight();
 
 	// Remove sky light
-	propagateSkyLightRemoval(neighborDirtyMask);
+	neighborDirtyMask |= propagateSkyLightRemoval();
 
 	// Propagate sky light
-	propagateSkyLight(neighborDirtyMask);
+	neighborDirtyMask |= propagateSkyLight();
 
 	// Apply dirty mask
 	applyNeighborDirtyMask(neighborDirtyMask);

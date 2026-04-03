@@ -294,10 +294,10 @@ private:
 	void saveBlocks() const { ChunkIO::saveBlocks(changedBlocks, position, blocks); }
 
 	// Light
-	void propagateBlockLight(uint32_t& neighborDirtyMask);
-	void propagateSkyLight(uint32_t& neighborDirtyMask);
-	void propagateBlockLightRemoval(uint32_t& neighborDirtyMask);
-	void propagateSkyLightRemoval(uint32_t& neighborDirtyMask);
+	uint32_t propagateBlockLight();
+	uint32_t propagateSkyLight();
+	uint32_t propagateBlockLightRemoval();
+	uint32_t propagateSkyLightRemoval();
 
 	// Chunk traverse
 	Chunk* traverseToSideNeighbor(int x, int y, int z, int side, size_t& outIndex) const;
