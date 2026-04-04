@@ -231,7 +231,7 @@ namespace NoiseLib::Base
             {
                 gridResolution = floorf(gridResolution);
             }
-            const glm::vec2 baseScale = glm::vec2(gridResolution) / glm::vec2(resolution.x, resolution.y);
+            const glm::vec2 baseScale = glm::vec2(gridResolution) / glm::vec2(resolution.x);
             const int period = (int)gridResolution;
 
             SimdF xOffsets;
@@ -332,7 +332,7 @@ namespace NoiseLib::Base
             {
                 gridResolution = floorf(gridResolution);
             }
-            const glm::vec2 invResolution = 1.0f / glm::vec2(resolution.x, resolution.y);
+            const glm::vec2 invResolution = 1.0f / glm::vec2(resolution);
             const glm::vec2 baseScale = invResolution * gridResolution;
 
             // Set SIMD constants
@@ -480,7 +480,7 @@ namespace NoiseLib::Base
             {
                 gridResolution = floorf(gridResolution);
             }
-            const glm::vec3 baseScale = glm::vec3(gridResolution) / glm::vec3(resolution.x, resolution.y, resolution.z);
+            const glm::vec3 baseScale = glm::vec3(gridResolution) / glm::vec3(resolution);
             const int period = (int)gridResolution;
 
             SimdF xOffsets;
@@ -585,7 +585,7 @@ namespace NoiseLib::Base
             {
                 gridResolution = floorf(gridResolution);
             }
-            const glm::vec3 invResolution = 1.0f / glm::vec3(resolution.x, resolution.y, resolution.z);
+            const glm::vec3 invResolution = 1.0f / glm::vec3(resolution);
             const glm::vec3 baseScale = invResolution * gridResolution;
 
             // Set SIMD constants

@@ -4,12 +4,30 @@
 
 #include "NoiseLib/Perlin.h"
 #include "NoiseLib/Simplex.h"
+#include "NoiseLib/Worley.h"
 
 //============================================================================
 static float continentalSpline(float x)
 {
 	return x;
 }
+
+static float lerp(float a, float b, float t)
+{
+	return a + t * (b - a);
+}
+
+static float trilerp(float c000, float c100, float c010, float c110, float c001, float c101, float c011, float c111, float tx, float ty, float tz)
+{
+	float x00 = lerp(c000, c100, tx);
+	float x10 = lerp(c010, c110, tx);
+	float x01 = lerp(c001, c101, tx);
+	float x11 = lerp(c011, c111, tx);
+	float y0 = lerp(x00, x10, ty);
+	float y1 = lerp(x01, x11, ty);
+	return lerp(y0, y1, tz);
+}
+
 
 #define MIN_FUNCTION(a, b) a < b ? a : b
 #define MAX_FUNCTION(a, b) a > b ? a : b
@@ -65,11 +83,21 @@ thread_local TerrainGenerator::ThreadLocalData TerrainGenerator::threadLocalData
 using CombinedNoiseGenerator = NoiseLib::Base::BaseNoiseGenerator<
 	NoiseLib::Perlin::scalar2D,
 	NoiseLib::Perlin::simd2D,
-	NoiseLib::Simplex::scalar3D,
-	NoiseLib::Simplex::simd3D,
+	NoiseLib::Worley::scalar3D,
+	NoiseLib::Worley::simd3D,
 	false, // Not seamless
 	true,  // Aligned data
 	false  // No tail
+>;
+
+using CaveUpscaledNoiseGenerator = NoiseLib::Base::BaseNoiseGenerator<
+	NoiseLib::Perlin::scalar2D,
+	NoiseLib::Perlin::simd2D,
+	NoiseLib::Worley::scalar3D,
+	NoiseLib::Worley::simd3D,
+	false, // Not seamless
+	false, // Unaligned data
+	true   // Has tail
 >;
 
 TerrainGenerator::TerrainGenerator()
@@ -193,54 +221,65 @@ void TerrainGenerator::computeCaveMask(bool* outArray, int chunkX, int chunkY, i
 		NoiseParams params;
 		params.frequency = 0.2f;
 		params.layerCount = 3;
-		computeLayeredNoise_3D(caveNoiseArray, chunkX, chunkY, chunkZ, params);
+		computeLayeredNoise_3D_Upscaled(caveNoiseArray, chunkX, chunkY, chunkZ, params, 2);
 	}
 
 	{
 		PROFILE_SCOPE("Cave mask: combine noises", ProfileCategory::TerrainGeneration);
 
-		//for (int i = 0; i < CHUNK_VOLUME; i++)
-		//{
-		//	outArray[i] = std::abs(caveNoiseArray[i]) < 0.1f;
-		//}
+		constexpr float minThreshold = 0.38f;
+		constexpr float maxThreshold = 0.45f;
 
-		static_assert((CHUNK_VOLUME % SimdF::lanes) == 0, "Add tail logic!");
+		constexpr float minY = -50.0f;
+		constexpr float maxY = 0.0f;
 
-		const SimdF absMask = SimdI::fill_lanes_with_value(0x7fffffff).as_float();
-		const SimdF threshold = SimdF::fill_lanes_with_value(0.1f);
-		for (int i = 0; i + SimdF::lanes <= CHUNK_VOLUME; i += SimdF::lanes)
+		for (int i = 0; i < CHUNK_VOLUME; i++)
 		{
-			// Load values
-			SimdF values = SimdF::load(caveNoiseArray + i);
+			float globalY = (chunkY * CHUNK_SIZE + (i / CHUNK_AREA));
 
-			// Convert values to absolute (positive)
-			values &= absMask;
+			float gradient = std::clamp((globalY - minY) / (maxY - minY), 0.0f, 1.0f);
+			float threshold = lerp(minThreshold, maxThreshold, gradient);
 
-			// Create a comparison mask
-			SimdI comparisons = (values < threshold).as_int32();
-
-			// Pack bools: 32-bit -> 16-bit -> 8-bit
-#ifdef SIMD_AVX2
-			{
-				Simd128I low = SimdI::extract_int_128<0>(comparisons);
-				Simd128I high = SimdI::extract_int_128<1>(comparisons);
-
-				low = Simd128I::narrow_saturate_32_to_16(low, high);
-				low = Simd128I::narrow_saturate_16_to_8(low, low);
-
-				// Store 8 bools at once
-				low.store_lower_int_64(reinterpret_cast<int32_t*>(outArray + i));
-			}
-#elifdef SIMD_SSE
-			{
-				comparisons = Simd128I::narrow_saturate_32_to_16(comparisons, comparisons);
-				comparisons = Simd128I::narrow_saturate_16_to_8(comparisons, comparisons);
-
-				// Store 4 bools at once
-				*((int32_t*)(outArray + i)) = comparisons.get_least_significant_int_32();
-			}
-#endif
+			outArray[i] = caveNoiseArray[i] > threshold;
 		}
+
+//		static_assert((CHUNK_VOLUME % SimdF::lanes) == 0, "Add tail logic!");
+//
+//		const SimdF absMask = SimdI::fill_lanes_with_value(0x7fffffff).as_float();
+//		const SimdF threshold = SimdF::fill_lanes_with_value(0.1f);
+//		for (int i = 0; i + SimdF::lanes <= CHUNK_VOLUME; i += SimdF::lanes)
+//		{
+//			// Load values
+//			SimdF values = SimdF::load(caveNoiseArray + i);
+//
+//			// Convert values to absolute (positive)
+//			values &= absMask;
+//
+//			// Create a comparison mask
+//			SimdI comparisons = (values < threshold).as_int32();
+//
+//			// Pack bools: 32-bit -> 16-bit -> 8-bit
+//#ifdef SIMD_AVX2
+//			{
+//				Simd128I low = SimdI::extract_int_128<0>(comparisons);
+//				Simd128I high = SimdI::extract_int_128<1>(comparisons);
+//
+//				low = Simd128I::narrow_saturate_32_to_16(low, high);
+//				low = Simd128I::narrow_saturate_16_to_8(low, low);
+//
+//				// Store 8 bools at once
+//				low.store_lower_int_64(reinterpret_cast<int32_t*>(outArray + i));
+//			}
+//#elifdef SIMD_SSE
+//			{
+//				comparisons = Simd128I::narrow_saturate_32_to_16(comparisons, comparisons);
+//				comparisons = Simd128I::narrow_saturate_16_to_8(comparisons, comparisons);
+//
+//				// Store 4 bools at once
+//				*((int32_t*)(outArray + i)) = comparisons.get_least_significant_int_32();
+//			}
+//#endif
+//		}
 	}
 }
 
@@ -367,6 +406,91 @@ void TerrainGenerator::computeLayeredNoise_3D(float* outArray, int chunkX, int c
 		params.layerCount,
 		params.lacunarity
 	);
+}
+
+void TerrainGenerator::computeLayeredNoise_3D_Upscaled(float* outArray, int chunkX, int chunkY, int chunkZ, const NoiseParams& params, int upscaleFactor)
+{
+	upscaleFactor = std::max(upscaleFactor, 2); // Safety?
+
+	float* lowResArray = threadLocalData.noiseArrayForUpscaling.data();
+
+	// Generate noise at lower resolution
+	const int lowResSize = CHUNK_SIZE / upscaleFactor + 1; // +1 to have an extra row/column/layer for interpolation at the borders
+	const int lowResArea = lowResSize * lowResSize;
+	CaveUpscaledNoiseGenerator::genLayered3D
+	(
+		lowResArray,
+		worldSeed,
+		{ lowResSize, lowResSize, lowResSize },
+		1.0f / params.frequency,
+		{ chunkZ * lowResSize, chunkY * lowResSize, chunkX * lowResSize },
+		params.layerCount,
+		params.lacunarity
+	);
+
+	auto getNormalIndex = [](int x, int y, int z) {
+		return x * CHUNK_AREA + y * CHUNK_SIZE + z;
+		};
+
+	auto getLowResIndex = [lowResArea, lowResSize](int x, int y, int z) {
+		return x * lowResArea + y * lowResSize + z;
+		};
+
+	// Upscale using trilinear interpolation
+	for (int z = 0; z < CHUNK_SIZE; z++)
+	{
+		for (int y = 0; y < CHUNK_SIZE; y++)
+		{
+			for (int x = 0; x < CHUNK_SIZE; x++)
+			{
+				// Calculate the corresponding low-res coordinates
+				float x0f = x / (float)upscaleFactor;
+				float y0f = y / (float)upscaleFactor;
+				float z0f = z / (float)upscaleFactor;
+
+				int x0 = std::floor(x0f);
+				int y0 = std::floor(y0f);
+				int z0 = std::floor(z0f);
+
+				// Calculate next cell coordinates, clamping to the maximum index
+				int x1 = std::min(x0 + 1, lowResSize - 1);
+				int y1 = std::min(y0 + 1, lowResSize - 1);
+				int z1 = std::min(z0 + 1, lowResSize - 1);
+
+				// Calculate corner indices
+				int index000 = getLowResIndex(x0, y0, z0);
+				int index100 = getLowResIndex(x1, y0, z0);
+				int index010 = getLowResIndex(x0, y1, z0);
+				int index110 = getLowResIndex(x1, y1, z0);
+				int index001 = getLowResIndex(x0, y0, z1);
+				int index101 = getLowResIndex(x1, y0, z1);
+				int index011 = getLowResIndex(x0, y1, z1);
+				int index111 = getLowResIndex(x1, y1, z1);
+
+				// Calculate interpolation weights
+				float tx = x0f - x0;
+				float ty = y0f - y0;
+				float tz = z0f - z0;
+
+				// Fetch the 8 corner values from the low-res array
+				float c000 = lowResArray[index000];
+				float c100 = lowResArray[index100];
+				float c010 = lowResArray[index010];
+				float c110 = lowResArray[index110];
+				float c001 = lowResArray[index001];
+				float c101 = lowResArray[index101];
+				float c011 = lowResArray[index011];
+				float c111 = lowResArray[index111];
+
+				// Perform trilinear interpolation
+				outArray[getNormalIndex(x, y, z)] = trilerp(
+					c000, c100, c010, c110,
+					c001, c101, c011, c111,
+					tx, ty, tz
+				);
+			}
+		}
+	}
 }
 
 //============================================================================

@@ -196,6 +196,7 @@
     <ClCompile Include="NoiseLib\Base.cpp" />
     <ClCompile Include="NoiseLib\Perlin.cpp" />
     <ClCompile Include="NoiseLib\Simplex.cpp" />
+    <ClCompile Include="NoiseLib\Worley.cpp" />
     <ClCompile Include="OpenGLWrappers\VertexArray.cpp" />
     <ClCompile Include="OpenGLWrappers\Shader.cpp" />
     <ClCompile Include="Core\Hashes\ivec3Hasher.cpp" />
@@ -272,7 +273,6 @@
     <ClInclude Include="Graphics\TextureLoader.h" />
     <ClInclude Include="Core\StringIndexer.h" />
     <ClInclude Include="Core\Multithreading\ProcessingFence.h" />
-    <ClInclude Include="Core\CoreMath.h" />
     <ClInclude Include="Core\Profiler.h" />
     <ClInclude Include="Core\Shapes\Shapes.h" />
     <ClInclude Include="Core\Multithreading\ThreadPool.h" />
@@ -282,6 +282,7 @@
     <ClInclude Include="NoiseLib\Base.h" />
     <ClInclude Include="NoiseLib\Perlin.h" />
     <ClInclude Include="NoiseLib\Simplex.h" />
+    <ClInclude Include="NoiseLib\Worley.h" />
     <ClInclude Include="OpenGLWrappers\VertexArray.h" />
     <ClInclude Include="OpenGLWrappers\Shader.h" />
     <ClInclude Include="Core\UpdateTimer.h" />

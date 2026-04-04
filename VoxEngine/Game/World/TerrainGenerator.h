@@ -63,7 +63,12 @@ class TerrainGenerator
 		alignas(SimdF::bytes) std::array<float, CHUNK_AREA> continentalNoiseArray;
 		alignas(SimdF::bytes) std::array<float, CHUNK_AREA> erosionNoiseArray;
 		alignas(SimdF::bytes) std::array<float, CHUNK_AREA> weirdnessNoiseArray;
+
 		alignas(SimdF::bytes) std::array<float, CHUNK_VOLUME> caveNoiseArray{};
+
+		static constexpr int LOW_RES_SIZE = CHUNK_SIZE / 2 + 1;
+		static constexpr int LOW_RES_VOLUME = CHUNK_VOLUME;// LOW_RES_SIZE* LOW_RES_SIZE* LOW_RES_SIZE;
+		alignas(SimdF::bytes) std::array<float, LOW_RES_VOLUME> noiseArrayForUpscaling{};
 	};
 
 	static thread_local ThreadLocalData threadLocalData;
@@ -103,5 +108,7 @@ private:
 	static void computeLayeredNoise_2D(float* outArray, int chunkX, int chunkZ, const NoiseParams& params);
 
 	static void computeLayeredNoise_3D(float* outArray, int chunkX, int chunkY, int chunkZ, const NoiseParams& params);
+
+	static void computeLayeredNoise_3D_Upscaled(float* outArray, int chunkX, int chunkY, int chunkZ, const NoiseParams& params, int upscaleFactor);
 };
 

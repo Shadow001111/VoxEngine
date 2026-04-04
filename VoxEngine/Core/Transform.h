@@ -1,6 +1,5 @@
 #pragma once
 #include <glm/glm.hpp>
-#include "Core/CoreMath.h"
 
 // Contains position and rotation
 template<typename T>
@@ -32,9 +31,10 @@ inline Transform<T>::Transform(const Vec3Type& position, T yaw, T pitch) :
 template<typename T>
 inline Transform<T> Transform<T>::interpolate(const Transform& other, T factor) const
 {
+	auto iPosition = (1.0f - factor) * position + factor * other.position;
+	auto iYaw = (1.0f - factor) * yaw + factor * other.yaw;
+	auto iPitch = (1.0f - factor) * pitch + factor * other.pitch;
 	return Transform<T>(
-		lerp(position, other.position, factor),
-		lerp(yaw, other.yaw, factor),
-		lerp(pitch, other.pitch, factor)
+		iPosition, iYaw, iPitch
 	);
 }

@@ -197,8 +197,9 @@ void Chunk::buildBlocks()
 					else
 					{
 						block = CACHED_BLOCK_IDS.stoneId;
-						computeCaveMask = true;
 					}
+
+					computeCaveMask |= block != CACHED_BLOCK_IDS.airId;
 
 					blocks[index] = block;
 				}
@@ -216,7 +217,7 @@ void Chunk::buildBlocks()
 
 		for (int i = 0; i < CHUNK_VOLUME; i++)
 		{
-			if (caveMask[i] && blocks[i] == CACHED_BLOCK_IDS.stoneId)
+			if (caveMask[i])
 			{
 				blocks[i] = CACHED_BLOCK_IDS.airId;
 			}
@@ -224,6 +225,7 @@ void Chunk::buildBlocks()
 	}
 
 	// Trees
+	// TODO: Fix, trees spawning in air
 	{
 		PROFILE_SCOPE("Generate trees", ProfileCategory::ChunkBlocks);
 	
