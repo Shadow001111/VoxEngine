@@ -80,19 +80,29 @@ void TerrainGenerator::ChunkColumnDataPool::release(ChunkColumnData* chunkColumn
 int TerrainGenerator::worldSeed = 0;
 thread_local TerrainGenerator::ThreadLocalData TerrainGenerator::threadLocalData;
 
-using CombinedNoiseGenerator = NoiseLib::Base::BaseNoiseGenerator<
+using TerrainPerlinNoiseGenerator = NoiseLib::Base::BaseNoiseGenerator<
 	NoiseLib::Perlin::scalar2D,
 	NoiseLib::Perlin::simd2D,
-	NoiseLib::Worley::scalar3D,
-	NoiseLib::Worley::simd3D,
+	NoiseLib::Perlin::scalar3D,
+	NoiseLib::Perlin::simd3D,
 	false, // Not seamless
 	true,  // Aligned data
 	false  // No tail
 >;
 
-using CaveUpscaledNoiseGenerator = NoiseLib::Base::BaseNoiseGenerator<
-	NoiseLib::Perlin::scalar2D,
-	NoiseLib::Perlin::simd2D,
+using CaveSimplexNoiseGenerator = NoiseLib::Base::BaseNoiseGenerator<
+	NoiseLib::Simplex::scalar2D,
+	NoiseLib::Simplex::simd2D,
+	NoiseLib::Simplex::scalar3D,
+	NoiseLib::Simplex::simd3D,
+	false, // Not seamless
+	true,  // Aligned data
+	false  // No tail
+>;
+
+using CaveWorleyUpscaledNoiseGenerator = NoiseLib::Base::BaseNoiseGenerator<
+	NoiseLib::Worley::scalar2D,
+	NoiseLib::Worley::simd2D,
 	NoiseLib::Worley::scalar3D,
 	NoiseLib::Worley::simd3D,
 	false, // Not seamless
@@ -213,25 +223,40 @@ void TerrainGenerator::unloadChunkColumnData(int chunkX, int chunkZ)
 
 void TerrainGenerator::computeCaveMask(bool* outArray, int chunkX, int chunkY, int chunkZ) const
 {
-	float* caveNoiseArray = threadLocalData.caveNoiseArray.data();
+	float* caveWorleyNoiseArray = threadLocalData.caveWorleyNoiseArray.data();
+	float* caveSimplexNoiseArray = threadLocalData.caveSimplexNoiseArray.data();
+
+	constexpr float caveNoiseFrequency = 0.6f;
 
 	{
 		PROFILE_SCOPE("Cave mask: compute noises", ProfileCategory::TerrainGeneration);
 
 		NoiseParams params;
-		params.frequency = 0.2f;
-		params.layerCount = 3;
-		computeLayeredNoise_3D_Upscaled(caveNoiseArray, chunkX, chunkY, chunkZ, params, 2);
+		params.frequency = caveNoiseFrequency;
+		params.layerCount = 2;
+		computeLayeredNoise_3D_Upscaled(caveWorleyNoiseArray, chunkX, chunkY, chunkZ, params, 4);
 	}
 
+	{
+		PROFILE_SCOPE("Cave mask: compute noises", ProfileCategory::TerrainGeneration);
+
+		NoiseParams params;
+		params.frequency = caveNoiseFrequency * 2.0f;
+		params.layerCount = 1;
+		computeLayeredNoise_3D(caveSimplexNoiseArray, chunkX, chunkY, chunkZ, params);
+	}
+
+	// Simplex noise is used to smooth out upscaled worley noise, making caves less blocky
 	{
 		PROFILE_SCOPE("Cave mask: combine noises", ProfileCategory::TerrainGeneration);
 
 		constexpr float minThreshold = 0.38f;
 		constexpr float maxThreshold = 0.45f;
 
-		constexpr float minY = -50.0f;
-		constexpr float maxY = 0.0f;
+		constexpr float minY = -100.0f;
+		constexpr float maxY = -20.0f;
+
+		constexpr float bias = 0.02f;
 
 		for (int i = 0; i < CHUNK_VOLUME; i++)
 		{
@@ -240,9 +265,15 @@ void TerrainGenerator::computeCaveMask(bool* outArray, int chunkX, int chunkY, i
 			float gradient = std::clamp((globalY - minY) / (maxY - minY), 0.0f, 1.0f);
 			float threshold = lerp(minThreshold, maxThreshold, gradient);
 
-			outArray[i] = caveNoiseArray[i] > threshold;
-		}
+			float simplexNoise = caveSimplexNoiseArray[i];
+			simplexNoise = (simplexNoise + 1.0f) * 0.5f; // [0, 1]
 
+			float worleyNoise = caveWorleyNoiseArray[i];
+
+			float value = worleyNoise + simplexNoise * (1.0f - gradient) * -0.1f + bias;
+
+			outArray[i] = value > threshold;
+		}
 //		static_assert((CHUNK_VOLUME % SimdF::lanes) == 0, "Add tail logic!");
 //
 //		const SimdF absMask = SimdI::fill_lanes_with_value(0x7fffffff).as_float();
@@ -382,7 +413,7 @@ int TerrainGenerator::computeMaxHeight(const int* heightMap)
 
 void TerrainGenerator::computeLayeredNoise_2D(float* outArray, int chunkX, int chunkZ, const NoiseParams& params)
 {
-	CombinedNoiseGenerator::genLayered2D
+	TerrainPerlinNoiseGenerator::genLayered2D
 	(
 		outArray,
 		worldSeed,
@@ -396,7 +427,7 @@ void TerrainGenerator::computeLayeredNoise_2D(float* outArray, int chunkX, int c
 
 void TerrainGenerator::computeLayeredNoise_3D(float* outArray, int chunkX, int chunkY, int chunkZ, const NoiseParams& params)
 {
-	CombinedNoiseGenerator::genLayered3D
+	TerrainPerlinNoiseGenerator::genLayered3D
 	(
 		outArray,
 		worldSeed,
@@ -417,7 +448,7 @@ void TerrainGenerator::computeLayeredNoise_3D_Upscaled(float* outArray, int chun
 	// Generate noise at lower resolution
 	const int lowResSize = CHUNK_SIZE / upscaleFactor + 1; // +1 to have an extra row/column/layer for interpolation at the borders
 	const int lowResArea = lowResSize * lowResSize;
-	CaveUpscaledNoiseGenerator::genLayered3D
+	CaveWorleyUpscaledNoiseGenerator::genLayered3D
 	(
 		lowResArray,
 		worldSeed,
