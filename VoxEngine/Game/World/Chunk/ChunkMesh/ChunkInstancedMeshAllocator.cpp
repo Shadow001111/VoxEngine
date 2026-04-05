@@ -195,7 +195,7 @@ void ChunkInstancedMeshAllocator::MeshAllocator::processMeshRequests(const Dynam
 		newBuffer.allocateStorage(newCapacity * config.faceSize, INSTANCE_VBO_FLAGS);
 
 		// Copy data to a new buffer
-		const std::vector<BlockAllocator<uint32_t>::Block>& currentBlocks = blockAllocator.getAllAllocations();
+		const DynamicArray<BlockAllocator<uint32_t>::Block>& currentBlocks = blockAllocator.getAllAllocations();
 		const auto& firstBlock = currentBlocks[0];
 		const auto& lastBlock = currentBlocks[currentBlocks.size() - 1];
 		newBuffer.copyRangeFrom(

@@ -1,5 +1,6 @@
 #pragma once
-#include <vector>
+#include "Core/Container/DynamicArray.h"
+
 #include <optional>
 #include <concepts>
 
@@ -18,7 +19,7 @@ public:
 private:
 	TIndex capacity;
 	TIndex nextBlockId = 0;
-	std::vector<Block> blocks; // Always sorted
+	DynamicArray<Block> blocks; // Always sorted by offset
 
 	std::optional<TIndex> findFreeBlock(TIndex requestedSize) const
 	{
@@ -32,6 +33,10 @@ private:
 		{
 			return 0;
 		}
+		if (blocks.front().offset >= requestedSize)
+		{
+			return 0;
+		}
 
 		// Check gaps between blocks
 		for (size_t i = 0; i < blocks.size() - 1; i++)
@@ -40,8 +45,7 @@ private:
 			const auto& block2 = blocks[i + 1];
 
 			TIndex gapStart = block1.offset + block1.size;
-			TIndex gapEnd = block2.offset;
-			TIndex gapSize = gapEnd - gapStart;
+			TIndex gapSize = block2.offset - gapStart;
 
 			if (gapSize >= requestedSize)
 			{
@@ -64,6 +68,7 @@ public:
 		capacity(capacity)
 	{
 	}
+
 	~BlockAllocator() = default;
 
 	BlockAllocator(const BlockAllocator&) = delete;
@@ -81,13 +86,15 @@ public:
 		auto offset = findFreeBlock(size);
 		if (!offset.has_value())
 		{
-			return std::nullopt; // Not enough space
+			return std::nullopt;
 		}
 
 		Block block{ offset.value(), size, nextBlockId++ };
 
 		// Insert block in sorted position by offset
-		auto insertPos = std::lower_bound(blocks.begin(), blocks.end(), block,
+		auto insertPos = std::lower_bound(
+			blocks.begin(), blocks.end(),
+			block,
 			[](const Block& a, const Block& b) {
 				return a.offset < b.offset;
 			});
@@ -144,12 +151,9 @@ public:
 	}
 
 	// Debug
-	TIndex getCapacity() const
-	{
-		return capacity;
-	}
+	TIndex getCapacity() const noexcept { return capacity; }
 
-	TIndex getLastBlockEnd() const
+	TIndex getLastBlockEnd() const noexcept
 	{
 		if (blocks.empty())
 		{
@@ -159,7 +163,7 @@ public:
 		return lastBlock.offset + lastBlock.size;
 	}
 
-	TIndex getGapSizesSum() const
+	TIndex getGapSizesSum() const noexcept
 	{
 		TIndex gaps = 0;
 		TIndex lastEnd = 0;
@@ -171,8 +175,5 @@ public:
 		return gaps;
 	}
 
-	const std::vector<Block>& getAllAllocations() const
-	{
-		return blocks;
-	}
+	const auto& getAllAllocations() const noexcept { return blocks; }
 };
