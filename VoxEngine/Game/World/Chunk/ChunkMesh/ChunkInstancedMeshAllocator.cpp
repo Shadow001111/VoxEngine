@@ -144,12 +144,13 @@ void ChunkInstancedMeshAllocator::MeshAllocator::processMeshRequests(const Dynam
 	// Free blocks
 	for (ChunkInstancedMeshFaceStorage* chunkMesh : meshRequests)
 	{
-		if (!chunkMesh->nonAlignedCreated)
+		if (!config.isCreated(chunkMesh))
 		{
 			continue;
 		}
 
-		ASSERT(blockAllocator.free(config.getAllocatedBlock(chunkMesh).id));
+		bool success = blockAllocator.free(config.getAllocatedBlock(chunkMesh).id);
+		ASSERT(success);
 	}
 
 	// Allocate blocks
