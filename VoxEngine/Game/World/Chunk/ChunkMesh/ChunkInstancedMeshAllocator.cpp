@@ -149,8 +149,7 @@ void ChunkInstancedMeshAllocator::MeshAllocator::processMeshRequests(const Dynam
 			continue;
 		}
 
-		bool success = blockAllocator.free(config.getAllocatedBlock(chunkMesh).id);
-		ASSERT(success);
+		ASSERT(blockAllocator.free(config.getAllocatedBlock(chunkMesh).id));
 	}
 
 	// Allocate blocks

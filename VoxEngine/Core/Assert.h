@@ -5,7 +5,6 @@
 #define ENABLE_ASSERTS 1
 
 #if defined(_MSC_VER)
-#include <intrin.h>
 #define DEBUG_BREAK() __debugbreak()
 #elif defined(__GNUC__) || defined(__clang__)
 #define DEBUG_BREAK() __builtin_trap()
@@ -27,5 +26,7 @@
         }                                                                        \
     } while (0)
 #else
-#define ASSERT(expr)  (void)0
+// In release builds, disable assertions
+// But still evaluate the expression to avoid potential bugs, if someone will put important function calls inside ASSERT (which is not recommended, but just in case)
+#define ASSERT(expr) ((void)(expr))
 #endif
