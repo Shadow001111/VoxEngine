@@ -28,7 +28,7 @@ class MutexCVFence
     std::condition_variable cv;
 public:
     MutexCVFence() = default;
-	~MutexCVFence() = default;
+	~MutexCVFence();
     MutexCVFence(const MutexCVFence&) = delete;
     MutexCVFence& operator=(const MutexCVFence&) = delete;
     MutexCVFence(MutexCVFence&&) = delete;
@@ -46,7 +46,7 @@ class AtomicWaitFence
     std::atomic<bool> processing = false;
 public:
     AtomicWaitFence() = default;
-    ~AtomicWaitFence() = default;
+    ~AtomicWaitFence();
     AtomicWaitFence(const AtomicWaitFence&) = delete;
     AtomicWaitFence& operator=(const AtomicWaitFence&) = delete;
     AtomicWaitFence(AtomicWaitFence&&) = delete;
@@ -64,7 +64,7 @@ class SemaphoreFence
     std::atomic<bool> processing = false;
 public:
     SemaphoreFence() = default;
-    ~SemaphoreFence() = default;
+    ~SemaphoreFence();
     SemaphoreFence(const SemaphoreFence&) = delete;
     SemaphoreFence& operator=(const SemaphoreFence&) = delete;
     SemaphoreFence(SemaphoreFence&&) = delete;

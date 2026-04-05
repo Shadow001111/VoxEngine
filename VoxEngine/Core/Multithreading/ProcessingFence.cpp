@@ -1,5 +1,15 @@
 #include "ProcessingFence.h"
 
+MutexCVFence::~MutexCVFence()
+{
+    {
+        std::lock_guard<std::mutex> lock(mtx);
+        processing = false;
+    }
+    
+    cv.notify_all(); // Allow all waiting threads to proceed
+}
+
 void MutexCVFence::startProcessing()
 {
     std::unique_lock<std::mutex> lock(mtx);
@@ -15,10 +25,16 @@ void MutexCVFence::stopProcessing()
         std::lock_guard<std::mutex> lock(mtx);
         processing = false;
     }
-    // Notify waiting threads
+    
 	cv.notify_one(); // Allow one waiting thread to proceed
 }
 
+
+AtomicWaitFence::~AtomicWaitFence()
+{
+    processing.store(false, std::memory_order_release);
+    processing.notify_all();
+}
 
 void AtomicWaitFence::startProcessing()
 {
@@ -40,6 +56,11 @@ void AtomicWaitFence::stopProcessing()
     processing.notify_one();
 }
 
+
+SemaphoreFence::~SemaphoreFence()
+{
+    stopProcessing();
+}
 
 void SemaphoreFence::startProcessing()
 {

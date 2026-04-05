@@ -9,28 +9,35 @@
 #include <mutex>
 #include <array>
 
+class TerrainGenerator;
+
 class ChunkColumnData
 {
+	friend class TerrainGenerator;
+
 	int X = 0, Z = 0; // Coordinates in chunk space
 
 	std::array<int, CHUNK_AREA> heightMap{};
 
 	std::atomic<bool> initialized{ false };
-public:
+
 	std::atomic<uint16_t> referenceCount = 0;
-//private:
+
 	int maxHeight = 0;
-//public:
-	ChunkColumnData() = default;
-	~ChunkColumnData() = default;
 
 	void init(int x, int z);
 	void destroy();
 
-	const int* heightMapRead() const;
 	int* heightMapWrite() { return heightMap.data(); }
 
 	void setToInitialized();
+public:
+	ChunkColumnData() = default;
+	~ChunkColumnData() = default;
+
+	const int* heightMapRead() const noexcept;
+
+	int getMaxHeight() const noexcept { return maxHeight; }
 };
 
 class TerrainGenerator

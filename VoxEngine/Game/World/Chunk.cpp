@@ -168,7 +168,7 @@ void Chunk::buildBlocks()
 
 	const int globalChunkY = position.y * CHUNK_SIZE;
 
-	const bool isInTerrainRange = globalChunkY <= chunkColumnData->maxHeight;
+	const bool isInTerrainRange = globalChunkY <= chunkColumnData->getMaxHeight();
 	const bool isInWaterRange = globalChunkY <= OCEAN_LEVEL;
 
 	if (isInTerrainRange || isInWaterRange)

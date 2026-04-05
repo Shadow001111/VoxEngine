@@ -45,9 +45,9 @@ void ChunkColumnData::destroy()
 	initialized.store(false, std::memory_order_relaxed);
 }
 
-const int* ChunkColumnData::heightMapRead() const
+const int* ChunkColumnData::heightMapRead() const noexcept
 {
-	initialized.wait(false, std::memory_order_acquire);
+	initialized.wait(false, std::memory_order_acquire); // Wait until 'initialized' won't be false
 	return heightMap.data();
 }
 
