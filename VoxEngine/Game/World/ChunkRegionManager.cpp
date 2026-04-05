@@ -27,7 +27,7 @@ ChunkRegion* ChunkRegionManager::getOrCreateRegion(const glm::ivec3& regionPosit
 	ChunkRegion* region = chunkRegionPool.acquire();
 	
 	// Initialize region
-	region->init();
+	region->init(regionPosition);
 
 	// Add region to map
 	chunkRegions.emplace(regionPosition, region);

@@ -296,8 +296,8 @@ private:
 	void removeBlockChange(BlockId block, uint16_t idx);
 
 	// IO
-	void loadBlocks() { ChunkIO::loadBlocks(changedBlocks, position, blocks); }
-	void saveBlocks() const { ChunkIO::saveBlocks(changedBlocks, position, blocks); }
+	void loadSave();
+	void save() const;
 
 	// Light
 	uint32_t propagateBlockLight();

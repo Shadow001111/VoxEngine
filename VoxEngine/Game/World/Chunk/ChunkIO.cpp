@@ -11,20 +11,29 @@
 
 namespace fs = std::filesystem;
 
-fs::path ChunkIO::CHUNK_SAVES_PATH;
 
-
-fs::path ChunkIO::getFilePath(const glm::ivec3 chunkPosition)
-{
-	std::string name = std::format("{}_{}_{}.bin", chunkPosition.x, chunkPosition.y, chunkPosition.z);
-	return CHUNK_SAVES_PATH / name;
-}
-
-bool ChunkIO::doesFileExist(const std::filesystem::path& path)
+bool doesFileExist(const std::filesystem::path& path)
 {
 	std::error_code ec;
 	auto status = fs::status(path, ec);
 	return !ec && fs::is_regular_file(status);
+}
+
+bool doesDirectoryExist(const std::filesystem::path& path)
+{
+	std::error_code ec;
+	auto status = fs::status(path, ec);
+	return !ec && fs::is_directory(status);
+}
+
+
+fs::path ChunkIO::CHUNK_SAVES_PATH;
+
+
+fs::path ChunkIO::getFilePathFromPosition(const glm::ivec3& position)
+{
+	std::string name = std::format("{}_{}_{}.bin", position.x, position.y, position.z);
+	return CHUNK_SAVES_PATH / name;
 }
 
 uint64_t ChunkIO::computeHash(const BlockChanges& blockChanges)
@@ -219,14 +228,14 @@ bool ChunkIO::readIndices(StreamReader& reader, std::vector<uint16_t>& indices)
 	return true;
 }
 
-void ChunkIO::loadBlockChanges(const std::filesystem::path& filepath, BlockChanges& blockChanges)
+bool ChunkIO::loadBlockChanges(const std::filesystem::path& filepath, BlockChanges& blockChanges)
 {
 	// Load file
 	StreamReader reader(filepath);
 	if (!reader)
 	{
 		std::cerr << "[ChunkIO][loadBlocks]: Failed to open file.\n";
-		return;
+		return false;
 	}
 
 	// Get air block ID
@@ -236,7 +245,7 @@ void ChunkIO::loadBlockChanges(const std::filesystem::path& filepath, BlockChang
 	if (!reader.skip(8))
 	{
 		std::cerr << "[ChunkIO][loadBlocks]: Failed to skip hash.\n";
-		return;
+		return false;
 	}
 
 	// Read pack count
@@ -253,16 +262,14 @@ void ChunkIO::loadBlockChanges(const std::filesystem::path& filepath, BlockChang
 		uint16_t packBlockCount = 0;
 		if (!readPackBlockCount(reader, packBlockCount))
 		{
-			blockChanges.clear();
-			return;
+			return false;
 		}
 
 		// Read pack name
 		std::string packName;
 		if (!readPackName(reader, packName))
 		{
-			blockChanges.clear();
-			return;
+			return false;
 		}
 
 		// Read all blocks in this pack (with their indices immediately following)
@@ -272,8 +279,7 @@ void ChunkIO::loadBlockChanges(const std::filesystem::path& filepath, BlockChang
 			std::string blockName;
 			if (!readBlockName(reader, blockName))
 			{
-				blockChanges.clear();
-				return;
+				return false;
 			}
 
 			// Construct full block name
@@ -292,8 +298,7 @@ void ChunkIO::loadBlockChanges(const std::filesystem::path& filepath, BlockChang
 			std::vector<uint16_t> indices;
 			if (!readIndices(reader, indices))
 			{
-				blockChanges.clear();
-				return;
+				return false;
 			}
 
 			// Store in changedBlocks map
@@ -304,8 +309,10 @@ void ChunkIO::loadBlockChanges(const std::filesystem::path& filepath, BlockChang
 	if (blockChanges.empty())
 	{
 		std::cerr << "[ChunkIO][loadBlocks]: No blocks loaded.\n";
-		return;
+		return false;
 	}
+
+	return true;
 }
 
 void ChunkIO::applyBlockChanges(BlockChanges& blockChanges, BlockId* blocks)
@@ -369,7 +376,7 @@ bool ChunkIO::checkIfShouldBeSaved(const std::filesystem::path& filepath, uint64
 	return hashValue != storedHasValue; // Write to file only if hash values are different
 }
 
-robin_hood::unordered_flat_map<BlockId, std::string> ChunkIO::collectBlockIdStrings(const BlockChanges& blockChanges)
+ChunkIO::Map<BlockId, std::string> ChunkIO::collectBlockIdStrings(const BlockChanges& blockChanges)
 {
 	robin_hood::unordered_flat_map<BlockId, std::string> idToString;
 
@@ -385,7 +392,7 @@ robin_hood::unordered_flat_map<BlockId, std::string> ChunkIO::collectBlockIdStri
 	return idToString;
 }
 
-robin_hood::unordered_flat_map<std::string, ChunkIO::PackInfo> ChunkIO::transformBlockDataIntoPackData(const robin_hood::unordered_flat_map<BlockId, std::string>& blockIdToString)
+ChunkIO::Map<std::string, ChunkIO::PackInfo> ChunkIO::transformBlockDataIntoPackData(const Map<BlockId, std::string>& blockIdToString)
 {
 	robin_hood::unordered_flat_map<std::string, PackInfo> packMap;
 	packMap.reserve(blockIdToString.size());
@@ -403,7 +410,7 @@ robin_hood::unordered_flat_map<std::string, ChunkIO::PackInfo> ChunkIO::transfor
 	return packMap;
 }
 
-std::vector<ChunkIO::PackInfo> ChunkIO::transformPackDataMapToSortedVector(const robin_hood::unordered_flat_map<std::string, PackInfo>& packDataMap)
+std::vector<ChunkIO::PackInfo> ChunkIO::transformPackDataMapToSortedVector(const Map<std::string, PackInfo>& packDataMap)
 {
 	// Create vector of packs
 	std::vector<PackInfo> packs;
@@ -424,24 +431,29 @@ std::vector<ChunkIO::PackInfo> ChunkIO::transformPackDataMapToSortedVector(const
 	return packs;
 }
 
-void ChunkIO::loadBlocks(BlockChanges& blockChanges, const glm::ivec3& chunkPosition, BlockId* blocks)
+void ChunkIO::loadBlocks(BlockChanges& blockChanges, BlockId* blocks, const glm::ivec3& chunkRegionPosition, size_t chunkIndexInRegion)
 {
 	PROFILE_SCOPE("Load chunk blocks", ProfileCategory::ChunkBlocks);
 
-	fs::path filepath = getFilePath(chunkPosition);
+	// Get chunk file path
+	fs::path chunkRegionDirectoryPath = getFilePathFromPosition(chunkRegionPosition);
+	fs::path chunkFilePath = chunkRegionDirectoryPath / std::format("{}.bin", chunkIndexInRegion);
 
-	// Check if file exists
-	if (!doesFileExist(filepath))
-	{
-		return;
-	}
+	// No need to check if file exists - loadBlockChanges will handle that and return false if it doesn't exist or fails to load for any reason
 
 	// Load and apply changes
-	loadBlockChanges(filepath, blockChanges);
-	applyBlockChanges(blockChanges, blocks);
+	bool success = loadBlockChanges(chunkFilePath, blockChanges);
+	if (success)
+	{
+		applyBlockChanges(blockChanges, blocks);
+	}
+	else
+	{
+		blockChanges.clear(); // Clear any partial changes in case of failure
+	}
 }
 
-void ChunkIO::saveBlocks(const BlockChanges& blockChanges, const glm::ivec3& chunkPosition, const BlockId* blocks)
+void ChunkIO::saveBlocks(const BlockChanges& blockChanges, const glm::ivec3& chunkRegionPosition, size_t chunkIndexInRegion)
 {
 	if (blockChanges.empty())
 	{
@@ -458,15 +470,29 @@ void ChunkIO::saveBlocks(const BlockChanges& blockChanges, const glm::ivec3& chu
 	// Compute hash value
 	uint64_t hashValue = computeHash(blockChanges);
 
-	fs::path filepath = getFilePath(chunkPosition);
+	// Get chunk file path
+	fs::path chunkRegionDirectoryPath = getFilePathFromPosition(chunkRegionPosition);
+	fs::path chunkFilePath = chunkRegionDirectoryPath / std::format("{}.bin", chunkIndexInRegion);
 
-	if (!checkIfShouldBeSaved(filepath, hashValue))
+	// Ensure region directory exists
+	if (!doesDirectoryExist(chunkRegionDirectoryPath))
+	{
+		std::error_code ec;
+		if (!fs::create_directories(chunkRegionDirectoryPath, ec))
+		{
+			std::cerr << "[ChunkIO][saveBlocks]: Failed to create directory '" << chunkRegionDirectoryPath << "'. Error: " << ec.message() << "\n";
+			return;
+		}
+	}
+
+	// Check if we actually need to write to file (if changes are the same as what's already on disk, skip writing)
+	if (!checkIfShouldBeSaved(chunkFilePath, hashValue))
 	{
 		return;
 	}
 
 	// Open file for writing
-	StreamWriter writer(filepath);
+	StreamWriter writer(chunkFilePath);
 	if (!writer)
 	{
 		std::cerr << "[ChunkIO][saveBlocks]: Failed to create file.\n";
@@ -552,4 +578,55 @@ void ChunkIO::saveBlocks(const BlockChanges& blockChanges, const glm::ivec3& chu
 	{
 		std::cerr << "[ChunkIO][saveBlocks]: Failed to flush data to disk.\n";
 	}
+}
+
+AtomicBitset<CHUNK_REGION_VOLUME, size_t> ChunkIO::checkChunkRegionForBlockChanges(const glm::ivec3& regionPosition)
+{
+	PROFILE_SCOPE("Scan chunk region directory", ProfileCategory::ChunkBlocks);
+
+	AtomicBitset<CHUNK_REGION_VOLUME, size_t> mask;
+
+	// Get region file path
+	fs::path chunkRegionDirectoryPath = getFilePathFromPosition(regionPosition);
+
+	// Check if directory exists
+	if (!doesDirectoryExist(chunkRegionDirectoryPath))
+	{
+		return mask;
+	}
+
+	// Iterate through all chunk files in the region directory
+	std::error_code ec;
+	for (const auto& entry : fs::directory_iterator(chunkRegionDirectoryPath, ec))
+	{
+		// Check if file is a regular file
+		if (!entry.is_regular_file(ec))
+		{
+			continue;
+		}
+
+		// Get chunk index from file name (string to size_t)
+		std::string chunkFileName = entry.path().stem().string();
+		size_t chunkIndex;
+		try
+		{
+			chunkIndex = std::stoul(chunkFileName);
+		}
+		catch (const std::exception&)
+		{
+			std::cerr << "[ChunkIO][checkChunkRegionForBlockChanges]: Invalid chunk file name '" << chunkFileName << "'. Skipping.\n";
+			continue;
+		}
+
+		// Check if chunk index is within valid range
+		if (chunkIndex >= CHUNK_REGION_VOLUME)
+		{
+			continue;
+		}
+
+		// Set bit in mask for this chunk index
+		mask.set(chunkIndex, true);
+	}
+
+	return mask;
 }

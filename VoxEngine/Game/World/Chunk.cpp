@@ -35,7 +35,7 @@ Chunk::Chunk()
 
 Chunk::~Chunk()
 {
-	saveBlocks();
+	save();
 }
 
 // Prepares chunk for use
@@ -123,7 +123,7 @@ void Chunk::destroy()
 	lightPropagation.clear();
 
 	// TODO: Make it async. Mark chunk as processing.
-	saveBlocks();
+	save();
 	changedBlocks.clear();
 }
 
@@ -282,7 +282,7 @@ void Chunk::buildBlocks()
 	}
 
 	// Load blocks
-	loadBlocks();
+	loadSave();
 
 	//
 	if (!chunkFlags.read(Flag::IsLoadedInWorld))
@@ -531,6 +531,29 @@ void Chunk::removeBlockChange(BlockId block, uint16_t idx)
 	}
 
 	if (vec.empty()) changedBlocks.erase(it);
+}
+
+void Chunk::loadSave()
+{
+	// Skip the filesystem entirely if the region tells us this chunk has never been written to disk
+	size_t indexInRegion = ChunkRegion::getChunkIndexInRegion(position);
+	if (!parentRegion || !parentRegion->hasSavedData(indexInRegion)) return;
+	ChunkIO::loadBlocks(changedBlocks, blocks, parentRegion->getPosition(), indexInRegion);
+}
+
+void Chunk::save() const
+{
+	if (!parentRegion) return;
+
+	bool hasChanges = !changedBlocks.empty();
+
+	size_t indexInRegion = ChunkRegion::getChunkIndexInRegion(position);
+	parentRegion->setHasSavedData(indexInRegion, hasChanges);
+
+	if (hasChanges)
+	{
+		ChunkIO::saveBlocks(changedBlocks, parentRegion->getPosition(), indexInRegion);
+	}
 }
 
 uint32_t Chunk::propagateBlockLight()

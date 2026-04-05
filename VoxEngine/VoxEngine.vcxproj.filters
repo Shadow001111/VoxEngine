@@ -446,5 +446,8 @@
     <ClInclude Include="NoiseLib\Worley.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
+    <ClInclude Include="Core\AtomicBitset.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

@@ -2,6 +2,7 @@
 #include "Chunk/Metrics.h"
 
 #include "Core/AtomicFlags.h"
+#include "Core/AtomicBitset.h"
 
 #include <glm/glm.hpp>
 #include <array>
@@ -19,6 +20,10 @@ class ChunkRegion
 
 	AtomicFlags<uint8_t> flags;
 
+	glm::ivec3 position;
+
+	AtomicBitset<CHUNK_REGION_VOLUME, size_t> savedChunksMask;
+
 	static AtomicFlags<uint8_t> globalFlags;
 public:
 	enum class Flag : uint8_t
@@ -35,7 +40,10 @@ public:
 	ChunkRegion(ChunkRegion&&) = delete;
 	ChunkRegion& operator=(ChunkRegion&&) = delete;
 
-	void init();
+	void init(const glm::ivec3& regionPosition);
+
+	void setHasSavedData(size_t chunkIndex, bool value) noexcept { savedChunksMask.set(chunkIndex, value); }
+	[[nodiscard]] bool hasSavedData(size_t chunkIndex) const noexcept { return savedChunksMask.read(chunkIndex); }
 
 	void setFlag(Flag flag, bool value) noexcept { flags.set(static_cast<unsigned>(flag), value); }
 	[[nodiscard]] bool readFlag(Flag flag) const noexcept { return flags.read(static_cast<unsigned>(flag)); }
@@ -55,4 +63,6 @@ public:
 	void decrementRenderChunkCount() noexcept { renderChunkCount.fetch_sub(1, std::memory_order_acq_rel); }
 	[[nodiscard]] size_t getRenderChunkCount() const noexcept { return renderChunkCount.load(std::memory_order_acquire); };
 	[[nodiscard]] const bool hasRenderChunks() const noexcept { return renderChunkCount.load(std::memory_order_acquire) > 0; };
+
+	[[nodiscard]] glm::ivec3 getPosition() const noexcept { return position; }
 };

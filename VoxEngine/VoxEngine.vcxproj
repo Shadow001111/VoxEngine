@@ -217,6 +217,7 @@
     <ClCompile Include="Game\WorldImpl\WorldRenderer.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Core\AtomicBitset.h" />
     <ClInclude Include="Core\Container\Dequeue.h" />
     <ClInclude Include="Core\Container\DynamicArray.h" />
     <ClInclude Include="Core\Container\Queue.h" />

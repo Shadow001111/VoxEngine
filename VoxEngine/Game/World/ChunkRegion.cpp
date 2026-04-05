@@ -1,4 +1,5 @@
 #include "ChunkRegion.h"
+#include "Chunk/ChunkIO.h"
 
 AtomicFlags<uint8_t> ChunkRegion::globalFlags;
 
@@ -13,10 +14,16 @@ size_t ChunkRegion::getChunkIndexInRegion(const glm::ivec3& chunkPosition)
 	return (chunkPosInRegion.x << (CHUNK_REGION_SIZE_LOG2 << 1)) | (chunkPosInRegion.y << CHUNK_REGION_SIZE_LOG2) | chunkPosInRegion.z;
 }
 
-void ChunkRegion::init()
+void ChunkRegion::init(const glm::ivec3& regionPosition)
 {
+	position = regionPosition;
+
 	chunks.fill(nullptr);
+
 	chunkCount = 0;
 	renderChunkCount = 0;
+
 	flags.reset();
+
+	savedChunksMask = ChunkIO::checkChunkRegionForBlockChanges(position);
 }
