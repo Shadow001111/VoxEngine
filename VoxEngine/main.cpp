@@ -753,7 +753,7 @@ static int gameFunc()
 
         if (profilerUpdateTimer.shouldUpdate())
         {
-            //Profiler::printProfileReport();
+            Profiler::printProfileReport();
         }
     }
     return 0;
@@ -769,7 +769,7 @@ int main()
     try
     {
         result = gameFunc();
-        Profiler::printProfileReport();
+        //Profiler::printProfileReport();
     }
     catch (const std::exception& e)
     {

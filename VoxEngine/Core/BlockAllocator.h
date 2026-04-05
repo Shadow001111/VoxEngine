@@ -12,13 +12,11 @@ public:
 	{
 		TIndex offset;
 		TIndex size;
-		TIndex id;
 
-		bool operator==(const Block& other) const { return id == other.id && offset == other.offset && size == other.size; }
+		bool operator==(const Block& other) const { return offset == other.offset && size == other.size; }
 	};
 private:
 	TIndex capacity;
-	TIndex nextBlockId = 0;
 	DynamicArray<Block> blocks; // Always sorted by offset
 
 	std::optional<TIndex> findFreeBlock(TIndex requestedSize) const
@@ -89,34 +87,36 @@ public:
 			return std::nullopt;
 		}
 
-		Block block{ offset.value(), size, nextBlockId++ };
+		Block block{ offset.value(), size };
 
 		// Insert block in sorted position by offset
-		auto insertPos = std::lower_bound(
+		auto it = std::lower_bound(
 			blocks.begin(), blocks.end(),
-			block,
-			[](const Block& a, const Block& b) {
-				return a.offset < b.offset;
+			block.offset,
+			[](const Block& a, TIndex targetOffset) {
+				return a.offset < targetOffset;
 			});
-		blocks.insert(insertPos, block);
+		blocks.insert(it, block);
 
 		return block;
 	}
 
-	bool free(TIndex id)
+	bool free(const Block& blockToDelete)
 	{
-		auto it = std::find_if(blocks.begin(), blocks.end(),
-			[id](const Block& block) {
-				return block.id == id;
+		auto it = std::lower_bound(
+			blocks.begin(), blocks.end(),
+			blockToDelete.offset,
+			[](const Block& a, TIndex targetOffset) {
+				return a.offset < targetOffset;
 			});
 
-		if (it != blocks.end())
+		if (it == blocks.end() || it->offset != blockToDelete.offset)
 		{
-			blocks.erase(it);
-			return true;
+			return false;
 		}
 
-		return false;
+		blocks.erase(it);
+		return true;
 	}
 
 	bool setCapacity(TIndex newCapacity)
