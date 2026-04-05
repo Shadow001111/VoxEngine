@@ -9,6 +9,19 @@
 
 constexpr size_t CHUNKS_PER_BATCH = 16;
 
+WorldChunkManager::~WorldChunkManager()
+{
+	// Unload all chunks
+	for (const auto& [_, chunkRegion] : Chunk::chunkRegionManagerInstance.getRegionMap())
+	{
+		for (Chunk* chunk : chunkRegion->chunks)
+		{
+			if (!chunk) continue;
+			unloadChunk(chunk->getPosition());
+		}
+	}
+}
+
 void WorldChunkManager::init()
 {
 	// Chunk loaders
@@ -38,37 +51,28 @@ void WorldChunkManager::loadChunks(const glm::dvec3& playerPos, int chunkLoading
 	lastChunkLoadingDistance = chunkLoadingDistance;
 
 	// Update chunk loaders
+	for (auto& chunkLoader : chunkLoaders)
 	{
-		PROFILE_SCOPE("Update chunk loaders", ProfileCategory::ChunkLoadUnload);
-		for (auto& chunkLoader : chunkLoaders)
-		{
-			chunkLoader->update(chunkLoaderPos, chunkLoadingDistance);
-		}
+		chunkLoader->update(chunkLoaderPos, chunkLoadingDistance);
 	}
 
 	// Load chunks
+	for (auto& chunkLoader : chunkLoaders)
 	{
-		PROFILE_SCOPE("Load chunks", ProfileCategory::ChunkLoadUnload);
-		for (auto& chunkLoader : chunkLoaders)
+		const auto& positions = chunkLoader->getChunksToLoad();
+		for (const auto& pos : positions)
 		{
-			const auto& positions = chunkLoader->getChunksToLoad();
-			for (const auto& pos : positions)
-			{
-				loadChunk(pos);
-			}
+			loadChunk(pos);
 		}
 	}
 
 	// Unload chunks
+	for (auto& chunkLoader : chunkLoaders)
 	{
-		PROFILE_SCOPE("Unload chunks", ProfileCategory::ChunkLoadUnload);
-		for (auto& chunkLoader : chunkLoaders)
+		const auto& positions = chunkLoader->getChunksToUnload();
+		for (const auto& pos : positions)
 		{
-			const auto& positions = chunkLoader->getChunksToUnload();
-			for (const auto& pos : positions)
-			{
-				unloadChunk(pos);
-			}
+			unloadChunk(pos);
 		}
 	}
 }
@@ -507,7 +511,6 @@ void WorldChunkManager::loadChunk(const glm::ivec3& chunkPosition)
 
 	// Increase chunk count in region
 	region->chunkCount++;
-	ASSERT(region->chunkCount <= CHUNK_REGION_VOLUME);
 }
 
 void WorldChunkManager::unloadChunk(const glm::ivec3& chunkPosition)
@@ -545,7 +548,6 @@ void WorldChunkManager::unloadChunk(const glm::ivec3& chunkPosition)
 	chunkRegion->chunks[index] = nullptr;
 
 	// Decrease chunk count in region
-	ASSERT(chunkRegion->chunkCount > 0);
 	chunkRegion->chunkCount--;
 
 	// If region is empty, remove it from map and return to the pool

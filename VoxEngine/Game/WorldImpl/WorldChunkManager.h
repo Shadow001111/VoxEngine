@@ -31,7 +31,7 @@ class WorldChunkManager
     mutable std::vector<Chunk*> chunksToProcess; // Used as local inside functions
 public:
     WorldChunkManager() = default;
-    ~WorldChunkManager() = default;
+    ~WorldChunkManager();
 
     WorldChunkManager(const WorldChunkManager&) = delete;
     WorldChunkManager& operator=(const WorldChunkManager&) = delete;

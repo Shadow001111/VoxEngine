@@ -25,5 +25,5 @@ void ChunkRegion::init(const glm::ivec3& regionPosition)
 
 	flags.reset();
 
-	savedChunksMask = ChunkIO::checkChunkRegionForBlockChanges(position);
+	savedChunksMask = ChunkIO::checkChunkRegionForSaves(position);
 }

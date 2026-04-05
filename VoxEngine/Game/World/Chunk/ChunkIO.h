@@ -66,6 +66,6 @@ public:
 	static void loadBlocks(BlockChanges& blockChanges, BlockId* blocks, const glm::ivec3& chunkRegionPosition, size_t chunkIndexInRegion);
 	static void saveBlocks(const BlockChanges& blockChanges, const glm::ivec3& chunkRegionPosition, size_t chunkIndexInRegion);
 
-	static AtomicBitset<CHUNK_REGION_VOLUME, size_t> checkChunkRegionForBlockChanges(const glm::ivec3& regionPosition);
+	static AtomicBitset<CHUNK_REGION_VOLUME, size_t> checkChunkRegionForSaves(const glm::ivec3& regionPosition);
 };
 

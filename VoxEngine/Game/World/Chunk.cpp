@@ -41,6 +41,8 @@ Chunk::~Chunk()
 // Prepares chunk for use
 void Chunk::init(const glm::ivec3& position, const std::array<Chunk*, 27>& newNeighbors, ChunkRegion* parentRegion)
 {
+	PROFILE_SCOPE("Chunk init", ProfileCategory::ChunkLoadUnload);
+
 	// Set position
 	this->position = position;
 
@@ -72,44 +74,29 @@ void Chunk::init(const glm::ivec3& position, const std::array<Chunk*, 27>& newNe
 	mesh.faceStorage.resetRenderFaceCount();
 	mesh.faceStorage.shouldBeUploaded = false;
 
-	// Reset blocks and light levels
-	std::fill(std::begin(blocks), std::end(blocks), CACHED_BLOCK_IDS.airId);
-	std::fill(std::begin(lightLevels), std::end(lightLevels), LightLevel(0, 0));
+	// Reset grid data
+	std::memset(blocks, CACHED_BLOCK_IDS.airId, sizeof(blocks));
+	std::memset(lightLevels, 0, sizeof(lightLevels));
 }
 
 // Cleans up resources
 void Chunk::destroy()
 {
-	chunkFlags.set(Flag::IsLoadedInWorld, false);
+	PROFILE_SCOPE("Chunk destroy", ProfileCategory::ChunkLoadUnload);
 
-	FenceGuard fence(processingFence);
-
-	// Clear neighbors
-	constexpr int selfIndex = getNeighborIndex(0, 0, 0);
-	neighbors[selfIndex] = nullptr;
-	for (int i = 0; i < neighbors.size(); i++)
-	{
-		if (i == selfIndex) continue;
-
-		Chunk* neighbor = neighbors[i];
-		if (neighbor)
-		{
-			neighbor->neighbors[getOppositeNeighborIndex(i)] = nullptr;
-			neighbors[i] = nullptr;
-		}
-	}
-
-	//
-	ASSERT(loaderCount == 0);
-
-	//
+	// Set states and flags
+	setFlag(Flag::IsLoadedInWorld, false);
 	setState(Chunk::State::NotInitialized_NeedsBlocks);
 
-	//
-	mesh.faceStorage.clearInstances();
-	if (readFlag(Flag::CanBeRendered))
+	// Clear mesh data
 	{
-		parentRegion->decrementRenderChunkCount();
+		if (readFlag(Flag::CanBeRendered))
+		{
+			parentRegion->decrementRenderChunkCount();
+		}
+
+		FenceGuard scopedFence(mesh.faceStorage.processingFence);
+		mesh.faceStorage.clearInstances();
 	}
 
 	// Release chunk column data
@@ -119,8 +106,28 @@ void Chunk::destroy()
 		TerrainGenerator::getInstance().unloadChunkColumnData(position.x, position.z);
 	}
 
-	// Clear light queues
-	lightPropagation.clear();
+	// Put fence guard here
+	{
+		FenceGuard fence(processingFence);
+
+		// Clear neighbors
+		constexpr int selfIndex = getNeighborIndex(0, 0, 0);
+		neighbors[selfIndex] = nullptr;
+		for (int i = 0; i < neighbors.size(); i++)
+		{
+			if (i == selfIndex) continue;
+
+			Chunk* neighbor = neighbors[i];
+			if (neighbor)
+			{
+				neighbor->neighbors[getOppositeNeighborIndex(i)] = nullptr;
+				neighbors[i] = nullptr;
+			}
+		}
+
+		// Clear light queues
+		lightPropagation.clear();
+	}
 
 	// TODO: Make it async. Mark chunk as processing.
 	save();
@@ -2011,7 +2018,7 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(
 	ao = ao0 | (ao1 << 2) | (ao2 << 4) | (ao3 << 6);
 
 	static_assert(sizeof(light) >= sizeof(lightLevels), "light packing too small");
-	light = *((uint32_t*)lightLevels);
+	std::memcpy(&light, lightLevels, sizeof(light));
 }
 
 void Chunk::calculateBlockVertexLight(BlockVertexLightData& result, int x, int y, int z) const

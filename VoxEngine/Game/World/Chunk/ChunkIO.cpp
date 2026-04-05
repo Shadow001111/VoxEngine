@@ -580,7 +580,7 @@ void ChunkIO::saveBlocks(const BlockChanges& blockChanges, const glm::ivec3& chu
 	}
 }
 
-AtomicBitset<CHUNK_REGION_VOLUME, size_t> ChunkIO::checkChunkRegionForBlockChanges(const glm::ivec3& regionPosition)
+AtomicBitset<CHUNK_REGION_VOLUME, size_t> ChunkIO::checkChunkRegionForSaves(const glm::ivec3& regionPosition)
 {
 	PROFILE_SCOPE("Scan chunk region directory", ProfileCategory::ChunkBlocks);
 
@@ -610,7 +610,7 @@ AtomicBitset<CHUNK_REGION_VOLUME, size_t> ChunkIO::checkChunkRegionForBlockChang
 		size_t chunkIndex;
 		try
 		{
-			chunkIndex = std::stoul(chunkFileName);
+			chunkIndex = std::stoull(chunkFileName);
 		}
 		catch (const std::exception&)
 		{
