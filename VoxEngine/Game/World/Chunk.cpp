@@ -1407,8 +1407,19 @@ void Chunk::updateMesh()
 
 					// Calculate shading
 					LightLevel neighborLight = neighborChunk->lightLevels[neighborBlockIndex];
-					unsigned int ao, light;
-					calculateFaceAmbientOcclusionAndLight(ao, light, currentBlockPosition.x, currentBlockPosition.y, currentBlockPosition.z, face.normal, neighborLight);
+					//unsigned int ao, light;
+					//calculateFaceAmbientOcclusionAndLight(ao, light, currentBlockPosition.x, currentBlockPosition.y, currentBlockPosition.z, face.normal, neighborLight);
+
+					ContextFaceAOAL aoData
+					{
+						.x = currentBlockPosition.x,
+						.y = currentBlockPosition.y,
+						.z = currentBlockPosition.z,
+						.normal = face.normal,
+						.centerFaceLight = neighborLight
+					};
+
+					calculateFaceAmbientOcclusionAndLight(aoData);
 
 					// Get texture
 					const auto& textureSlot = face.textureSlot < textureSlots.size() ? textureSlots[face.textureSlot] : fallbackTextureSlot;
@@ -1421,10 +1432,10 @@ void Chunk::updateMesh()
 					instances.emplace_back(
 						currentBlockPosition.x, currentBlockPosition.y, currentBlockPosition.z,
 						face.normal,
-						ao,
+						aoData.outAmbientOcclusion,
 						textureSlot.textureId,
 						faceTransformation,
-						light
+						aoData.outLightLevel
 					);
 				}
 			}
@@ -1914,13 +1925,7 @@ void Chunk::calculateVertexAmbientOcclusionAndLight(
 	ao = (1u - bothSolid) * count;
 }
 
-void Chunk::calculateFaceAmbientOcclusionAndLight(
-	unsigned int& ao,
-	unsigned int& light,
-	int x, int y, int z,
-	int normal,
-	LightLevel centerFaceLight
-) const
+void Chunk::calculateFaceAmbientOcclusionAndLight(ContextFaceAOAL& context) const
 {
 	// For each face normal, we need to check 8 neighbors around the face
 	// The AO calculation depends on which direction the face is facing
@@ -1929,6 +1934,13 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(
 
 	unsigned int ao0 = 0, ao1 = 0, ao2 = 0, ao3 = 0;
 	LightLevel lightLevels[4];
+
+	auto x = context.x;
+	auto y = context.y;
+	auto z = context.z;
+	auto normal = context.normal;
+	auto centerFaceLight = context.centerFaceLight;
+
 
 	auto getSafe = [this, &neighborData, normal](size_t dataIdx, int x_, int y_, int z_)
 		{
@@ -2047,7 +2059,9 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(
 		break;
 	}
 
-	ao = ao0 | (ao1 << 2) | (ao2 << 4) | (ao3 << 6);
+	context.outAmbientOcclusion = ao0 | (ao1 << 2) | (ao2 << 4) | (ao3 << 6);
+
+	auto& light = context.outLightLevel;
 
 	static_assert(sizeof(light) >= sizeof(lightLevels), "light packing too small");
 	std::memcpy(&light, lightLevels, sizeof(light));
