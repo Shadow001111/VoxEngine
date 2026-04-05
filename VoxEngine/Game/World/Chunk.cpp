@@ -11,7 +11,7 @@
 thread_local ChunkInstancedMeshFaceStorage::InstancesStorage Chunk::localMeshInstances;
 
 std::atomic<bool> Chunk::gHasStructureBlockChanges{ false };
-ChunkRegionManager Chunk::chunkRegionManagerInstance;
+std::unique_ptr<ChunkRegionManager> Chunk::chunkRegionManagerInstance;
 
 Chunk::CachedBlockIds Chunk::CACHED_BLOCK_IDS;
 
@@ -27,15 +27,6 @@ static unsigned hash3(unsigned x, unsigned y, unsigned z)
 	data *= 0xc2b2ae35u;
 	data ^= data >> 16u;
 	return data;
-}
-
-Chunk::Chunk()
-{
-}
-
-Chunk::~Chunk()
-{
-	save();
 }
 
 // Prepares chunk for use
@@ -136,6 +127,9 @@ void Chunk::destroy()
 
 void Chunk::globalInit()
 {
+	// Create chunk region manager instance
+	chunkRegionManagerInstance = std::make_unique<ChunkRegionManager>();
+
 	// Cache block ids
 	CACHED_BLOCK_IDS.airId = AssetRegistry::getBlockNumericalId("core:air");
 	CACHED_BLOCK_IDS.waterId = AssetRegistry::getBlockNumericalId("core:water");
@@ -144,6 +138,12 @@ void Chunk::globalInit()
 	CACHED_BLOCK_IDS.stoneId = AssetRegistry::getBlockNumericalId("core:stone");
 	CACHED_BLOCK_IDS.oakLogId = AssetRegistry::getBlockNumericalId("core:oak_log");
 	CACHED_BLOCK_IDS.oakLeavesId = AssetRegistry::getBlockNumericalId("core:oak_leaves");
+}
+
+void Chunk::globalDestroy()
+{
+	// Destroy chunk region manager instance
+	chunkRegionManagerInstance.reset();
 }
 
 void Chunk::buildBlocks()

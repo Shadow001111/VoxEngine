@@ -1,5 +1,10 @@
 #include "ChunkRegionManager.h"
 
+ChunkRegionManager::~ChunkRegionManager()
+{
+	chunkRegions.clear();
+}
+
 void ChunkRegionManager::preparation(size_t regionCount)
 {
 	chunkRegions.reserve(regionCount);

@@ -262,7 +262,7 @@ void WorldRenderer::collectChunksForRendering(const Camera& camera) const
 	PROFILE_SCOPE("Collect chunks for render", ProfileCategory::Render);
 
 	// Get regions
-	const auto& regions = Chunk::chunkRegionManagerInstance.getRegionMap();
+	const auto& regions = Chunk::chunkRegionManagerInstance->getRegionMap();
 
 	// Clear and reserve
 	chunksToRender.clear();

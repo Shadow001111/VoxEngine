@@ -164,9 +164,9 @@ public:
 		};
 	};
 
-	// Static dat
+	// Static data
 	static std::atomic<bool> gHasStructureBlockChanges; // TODO: Move this to StructureBlockChangeManager.
-	static ChunkRegionManager chunkRegionManagerInstance;
+	static std::unique_ptr<ChunkRegionManager> chunkRegionManagerInstance;
 	static CachedBlockIds CACHED_BLOCK_IDS;
 	static constexpr std::array<uint32_t, 27> PRECOMPUTED_NEIGHBOR_DIRTY_MASKS = detail::precomputeNeighborDirtyMasks();
 
@@ -200,8 +200,8 @@ public:
 	ChunkMesh mesh;
 
 	// Constructors, destructors, assigments
-	Chunk();
-	~Chunk();
+	Chunk() = default;
+	~Chunk() = default;
 	Chunk(const Chunk&)			   = delete;
 	Chunk& operator=(const Chunk&) = delete;
 	Chunk(Chunk&&)				   = delete;
@@ -210,7 +210,9 @@ public:
 	// Init/destroy
 	void init(const glm::ivec3& position, const std::array<Chunk*, 27>& newNeighbors, ChunkRegion* parentRegion);
 	void destroy();
+
 	static void globalInit();
+	static void globalDestroy();
 
 	// Blocks
 	void buildBlocks();

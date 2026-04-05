@@ -14,6 +14,9 @@ private:
 	FixedArenaObjectPool<ChunkRegion, 16> chunkRegionPool;
 	ChunkRegionMap chunkRegions;
 public:
+	ChunkRegionManager() = default;
+	~ChunkRegionManager();
+
 	void preparation(size_t regionCount);
 
 	ChunkRegion* getRegion(const glm::ivec3& regionPosition);
