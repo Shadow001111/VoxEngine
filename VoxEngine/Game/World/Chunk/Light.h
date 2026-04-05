@@ -2,6 +2,8 @@
 #include "ChunkSpecializedQueue.h"
 #include <mutex>
 
+#include "Core/Multithreading/ProcessingFence.h"
+
 union LightLevel
 {
 	struct
@@ -42,7 +44,7 @@ struct LightPropagationStorage
 	struct LightPropagationQueue
 	{
 		ChunkSpecializedQueue<LightPropagationNode> queue;
-		mutable std::mutex mutex;
+		AtomicWaitFence processingFence;
 
 		void clear();
 	};
@@ -50,7 +52,7 @@ struct LightPropagationStorage
 	struct LightRemovalQueue
 	{
 		ChunkSpecializedQueue<LightRemovalNode> queue;
-		mutable std::mutex mutex;
+		AtomicWaitFence processingFence;
 
 		void clear();
 	};

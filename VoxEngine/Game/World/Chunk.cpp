@@ -1847,25 +1847,25 @@ void Chunk::setSkyLightAt(size_t index, uint8_t lightLevel)
 
 void Chunk::addBlockLightPropagationNode(int x, int y, int z)
 {
-	std::lock_guard<std::mutex> lock(lightPropagation.blockLightPropagation.mutex);
+	FenceGuard scopedFence(lightPropagation.blockLightPropagation.processingFence);
 	lightPropagation.blockLightPropagation.queue.emplace(x, y, z);
 }
 
 void Chunk::addBlockLightRemovalNode(int x, int y, int z, uint8_t lightLevel)
 {
-	std::lock_guard<std::mutex> lock(lightPropagation.blockLightRemoval.mutex);
+	FenceGuard scopedFence(lightPropagation.blockLightRemoval.processingFence);
 	lightPropagation.blockLightRemoval.queue.emplace(x, y, z, lightLevel);
 }
 
 void Chunk::addSkyLightPropagationNode(int x, int y, int z)
 {
-	std::lock_guard<std::mutex> lock(lightPropagation.skyLightPropagation.mutex);
+	FenceGuard scopedFence(lightPropagation.skyLightPropagation.processingFence);
 	lightPropagation.skyLightPropagation.queue.emplace(x, y, z);
 }
 
 void Chunk::addSkyLightRemovalNode(int x, int y, int z, uint8_t lightLevel)
 {
-	std::lock_guard<std::mutex> lock(lightPropagation.skyLightRemoval.mutex);
+	FenceGuard scopedFence(lightPropagation.skyLightRemoval.processingFence);
 	lightPropagation.skyLightRemoval.queue.emplace(x, y, z, lightLevel);
 }
 

@@ -322,8 +322,8 @@ private:
 
 		// In values
 		const int x, y, z;
-		const const int normal;
-		const const LightLevel centerFaceLight;
+		const int normal;
+		const LightLevel centerFaceLight;
 	};
 
 	void calculateVertexAmbientOcclusionAndLight(unsigned int& ao, LightLevel& light, const LightLevel& centerLight, const LightLevelAndIsSolid& side1, const LightLevelAndIsSolid& side2, const LightLevelAndIsSolid& corner) const;

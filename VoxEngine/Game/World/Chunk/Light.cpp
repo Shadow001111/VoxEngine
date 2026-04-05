@@ -46,13 +46,13 @@ thread_local ChunkSpecializedQueue<LightRemovalNode>	 LightPropagationStorage::t
 
 void LightPropagationStorage::LightPropagationQueue::clear()
 {
-	std::lock_guard<std::mutex> lock(mutex);
+	FenceGuard scopedFence(processingFence);
 	queue.clear();
 }
 
 void LightPropagationStorage::LightRemovalQueue::clear()
 {
-	std::lock_guard<std::mutex> lock(mutex);
+	FenceGuard scopedFence(processingFence);
 	queue.clear();
 }
 
@@ -67,19 +67,19 @@ void LightPropagationStorage::clear()
 void LightPropagationStorage::swapQueuesWithLocal()
 {
 	{
-		std::lock_guard<std::mutex> lock(blockLightPropagation.mutex);
+		FenceGuard scopedFence(blockLightPropagation.processingFence);
 		blockLightPropagation.queue.swap(threadLocalBlockLightPropagation);
 	}
 	{
-		std::lock_guard<std::mutex> lock(skyLightPropagation.mutex);
+		FenceGuard scopedFence(skyLightPropagation.processingFence);
 		skyLightPropagation.queue.swap(threadLocalSkyLightPropagation);
 	}
 	{
-		std::lock_guard<std::mutex> lock(blockLightRemoval.mutex);
+		FenceGuard scopedFence(blockLightRemoval.processingFence);
 		blockLightRemoval.queue.swap(threadLocalBlockLightRemoval);
 	}
 	{
-		std::lock_guard<std::mutex> lock(skyLightRemoval.mutex);
+		FenceGuard scopedFence(skyLightRemoval.processingFence);
 		skyLightRemoval.queue.swap(threadLocalSkyLightRemoval);
 	}
 }
