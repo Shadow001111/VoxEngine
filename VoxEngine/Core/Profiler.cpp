@@ -244,8 +244,9 @@ void Profiler::printTableHeader(std::ostringstream& ss)
               << std::setw(ProfilerReport::COL_MIN) << "Min (ms)"
               << std::setw(ProfilerReport::COL_MAX) << "Max (ms)"
               << std::setw(ProfilerReport::COL_TOTAL) << "Total (ms)"
-              << std::setw(ProfilerReport::COL_CALLS) << "Calls\n"
-              << std::string(ProfilerReport::TOTAL_WIDTH, '-') << "\n";
+              << std::setw(ProfilerReport::COL_CALLS) << "Calls"
+		      << std::setw(ProfilerReport::COL_PERCENT) << "Percent"
+              << "\n" << std::string(ProfilerReport::TOTAL_WIDTH, '-') << "\n";
 }
 
 void Profiler::printProfileEntry(std::ostringstream& ss, const std::string& name, const ProfileData& data, double frameTotalTime)
