@@ -41,26 +41,15 @@ struct LightRemovalNode
 
 struct LightPropagationStorage
 {
-	struct LightPropagationQueue
-	{
-		ChunkSpecializedQueue<LightPropagationNode> queue;
-		AtomicWaitFence processingFence;
+	ChunkSpecializedQueue<LightPropagationNode> blockLightPropagationQueue;
+	ChunkSpecializedQueue<LightPropagationNode> skyLightPropagationQueue;
+	ChunkSpecializedQueue<LightRemovalNode> blockLightRemovalQueue;
+	ChunkSpecializedQueue<LightRemovalNode> skyLightRemovalQueue;
 
-		void clear();
-	};
-
-	struct LightRemovalQueue
-	{
-		ChunkSpecializedQueue<LightRemovalNode> queue;
-		AtomicWaitFence processingFence;
-
-		void clear();
-	};
-
-	LightPropagationQueue blockLightPropagation;
-	LightPropagationQueue skyLightPropagation;
-	LightRemovalQueue blockLightRemoval;
-	LightRemovalQueue skyLightRemoval;
+	AtomicWaitFence blockLightPropagationProcessingFence;
+	AtomicWaitFence skyLightPropagationProcessingFence;
+	AtomicWaitFence blockLightRemovalProcessingFence;
+	AtomicWaitFence skyLightRemovalProcessingFence;
 
 	static thread_local ChunkSpecializedQueue<LightPropagationNode>	threadLocalBlockLightPropagation;
 	static thread_local ChunkSpecializedQueue<LightPropagationNode>	threadLocalSkyLightPropagation;

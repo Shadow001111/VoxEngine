@@ -44,52 +44,52 @@ thread_local ChunkSpecializedQueue<LightPropagationNode> LightPropagationStorage
 thread_local ChunkSpecializedQueue<LightRemovalNode>	 LightPropagationStorage::threadLocalBlockLightRemoval;
 thread_local ChunkSpecializedQueue<LightRemovalNode>	 LightPropagationStorage::threadLocalSkyLightRemoval;
 
-void LightPropagationStorage::LightPropagationQueue::clear()
-{
-	FenceGuard scopedFence(processingFence);
-	queue.clear();
-}
-
-void LightPropagationStorage::LightRemovalQueue::clear()
-{
-	FenceGuard scopedFence(processingFence);
-	queue.clear();
-}
-
 void LightPropagationStorage::clear()
 {
-	blockLightPropagation.clear();
-	skyLightPropagation.clear();
-	blockLightRemoval.clear();
-	skyLightRemoval.clear();
+	{
+		FenceGuard scopedFence(blockLightPropagationProcessingFence);
+		blockLightPropagationQueue.clear();
+	}
+	{
+		FenceGuard scopedFence(skyLightPropagationProcessingFence);
+		skyLightPropagationQueue.clear();
+	}
+	{
+		FenceGuard scopedFence(blockLightRemovalProcessingFence);
+		blockLightRemovalQueue.clear();
+	}
+	{
+		FenceGuard scopedFence(skyLightRemovalProcessingFence);
+		skyLightRemovalQueue.clear();
+	}
 }
 
 void LightPropagationStorage::swapQueuesWithLocal()
 {
 	{
-		FenceGuard scopedFence(blockLightPropagation.processingFence);
-		blockLightPropagation.queue.swap(threadLocalBlockLightPropagation);
+		FenceGuard scopedFence(blockLightPropagationProcessingFence);
+		blockLightPropagationQueue.swap(threadLocalBlockLightPropagation);
 	}
 	{
-		FenceGuard scopedFence(skyLightPropagation.processingFence);
-		skyLightPropagation.queue.swap(threadLocalSkyLightPropagation);
+		FenceGuard scopedFence(skyLightPropagationProcessingFence);
+		skyLightPropagationQueue.swap(threadLocalSkyLightPropagation);
 	}
 	{
-		FenceGuard scopedFence(blockLightRemoval.processingFence);
-		blockLightRemoval.queue.swap(threadLocalBlockLightRemoval);
+		FenceGuard scopedFence(blockLightRemovalProcessingFence);
+		blockLightRemovalQueue.swap(threadLocalBlockLightRemoval);
 	}
 	{
-		FenceGuard scopedFence(skyLightRemoval.processingFence);
-		skyLightRemoval.queue.swap(threadLocalSkyLightRemoval);
+		FenceGuard scopedFence(skyLightRemovalProcessingFence);
+		skyLightRemovalQueue.swap(threadLocalSkyLightRemoval);
 	}
 }
 
 void LightPropagationStorage::reserve(size_t count)
 {
-	blockLightPropagation.queue.reserve(count);
-	skyLightPropagation.queue.reserve(count);
-	blockLightRemoval.queue.reserve(count);
-	skyLightRemoval.queue.reserve(count);
+	blockLightPropagationQueue.reserve(count);
+	skyLightPropagationQueue.reserve(count);
+	blockLightRemovalQueue.reserve(count);
+	skyLightRemovalQueue.reserve(count);
 }
 
 void LightPropagationStorage::reserveLocal(size_t count)
@@ -103,8 +103,8 @@ void LightPropagationStorage::reserveLocal(size_t count)
 bool LightPropagationStorage::hasNodes() const noexcept
 {
 	return
-		blockLightPropagation.queue.size() ||
-		skyLightPropagation.queue.size() ||
-		blockLightRemoval.queue.size() ||
-		skyLightRemoval.queue.size();
+		blockLightPropagationQueue.size() ||
+		skyLightPropagationQueue.size() ||
+		blockLightRemovalQueue.size() ||
+		skyLightRemovalQueue.size();
 }

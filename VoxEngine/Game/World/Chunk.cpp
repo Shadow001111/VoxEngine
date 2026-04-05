@@ -122,7 +122,7 @@ void Chunk::destroy()
 
 	// TODO: Make it async. Mark chunk as processing.
 	save();
-	changedBlocks.clear();
+	blockChanges.clear();
 }
 
 void Chunk::globalInit()
@@ -554,8 +554,8 @@ void Chunk::generateTree(const glm::ivec3& rootPosition)
 
 void Chunk::removeBlockChange(BlockId block, uint16_t idx)
 {
-	auto it = changedBlocks.find(block);
-	if (it == changedBlocks.end()) return;
+	auto it = blockChanges.find(block);
+	if (it == blockChanges.end()) return;
 
 	auto& vec = it->second;
 
@@ -569,7 +569,7 @@ void Chunk::removeBlockChange(BlockId block, uint16_t idx)
 		}
 	}
 
-	if (vec.empty()) changedBlocks.erase(it);
+	if (vec.empty()) blockChanges.erase(it);
 }
 
 void Chunk::loadSave()
@@ -577,21 +577,21 @@ void Chunk::loadSave()
 	// Skip the filesystem entirely if the region tells us this chunk has never been written to disk
 	size_t indexInRegion = ChunkRegion::getChunkIndexInRegion(position);
 	if (!parentRegion || !parentRegion->hasSavedData(indexInRegion)) return;
-	ChunkIO::loadBlocks(changedBlocks, blocks, parentRegion->getPosition(), indexInRegion);
+	ChunkIO::loadBlocks(blockChanges, blocks, parentRegion->getPosition(), indexInRegion);
 }
 
 void Chunk::save() const
 {
 	if (!parentRegion) return;
 
-	bool hasChanges = !changedBlocks.empty();
+	bool hasChanges = !blockChanges.empty();
 
 	size_t indexInRegion = ChunkRegion::getChunkIndexInRegion(position);
 	parentRegion->setHasSavedData(indexInRegion, hasChanges);
 
 	if (hasChanges)
 	{
-		ChunkIO::saveBlocks(changedBlocks, parentRegion->getPosition(), indexInRegion);
+		ChunkIO::saveBlocks(blockChanges, parentRegion->getPosition(), indexInRegion);
 	}
 }
 
@@ -1706,7 +1706,7 @@ void Chunk::setBlockAt(int x, int y, int z, BlockId block, bool saveBlockChanges
 	if (saveBlockChanges)
 	{
 		removeBlockChange(previousBlock, static_cast<uint16_t>(index));
-		changedBlocks[block].push_back(static_cast<uint16_t>(index));
+		blockChanges[block].push_back(static_cast<uint16_t>(index));
 	}
 
 	// Light update
@@ -1847,26 +1847,26 @@ void Chunk::setSkyLightAt(size_t index, uint8_t lightLevel)
 
 void Chunk::addBlockLightPropagationNode(int x, int y, int z)
 {
-	FenceGuard scopedFence(lightPropagation.blockLightPropagation.processingFence);
-	lightPropagation.blockLightPropagation.queue.emplace(x, y, z);
+	FenceGuard scopedFence(lightPropagation.blockLightPropagationProcessingFence);
+	lightPropagation.blockLightPropagationQueue.emplace(x, y, z);
 }
 
 void Chunk::addBlockLightRemovalNode(int x, int y, int z, uint8_t lightLevel)
 {
-	FenceGuard scopedFence(lightPropagation.blockLightRemoval.processingFence);
-	lightPropagation.blockLightRemoval.queue.emplace(x, y, z, lightLevel);
+	FenceGuard scopedFence(lightPropagation.blockLightRemovalProcessingFence);
+	lightPropagation.blockLightRemovalQueue.emplace(x, y, z, lightLevel);
 }
 
 void Chunk::addSkyLightPropagationNode(int x, int y, int z)
 {
-	FenceGuard scopedFence(lightPropagation.skyLightPropagation.processingFence);
-	lightPropagation.skyLightPropagation.queue.emplace(x, y, z);
+	FenceGuard scopedFence(lightPropagation.skyLightPropagationProcessingFence);
+	lightPropagation.skyLightPropagationQueue.emplace(x, y, z);
 }
 
 void Chunk::addSkyLightRemovalNode(int x, int y, int z, uint8_t lightLevel)
 {
-	FenceGuard scopedFence(lightPropagation.skyLightRemoval.processingFence);
-	lightPropagation.skyLightRemoval.queue.emplace(x, y, z, lightLevel);
+	FenceGuard scopedFence(lightPropagation.skyLightRemovalProcessingFence);
+	lightPropagation.skyLightRemovalQueue.emplace(x, y, z, lightLevel);
 }
 
 void Chunk::markMeshesDirtyAroundBlock(int x, int y, int z)

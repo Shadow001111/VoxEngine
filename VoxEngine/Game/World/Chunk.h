@@ -193,7 +193,7 @@ private:
 	std::array<Chunk*, 27> neighbors{ nullptr }; // Pointers to neighboring chunks, including itself, for easier access
 	ChunkRegion* parentRegion = nullptr;
 
-	ChunkIO::BlockChanges changedBlocks;
+	ChunkIO::BlockChanges blockChanges;
 
 	// Data
 public:
