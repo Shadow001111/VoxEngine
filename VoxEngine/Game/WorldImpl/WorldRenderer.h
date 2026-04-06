@@ -26,9 +26,6 @@ class WorldRenderer
 		ChunkRenderInfo();
 		ChunkRenderInfo(const Chunk* chunk, unsigned int manhattanDistance);
 	};
-
-	using ChunkCollectFunc = void (Chunk::*)(BufferStreamWriter<DrawArraysIndirectCommand>&, BufferStreamWriter<glm::ivec3>&) const;
-	using ChunkInstancedMeshAllocatorBindVAOFunc = void (ChunkMeshAllocator::*)() const;
 public:
 	struct RenderStats
 	{
@@ -106,13 +103,8 @@ private:
 	void ensureCapacityForChunkRenderBuffers(size_t drawCount);
 	void passDataToChunkRenderBuffers(size_t drawCount);
 
-	template<ChunkCollectFunc CollectMethod, ChunkInstancedMeshAllocatorBindVAOFunc BindVAOMethod>
-	void renderChunksGeneral(const Shader& shader);
-
-	void renderAlignedOpaqueChunks();
-	void renderAlignedTranslucentChunks();
-	void renderUnalignedOpaqueChunks();
-	void renderUnalignedTranslucentChunks();
+	template<MeshLayer layer>
+	void renderChunkGroup(const Shader& shader);
 
 	void renderChunks(const Camera& camera, const FrameBuffer& FBO);
 
@@ -141,8 +133,8 @@ public:
 	const RenderStats& getRenderStats() const { return renderStats; }
 };
 
-template<WorldRenderer::ChunkCollectFunc CollectMethod, WorldRenderer::ChunkInstancedMeshAllocatorBindVAOFunc BindVAOMethod>
-inline void WorldRenderer::renderChunksGeneral(const Shader& shader)
+template<MeshLayer layer>
+inline void WorldRenderer::renderChunkGroup(const Shader& shader)
 {
 	// Check if shader is valid
 	if (!shader.isValid())
@@ -167,7 +159,7 @@ inline void WorldRenderer::renderChunksGeneral(const Shader& shader)
 
 		for (const auto& info : chunksToRender)
 		{
-			(info.chunk->*CollectMethod)(drawCommandsWriter, chunkPositionsWriter);
+			info.chunk->collectRenderData<layer>(drawCommandsWriter, chunkPositionsWriter);
 		}
 
 		drawCount = drawCommandsWriter.getDestination() - chunkDrawCommands.data();
@@ -185,6 +177,6 @@ inline void WorldRenderer::renderChunksGeneral(const Shader& shader)
 	passDataToChunkRenderBuffers(drawCount);
 
 	// Bind VAO and render
-	(ChunkMeshAllocator::getInstance().*BindVAOMethod)();
+	ChunkMeshAllocator::getInstance().bindVAO(layer);
 	glMultiDrawArraysIndirect(GL_TRIANGLE_FAN, NULL, (GLsizei)drawCount, 0);
 }

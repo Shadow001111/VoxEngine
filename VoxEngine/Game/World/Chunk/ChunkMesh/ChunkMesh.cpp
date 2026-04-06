@@ -25,114 +25,50 @@ void ChunkMesh::sendMeshesToGPU()
 		chunk->mesh.faceStorage.processingFence.startProcessing();
 	}
 
-	// Collect meshes that need (re)allocation
-	DynamicArray<ChunkMeshFaceStorage*> allocateMemoryAlignedOpaqueMeshRequests;
-	DynamicArray<ChunkMeshFaceStorage*> allocateMemoryAlignedTranslucentMeshRequests;
-	DynamicArray<ChunkMeshFaceStorage*> allocateMemoryUnalignedOpaqueMeshRequests;
-	DynamicArray<ChunkMeshFaceStorage*> allocateMemoryUnalignedTranslucentMeshRequests;
-
-	allocateMemoryAlignedOpaqueMeshRequests.reserve(uploadCount);
-	allocateMemoryAlignedTranslucentMeshRequests.reserve(uploadCount);
-	allocateMemoryUnalignedOpaqueMeshRequests.reserve(uploadCount);
-	allocateMemoryUnalignedTranslucentMeshRequests.reserve(uploadCount);
+	// Collect per-layer reallocation requests
+	ChunkMeshAllocator::LayerRequests requests;
+	for (auto& r : requests)
+		r.reserve(uploadCount);
 
 	for (Chunk* chunk : pendingMeshUploads)
 	{
-		ChunkMeshFaceStorage* chunkMesh = &chunk->mesh.faceStorage;
-		if (chunkMesh->getAlignedOpaqueFaceCount() > chunkMesh->getAlignedOpaqueFaceCapacity())
+		ChunkMeshFaceStorage& faceStorage = chunk->mesh.faceStorage;
+		for (int i = 0; i < (int)MeshLayer::Count; i++)
 		{
-			allocateMemoryAlignedOpaqueMeshRequests.push_back(chunkMesh);
-		}
-		if (chunkMesh->getAlignedTranslucentFaceCount() > chunkMesh->getAlignedTranslucentFaceCapacity())
-		{
-			allocateMemoryAlignedTranslucentMeshRequests.push_back(chunkMesh);
-		}
-		if (chunkMesh->getUnalignedOpaqueFaceCount() > chunkMesh->getUnalignedOpaqueFaceCapacity())
-		{
-			allocateMemoryUnalignedOpaqueMeshRequests.push_back(chunkMesh);
-		}
-		if (chunkMesh->getUnalignedTranslucentFaceCount() > chunkMesh->getUnalignedTranslucentFaceCapacity())
-		{
-			allocateMemoryUnalignedTranslucentMeshRequests.push_back(chunkMesh);
+			auto layer = static_cast<MeshLayer>(i);
+			if (faceStorage.getFaceCount(layer) > faceStorage.getFaceCapacity(layer))
+				requests[i].push_back(&faceStorage);
 		}
 	}
 
 	// Allocate memory for meshes
-	auto& chunkInstancedMeshAllocator = ChunkMeshAllocator::getInstance();
-	chunkInstancedMeshAllocator.processMeshAllocationRequests(
-		allocateMemoryAlignedOpaqueMeshRequests,
-		allocateMemoryAlignedTranslucentMeshRequests,
-		allocateMemoryUnalignedOpaqueMeshRequests,
-		allocateMemoryUnalignedTranslucentMeshRequests
-	);
+	auto& allocator = ChunkMeshAllocator::getInstance();
+	allocator.processMeshAllocationRequests(requests);
 
-	// Write meshes data
-	auto& alignedOpaqueInstancesVBO = chunkInstancedMeshAllocator.getAlignedOpaqueInstanceVBO();
-	auto& alignedTranslucentInstancesVBO = chunkInstancedMeshAllocator.getAlignedTranslucentInstanceVBO();
-	auto& unalignedOpaqueInstancesVBO = chunkInstancedMeshAllocator.getUnalignedOpaqueInstanceVBO();
-	auto& unalignedTranslucentInstancesVBO = chunkInstancedMeshAllocator.getUnalignedTranslucentInstanceVBO();
-
-	// Write instances data
+	// // Upload face data
 	for (Chunk* chunk : pendingMeshUploads)
 	{
-		auto* chunkMesh = &chunk->mesh.faceStorage;
+		ChunkMeshFaceStorage& faceStorage = chunk->mesh.faceStorage;
 
-		if (chunkMesh->readFlag(ChunkMesh::Flag::AlignedOpaqueCreated))
+		for (int i = 0; i < (int)MeshLayer::Count; i++)
 		{
-			const auto faceCount = chunkMesh->getAlignedOpaqueFaceCount();
-			if (faceCount > 0)
-			{
-				constexpr size_t faceStructSize = sizeof(AlignedBlockFace);
-				alignedOpaqueInstancesVBO.write(
-					chunkMesh->instancesStorage.alignedOpaque.data(),
-					faceCount * faceStructSize,
-					chunkMesh->alignedOpaqueFacesBlock.offset * faceStructSize
-				);
-			}
-		}
-		if (chunkMesh->readFlag(ChunkMesh::Flag::AlignedTranslucentCreated))
-		{
-			const auto faceCount = chunkMesh->getAlignedTranslucentFaceCount();
-			if (faceCount > 0)
-			{
-				constexpr size_t faceStructSize = sizeof(AlignedBlockFace);
-				alignedTranslucentInstancesVBO.write(
-					chunkMesh->instancesStorage.alignedTranslucent.data(),
-					faceCount * faceStructSize,
-					chunkMesh->alignedTranslucentFacesBlock.offset * faceStructSize
-				);
-			}
-		}
-		if (chunkMesh->readFlag(ChunkMesh::Flag::UnalignedOpaqueCreated))
-		{
-			const auto faceCount = chunkMesh->getUnalignedOpaqueFaceCount();
-			if (faceCount > 0)
-			{
-				constexpr size_t faceStructSize = sizeof(UnalignedBlockFace);
-				unalignedOpaqueInstancesVBO.write(
-					chunkMesh->instancesStorage.unalignedOpaque.data(),
-					faceCount * faceStructSize,
-					chunkMesh->unalignedOpaqueFacesBlock.offset * faceStructSize
-				);
-			}
-		}
-		if (chunkMesh->readFlag(ChunkMesh::Flag::UnalignedTranslucentCreated))
-		{
-			const auto faceCount = chunkMesh->getUnalignedTranslucentFaceCount();
-			if (faceCount > 0)
-			{
-				constexpr size_t faceStructSize = sizeof(UnalignedBlockFace);
-				unalignedTranslucentInstancesVBO.write(
-					chunkMesh->instancesStorage.unalignedTranslucent.data(),
-					faceCount * faceStructSize,
-					chunkMesh->unalignedTranslucentFacesBlock.offset * faceStructSize
-				);
-			}
+			auto layer = static_cast<MeshLayer>(i);
+			auto faceCount = faceStorage.getFaceCount(layer);
+
+			if (!faceStorage.readFlag(ChunkMeshFaceStorage::createdFlag(layer)) || faceCount == 0)
+				continue;
+
+			const size_t stride = faceStructSize(layer);
+			allocator.getInstanceVBO(layer).write(
+				faceStorage.getFaceData(layer),
+				faceCount * stride,
+				faceStorage.getFacesBlock(layer).offset * stride
+			);
 		}
 
-		chunkMesh->updateRenderFaceCount();
-		chunkMesh->setFlag(ChunkMesh::Flag::ShouldBeUploaded, false);
-		chunkMesh->processingFence.stopProcessing();
+		faceStorage.updateRenderFaceCount();
+		faceStorage.setFlag(ChunkMesh::Flag::ShouldBeUploaded, false);
+		faceStorage.processingFence.stopProcessing();
 		chunk->updateCanBeRenderedFlag();
 	}
 

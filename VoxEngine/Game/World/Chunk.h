@@ -234,10 +234,26 @@ public:
 	void updateCanBeRenderedFlag() noexcept;
 	bool canBeRendered() const noexcept { return readFlag(Flag::CanBeRendered); };
 
-	void collectAlignedOpaqueRenderData(BufferStreamWriter<DrawArraysIndirectCommand>& drawCommands, BufferStreamWriter<glm::ivec3>& positions) const;
-	void collectAlignedTranslucentRenderData(BufferStreamWriter<DrawArraysIndirectCommand>& drawCommands, BufferStreamWriter<glm::ivec3>& positions) const;
-	void collectUnalignedOpaqueRenderData(BufferStreamWriter<DrawArraysIndirectCommand>& drawCommands, BufferStreamWriter<glm::ivec3>& positions) const;
-	void collectUnalignedTranslucentRenderData(BufferStreamWriter<DrawArraysIndirectCommand>& drawCommands, BufferStreamWriter<glm::ivec3>& positions) const;
+	template<MeshLayer layer>
+	void collectRenderData(BufferStreamWriter<DrawArraysIndirectCommand>& drawCommands, BufferStreamWriter<glm::ivec3>& positions) const
+	{
+		constexpr size_t layerIndex = (size_t)layer;
+		constexpr ChunkMeshFaceStorage::Flag createdFlag = ChunkMeshFaceStorage::createdFlag(layer);
+
+		// Check if face created and it's not empty
+		unsigned int faceCount = mesh.faceStorage.renderFaceCounts[layerIndex];
+		if (faceCount == 0 || !mesh.readFlag(createdFlag))
+		{
+			return;
+		}
+
+		// Get offset
+		unsigned int offset = mesh.faceStorage.facesBlocks[layerIndex].offset;
+
+		// Push data
+		drawCommands.emplaceSingle(4u, faceCount, 0u, offset);
+		positions.writeSingle(position);
+	}
 
 	// Neighbor dirty mask
 	static uint32_t getNeighborDirtyMask(int x, int y, int z) noexcept;

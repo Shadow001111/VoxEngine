@@ -1562,7 +1562,7 @@ void Chunk::askForMeshUpload()
 
 void Chunk::updateCanBeRenderedFlag() noexcept
 {
-	bool newValue = mesh.faceStorage.getRenderFaceCount() > 0;
+	bool newValue = mesh.faceStorage.getAllRenderFaceCount() > 0;
 	bool oldValue = readAndSetFlag(Flag::CanBeRendered, newValue);
 
 	if (newValue && !oldValue)
@@ -1575,50 +1575,6 @@ void Chunk::updateCanBeRenderedFlag() noexcept
 	{
 		parentRegion->decrementRenderChunkCount();
 	}
-}
-
-void Chunk::collectAlignedOpaqueRenderData(BufferStreamWriter<DrawArraysIndirectCommand>& drawCommands, BufferStreamWriter<glm::ivec3>& positions) const
-{
-	auto faceCount = mesh.faceStorage.renderAlignedOpaqueFaceCount;
-	if (!mesh.readFlag(ChunkMesh::Flag::AlignedOpaqueCreated) || faceCount == 0)
-	{
-		return;
-	}
-	drawCommands.emplaceSingle(4, faceCount, 0, mesh.faceStorage.alignedOpaqueFacesBlock.offset);
-	positions.writeSingle(position);
-}
-
-void Chunk::collectAlignedTranslucentRenderData(BufferStreamWriter<DrawArraysIndirectCommand>& drawCommands, BufferStreamWriter<glm::ivec3>& positions) const
-{
-	auto faceCount = mesh.faceStorage.renderAlignedTranslucentFaceCount;
-	if (!mesh.readFlag(ChunkMesh::Flag::AlignedTranslucentCreated) || faceCount == 0)
-	{
-		return;
-	}
-	drawCommands.emplaceSingle(4, faceCount, 0, mesh.faceStorage.alignedTranslucentFacesBlock.offset);
-	positions.writeSingle(position);
-}
-
-void Chunk::collectUnalignedOpaqueRenderData(BufferStreamWriter<DrawArraysIndirectCommand>& drawCommands, BufferStreamWriter<glm::ivec3>& positions) const
-{
-	auto faceCount = mesh.faceStorage.renderUnalignedOpaqueFaceCount;
-	if (!mesh.readFlag(ChunkMesh::Flag::UnalignedOpaqueCreated) || faceCount == 0)
-	{
-		return;
-	}
-	drawCommands.emplaceSingle(4, faceCount, 0, mesh.faceStorage.unalignedOpaqueFacesBlock.offset);
-	positions.writeSingle(position);
-}
-
-void Chunk::collectUnalignedTranslucentRenderData(BufferStreamWriter<DrawArraysIndirectCommand>& drawCommands, BufferStreamWriter<glm::ivec3>& positions) const
-{
-	auto faceCount = mesh.faceStorage.renderUnalignedTranslucentFaceCount;
-	if (!mesh.readFlag(ChunkMesh::Flag::UnalignedTranslucentCreated) || faceCount == 0)
-	{
-		return;
-	}
-	drawCommands.emplaceSingle(4, faceCount, 0, mesh.faceStorage.unalignedTranslucentFacesBlock.offset);
-	positions.writeSingle(position);
 }
 
 Chunk* Chunk::traverseToSideNeighbor(int x, int y, int z, int side, size_t& outIndex) const

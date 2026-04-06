@@ -416,26 +416,6 @@ void WorldRenderer::passDataToChunkRenderBuffers(size_t drawCount)
 	chunkPositionSSBO.write(chunkPositions.data(), chunkPositionBufferRequiredCapacity);
 }
 
-void WorldRenderer::renderAlignedOpaqueChunks()
-{
-	renderChunksGeneral<&Chunk::collectAlignedOpaqueRenderData, &ChunkMeshAllocator::bindAlignedOpaqueVAO>(alignedOpaqueFaceShader);
-}
-
-void WorldRenderer::renderAlignedTranslucentChunks()
-{
-	renderChunksGeneral<&Chunk::collectAlignedTranslucentRenderData, &ChunkMeshAllocator::bindAlignedTranslucentVAO>(alignedTranslucentFaceShader);
-}
-
-void WorldRenderer::renderUnalignedOpaqueChunks()
-{
-	renderChunksGeneral<&Chunk::collectUnalignedOpaqueRenderData, &ChunkMeshAllocator::bindUnalignedOpaqueVAO>(unalignedOpaqueFaceShader);
-}
-
-void WorldRenderer::renderUnalignedTranslucentChunks()
-{
-	renderChunksGeneral<&Chunk::collectUnalignedTranslucentRenderData, &ChunkMeshAllocator::bindUnalignedTranslucentVAO>(unalignedTranslucentFaceShader);
-}
-
 void WorldRenderer::renderChunks(const Camera& camera, const FrameBuffer& FBO)
 {
 	// Set uniforms
@@ -503,8 +483,8 @@ void WorldRenderer::renderChunks(const Camera& camera, const FrameBuffer& FBO)
 	// Render opaque chunks
 	glEnable(GL_CULL_FACE);
 	glDisable(GL_BLEND);
-	renderAlignedOpaqueChunks();
-	renderUnalignedOpaqueChunks();
+	renderChunkGroup<MeshLayer::AlignedOpaque>(alignedOpaqueFaceShader);
+	renderChunkGroup<MeshLayer::UnalignedOpaque>(unalignedOpaqueFaceShader);
 
 	// Render translucent chunks
 	glDepthMask(GL_FALSE);
@@ -512,8 +492,8 @@ void WorldRenderer::renderChunks(const Camera& camera, const FrameBuffer& FBO)
 	glEnable(GL_BLEND);
 	glBlendEquation(GL_FUNC_ADD);
 	glBlendFunc(GL_ONE, GL_ONE);
-	renderAlignedTranslucentChunks();
-	renderUnalignedTranslucentChunks();
+	renderChunkGroup<MeshLayer::AlignedTranslucent>(alignedTranslucentFaceShader);
+	renderChunkGroup<MeshLayer::UnalignedTranslucent>(unalignedTranslucentFaceShader);
 }
 
 void WorldRenderer::renderAurora(const Camera& camera, const FrameBuffer& FBO) const

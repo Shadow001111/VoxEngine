@@ -10,8 +10,8 @@ class BlockAllocator
 public:
 	struct Block
 	{
-		TIndex offset;
-		TIndex size;
+		TIndex offset = 0;
+		TIndex size = 0;
 
 		bool operator==(const Block& other) const { return offset == other.offset && size == other.size; }
 	};

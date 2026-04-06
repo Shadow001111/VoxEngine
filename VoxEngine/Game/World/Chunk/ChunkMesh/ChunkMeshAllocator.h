@@ -8,7 +8,6 @@
 
 #include <functional>
 
-// TODO: Make this whole class template based
 class ChunkMeshAllocator
 {
 	constexpr static GLbitfield INSTANCE_VBO_FLAGS = GL_DYNAMIC_STORAGE_BIT;
@@ -18,9 +17,9 @@ class ChunkMeshAllocator
 		std::function<void()> configureVBO;
 		std::function<uint32_t(ChunkMeshFaceStorage*)> getFaceCount;
 		std::function<bool(ChunkMeshFaceStorage*)> isCreated;
-		std::function<BlockAllocator<uint32_t>::Block& (ChunkMeshFaceStorage*)> getAllocatedBlock;
+		std::function<ChunkMeshFaceStorage::Block& (ChunkMeshFaceStorage*)> getAllocatedBlock;
 		std::function<void(ChunkMeshFaceStorage*, bool)> setCreated;
-		std::function<void(ChunkMeshFaceStorage*, BlockAllocator<uint32_t>::Block)> setAllocatedBlock;
+		std::function<void(ChunkMeshFaceStorage*, ChunkMeshFaceStorage::Block)> setAllocatedBlock;
 		size_t faceSize;
 		std::string debugName;
 	};
@@ -40,42 +39,23 @@ class ChunkMeshAllocator
 		void processMeshRequests(const DynamicArray<ChunkMeshFaceStorage*>& meshRequests);
 	};
 	
-	ImmutableBuffer vbo;
+	ImmutableBuffer vbo; // Shared quad geometry
 
-	MeshAllocator alignedOpaqueMeshAllocator;
-	MeshAllocator alignedTranslucentMeshAllocator;
-	MeshAllocator unalignedOpaqueMeshAllocator;
-	MeshAllocator unalignedTranslucentMeshAllocator;
+	std::array<MeshAllocator, (size_t)MeshLayer::Count> meshAllocators;
 
 	ChunkMeshAllocator();
 	~ChunkMeshAllocator() = default;
 
-	void configureAlignedOpaqueInstanceVBO();
-	void configureAlignedTranslucentInstanceVBO();
-	void configureUnalignedOpaqueInstanceVBO();
-	void configureUnalignedTranslucentInstanceVBO();
+	void configureInstanceVBO(MeshLayer layer);
 public:
 	static ChunkMeshAllocator& getInstance();
 
-	void processMeshAllocationRequests(
-		const DynamicArray<ChunkMeshFaceStorage*>& alignedOpaqueMeshRequests,
-		const DynamicArray<ChunkMeshFaceStorage*>& alignedTranslucentMeshRequests,
-		const DynamicArray<ChunkMeshFaceStorage*>& unalignedOpaqueMeshRequests,
-		const DynamicArray<ChunkMeshFaceStorage*>& unalignedTranslucentMeshRequests
-	);
+	using LayerRequests = std::array<DynamicArray<ChunkMeshFaceStorage*>, 4>;
+
+	void processMeshAllocationRequests(const LayerRequests& requests);
 public:
-	ImmutableBuffer& getAlignedOpaqueInstanceVBO() { return alignedOpaqueMeshAllocator.instanceVBO; };
-	ImmutableBuffer& getAlignedTranslucentInstanceVBO() { return alignedTranslucentMeshAllocator.instanceVBO; };
-	ImmutableBuffer& getUnalignedOpaqueInstanceVBO() { return unalignedOpaqueMeshAllocator.instanceVBO; };
-	ImmutableBuffer& getUnalignedTranslucentInstanceVBO() { return unalignedTranslucentMeshAllocator.instanceVBO; };
+	ImmutableBuffer& getInstanceVBO(MeshLayer layer) { return meshAllocators[static_cast<size_t>(layer)].instanceVBO; };
+	const ImmutableBuffer& getInstanceVBO(MeshLayer layer) const { return meshAllocators[static_cast<size_t>(layer)].instanceVBO; };
 
-	const ImmutableBuffer& getAlignedOpaqueInstanceVBO() const { return alignedOpaqueMeshAllocator.instanceVBO; };
-	const ImmutableBuffer& getAlignedTranslucentInstanceVBO() const { return alignedTranslucentMeshAllocator.instanceVBO; };
-	const ImmutableBuffer& getUnalignedOpaqueInstanceVBO() const { return unalignedOpaqueMeshAllocator.instanceVBO; };
-	const ImmutableBuffer& getUnalignedTranslucentInstanceVBO() const { return unalignedTranslucentMeshAllocator.instanceVBO; };
-
-	void bindAlignedOpaqueVAO() const { alignedOpaqueMeshAllocator.vao.bind(); };
-	void bindAlignedTranslucentVAO() const { alignedTranslucentMeshAllocator.vao.bind(); };
-	void bindUnalignedOpaqueVAO() const { unalignedOpaqueMeshAllocator.vao.bind(); };
-	void bindUnalignedTranslucentVAO() const { unalignedTranslucentMeshAllocator.vao.bind(); };
+	void bindVAO(MeshLayer layer) const { meshAllocators[static_cast<size_t>(layer)].vao.bind(); }
 };

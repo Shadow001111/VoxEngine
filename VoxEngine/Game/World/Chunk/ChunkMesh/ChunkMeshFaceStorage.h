@@ -8,6 +8,26 @@
 #include "Core/Container/DynamicArray.h"
 
 #include <cstdint>
+#include <array>
+
+enum class MeshLayer : uint8_t
+{
+	AlignedOpaque = 0,
+	AlignedTranslucent = 1,
+	UnalignedOpaque = 2,
+	UnalignedTranslucent = 3,
+	Count = 4
+};
+
+constexpr bool isAligned(MeshLayer layer) noexcept
+{
+	return layer == MeshLayer::AlignedOpaque || layer == MeshLayer::AlignedTranslucent;
+}
+
+constexpr size_t faceStructSize(MeshLayer layer) noexcept
+{
+	return isAligned(layer) ? sizeof(AlignedBlockFace) : sizeof(UnalignedBlockFace);
+}
 
 struct ChunkMeshFaceStorage
 {
@@ -15,7 +35,6 @@ struct ChunkMeshFaceStorage
 	{
 		DynamicArray<AlignedBlockFace> alignedOpaque;
 		DynamicArray<AlignedBlockFace> alignedTranslucent;
-
 		DynamicArray<UnalignedBlockFace> unalignedOpaque;
 		DynamicArray<UnalignedBlockFace> unalignedTranslucent;
 
@@ -23,80 +42,65 @@ struct ChunkMeshFaceStorage
 
 		void clear();
 		void swap(InstancesStorage& other) noexcept;
+
+		const void* data(MeshLayer layer) const noexcept;
+		uint32_t size(MeshLayer layer) const noexcept;
 	};
 
 	enum class Flag : uint8_t
 	{
-		ShouldBeUploaded,
+		ShouldBeUploaded = 0,
 
-		AlignedOpaqueCreated,
-		AlignedTranslucentCreated,
-		UnalignedOpaqueCreated,
-		UnalignedTranslucentCreated
+		// These four must stay contiguous – createdFlag() relies on it.
+		AlignedOpaqueCreated = 1,
+		AlignedTranslucentCreated = 2,
+		UnalignedOpaqueCreated = 3,
+		UnalignedTranslucentCreated = 4
 	};
 
-	BlockAllocator<uint32_t>::Block alignedOpaqueFacesBlock{};
-	BlockAllocator<uint32_t>::Block alignedTranslucentFacesBlock{};
-	BlockAllocator<uint32_t>::Block unalignedOpaqueFacesBlock{};
-	BlockAllocator<uint32_t>::Block unalignedTranslucentFacesBlock{};
+	using Block = BlockAllocator<uint32_t>::Block;
 
-	uint16_t renderAlignedOpaqueFaceCount = 0;
-	uint16_t renderAlignedTranslucentFaceCount = 0;
-	uint32_t renderUnalignedOpaqueFaceCount = 0;
-	uint32_t renderUnalignedTranslucentFaceCount = 0;
+	std::array<Block, 4> facesBlocks{};
+
+	std::array<uint32_t, 4> renderFaceCounts{};
 
 	Flags<uint8_t> flags;
 
 	AtomicWaitFence processingFence;
 
 	InstancesStorage instancesStorage;
+public:
+	static constexpr Flag createdFlag(MeshLayer layer) noexcept
+	{
+		return static_cast<Flag>(
+			static_cast<uint8_t>(Flag::AlignedOpaqueCreated) +
+			static_cast<uint8_t>(layer)
+			);
+	}
 
 	ChunkMeshFaceStorage() = default;
 	~ChunkMeshFaceStorage() = default;
 
-	void resetRenderFaceCount();
+	void resetRenderFaceCount() noexcept { renderFaceCounts.fill(0); }
 	void updateRenderFaceCount();
 
 	void clearInstances() { instancesStorage.clear(); }
+
+	// Flag helpers
 
 	void setFlag(Flag flag, bool value) noexcept { flags.set(static_cast<unsigned>(flag), value); }
 	bool readFlag(Flag flag) const noexcept { return flags.read(static_cast<unsigned>(flag)); }
 	bool readAndSetFlag(Flag flag, bool value) noexcept { return flags.readAndSet(static_cast<unsigned>(flag), value); }
 
-	uint32_t getAlignedOpaqueFaceCount() const noexcept { return instancesStorage.alignedOpaque.size(); }
-	uint32_t getAlignedTranslucentFaceCount() const noexcept { return instancesStorage.alignedTranslucent.size(); }
-	uint32_t getUnalignedOpaqueFaceCount() const noexcept { return instancesStorage.unalignedOpaque.size(); }
-	uint32_t getUnalignedTranslucentFaceCount() const noexcept { return instancesStorage.unalignedTranslucent.size(); }
+	// Per-layer accessors
 
-	uint32_t getAlignedOpaqueFaceCapacity() const noexcept { return alignedOpaqueFacesBlock.size; }
-	uint32_t getAlignedTranslucentFaceCapacity() const noexcept { return alignedTranslucentFacesBlock.size; }
-	uint32_t getUnalignedOpaqueFaceCapacity() const noexcept { return unalignedOpaqueFacesBlock.size; }
-	uint32_t getUnalignedTranslucentFaceCapacity() const noexcept { return unalignedTranslucentFacesBlock.size; }
+	const void* getFaceData(MeshLayer layer) const noexcept { return instancesStorage.data(layer); }
+	uint32_t getFaceCount(MeshLayer layer) const noexcept { return instancesStorage.size(layer); }
+	uint32_t getFaceCapacity(MeshLayer layer) const noexcept { return facesBlocks[static_cast<uint8_t>(layer)].size; }
+	BlockAllocator<uint32_t>::Block& getFacesBlock(MeshLayer layer) noexcept { return facesBlocks[static_cast<uint8_t>(layer)]; }
+	// Sum accessors
 
-	uint32_t getAllFaceCount() const noexcept {
-		return
-			getAlignedOpaqueFaceCount() +
-			getAlignedTranslucentFaceCount() +
-			getUnalignedOpaqueFaceCount() +
-			getUnalignedTranslucentFaceCount()
-			;
-	};
-
-	uint32_t getAllFaceCapacity() const noexcept {
-		return
-			getAlignedOpaqueFaceCapacity() +
-			getAlignedTranslucentFaceCapacity() +
-			getUnalignedOpaqueFaceCapacity() +
-			getUnalignedTranslucentFaceCapacity()
-			;
-	};
-
-	uint32_t getRenderFaceCount() const noexcept {
-		return
-			(uint32_t)renderAlignedOpaqueFaceCount +
-			(uint32_t)renderAlignedTranslucentFaceCount +
-			(uint32_t)renderUnalignedOpaqueFaceCount +
-			(uint32_t)renderUnalignedTranslucentFaceCount
-			;
-	};
+	uint32_t getAllFaceCount() const noexcept;
+	uint32_t getAllFaceCapacity() const noexcept;
+	uint32_t getAllRenderFaceCount() const noexcept;
 };
