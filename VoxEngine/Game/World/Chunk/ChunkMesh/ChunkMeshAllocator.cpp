@@ -1,10 +1,10 @@
-#include "ChunkInstancedMeshAllocator.h"
+#include "ChunkMeshAllocator.h"
 
 #include <iostream>
 
 #include "Core/Assert.h"
 
-ChunkInstancedMeshAllocator::ChunkInstancedMeshAllocator()
+ChunkMeshAllocator::ChunkMeshAllocator()
 {
 	// VBO
 	const float vertices[8] = // CCW order
@@ -21,11 +21,11 @@ ChunkInstancedMeshAllocator::ChunkInstancedMeshAllocator()
 	{
 		ProcessorConfig config = {
 			[this]() { configureAlignedInstanceVBO(); },
-			[](ChunkInstancedMeshFaceStorage* mesh) { return mesh->getAlignedFaceCount(); },
-			[](ChunkInstancedMeshFaceStorage* mesh) { return mesh->alignedCreated; },
-			[](ChunkInstancedMeshFaceStorage* mesh) -> BlockAllocator<uint32_t>::Block& { return mesh->allocatedBlock_alignedFaces; },
-			[](ChunkInstancedMeshFaceStorage* mesh, bool created) { mesh->alignedCreated = created; },
-			[](ChunkInstancedMeshFaceStorage* mesh, BlockAllocator<uint32_t>::Block block) { mesh->allocatedBlock_alignedFaces = block; },
+			[](ChunkMeshFaceStorage* mesh) { return mesh->getAlignedFaceCount(); },
+			[](ChunkMeshFaceStorage* mesh) { return mesh->alignedCreated; },
+			[](ChunkMeshFaceStorage* mesh) -> BlockAllocator<uint32_t>::Block& { return mesh->allocatedBlock_alignedFaces; },
+			[](ChunkMeshFaceStorage* mesh, bool created) { mesh->alignedCreated = created; },
+			[](ChunkMeshFaceStorage* mesh, BlockAllocator<uint32_t>::Block block) { mesh->allocatedBlock_alignedFaces = block; },
 			sizeof(AlignedBlockFace),
 			"processAlignedMeshRequests"
 		};
@@ -34,11 +34,11 @@ ChunkInstancedMeshAllocator::ChunkInstancedMeshAllocator()
 	{
 		ProcessorConfig config = {
 			[this]() { configureNonAlignedInstanceVBO(); },
-			[](ChunkInstancedMeshFaceStorage* mesh) { return mesh->getNonAlignedFaceCount(); },
-			[](ChunkInstancedMeshFaceStorage* mesh) { return mesh->nonAlignedCreated; },
-			[](ChunkInstancedMeshFaceStorage* mesh) -> BlockAllocator<uint32_t>::Block& { return mesh->allocatedBlock_nonAlignedFaces; },
-			[](ChunkInstancedMeshFaceStorage* mesh, bool created) { mesh->nonAlignedCreated = created; },
-			[](ChunkInstancedMeshFaceStorage* mesh, BlockAllocator<uint32_t>::Block block) { mesh->allocatedBlock_nonAlignedFaces = block; },
+			[](ChunkMeshFaceStorage* mesh) { return mesh->getNonAlignedFaceCount(); },
+			[](ChunkMeshFaceStorage* mesh) { return mesh->nonAlignedCreated; },
+			[](ChunkMeshFaceStorage* mesh) -> BlockAllocator<uint32_t>::Block& { return mesh->allocatedBlock_nonAlignedFaces; },
+			[](ChunkMeshFaceStorage* mesh, bool created) { mesh->nonAlignedCreated = created; },
+			[](ChunkMeshFaceStorage* mesh, BlockAllocator<uint32_t>::Block block) { mesh->allocatedBlock_nonAlignedFaces = block; },
 			sizeof(NonAlignedBlockFace),
 			"processNonAlignedMeshRequests"
 		};
@@ -64,7 +64,7 @@ ChunkInstancedMeshAllocator::ChunkInstancedMeshAllocator()
 	}
 }
 
-void ChunkInstancedMeshAllocator::configureAlignedInstanceVBO()
+void ChunkMeshAllocator::configureAlignedInstanceVBO()
 {
 	auto& instanceVBO = alignedMeshAllocator.instanceVBO;
 
@@ -76,7 +76,7 @@ void ChunkInstancedMeshAllocator::configureAlignedInstanceVBO()
 	alignedMeshAllocator.vao.setAttributeDivisor(1, 1);
 }
 
-void ChunkInstancedMeshAllocator::configureNonAlignedInstanceVBO()
+void ChunkMeshAllocator::configureNonAlignedInstanceVBO()
 {
 	auto& instanceVBO = nonAlignedMeshAllocator.instanceVBO;
 
@@ -109,40 +109,40 @@ void ChunkInstancedMeshAllocator::configureNonAlignedInstanceVBO()
 	nonAlignedMeshAllocator.vao.setAttributeDivisor(5, 1);
 }
 
-ChunkInstancedMeshAllocator& ChunkInstancedMeshAllocator::getInstance()
+ChunkMeshAllocator& ChunkMeshAllocator::getInstance()
 {
-	static ChunkInstancedMeshAllocator instance;
+	static ChunkMeshAllocator instance;
 	return instance;
 }
 
-void ChunkInstancedMeshAllocator::processMeshAllocationRequests(
-	const DynamicArray<ChunkInstancedMeshFaceStorage*>& alignedMeshRequests,
-	const DynamicArray<ChunkInstancedMeshFaceStorage*>& nonAlignedMeshRequests
+void ChunkMeshAllocator::processMeshAllocationRequests(
+	const DynamicArray<ChunkMeshFaceStorage*>& alignedMeshRequests,
+	const DynamicArray<ChunkMeshFaceStorage*>& nonAlignedMeshRequests
 )
 {
 	alignedMeshAllocator.processMeshRequests(alignedMeshRequests);
 	nonAlignedMeshAllocator.processMeshRequests(nonAlignedMeshRequests);
 }
 
-ChunkInstancedMeshAllocator::MeshAllocator::MeshAllocator() :
+ChunkMeshAllocator::MeshAllocator::MeshAllocator() :
 	blockAllocator(0)
 {
 	vao.create();
 	instanceVBO.create(GL_ARRAY_BUFFER);
 }
 
-void ChunkInstancedMeshAllocator::MeshAllocator::init(const ProcessorConfig& config)
+void ChunkMeshAllocator::MeshAllocator::init(const ProcessorConfig& config)
 {
 	this->config = config;
 }
 
-void ChunkInstancedMeshAllocator::MeshAllocator::processMeshRequests(const DynamicArray<ChunkInstancedMeshFaceStorage*>& meshRequests)
+void ChunkMeshAllocator::MeshAllocator::processMeshRequests(const DynamicArray<ChunkMeshFaceStorage*>& meshRequests)
 {
 	// Store old capacity
 	size_t oldCapacity = blockAllocator.getCapacity();
 
 	// Free blocks
-	for (ChunkInstancedMeshFaceStorage* chunkMesh : meshRequests)
+	for (ChunkMeshFaceStorage* chunkMesh : meshRequests)
 	{
 		if (!config.isCreated(chunkMesh))
 		{
@@ -154,7 +154,7 @@ void ChunkInstancedMeshAllocator::MeshAllocator::processMeshRequests(const Dynam
 
 	// Allocate blocks
 	size_t stopIndex = 0;
-	for (ChunkInstancedMeshFaceStorage* chunkMesh : meshRequests)
+	for (ChunkMeshFaceStorage* chunkMesh : meshRequests)
 	{
 		auto faceCount = config.getFaceCount(chunkMesh);
 
@@ -213,13 +213,13 @@ void ChunkInstancedMeshAllocator::MeshAllocator::processMeshRequests(const Dynam
 	// Allocate the rest of blocks
 	for (size_t i = stopIndex; i < meshRequests.size(); i++)
 	{
-		ChunkInstancedMeshFaceStorage* chunkMesh = meshRequests[i];
+		ChunkMeshFaceStorage* chunkMesh = meshRequests[i];
 		auto faceCount = config.getFaceCount(chunkMesh);
 
 		auto result = blockAllocator.allocate(faceCount);
 		if (!result.has_value())
 		{
-			std::cerr << "[ChunkInstancedMeshAllocator]: " << config.debugName << ": mesh wasn't created.\n";
+			std::cerr << "[ChunkMeshAllocator]: " << config.debugName << ": mesh wasn't created.\n";
 			break;
 		}
 

@@ -8,7 +8,7 @@
 #include "Core/Assert.h"
 #include "Core/Hashes/ivec2Hasher.h"
 
-thread_local ChunkInstancedMeshFaceStorage::InstancesStorage Chunk::localMeshInstances;
+thread_local ChunkMeshFaceStorage::InstancesStorage Chunk::localMeshInstances;
 
 std::atomic<bool> Chunk::gHasStructureBlockChanges{ false };
 std::unique_ptr<ChunkRegionManager> Chunk::chunkRegionManagerInstance;

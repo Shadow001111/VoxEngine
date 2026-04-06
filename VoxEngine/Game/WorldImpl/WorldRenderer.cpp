@@ -418,22 +418,22 @@ void WorldRenderer::passDataToChunkRenderBuffers(size_t drawCount)
 
 void WorldRenderer::renderAlignedOpaqueChunks()
 {
-	renderChunksGeneral<&Chunk::collectAlignedOpaqueRenderData, &ChunkInstancedMeshAllocator::bindAlignedVAO>(alignedOpaqueFaceShader);
+	renderChunksGeneral<&Chunk::collectAlignedOpaqueRenderData, &ChunkMeshAllocator::bindAlignedVAO>(alignedOpaqueFaceShader);
 }
 
 void WorldRenderer::renderNonAlignedOpaqueChunks()
 {
-	renderChunksGeneral<&Chunk::collectNonAlignedOpaqueRenderData, &ChunkInstancedMeshAllocator::bindNonAlignedVAO>(nonAlignedOpaqueFaceShader);
+	renderChunksGeneral<&Chunk::collectNonAlignedOpaqueRenderData, &ChunkMeshAllocator::bindNonAlignedVAO>(nonAlignedOpaqueFaceShader);
 }
 
 void WorldRenderer::renderAlignedTranslucentChunks()
 {
-	renderChunksGeneral<&Chunk::collectAlignedTranslucentRenderData, &ChunkInstancedMeshAllocator::bindAlignedVAO>(alignedTranslucentFaceShader);
+	renderChunksGeneral<&Chunk::collectAlignedTranslucentRenderData, &ChunkMeshAllocator::bindAlignedVAO>(alignedTranslucentFaceShader);
 }
 
 void WorldRenderer::renderNonAlignedTranslucentChunks()
 {
-	renderChunksGeneral<&Chunk::collectNonAlignedTranslucentRenderData, &ChunkInstancedMeshAllocator::bindNonAlignedVAO>(nonAlignedTranslucentFaceShader);
+	renderChunksGeneral<&Chunk::collectNonAlignedTranslucentRenderData, &ChunkMeshAllocator::bindNonAlignedVAO>(nonAlignedTranslucentFaceShader);
 }
 
 void WorldRenderer::renderChunks(const Camera& camera, const FrameBuffer& FBO)

@@ -5,10 +5,10 @@
 #include "OpenGLWrappers/ImmutableBuffer.h"
 #include "OpenGLWrappers/FrameBuffer.h"
 
-#include "../World/VoxelMarkerMesh.h"
-#include "../World/RaycastResult.h"
-#include "../World/WorldVisualSettings.h"
-#include "../World/Chunk/ChunkMesh/ChunkInstancedMeshAllocator.h"
+#include "Game/World/VoxelMarkerMesh.h"
+#include "Game/World/RaycastResult.h"
+#include "Game/World/WorldVisualSettings.h"
+#include "Game/World/Chunk/ChunkMesh/ChunkMeshAllocator.h"
 
 #include "Graphics/Camera.h"
 #include "Graphics/DrawCommands.h"
@@ -28,7 +28,7 @@ class WorldRenderer
 	};
 
 	using ChunkCollectFunc = void (Chunk::*)(BufferStreamWriter<DrawArraysIndirectCommand>&, BufferStreamWriter<glm::ivec3>&) const;
-	using ChunkInstancedMeshAllocatorBindVAOFunc = void (ChunkInstancedMeshAllocator::*)() const;
+	using ChunkInstancedMeshAllocatorBindVAOFunc = void (ChunkMeshAllocator::*)() const;
 public:
 	struct RenderStats
 	{
@@ -177,6 +177,6 @@ inline void WorldRenderer::renderChunksGeneral(const Shader& shader)
 	passDataToChunkRenderBuffers(drawCount);
 
 	shader.use();
-	(ChunkInstancedMeshAllocator::getInstance().*BindVAOMethod)();
+	(ChunkMeshAllocator::getInstance().*BindVAOMethod)();
 	glMultiDrawArraysIndirect(GL_TRIANGLE_FAN, NULL, (GLsizei)drawCount, 0);
 }

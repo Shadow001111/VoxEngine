@@ -1,6 +1,6 @@
 #include "World.h"
 
-#include "World/Chunk/ChunkMesh/ChunkInstancedMeshAllocator.h"
+#include "World/Chunk/ChunkMesh/ChunkMeshAllocator.h"
 
 #include "DataPackManagment/DataPackManager.h"
 #include "DataPackManagment/AssetRegistry.h"
@@ -268,8 +268,8 @@ const World::DebugData& World::getDebugData(bool updateIntense) const
 	}
 
 	// Chunk face capacity
-	const size_t alignedCapacity = ChunkInstancedMeshAllocator::getInstance().getAlignedInstanceVBO().getCapacity();
-	const size_t nonAlignedCapacity = ChunkInstancedMeshAllocator::getInstance().getNonAlignedInstanceVBO().getCapacity();
+	const size_t alignedCapacity = ChunkMeshAllocator::getInstance().getAlignedInstanceVBO().getCapacity();
+	const size_t nonAlignedCapacity = ChunkMeshAllocator::getInstance().getNonAlignedInstanceVBO().getCapacity();
 
 	debugData.totalChunkFaceCapacity = alignedCapacity / sizeof(AlignedBlockFace) + nonAlignedCapacity / sizeof(NonAlignedBlockFace);
 

@@ -3,7 +3,7 @@
 
 #include "Core/Profiler.h"
 
-#include "ChunkInstancedMeshAllocator.h"
+#include "ChunkMeshAllocator.h"
 
 DynamicArray<Chunk*> ChunkMesh::pendingMeshUploads;
 
@@ -26,15 +26,15 @@ void ChunkMesh::sendMeshesToGPU()
 	}
 
 	// Collect meshes that need (re)allocation
-	DynamicArray<ChunkInstancedMeshFaceStorage*> allocateMemoryAlignedMeshRequests;
-	DynamicArray<ChunkInstancedMeshFaceStorage*> allocateMemoryNonAlignedMeshRequests;
+	DynamicArray<ChunkMeshFaceStorage*> allocateMemoryAlignedMeshRequests;
+	DynamicArray<ChunkMeshFaceStorage*> allocateMemoryNonAlignedMeshRequests;
 
 	allocateMemoryAlignedMeshRequests.reserve(uploadCount);
 	allocateMemoryNonAlignedMeshRequests.reserve(uploadCount);
 
 	for (Chunk* chunk : pendingMeshUploads)
 	{
-		ChunkInstancedMeshFaceStorage* chunkMesh = &chunk->mesh.faceStorage;
+		ChunkMeshFaceStorage* chunkMesh = &chunk->mesh.faceStorage;
 		if (chunkMesh->getAlignedFaceCount() > chunkMesh->getAlignedFaceCapacity())
 		{
 			allocateMemoryAlignedMeshRequests.push_back(chunkMesh);
@@ -46,7 +46,7 @@ void ChunkMesh::sendMeshesToGPU()
 	}
 
 	// Allocate memory for meshes
-	auto& chunkInstancedMeshAllocator = ChunkInstancedMeshAllocator::getInstance();
+	auto& chunkInstancedMeshAllocator = ChunkMeshAllocator::getInstance();
 	chunkInstancedMeshAllocator.processMeshAllocationRequests(allocateMemoryAlignedMeshRequests, allocateMemoryNonAlignedMeshRequests);
 
 	// Write meshes data

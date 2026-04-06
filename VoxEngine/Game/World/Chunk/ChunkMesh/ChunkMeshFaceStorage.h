@@ -8,7 +8,7 @@
 
 #include <cstdint>
 
-struct ChunkInstancedMeshFaceStorage
+struct ChunkMeshFaceStorage
 {
 	struct InstancesStorage
 	{
@@ -41,8 +41,8 @@ struct ChunkInstancedMeshFaceStorage
 
 	InstancesStorage instancesStorage;
 
-	ChunkInstancedMeshFaceStorage() = default;
-	~ChunkInstancedMeshFaceStorage() = default;
+	ChunkMeshFaceStorage() = default;
+	~ChunkMeshFaceStorage() = default;
 
 	void resetRenderFaceCount();
 	void updateRenderFaceCount();

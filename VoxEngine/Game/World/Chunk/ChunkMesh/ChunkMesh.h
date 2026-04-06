@@ -1,5 +1,5 @@
 #pragma once
-#include "ChunkInstancedMeshFaceStorage.h"
+#include "ChunkMeshFaceStorage.h"
 
 class Chunk;
 
@@ -7,7 +7,7 @@ class ChunkMesh
 {
 	friend class Chunk;
 
-	ChunkInstancedMeshFaceStorage faceStorage;
+	ChunkMeshFaceStorage faceStorage;
 
 	static DynamicArray<Chunk*> pendingMeshUploads;
 public:

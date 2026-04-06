@@ -172,7 +172,7 @@ public:
 
 	// Static data
 private:
-	static thread_local ChunkInstancedMeshFaceStorage::InstancesStorage localMeshInstances;
+	static thread_local ChunkMeshFaceStorage::InstancesStorage localMeshInstances;
 	static StructureBlockChangeManager structureBlockChangeManager;
 
 	// Data
