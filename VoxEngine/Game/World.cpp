@@ -268,12 +268,21 @@ const World::DebugData& World::getDebugData(bool updateIntense) const
 	}
 
 	// Chunk face capacity
-	const size_t alignedCapacity = ChunkMeshAllocator::getInstance().getAlignedInstanceVBO().getCapacity();
-	const size_t unalignedCapacity = ChunkMeshAllocator::getInstance().getUnalignedInstanceVBO().getCapacity();
+	const auto& meshAlloc = ChunkMeshAllocator::getInstance();
+	const size_t alignedOpaqueCapacity = meshAlloc.getAlignedOpaqueInstanceVBO().getCapacity();
+	const size_t alignedTranslucentCapacity = meshAlloc.getAlignedTranslucentInstanceVBO().getCapacity();
+	const size_t unalignedOpaqueCapacity = meshAlloc.getUnalignedOpaqueInstanceVBO().getCapacity();
+	const size_t unalignedTranslucentCapacity = meshAlloc.getUnalignedTranslucentInstanceVBO().getCapacity();
 
-	debugData.totalChunkFaceCapacity = alignedCapacity / sizeof(AlignedBlockFace) + unalignedCapacity / sizeof(UnalignedBlockFace);
+	debugData.totalChunkFaceCapacity =
+		(alignedOpaqueCapacity + alignedTranslucentCapacity) / sizeof(AlignedBlockFace) +
+		(unalignedOpaqueCapacity + unalignedTranslucentCapacity) / sizeof(UnalignedBlockFace)
+		;
 
-	debugData.totalChunkFaceCapacityInBytes = alignedCapacity + unalignedCapacity;
+	debugData.totalChunkFaceCapacityInBytes =
+		alignedOpaqueCapacity +
+		unalignedOpaqueCapacity
+		;
 
 	// Render stats
 	debugData.renderStats = renderer.getRenderStats();

@@ -32,15 +32,39 @@ void Shader::create(const std::vector<ShaderSource>& sources)
 {
     destroy();
 
+    auto deleteShaders = [](std::vector<GLuint>& ids)
+        {
+            for (GLuint s : ids) glDeleteShader(s);
+            ids.clear();
+        };
+
     std::vector<GLuint> shaderIDs;
+    shaderIDs.reserve(sources.size());
+
     for (const auto& src : sources)
     {
-        std::string code = loadShaderSource(src.path);
-        GLuint shader = compileShader(src.type, code);
-        if (shader > 0)
+        // Load shader file content
+        auto sourceOpt = loadShaderSource(src.path);
+
+        // Check if file was read
+        if (!sourceOpt.has_value())
         {
-            shaderIDs.push_back(shader);
+            std::cerr << "[Shader][create]: Failed to load source: '" << src.path << "'\n";
+            deleteShaders(shaderIDs);
+            return;
         }
+        
+        // Compile shader
+        GLuint shader = compileShader(src.type, sourceOpt.value());
+        if (shader == 0)
+        {
+            std::cerr << "[Shader][create]: Failed to compile: '" << src.path << "'\n";
+            deleteShaders(shaderIDs);
+            return;
+        }
+
+        // Add shader id to dynamic array
+        shaderIDs.push_back(shader);
     }
 
     id = glCreateProgram();
@@ -52,16 +76,11 @@ void Shader::create(const std::vector<ShaderSource>& sources)
 
     glLinkProgram(id);
 
-    bool success = checkCompileErrors(id, "PROGRAM");
-    if (!success)
+    deleteShaders(shaderIDs);
+
+    if (!checkCompileErrors(id, "PROGRAM"))
     {
         destroy();
-        return;
-    }
-
-    for (GLuint shader : shaderIDs)
-    {
-        glDeleteShader(shader);
     }
 }
 
@@ -177,7 +196,7 @@ void Shader::setHandleui64ARB(const std::string& name, GLuint64 handle) const
     glProgramUniformHandleui64ARB(id, getUniformLocation(name), handle);
 }
 
-std::string Shader::loadShaderSource(const std::string& filePath) const
+std::optional<std::string> Shader::loadShaderSource(const std::string& filePath) const
 {
     std::ifstream file(filePath);
     std::stringstream buffer;
@@ -185,12 +204,12 @@ std::string Shader::loadShaderSource(const std::string& filePath) const
     {
         buffer << file.rdbuf();
         file.close();
+        return buffer.str();
     }
     else
     {
-        std::cerr << "[Shader]: Failed to open shader file: '" << filePath << "'.\n";
+        return std::nullopt;
     }
-    return buffer.str();
 }
 
 GLuint Shader::compileShader(GLenum type, const std::string& source) const

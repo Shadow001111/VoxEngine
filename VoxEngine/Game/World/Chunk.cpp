@@ -63,7 +63,7 @@ void Chunk::init(const glm::ivec3& position, const std::array<Chunk*, 27>& newNe
 
 	// Reset mesh data
 	mesh.faceStorage.resetRenderFaceCount();
-	mesh.faceStorage.shouldBeUploaded = false;
+	mesh.setFlag(ChunkMesh::Flag::ShouldBeUploaded, false);
 
 	// Reset grid data
 	std::memset(blocks, CACHED_BLOCK_IDS.airId, sizeof(blocks));
@@ -1525,7 +1525,7 @@ void Chunk::updateMesh()
 		size_t faceCount = mesh.faceStorage.getAllFaceCount();
 		if (faceCount == 0)
 		{
-			mesh.faceStorage.shouldBeUploaded = false;
+			mesh.setFlag(ChunkMesh::Flag::ShouldBeUploaded, false);
 
 			mesh.faceStorage.updateRenderFaceCount();
 
@@ -1533,7 +1533,7 @@ void Chunk::updateMesh()
 		}
 		else
 		{
-			mesh.faceStorage.shouldBeUploaded = true;
+			mesh.setFlag(ChunkMesh::Flag::ShouldBeUploaded, true);
 
 			// Region flag
 			parentRegion->setFlag(ChunkRegion::Flag::HasMeshToUpload, true);
@@ -1554,7 +1554,7 @@ void Chunk::markMeshDirty()
 
 void Chunk::askForMeshUpload()
 {
-	if (mesh.faceStorage.shouldBeUploaded)
+	if (mesh.readFlag(ChunkMesh::Flag::ShouldBeUploaded))
 	{
 		mesh.pendingMeshUploads.push_back(this);
 	}
@@ -1580,44 +1580,44 @@ void Chunk::updateCanBeRenderedFlag() noexcept
 void Chunk::collectAlignedOpaqueRenderData(BufferStreamWriter<DrawArraysIndirectCommand>& drawCommands, BufferStreamWriter<glm::ivec3>& positions) const
 {
 	auto faceCount = mesh.faceStorage.renderAlignedOpaqueFaceCount;
-	if (!mesh.faceStorage.alignedCreated || faceCount == 0)
+	if (!mesh.readFlag(ChunkMesh::Flag::AlignedOpaqueCreated) || faceCount == 0)
 	{
 		return;
 	}
-	drawCommands.emplaceSingle(4, faceCount, 0, mesh.faceStorage.allocatedBlock_alignedFaces.offset);
+	drawCommands.emplaceSingle(4, faceCount, 0, mesh.faceStorage.alignedOpaqueFacesBlock.offset);
 	positions.writeSingle(position);
 }
 
 void Chunk::collectAlignedTranslucentRenderData(BufferStreamWriter<DrawArraysIndirectCommand>& drawCommands, BufferStreamWriter<glm::ivec3>& positions) const
 {
 	auto faceCount = mesh.faceStorage.renderAlignedTranslucentFaceCount;
-	if (!mesh.faceStorage.alignedCreated || faceCount == 0)
+	if (!mesh.readFlag(ChunkMesh::Flag::AlignedTranslucentCreated) || faceCount == 0)
 	{
 		return;
 	}
-	drawCommands.emplaceSingle(4, faceCount, 0, mesh.faceStorage.allocatedBlock_alignedFaces.offset + mesh.faceStorage.renderAlignedOpaqueFaceCount);
+	drawCommands.emplaceSingle(4, faceCount, 0, mesh.faceStorage.alignedTranslucentFacesBlock.offset);
 	positions.writeSingle(position);
 }
 
 void Chunk::collectUnalignedOpaqueRenderData(BufferStreamWriter<DrawArraysIndirectCommand>& drawCommands, BufferStreamWriter<glm::ivec3>& positions) const
 {
 	auto faceCount = mesh.faceStorage.renderUnalignedOpaqueFaceCount;
-	if (!mesh.faceStorage.unalignedCreated || faceCount == 0)
+	if (!mesh.readFlag(ChunkMesh::Flag::UnalignedOpaqueCreated) || faceCount == 0)
 	{
 		return;
 	}
-	drawCommands.emplaceSingle(4, faceCount, 0, mesh.faceStorage.allocatedBlock_unalignedFaces.offset);
+	drawCommands.emplaceSingle(4, faceCount, 0, mesh.faceStorage.unalignedOpaqueFacesBlock.offset);
 	positions.writeSingle(position);
 }
 
 void Chunk::collectUnalignedTranslucentRenderData(BufferStreamWriter<DrawArraysIndirectCommand>& drawCommands, BufferStreamWriter<glm::ivec3>& positions) const
 {
 	auto faceCount = mesh.faceStorage.renderUnalignedTranslucentFaceCount;
-	if (!mesh.faceStorage.unalignedCreated || faceCount == 0)
+	if (!mesh.readFlag(ChunkMesh::Flag::UnalignedTranslucentCreated) || faceCount == 0)
 	{
 		return;
 	}
-	drawCommands.emplaceSingle(4, faceCount, 0, mesh.faceStorage.allocatedBlock_unalignedFaces.offset + mesh.faceStorage.renderUnalignedOpaqueFaceCount);
+	drawCommands.emplaceSingle(4, faceCount, 0, mesh.faceStorage.unalignedTranslucentFacesBlock.offset);
 	positions.writeSingle(position);
 }
 

@@ -418,22 +418,22 @@ void WorldRenderer::passDataToChunkRenderBuffers(size_t drawCount)
 
 void WorldRenderer::renderAlignedOpaqueChunks()
 {
-	renderChunksGeneral<&Chunk::collectAlignedOpaqueRenderData, &ChunkMeshAllocator::bindAlignedVAO>(alignedOpaqueFaceShader);
-}
-
-void WorldRenderer::renderUnalignedOpaqueChunks()
-{
-	renderChunksGeneral<&Chunk::collectUnalignedOpaqueRenderData, &ChunkMeshAllocator::bindUnalignedVAO>(unalignedOpaqueFaceShader);
+	renderChunksGeneral<&Chunk::collectAlignedOpaqueRenderData, &ChunkMeshAllocator::bindAlignedOpaqueVAO>(alignedOpaqueFaceShader);
 }
 
 void WorldRenderer::renderAlignedTranslucentChunks()
 {
-	renderChunksGeneral<&Chunk::collectAlignedTranslucentRenderData, &ChunkMeshAllocator::bindAlignedVAO>(alignedTranslucentFaceShader);
+	renderChunksGeneral<&Chunk::collectAlignedTranslucentRenderData, &ChunkMeshAllocator::bindAlignedTranslucentVAO>(alignedTranslucentFaceShader);
+}
+
+void WorldRenderer::renderUnalignedOpaqueChunks()
+{
+	renderChunksGeneral<&Chunk::collectUnalignedOpaqueRenderData, &ChunkMeshAllocator::bindUnalignedOpaqueVAO>(unalignedOpaqueFaceShader);
 }
 
 void WorldRenderer::renderUnalignedTranslucentChunks()
 {
-	renderChunksGeneral<&Chunk::collectUnalignedTranslucentRenderData, &ChunkMeshAllocator::bindUnalignedVAO>(unalignedTranslucentFaceShader);
+	renderChunksGeneral<&Chunk::collectUnalignedTranslucentRenderData, &ChunkMeshAllocator::bindUnalignedTranslucentVAO>(unalignedTranslucentFaceShader);
 }
 
 void WorldRenderer::renderChunks(const Camera& camera, const FrameBuffer& FBO)
@@ -455,9 +455,13 @@ void WorldRenderer::renderChunks(const Camera& camera, const FrameBuffer& FBO)
 			&unalignedTranslucentFaceShader
 		};
 
-		for (int i = 0; i < 4; i++)
+		constexpr size_t shaderCount = sizeof(shaders) / sizeof(Shader*);
+
+		for (int i = 0; i < shaderCount; i++)
 		{
 			const Shader* shader = shaders[i];
+			if (!shader->isValid()) continue;
+
 			const bool isTranslucent = i & 1;
 
 			shader->setIvec3("cameraChunkPosition", cameraChunkPos.x, cameraChunkPos.y, cameraChunkPos.z);
@@ -568,6 +572,10 @@ void WorldRenderer::renderAurora(const Camera& camera, const FrameBuffer& FBO) c
 
 void WorldRenderer::compositePass(const FrameBuffer& FBO) const
 {
+	// Check if shader is valid
+	if (!compositeShader.isValid()) return;
+
+	//
 	PROFILE_SCOPE("Render: composite pass", ProfileCategory::Render);
 
 #pragma region GetTextures

@@ -8,6 +8,7 @@
 
 #include <functional>
 
+// TODO: Make this whole class template based
 class ChunkMeshAllocator
 {
 	constexpr static GLbitfield INSTANCE_VBO_FLAGS = GL_DYNAMIC_STORAGE_BIT;
@@ -41,25 +42,40 @@ class ChunkMeshAllocator
 	
 	ImmutableBuffer vbo;
 
-	MeshAllocator alignedMeshAllocator;
-	MeshAllocator unalignedMeshAllocator;
+	MeshAllocator alignedOpaqueMeshAllocator;
+	MeshAllocator alignedTranslucentMeshAllocator;
+	MeshAllocator unalignedOpaqueMeshAllocator;
+	MeshAllocator unalignedTranslucentMeshAllocator;
 
 	ChunkMeshAllocator();
 	~ChunkMeshAllocator() = default;
 
-	void configureAlignedInstanceVBO();
-	void configureUnalignedInstanceVBO();
+	void configureAlignedOpaqueInstanceVBO();
+	void configureAlignedTranslucentInstanceVBO();
+	void configureUnalignedOpaqueInstanceVBO();
+	void configureUnalignedTranslucentInstanceVBO();
 public:
 	static ChunkMeshAllocator& getInstance();
 
 	void processMeshAllocationRequests(
-		const DynamicArray<ChunkMeshFaceStorage*>& alignedMeshRequests,
-		const DynamicArray<ChunkMeshFaceStorage*>& unalignedMeshRequests
+		const DynamicArray<ChunkMeshFaceStorage*>& alignedOpaqueMeshRequests,
+		const DynamicArray<ChunkMeshFaceStorage*>& alignedTranslucentMeshRequests,
+		const DynamicArray<ChunkMeshFaceStorage*>& unalignedOpaqueMeshRequests,
+		const DynamicArray<ChunkMeshFaceStorage*>& unalignedTranslucentMeshRequests
 	);
 public:
-	ImmutableBuffer& getAlignedInstanceVBO() { return alignedMeshAllocator.instanceVBO; };
-	ImmutableBuffer& getUnalignedInstanceVBO() { return unalignedMeshAllocator.instanceVBO; };
+	ImmutableBuffer& getAlignedOpaqueInstanceVBO() { return alignedOpaqueMeshAllocator.instanceVBO; };
+	ImmutableBuffer& getAlignedTranslucentInstanceVBO() { return alignedTranslucentMeshAllocator.instanceVBO; };
+	ImmutableBuffer& getUnalignedOpaqueInstanceVBO() { return unalignedOpaqueMeshAllocator.instanceVBO; };
+	ImmutableBuffer& getUnalignedTranslucentInstanceVBO() { return unalignedTranslucentMeshAllocator.instanceVBO; };
 
-	void bindAlignedVAO() const { alignedMeshAllocator.vao.bind(); };
-	void bindUnalignedVAO() const { unalignedMeshAllocator.vao.bind(); };
+	const ImmutableBuffer& getAlignedOpaqueInstanceVBO() const { return alignedOpaqueMeshAllocator.instanceVBO; };
+	const ImmutableBuffer& getAlignedTranslucentInstanceVBO() const { return alignedTranslucentMeshAllocator.instanceVBO; };
+	const ImmutableBuffer& getUnalignedOpaqueInstanceVBO() const { return unalignedOpaqueMeshAllocator.instanceVBO; };
+	const ImmutableBuffer& getUnalignedTranslucentInstanceVBO() const { return unalignedTranslucentMeshAllocator.instanceVBO; };
+
+	void bindAlignedOpaqueVAO() const { alignedOpaqueMeshAllocator.vao.bind(); };
+	void bindAlignedTranslucentVAO() const { alignedTranslucentMeshAllocator.vao.bind(); };
+	void bindUnalignedOpaqueVAO() const { unalignedOpaqueMeshAllocator.vao.bind(); };
+	void bindUnalignedTranslucentVAO() const { unalignedTranslucentMeshAllocator.vao.bind(); };
 };

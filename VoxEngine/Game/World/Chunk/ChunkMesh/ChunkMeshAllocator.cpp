@@ -20,93 +20,183 @@ ChunkMeshAllocator::ChunkMeshAllocator()
 
 	{
 		ProcessorConfig config = {
-			[this]() { configureAlignedInstanceVBO(); },
-			[](ChunkMeshFaceStorage* mesh) { return mesh->getAlignedFaceCount(); },
-			[](ChunkMeshFaceStorage* mesh) { return mesh->alignedCreated; },
-			[](ChunkMeshFaceStorage* mesh) -> BlockAllocator<uint32_t>::Block& { return mesh->allocatedBlock_alignedFaces; },
-			[](ChunkMeshFaceStorage* mesh, bool created) { mesh->alignedCreated = created; },
-			[](ChunkMeshFaceStorage* mesh, BlockAllocator<uint32_t>::Block block) { mesh->allocatedBlock_alignedFaces = block; },
+			[this]() { configureAlignedOpaqueInstanceVBO(); },
+			[](ChunkMeshFaceStorage* mesh) { return mesh->getAlignedOpaqueFaceCount(); },
+			[](ChunkMeshFaceStorage* mesh) { return mesh->readFlag(ChunkMeshFaceStorage::Flag::AlignedOpaqueCreated); },
+			[](ChunkMeshFaceStorage* mesh) -> BlockAllocator<uint32_t>::Block& { return mesh->alignedOpaqueFacesBlock; },
+			[](ChunkMeshFaceStorage* mesh, bool created) { mesh->setFlag(ChunkMeshFaceStorage::Flag::AlignedOpaqueCreated, created); },
+			[](ChunkMeshFaceStorage* mesh, BlockAllocator<uint32_t>::Block block) { mesh->alignedOpaqueFacesBlock = block; },
 			sizeof(AlignedBlockFace),
-			"processAlignedMeshRequests"
+			"processAlignedOpaqueMeshRequests"
 		};
-		alignedMeshAllocator.init(config);
+		alignedOpaqueMeshAllocator.init(config);
 	}
 	{
 		ProcessorConfig config = {
-			[this]() { configureUnalignedInstanceVBO(); },
-			[](ChunkMeshFaceStorage* mesh) { return mesh->getUnalignedFaceCount(); },
-			[](ChunkMeshFaceStorage* mesh) { return mesh->unalignedCreated; },
-			[](ChunkMeshFaceStorage* mesh) -> BlockAllocator<uint32_t>::Block& { return mesh->allocatedBlock_unalignedFaces; },
-			[](ChunkMeshFaceStorage* mesh, bool created) { mesh->unalignedCreated = created; },
-			[](ChunkMeshFaceStorage* mesh, BlockAllocator<uint32_t>::Block block) { mesh->allocatedBlock_unalignedFaces = block; },
-			sizeof(UnalignedBlockFace),
-			"processUnalignedMeshRequests"
+			[this]() { configureAlignedTranslucentInstanceVBO(); },
+			[](ChunkMeshFaceStorage* mesh) { return mesh->getAlignedTranslucentFaceCount(); },
+			[](ChunkMeshFaceStorage* mesh) { return mesh->readFlag(ChunkMeshFaceStorage::Flag::AlignedTranslucentCreated); },
+			[](ChunkMeshFaceStorage* mesh) -> BlockAllocator<uint32_t>::Block& { return mesh->alignedTranslucentFacesBlock; },
+			[](ChunkMeshFaceStorage* mesh, bool created) { mesh->setFlag(ChunkMeshFaceStorage::Flag::AlignedTranslucentCreated, created); },
+			[](ChunkMeshFaceStorage* mesh, BlockAllocator<uint32_t>::Block block) { mesh->alignedTranslucentFacesBlock = block; },
+			sizeof(AlignedBlockFace),
+			"processAlignedTranslucentMeshRequests"
 		};
-		unalignedMeshAllocator.init(config);
+		alignedTranslucentMeshAllocator.init(config);
+	}
+	{
+		ProcessorConfig config = {
+			[this]() { configureUnalignedOpaqueInstanceVBO(); },
+			[](ChunkMeshFaceStorage* mesh) { return mesh->getUnalignedOpaqueFaceCount(); },
+			[](ChunkMeshFaceStorage* mesh) { return mesh->readFlag(ChunkMeshFaceStorage::Flag::UnalignedOpaqueCreated); },
+			[](ChunkMeshFaceStorage* mesh) -> BlockAllocator<uint32_t>::Block& { return mesh->unalignedOpaqueFacesBlock; },
+			[](ChunkMeshFaceStorage* mesh, bool created) { mesh->setFlag(ChunkMeshFaceStorage::Flag::UnalignedOpaqueCreated, created); },
+			[](ChunkMeshFaceStorage* mesh, BlockAllocator<uint32_t>::Block block) { mesh->unalignedOpaqueFacesBlock = block; },
+			sizeof(UnalignedBlockFace),
+			"processUnalignedOpaqueMeshRequests"
+		};
+		unalignedOpaqueMeshAllocator.init(config);
+	}
+	{
+		ProcessorConfig config = {
+			[this]() { configureUnalignedTranslucentInstanceVBO(); },
+			[](ChunkMeshFaceStorage* mesh) { return mesh->getUnalignedTranslucentFaceCount(); },
+			[](ChunkMeshFaceStorage* mesh) { return mesh->readFlag(ChunkMeshFaceStorage::Flag::UnalignedTranslucentCreated); },
+			[](ChunkMeshFaceStorage* mesh) -> BlockAllocator<uint32_t>::Block& { return mesh->unalignedTranslucentFacesBlock; },
+			[](ChunkMeshFaceStorage* mesh, bool created) { mesh->setFlag(ChunkMeshFaceStorage::Flag::UnalignedTranslucentCreated, created); },
+			[](ChunkMeshFaceStorage* mesh, BlockAllocator<uint32_t>::Block block) { mesh->unalignedTranslucentFacesBlock = block; },
+			sizeof(UnalignedBlockFace),
+			"processUnalignedTranslucentMeshRequests"
+		};
+		unalignedTranslucentMeshAllocator.init(config);
 	}
 
 	{
-		alignedMeshAllocator.vao.bindVertexBuffer(0, vbo.getID(), 0, 2 * sizeof(float));
+		alignedOpaqueMeshAllocator.vao.bindVertexBuffer(0, vbo.getID(), 0, 2 * sizeof(float));
 
-		alignedMeshAllocator.vao.enableAttribute(0);
-		alignedMeshAllocator.vao.setFloatAttribute(0, 2, 0, 0);
+		alignedOpaqueMeshAllocator.vao.enableAttribute(0);
+		alignedOpaqueMeshAllocator.vao.setFloatAttribute(0, 2, 0, 0);
 
-		configureAlignedInstanceVBO();
+		configureAlignedOpaqueInstanceVBO();
 	}
-
 	{
-		unalignedMeshAllocator.vao.bindVertexBuffer(0, vbo.getID(), 0, 2 * sizeof(float));
+		alignedTranslucentMeshAllocator.vao.bindVertexBuffer(0, vbo.getID(), 0, 2 * sizeof(float));
 
-		unalignedMeshAllocator.vao.enableAttribute(0);
-		unalignedMeshAllocator.vao.setFloatAttribute(0, 2, 0, 0);
+		alignedTranslucentMeshAllocator.vao.enableAttribute(0);
+		alignedTranslucentMeshAllocator.vao.setFloatAttribute(0, 2, 0, 0);
 
-		configureUnalignedInstanceVBO();
+		configureAlignedTranslucentInstanceVBO();
+	}
+	{
+		unalignedOpaqueMeshAllocator.vao.bindVertexBuffer(0, vbo.getID(), 0, 2 * sizeof(float));
+
+		unalignedOpaqueMeshAllocator.vao.enableAttribute(0);
+		unalignedOpaqueMeshAllocator.vao.setFloatAttribute(0, 2, 0, 0);
+
+		configureUnalignedOpaqueInstanceVBO();
+	}
+	{
+		unalignedTranslucentMeshAllocator.vao.bindVertexBuffer(0, vbo.getID(), 0, 2 * sizeof(float));
+
+		unalignedTranslucentMeshAllocator.vao.enableAttribute(0);
+		unalignedTranslucentMeshAllocator.vao.setFloatAttribute(0, 2, 0, 0);
+
+		configureUnalignedTranslucentInstanceVBO();
 	}
 }
 
-void ChunkMeshAllocator::configureAlignedInstanceVBO()
+void ChunkMeshAllocator::configureAlignedOpaqueInstanceVBO()
 {
-	auto& instanceVBO = alignedMeshAllocator.instanceVBO;
+	auto& meshAllocator = alignedOpaqueMeshAllocator;
+	auto& instanceVBO = meshAllocator.instanceVBO;
 
 	// Vertex attributes
-	alignedMeshAllocator.vao.bindVertexBuffer(1, instanceVBO.getID(), 0, sizeof(AlignedBlockFace));
+	meshAllocator.vao.bindVertexBuffer(1, instanceVBO.getID(), 0, sizeof(AlignedBlockFace));
 
-	alignedMeshAllocator.vao.enableAttribute(1);
-	alignedMeshAllocator.vao.setIntAttribute(1, 2, 0, 1, GL_UNSIGNED_INT);
-	alignedMeshAllocator.vao.setAttributeDivisor(1, 1);
+	meshAllocator.vao.enableAttribute(1);
+	meshAllocator.vao.setIntAttribute(1, 2, 0, 1, GL_UNSIGNED_INT);
+	meshAllocator.vao.setAttributeDivisor(1, 1);
 }
 
-void ChunkMeshAllocator::configureUnalignedInstanceVBO()
+void ChunkMeshAllocator::configureAlignedTranslucentInstanceVBO()
 {
-	auto& instanceVBO = unalignedMeshAllocator.instanceVBO;
+	auto& meshAllocator = alignedTranslucentMeshAllocator;
+	auto& instanceVBO = meshAllocator.instanceVBO;
 
 	// Vertex attributes
-	unalignedMeshAllocator.vao.bindVertexBuffer(1, instanceVBO.getID(), 0, sizeof(UnalignedBlockFace));
+	meshAllocator.vao.bindVertexBuffer(1, instanceVBO.getID(), 0, sizeof(AlignedBlockFace));
+
+	meshAllocator.vao.enableAttribute(1);
+	meshAllocator.vao.setIntAttribute(1, 2, 0, 1, GL_UNSIGNED_INT);
+	meshAllocator.vao.setAttributeDivisor(1, 1);
+}
+
+void ChunkMeshAllocator::configureUnalignedOpaqueInstanceVBO()
+{
+	auto& meshAllocator = unalignedOpaqueMeshAllocator;
+	auto& instanceVBO = meshAllocator.instanceVBO;
+
+	// Vertex attributes
+	meshAllocator.vao.bindVertexBuffer(1, instanceVBO.getID(), 0, sizeof(UnalignedBlockFace));
 
 	// Block position + Us
-	unalignedMeshAllocator.vao.enableAttribute(1);
-	unalignedMeshAllocator.vao.setIntAttribute(1, 1, 0, 1, GL_UNSIGNED_INT);
-	unalignedMeshAllocator.vao.setAttributeDivisor(1, 1);
+	meshAllocator.vao.enableAttribute(1);
+	meshAllocator.vao.setIntAttribute(1, 1, 0, 1, GL_UNSIGNED_INT);
+	meshAllocator.vao.setAttributeDivisor(1, 1);
 
 	// Vertex shifts
-	unalignedMeshAllocator.vao.enableAttribute(2);
-	unalignedMeshAllocator.vao.setIntAttribute(2, 2, 1 * sizeof(int), 1, GL_UNSIGNED_INT);
-	unalignedMeshAllocator.vao.setAttributeDivisor(2, 1);
+	meshAllocator.vao.enableAttribute(2);
+	meshAllocator.vao.setIntAttribute(2, 2, 1 * sizeof(int), 1, GL_UNSIGNED_INT);
+	meshAllocator.vao.setAttributeDivisor(2, 1);
 
 	// Vs + textureID
-	unalignedMeshAllocator.vao.enableAttribute(3);
-	unalignedMeshAllocator.vao.setIntAttribute(3, 1, 3 * sizeof(int), 1, GL_UNSIGNED_INT);
-	unalignedMeshAllocator.vao.setAttributeDivisor(3, 1);
+	meshAllocator.vao.enableAttribute(3);
+	meshAllocator.vao.setIntAttribute(3, 1, 3 * sizeof(int), 1, GL_UNSIGNED_INT);
+	meshAllocator.vao.setAttributeDivisor(3, 1);
 
 	// Light
-	unalignedMeshAllocator.vao.enableAttribute(4);
-	unalignedMeshAllocator.vao.setIntAttribute(4, 2, 4 * sizeof(int), 1, GL_UNSIGNED_INT);
-	unalignedMeshAllocator.vao.setAttributeDivisor(4, 1);
+	meshAllocator.vao.enableAttribute(4);
+	meshAllocator.vao.setIntAttribute(4, 2, 4 * sizeof(int), 1, GL_UNSIGNED_INT);
+	meshAllocator.vao.setAttributeDivisor(4, 1);
 
 	// AO
-	unalignedMeshAllocator.vao.enableAttribute(5);
-	unalignedMeshAllocator.vao.setIntAttribute(5, 1, 6 * sizeof(int), 1, GL_UNSIGNED_INT);
-	unalignedMeshAllocator.vao.setAttributeDivisor(5, 1);
+	meshAllocator.vao.enableAttribute(5);
+	meshAllocator.vao.setIntAttribute(5, 1, 6 * sizeof(int), 1, GL_UNSIGNED_INT);
+	meshAllocator.vao.setAttributeDivisor(5, 1);
+}
+
+void ChunkMeshAllocator::configureUnalignedTranslucentInstanceVBO()
+{
+	auto& meshAllocator = unalignedTranslucentMeshAllocator;
+	auto& instanceVBO = meshAllocator.instanceVBO;
+
+	// Vertex attributes
+	meshAllocator.vao.bindVertexBuffer(1, instanceVBO.getID(), 0, sizeof(UnalignedBlockFace));
+
+	// Block position + Us
+	meshAllocator.vao.enableAttribute(1);
+	meshAllocator.vao.setIntAttribute(1, 1, 0, 1, GL_UNSIGNED_INT);
+	meshAllocator.vao.setAttributeDivisor(1, 1);
+
+	// Vertex shifts
+	meshAllocator.vao.enableAttribute(2);
+	meshAllocator.vao.setIntAttribute(2, 2, 1 * sizeof(int), 1, GL_UNSIGNED_INT);
+	meshAllocator.vao.setAttributeDivisor(2, 1);
+
+	// Vs + textureID
+	meshAllocator.vao.enableAttribute(3);
+	meshAllocator.vao.setIntAttribute(3, 1, 3 * sizeof(int), 1, GL_UNSIGNED_INT);
+	meshAllocator.vao.setAttributeDivisor(3, 1);
+
+	// Light
+	meshAllocator.vao.enableAttribute(4);
+	meshAllocator.vao.setIntAttribute(4, 2, 4 * sizeof(int), 1, GL_UNSIGNED_INT);
+	meshAllocator.vao.setAttributeDivisor(4, 1);
+
+	// AO
+	meshAllocator.vao.enableAttribute(5);
+	meshAllocator.vao.setIntAttribute(5, 1, 6 * sizeof(int), 1, GL_UNSIGNED_INT);
+	meshAllocator.vao.setAttributeDivisor(5, 1);
 }
 
 ChunkMeshAllocator& ChunkMeshAllocator::getInstance()
@@ -116,12 +206,16 @@ ChunkMeshAllocator& ChunkMeshAllocator::getInstance()
 }
 
 void ChunkMeshAllocator::processMeshAllocationRequests(
-	const DynamicArray<ChunkMeshFaceStorage*>& alignedMeshRequests,
-	const DynamicArray<ChunkMeshFaceStorage*>& unalignedMeshRequests
+	const DynamicArray<ChunkMeshFaceStorage*>& alignedOpaqueMeshRequests,
+	const DynamicArray<ChunkMeshFaceStorage*>& alignedTranslucentMeshRequests,
+	const DynamicArray<ChunkMeshFaceStorage*>& unalignedOpaqueMeshRequests,
+	const DynamicArray<ChunkMeshFaceStorage*>& unalignedTranslucentMeshRequests
 )
 {
-	alignedMeshAllocator.processMeshRequests(alignedMeshRequests);
-	unalignedMeshAllocator.processMeshRequests(unalignedMeshRequests);
+	alignedOpaqueMeshAllocator.processMeshRequests(alignedOpaqueMeshRequests);
+	alignedTranslucentMeshAllocator.processMeshRequests(alignedTranslucentMeshRequests);
+	unalignedOpaqueMeshAllocator.processMeshRequests(unalignedOpaqueMeshRequests);
+	unalignedTranslucentMeshAllocator.processMeshRequests(unalignedTranslucentMeshRequests);
 }
 
 ChunkMeshAllocator::MeshAllocator::MeshAllocator() :

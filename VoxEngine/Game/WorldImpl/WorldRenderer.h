@@ -110,8 +110,8 @@ private:
 	void renderChunksGeneral(const Shader& shader);
 
 	void renderAlignedOpaqueChunks();
-	void renderUnalignedOpaqueChunks();
 	void renderAlignedTranslucentChunks();
+	void renderUnalignedOpaqueChunks();
 	void renderUnalignedTranslucentChunks();
 
 	void renderChunks(const Camera& camera, const FrameBuffer& FBO);
@@ -144,6 +144,16 @@ public:
 template<WorldRenderer::ChunkCollectFunc CollectMethod, WorldRenderer::ChunkInstancedMeshAllocatorBindVAOFunc BindVAOMethod>
 inline void WorldRenderer::renderChunksGeneral(const Shader& shader)
 {
+	// Check if shader is valid
+	if (!shader.isValid())
+	{
+		return;
+	}
+
+	// Bind shader for use
+	shader.use();
+
+	// Collect draw commands
 	size_t drawCount;
 	{
 		PROFILE_SCOPE("Render: collect draw commands", ProfileCategory::Render);
@@ -162,21 +172,19 @@ inline void WorldRenderer::renderChunksGeneral(const Shader& shader)
 
 		drawCount = drawCommandsWriter.getDestination() - chunkDrawCommands.data();
 	}
+	if (drawCount == 0) return;
 
-	if (drawCount == 0)
-	{
-		return;
-	}
-
+	// Collect statistics
 	for (size_t i = 0; i < drawCount; i++)
 	{
 		renderStats.renderedChunkFaceCount += chunkDrawCommands[i].instanceCount;
 	}
 
+	// Pass data to GPU
 	ensureCapacityForChunkRenderBuffers(drawCount);
 	passDataToChunkRenderBuffers(drawCount);
 
-	shader.use();
+	// Bind VAO and render
 	(ChunkMeshAllocator::getInstance().*BindVAOMethod)();
 	glMultiDrawArraysIndirect(GL_TRIANGLE_FAN, NULL, (GLsizei)drawCount, 0);
 }

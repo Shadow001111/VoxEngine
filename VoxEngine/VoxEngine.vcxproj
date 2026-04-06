@@ -221,6 +221,7 @@
     <ClInclude Include="Core\Container\Dequeue.h" />
     <ClInclude Include="Core\Container\DynamicArray.h" />
     <ClInclude Include="Core\Container\Queue.h" />
+    <ClInclude Include="Core\Flags.h" />
     <ClInclude Include="Core\MemoryAllocation\AlignedStorage.h" />
     <ClInclude Include="Core\Simd.h" />
     <ClInclude Include="Game\World\ChunkRegionManager.h" />

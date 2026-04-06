@@ -4,6 +4,7 @@
 #include "robin_hood.h"
 #include <glad/glad.h>
 #include <glm/mat4x4.hpp>
+#include <optional>
 
 class Shader
 {
@@ -52,11 +53,12 @@ public:
 
     void setHandleui64ARB(const std::string& name, GLuint64 handle) const;
 
-    [[nodiscard]] GLuint getID() const { return id; }
+    [[nodiscard]] GLuint getID() const noexcept { return id; }
+    [[nodiscard]] bool isValid() const noexcept { return id != 0; }
 private:
     GLint getUniformLocation(const std::string& name) const;
 
-    std::string loadShaderSource(const std::string& filePath) const;
+    std::optional<std::string> loadShaderSource(const std::string& filePath) const;
     
     GLuint compileShader(GLenum type, const std::string& source) const;
 
