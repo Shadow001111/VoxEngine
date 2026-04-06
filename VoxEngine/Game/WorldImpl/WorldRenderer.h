@@ -64,8 +64,8 @@ private:
 	// Resources
 	Shader alignedOpaqueFaceShader;
 	Shader alignedTranslucentFaceShader;
-	Shader nonAlignedOpaqueFaceShader;
-	Shader nonAlignedTranslucentFaceShader;
+	Shader unalignedOpaqueFaceShader;
+	Shader unalignedTranslucentFaceShader;
 	Shader compositeShader;
 
 	Shader voxelMarkerShader;
@@ -110,9 +110,9 @@ private:
 	void renderChunksGeneral(const Shader& shader);
 
 	void renderAlignedOpaqueChunks();
-	void renderNonAlignedOpaqueChunks();
+	void renderUnalignedOpaqueChunks();
 	void renderAlignedTranslucentChunks();
-	void renderNonAlignedTranslucentChunks();
+	void renderUnalignedTranslucentChunks();
 
 	void renderChunks(const Camera& camera, const FrameBuffer& FBO);
 

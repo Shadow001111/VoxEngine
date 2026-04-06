@@ -10,7 +10,7 @@ struct BlockModelData
         uint8_t textureSlot = 0;
     };
 
-    struct NonAlignedFace
+    struct UnalignedFace
     {
         uint32_t u0 : 5;
         uint32_t u1 : 5;
@@ -40,6 +40,6 @@ struct BlockModelData
 
     //std::string stringId;
     DynamicArray<AlignedFace> alignedFaces;
-    DynamicArray<NonAlignedFace> nonAlignedFaces;
+    DynamicArray<UnalignedFace> unalignedFaces;
 };
 

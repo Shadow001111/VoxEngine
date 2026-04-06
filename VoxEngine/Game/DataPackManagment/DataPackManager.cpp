@@ -557,11 +557,11 @@ bool DataPackManager::parseBlockModelJson(const json& j, BlockModelData& outAsse
         }
         else if (type == "non_aligned")
         {
-            auto result = parseBlockModelNonAlignedFaceJson(faceJson);
+            auto result = parseBlockModelUnalignedFaceJson(faceJson);
             if (result.has_value())
             {
                 const auto& face = result.value();
-                outAsset.nonAlignedFaces.push_back(face);
+                outAsset.unalignedFaces.push_back(face);
             }
         }
         else
@@ -606,7 +606,7 @@ std::optional<BlockModelData::AlignedFace> DataPackManager::parseBlockModelAlign
     return face;
 }
 
-std::optional<BlockModelData::NonAlignedFace> DataPackManager::parseBlockModelNonAlignedFaceJson(const json& j)
+std::optional<BlockModelData::UnalignedFace> DataPackManager::parseBlockModelUnalignedFaceJson(const json& j)
 {
     // Check fields
     if (!j.contains("vertices"))
@@ -688,7 +688,7 @@ std::optional<BlockModelData::NonAlignedFace> DataPackManager::parseBlockModelNo
     }
 
     // Pack vertices
-    BlockModelData::NonAlignedFace face;
+    BlockModelData::UnalignedFace face;
 
     face.x0 = vertices[0][0];
     face.y0 = vertices[0][1];

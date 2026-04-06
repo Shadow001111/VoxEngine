@@ -35,7 +35,7 @@ private:
 	static void loadBlockModels(const std::filesystem::path& dataPackPath, const std::string& dataPackStringId);
 	static bool parseBlockModelJson(const json& j, BlockModelData& outAsset);
 	static std::optional<BlockModelData::AlignedFace> parseBlockModelAlignedFaceJson(const json& j);
-	static std::optional<BlockModelData::NonAlignedFace> parseBlockModelNonAlignedFaceJson(const json& j);
+	static std::optional<BlockModelData::UnalignedFace> parseBlockModelUnalignedFaceJson(const json& j);
 
 	static void loadItems(const std::filesystem::path& dataPackPath, const std::string& dataPackStringId);
 	static bool parseItemJson(const json& j, ItemAsset& outAsset);

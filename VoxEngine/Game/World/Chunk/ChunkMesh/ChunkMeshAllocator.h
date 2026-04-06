@@ -42,24 +42,24 @@ class ChunkMeshAllocator
 	ImmutableBuffer vbo;
 
 	MeshAllocator alignedMeshAllocator;
-	MeshAllocator nonAlignedMeshAllocator;
+	MeshAllocator unalignedMeshAllocator;
 
 	ChunkMeshAllocator();
 	~ChunkMeshAllocator() = default;
 
 	void configureAlignedInstanceVBO();
-	void configureNonAlignedInstanceVBO();
+	void configureUnalignedInstanceVBO();
 public:
 	static ChunkMeshAllocator& getInstance();
 
 	void processMeshAllocationRequests(
 		const DynamicArray<ChunkMeshFaceStorage*>& alignedMeshRequests,
-		const DynamicArray<ChunkMeshFaceStorage*>& nonAlignedMeshRequests
+		const DynamicArray<ChunkMeshFaceStorage*>& unalignedMeshRequests
 	);
 public:
 	ImmutableBuffer& getAlignedInstanceVBO() { return alignedMeshAllocator.instanceVBO; };
-	ImmutableBuffer& getNonAlignedInstanceVBO() { return nonAlignedMeshAllocator.instanceVBO; };
+	ImmutableBuffer& getUnalignedInstanceVBO() { return unalignedMeshAllocator.instanceVBO; };
 
 	void bindAlignedVAO() const { alignedMeshAllocator.vao.bind(); };
-	void bindNonAlignedVAO() const { nonAlignedMeshAllocator.vao.bind(); };
+	void bindUnalignedVAO() const { unalignedMeshAllocator.vao.bind(); };
 };

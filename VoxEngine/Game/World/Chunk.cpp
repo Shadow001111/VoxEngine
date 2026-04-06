@@ -1442,12 +1442,12 @@ void Chunk::updateMesh()
 
 			// Non-aligned faces
 			// TODO: Non-aligned faces should be culled if they are on the block's border
-			if (!model->nonAlignedFaces.empty())
+			if (!model->unalignedFaces.empty())
 			{
 				BlockVertexLightData lightData;
 				calculateBlockVertexLight(lightData, currentBlockPosition.x, currentBlockPosition.y, currentBlockPosition.z);
 
-				NonAlignedBlockFace instance;
+				UnalignedBlockFace instance;
 				instance.blockX = currentBlockPosition.x;
 				instance.blockY = currentBlockPosition.y;
 				instance.blockZ = currentBlockPosition.z;
@@ -1470,7 +1470,7 @@ void Chunk::updateMesh()
 				instance.ao6 = lightData.ao[6];
 				instance.ao7 = lightData.ao[7];
 
-				for (const auto& face : model->nonAlignedFaces)
+				for (const auto& face : model->unalignedFaces)
 				{
 					const auto& textureSlot = face.textureSlot < textureSlots.size() ? textureSlots[face.textureSlot] : fallbackTextureSlot;
 
@@ -1504,7 +1504,7 @@ void Chunk::updateMesh()
 
 					instance.textureID = textureSlot.textureId;
 
-					auto& instances = textureSlot.isTranslucent ? localMeshInstances.nonAlignedTranslucent : localMeshInstances.nonAlignedOpaque;
+					auto& instances = textureSlot.isTranslucent ? localMeshInstances.unalignedTranslucent : localMeshInstances.unalignedOpaque;
 
 					instances.push_back(instance);
 				}
@@ -1599,25 +1599,25 @@ void Chunk::collectAlignedTranslucentRenderData(BufferStreamWriter<DrawArraysInd
 	positions.writeSingle(position);
 }
 
-void Chunk::collectNonAlignedOpaqueRenderData(BufferStreamWriter<DrawArraysIndirectCommand>& drawCommands, BufferStreamWriter<glm::ivec3>& positions) const
+void Chunk::collectUnalignedOpaqueRenderData(BufferStreamWriter<DrawArraysIndirectCommand>& drawCommands, BufferStreamWriter<glm::ivec3>& positions) const
 {
-	auto faceCount = mesh.faceStorage.renderNonAlignedOpaqueFaceCount;
-	if (!mesh.faceStorage.nonAlignedCreated || faceCount == 0)
+	auto faceCount = mesh.faceStorage.renderUnalignedOpaqueFaceCount;
+	if (!mesh.faceStorage.unalignedCreated || faceCount == 0)
 	{
 		return;
 	}
-	drawCommands.emplaceSingle(4, faceCount, 0, mesh.faceStorage.allocatedBlock_nonAlignedFaces.offset);
+	drawCommands.emplaceSingle(4, faceCount, 0, mesh.faceStorage.allocatedBlock_unalignedFaces.offset);
 	positions.writeSingle(position);
 }
 
-void Chunk::collectNonAlignedTranslucentRenderData(BufferStreamWriter<DrawArraysIndirectCommand>& drawCommands, BufferStreamWriter<glm::ivec3>& positions) const
+void Chunk::collectUnalignedTranslucentRenderData(BufferStreamWriter<DrawArraysIndirectCommand>& drawCommands, BufferStreamWriter<glm::ivec3>& positions) const
 {
-	auto faceCount = mesh.faceStorage.renderNonAlignedTranslucentFaceCount;
-	if (!mesh.faceStorage.nonAlignedCreated || faceCount == 0)
+	auto faceCount = mesh.faceStorage.renderUnalignedTranslucentFaceCount;
+	if (!mesh.faceStorage.unalignedCreated || faceCount == 0)
 	{
 		return;
 	}
-	drawCommands.emplaceSingle(4, faceCount, 0, mesh.faceStorage.allocatedBlock_nonAlignedFaces.offset + mesh.faceStorage.renderNonAlignedOpaqueFaceCount);
+	drawCommands.emplaceSingle(4, faceCount, 0, mesh.faceStorage.allocatedBlock_unalignedFaces.offset + mesh.faceStorage.renderUnalignedOpaqueFaceCount);
 	positions.writeSingle(position);
 }
 

@@ -27,10 +27,10 @@ void ChunkMesh::sendMeshesToGPU()
 
 	// Collect meshes that need (re)allocation
 	DynamicArray<ChunkMeshFaceStorage*> allocateMemoryAlignedMeshRequests;
-	DynamicArray<ChunkMeshFaceStorage*> allocateMemoryNonAlignedMeshRequests;
+	DynamicArray<ChunkMeshFaceStorage*> allocateMemoryUnalignedMeshRequests;
 
 	allocateMemoryAlignedMeshRequests.reserve(uploadCount);
-	allocateMemoryNonAlignedMeshRequests.reserve(uploadCount);
+	allocateMemoryUnalignedMeshRequests.reserve(uploadCount);
 
 	for (Chunk* chunk : pendingMeshUploads)
 	{
@@ -39,19 +39,19 @@ void ChunkMesh::sendMeshesToGPU()
 		{
 			allocateMemoryAlignedMeshRequests.push_back(chunkMesh);
 		}
-		if (chunkMesh->getNonAlignedFaceCount() > chunkMesh->getNonAlignedFaceCapacity())
+		if (chunkMesh->getUnalignedFaceCount() > chunkMesh->getUnalignedFaceCapacity())
 		{
-			allocateMemoryNonAlignedMeshRequests.push_back(chunkMesh);
+			allocateMemoryUnalignedMeshRequests.push_back(chunkMesh);
 		}
 	}
 
 	// Allocate memory for meshes
 	auto& chunkInstancedMeshAllocator = ChunkMeshAllocator::getInstance();
-	chunkInstancedMeshAllocator.processMeshAllocationRequests(allocateMemoryAlignedMeshRequests, allocateMemoryNonAlignedMeshRequests);
+	chunkInstancedMeshAllocator.processMeshAllocationRequests(allocateMemoryAlignedMeshRequests, allocateMemoryUnalignedMeshRequests);
 
 	// Write meshes data
 	auto& alignedInstancesVBO = chunkInstancedMeshAllocator.getAlignedInstanceVBO();
-	auto& nonAlignedInstancesVBO = chunkInstancedMeshAllocator.getNonAlignedInstanceVBO();
+	auto& unalignedInstancesVBO = chunkInstancedMeshAllocator.getUnalignedInstanceVBO();
 
 	// Potential bug: If mesh.meshData.opaqueDirty and it will require more data then it was previously, then it will overwrite previous transparent data
 	// But for now, both opaque and transparent parts are dirty, so this bug won't happen
@@ -85,26 +85,26 @@ void ChunkMesh::sendMeshesToGPU()
 			}
 		}
 
-		if (chunkMesh->nonAlignedCreated)
+		if (chunkMesh->unalignedCreated)
 		{
-			auto opaqueFaceCount = chunkMesh->getNonAlignedOpaqueFaceCount();
-			auto translucentFaceCount = chunkMesh->getNonAlignedTranslucentFaceCount();
+			auto opaqueFaceCount = chunkMesh->getUnalignedOpaqueFaceCount();
+			auto translucentFaceCount = chunkMesh->getUnalignedTranslucentFaceCount();
 
 			if (opaqueFaceCount > 0)
 			{
-				nonAlignedInstancesVBO.write(
-					chunkMesh->instancesStorage.nonAlignedOpaque.data(),
-					opaqueFaceCount * sizeof(NonAlignedBlockFace),
-					chunkMesh->allocatedBlock_nonAlignedFaces.offset * sizeof(NonAlignedBlockFace)
+				unalignedInstancesVBO.write(
+					chunkMesh->instancesStorage.unalignedOpaque.data(),
+					opaqueFaceCount * sizeof(UnalignedBlockFace),
+					chunkMesh->allocatedBlock_unalignedFaces.offset * sizeof(UnalignedBlockFace)
 				);
 			}
 
 			if (translucentFaceCount > 0)
 			{
-				nonAlignedInstancesVBO.write(
-					chunkMesh->instancesStorage.nonAlignedTranslucent.data(),
-					translucentFaceCount * sizeof(NonAlignedBlockFace),
-					(chunkMesh->allocatedBlock_nonAlignedFaces.offset + opaqueFaceCount) * sizeof(NonAlignedBlockFace)
+				unalignedInstancesVBO.write(
+					chunkMesh->instancesStorage.unalignedTranslucent.data(),
+					translucentFaceCount * sizeof(UnalignedBlockFace),
+					(chunkMesh->allocatedBlock_unalignedFaces.offset + opaqueFaceCount) * sizeof(UnalignedBlockFace)
 				);
 			}
 		}

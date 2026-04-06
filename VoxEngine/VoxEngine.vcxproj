@@ -175,7 +175,7 @@
     <ClCompile Include="Game\World\Chunk\Light.cpp" />
     <ClCompile Include="Game\World\Chunk\ChunkMesh\ChunkMeshFaceStorage.cpp" />
     <ClCompile Include="Game\World\Chunk\ChunkMesh\MeshTemplates\AlignedBlockFace.cpp" />
-    <ClCompile Include="Game\World\Chunk\ChunkMesh\MeshTemplates\NonAlignedBlockFace.cpp" />
+    <ClCompile Include="Game\World\Chunk\ChunkMesh\MeshTemplates\UnalignedBlockFace.cpp" />
     <ClCompile Include="Game\World\Chunk\StructureBlockChanges.cpp" />
     <ClCompile Include="Game\World\TerrainGenerator.cpp" />
     <ClCompile Include="Game\World\Entity.cpp" />
@@ -257,7 +257,7 @@
     <ClInclude Include="Game\World\Chunk\Light.h" />
     <ClInclude Include="Game\World\Chunk\ChunkMesh\ChunkMeshFaceStorage.h" />
     <ClInclude Include="Game\World\Chunk\ChunkMesh\MeshTemplates\AlignedBlockFace.h" />
-    <ClInclude Include="Game\World\Chunk\ChunkMesh\MeshTemplates\NonAlignedBlockFace.h" />
+    <ClInclude Include="Game\World\Chunk\ChunkMesh\MeshTemplates\UnalignedBlockFace.h" />
     <ClInclude Include="Game\World\Chunk\Metrics.h" />
     <ClInclude Include="Game\World\Chunk\StructureBlockChanges.h" />
     <ClInclude Include="Game\World\TerrainGenerator.h" />

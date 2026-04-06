@@ -33,16 +33,16 @@ ChunkMeshAllocator::ChunkMeshAllocator()
 	}
 	{
 		ProcessorConfig config = {
-			[this]() { configureNonAlignedInstanceVBO(); },
-			[](ChunkMeshFaceStorage* mesh) { return mesh->getNonAlignedFaceCount(); },
-			[](ChunkMeshFaceStorage* mesh) { return mesh->nonAlignedCreated; },
-			[](ChunkMeshFaceStorage* mesh) -> BlockAllocator<uint32_t>::Block& { return mesh->allocatedBlock_nonAlignedFaces; },
-			[](ChunkMeshFaceStorage* mesh, bool created) { mesh->nonAlignedCreated = created; },
-			[](ChunkMeshFaceStorage* mesh, BlockAllocator<uint32_t>::Block block) { mesh->allocatedBlock_nonAlignedFaces = block; },
-			sizeof(NonAlignedBlockFace),
-			"processNonAlignedMeshRequests"
+			[this]() { configureUnalignedInstanceVBO(); },
+			[](ChunkMeshFaceStorage* mesh) { return mesh->getUnalignedFaceCount(); },
+			[](ChunkMeshFaceStorage* mesh) { return mesh->unalignedCreated; },
+			[](ChunkMeshFaceStorage* mesh) -> BlockAllocator<uint32_t>::Block& { return mesh->allocatedBlock_unalignedFaces; },
+			[](ChunkMeshFaceStorage* mesh, bool created) { mesh->unalignedCreated = created; },
+			[](ChunkMeshFaceStorage* mesh, BlockAllocator<uint32_t>::Block block) { mesh->allocatedBlock_unalignedFaces = block; },
+			sizeof(UnalignedBlockFace),
+			"processUnalignedMeshRequests"
 		};
-		nonAlignedMeshAllocator.init(config);
+		unalignedMeshAllocator.init(config);
 	}
 
 	{
@@ -55,12 +55,12 @@ ChunkMeshAllocator::ChunkMeshAllocator()
 	}
 
 	{
-		nonAlignedMeshAllocator.vao.bindVertexBuffer(0, vbo.getID(), 0, 2 * sizeof(float));
+		unalignedMeshAllocator.vao.bindVertexBuffer(0, vbo.getID(), 0, 2 * sizeof(float));
 
-		nonAlignedMeshAllocator.vao.enableAttribute(0);
-		nonAlignedMeshAllocator.vao.setFloatAttribute(0, 2, 0, 0);
+		unalignedMeshAllocator.vao.enableAttribute(0);
+		unalignedMeshAllocator.vao.setFloatAttribute(0, 2, 0, 0);
 
-		configureNonAlignedInstanceVBO();
+		configureUnalignedInstanceVBO();
 	}
 }
 
@@ -76,37 +76,37 @@ void ChunkMeshAllocator::configureAlignedInstanceVBO()
 	alignedMeshAllocator.vao.setAttributeDivisor(1, 1);
 }
 
-void ChunkMeshAllocator::configureNonAlignedInstanceVBO()
+void ChunkMeshAllocator::configureUnalignedInstanceVBO()
 {
-	auto& instanceVBO = nonAlignedMeshAllocator.instanceVBO;
+	auto& instanceVBO = unalignedMeshAllocator.instanceVBO;
 
 	// Vertex attributes
-	nonAlignedMeshAllocator.vao.bindVertexBuffer(1, instanceVBO.getID(), 0, sizeof(NonAlignedBlockFace));
+	unalignedMeshAllocator.vao.bindVertexBuffer(1, instanceVBO.getID(), 0, sizeof(UnalignedBlockFace));
 
 	// Block position + Us
-	nonAlignedMeshAllocator.vao.enableAttribute(1);
-	nonAlignedMeshAllocator.vao.setIntAttribute(1, 1, 0, 1, GL_UNSIGNED_INT);
-	nonAlignedMeshAllocator.vao.setAttributeDivisor(1, 1);
+	unalignedMeshAllocator.vao.enableAttribute(1);
+	unalignedMeshAllocator.vao.setIntAttribute(1, 1, 0, 1, GL_UNSIGNED_INT);
+	unalignedMeshAllocator.vao.setAttributeDivisor(1, 1);
 
 	// Vertex shifts
-	nonAlignedMeshAllocator.vao.enableAttribute(2);
-	nonAlignedMeshAllocator.vao.setIntAttribute(2, 2, 1 * sizeof(int), 1, GL_UNSIGNED_INT);
-	nonAlignedMeshAllocator.vao.setAttributeDivisor(2, 1);
+	unalignedMeshAllocator.vao.enableAttribute(2);
+	unalignedMeshAllocator.vao.setIntAttribute(2, 2, 1 * sizeof(int), 1, GL_UNSIGNED_INT);
+	unalignedMeshAllocator.vao.setAttributeDivisor(2, 1);
 
 	// Vs + textureID
-	nonAlignedMeshAllocator.vao.enableAttribute(3);
-	nonAlignedMeshAllocator.vao.setIntAttribute(3, 1, 3 * sizeof(int), 1, GL_UNSIGNED_INT);
-	nonAlignedMeshAllocator.vao.setAttributeDivisor(3, 1);
+	unalignedMeshAllocator.vao.enableAttribute(3);
+	unalignedMeshAllocator.vao.setIntAttribute(3, 1, 3 * sizeof(int), 1, GL_UNSIGNED_INT);
+	unalignedMeshAllocator.vao.setAttributeDivisor(3, 1);
 
 	// Light
-	nonAlignedMeshAllocator.vao.enableAttribute(4);
-	nonAlignedMeshAllocator.vao.setIntAttribute(4, 2, 4 * sizeof(int), 1, GL_UNSIGNED_INT);
-	nonAlignedMeshAllocator.vao.setAttributeDivisor(4, 1);
+	unalignedMeshAllocator.vao.enableAttribute(4);
+	unalignedMeshAllocator.vao.setIntAttribute(4, 2, 4 * sizeof(int), 1, GL_UNSIGNED_INT);
+	unalignedMeshAllocator.vao.setAttributeDivisor(4, 1);
 
 	// AO
-	nonAlignedMeshAllocator.vao.enableAttribute(5);
-	nonAlignedMeshAllocator.vao.setIntAttribute(5, 1, 6 * sizeof(int), 1, GL_UNSIGNED_INT);
-	nonAlignedMeshAllocator.vao.setAttributeDivisor(5, 1);
+	unalignedMeshAllocator.vao.enableAttribute(5);
+	unalignedMeshAllocator.vao.setIntAttribute(5, 1, 6 * sizeof(int), 1, GL_UNSIGNED_INT);
+	unalignedMeshAllocator.vao.setAttributeDivisor(5, 1);
 }
 
 ChunkMeshAllocator& ChunkMeshAllocator::getInstance()
@@ -117,11 +117,11 @@ ChunkMeshAllocator& ChunkMeshAllocator::getInstance()
 
 void ChunkMeshAllocator::processMeshAllocationRequests(
 	const DynamicArray<ChunkMeshFaceStorage*>& alignedMeshRequests,
-	const DynamicArray<ChunkMeshFaceStorage*>& nonAlignedMeshRequests
+	const DynamicArray<ChunkMeshFaceStorage*>& unalignedMeshRequests
 )
 {
 	alignedMeshAllocator.processMeshRequests(alignedMeshRequests);
-	nonAlignedMeshAllocator.processMeshRequests(nonAlignedMeshRequests);
+	unalignedMeshAllocator.processMeshRequests(unalignedMeshRequests);
 }
 
 ChunkMeshAllocator::MeshAllocator::MeshAllocator() :

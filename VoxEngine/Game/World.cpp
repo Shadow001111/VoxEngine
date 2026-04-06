@@ -269,11 +269,11 @@ const World::DebugData& World::getDebugData(bool updateIntense) const
 
 	// Chunk face capacity
 	const size_t alignedCapacity = ChunkMeshAllocator::getInstance().getAlignedInstanceVBO().getCapacity();
-	const size_t nonAlignedCapacity = ChunkMeshAllocator::getInstance().getNonAlignedInstanceVBO().getCapacity();
+	const size_t unalignedCapacity = ChunkMeshAllocator::getInstance().getUnalignedInstanceVBO().getCapacity();
 
-	debugData.totalChunkFaceCapacity = alignedCapacity / sizeof(AlignedBlockFace) + nonAlignedCapacity / sizeof(NonAlignedBlockFace);
+	debugData.totalChunkFaceCapacity = alignedCapacity / sizeof(AlignedBlockFace) + unalignedCapacity / sizeof(UnalignedBlockFace);
 
-	debugData.totalChunkFaceCapacityInBytes = alignedCapacity + nonAlignedCapacity;
+	debugData.totalChunkFaceCapacityInBytes = alignedCapacity + unalignedCapacity;
 
 	// Render stats
 	debugData.renderStats = renderer.getRenderStats();

@@ -1,7 +1,7 @@
 #pragma once
 #include <cstdint>
 
-struct NonAlignedBlockFace
+struct UnalignedBlockFace
 {
     // Data1 (32 bits)
     uint32_t blockX : 4;
@@ -61,5 +61,5 @@ struct NonAlignedBlockFace
     // 16 bits left
     // TODO: Maybe allocate 3 bits for ao there, since maybe I will make other AO model, with value range of [0; 7]
 
-    NonAlignedBlockFace() = default;
+    UnalignedBlockFace() = default;
 };
