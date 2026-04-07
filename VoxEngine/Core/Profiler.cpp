@@ -29,6 +29,41 @@ thread_local std::string Profiler::manualProfileName;
 thread_local ProfileCategory Profiler::manualProfileCategory;
 thread_local std::chrono::steady_clock::time_point Profiler::manualProfileStartTime;
 
+namespace
+{
+    std::string formatTimeCell(double milliseconds)
+    {
+        double value = milliseconds;
+        const char* unit = " ms";
+
+        if (value < 1.0)
+        {
+            value *= 1000.0;
+            unit = " us";
+
+            if (value < 1.0)
+            {
+                value *= 1000.0;
+                unit = " ns";
+            }
+        }
+
+        int precision = 3;
+        if (value >= 1000.0)      precision = 0;
+        else if (value >= 100.0)  precision = 1;
+        else if (value >= 10.0)   precision = 2;
+
+        std::ostringstream oss;
+        oss << std::fixed << std::setprecision(precision) << value;
+        if (precision == 0 && value < 10000.0)
+        {
+            oss << " ";
+        }
+        oss << unit;
+        return oss.str();
+    }
+}
+
 namespace ProfilerColors
 {
     enum class Color
@@ -225,13 +260,13 @@ void Profiler::resetAllProfiles()
 // ANSI Color codes for console output
 namespace ProfilerReport
 {
-    constexpr int COL_NAME = 40;
-    constexpr int COL_AVG = 12;
-    constexpr int COL_MIN = 12;
-    constexpr int COL_MAX = 12;
-    constexpr int COL_TOTAL = 15;
-    constexpr int COL_CALLS = 10;
-    constexpr int COL_PERCENT = 8;
+    constexpr int COL_NAME = 35;
+    constexpr int COL_AVG = 11;
+    constexpr int COL_MIN = 11;
+    constexpr int COL_MAX = 11;
+    constexpr int COL_TOTAL = 11;
+    constexpr int COL_CALLS = 8;
+    constexpr int COL_PERCENT = 7;
 
     constexpr int TOTAL_WIDTH = COL_NAME + COL_AVG + COL_MIN + COL_MAX + COL_TOTAL + COL_CALLS + COL_PERCENT;
 }
@@ -239,14 +274,15 @@ namespace ProfilerReport
 void Profiler::printTableHeader(std::ostringstream& ss)
 {
     ss << std::left
-              << std::setw(ProfilerReport::COL_NAME) << "Function/Section"
-              << std::setw(ProfilerReport::COL_AVG) << "Avg (ms)"
-              << std::setw(ProfilerReport::COL_MIN) << "Min (ms)"
-              << std::setw(ProfilerReport::COL_MAX) << "Max (ms)"
-              << std::setw(ProfilerReport::COL_TOTAL) << "Total (ms)"
-              << std::setw(ProfilerReport::COL_CALLS) << "Calls"
-		      << std::setw(ProfilerReport::COL_PERCENT) << "Percent"
-              << "\n" << std::string(ProfilerReport::TOTAL_WIDTH, '-') << "\n";
+       << std::setw(ProfilerReport::COL_NAME) << "Function/Section"
+       << std::right
+       << std::setw(ProfilerReport::COL_AVG) << "Avg"
+       << std::setw(ProfilerReport::COL_MIN) << "Min"
+       << std::setw(ProfilerReport::COL_MAX) << "Max"
+       << std::setw(ProfilerReport::COL_TOTAL) << "Total"
+       << std::setw(ProfilerReport::COL_CALLS) << "Calls"
+       << std::setw(ProfilerReport::COL_PERCENT) << "Percent"
+       << "\n" << std::string(ProfilerReport::TOTAL_WIDTH, '-') << "\n";
 }
 
 void Profiler::printProfileEntry(std::ostringstream& ss, const std::string& name, const ProfileData& data, double frameTotalTime)
@@ -257,12 +293,12 @@ void Profiler::printProfileEntry(std::ostringstream& ss, const std::string& name
     const char* color = getCategoryColor(data.category);
 
     ss << color
-              << std::setw(ProfilerReport::COL_NAME)  << name.substr(0, ProfilerReport::COL_NAME - 1)
-              << std::setw(ProfilerReport::COL_AVG)   << data.getAverageTime()
-              << std::setw(ProfilerReport::COL_MIN)   << minTime
-              << std::setw(ProfilerReport::COL_MAX)   << data.maxTime
-              << std::setw(ProfilerReport::COL_TOTAL) << data.totalTime
-              << std::setw(ProfilerReport::COL_CALLS) << data.callCount;
+        << std::setw(ProfilerReport::COL_NAME) << std::left << name.substr(0, ProfilerReport::COL_NAME - 1)
+        << std::setw(ProfilerReport::COL_AVG) << std::right << formatTimeCell(data.getAverageTime())
+        << std::setw(ProfilerReport::COL_MIN) << formatTimeCell(minTime)
+        << std::setw(ProfilerReport::COL_MAX) << formatTimeCell(data.maxTime)
+        << std::setw(ProfilerReport::COL_TOTAL) << formatTimeCell(data.totalTime)
+        << std::setw(ProfilerReport::COL_CALLS) << data.callCount;
 
     // Add percentage if not the frame total itself
     double percentage = (data.totalTime / frameTotalTime) * 100.0;
@@ -278,7 +314,7 @@ void Profiler::printCategoryStatistics(std::ostringstream& ss, const robin_hood:
     ss << "Category Statistics:\n";
     ss << std::left;
     ss << std::setw(ProfilerReport::COL_NAME) << "Category"
-        << std::setw(ProfilerReport::COL_TOTAL) << "Total (ms)"
+        << std::setw(ProfilerReport::COL_TOTAL) << "Total"
         << "% of Frame\n";
     ss << std::string(ProfilerReport::TOTAL_WIDTH, '-') << "\n";
 
@@ -297,7 +333,7 @@ void Profiler::printCategoryStatistics(std::ostringstream& ss, const robin_hood:
 
         ss << color << std::left;
         ss << std::setw(ProfilerReport::COL_NAME) << name
-            << std::setw(ProfilerReport::COL_TOTAL) << std::setprecision(4) << totalTime;
+            << std::setw(ProfilerReport::COL_TOTAL) << formatTimeCell(totalTime);
 
         // Show percentage of frame time
         double percentage = (totalTime / frameTotalTime) * 100.0;
