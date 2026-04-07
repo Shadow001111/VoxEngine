@@ -616,7 +616,7 @@ uint32_t Chunk::propagateBlockLight()
 		for (int i = 0; i < 6; i++)
 		{
 			// Calculate neighbor block coordinates
-			const glm::ivec3 offset = DirectionsTable::directions[i];
+			const glm::ivec3 offset = DirectionsTable::directionsXYZ[i];
 			const int nx = data.x + offset.x;
 			const int ny = data.y + offset.y;
 			const int nz = data.z + offset.z;
@@ -679,7 +679,6 @@ uint32_t Chunk::propagateBlockLight()
 
 uint32_t Chunk::propagateSkyLight()
 {
-	constexpr std::array<int, 6> allDirections{ 0, 1, 4, 5, 2, 3 };
 	constexpr std::array<int, 4> horizontalDirections{ 0, 1, 4, 5 };
 
 	uint32_t neighborDirtyMask = 0;
@@ -749,8 +748,11 @@ uint32_t Chunk::propagateSkyLight()
 	while (!LightPropagationStorage::threadLocalSkyLightPropagation.empty())
 	{
 		const auto data = LightPropagationStorage::threadLocalSkyLightPropagation.pop_and_return_unsafe();
+		const int x = data.x;
+		const int y = data.y;
+		const int z = data.z;
 
-		const size_t selfIndex = getIndex(data.x, data.y, data.z);
+		const size_t selfIndex = getIndex(x, y, z);
 		const uint8_t skyLight = lightLevels[selfIndex].skyLight;
 		if (skyLight < 2)
 			continue;
@@ -761,11 +763,16 @@ uint32_t Chunk::propagateSkyLight()
 		const bool isFullSunlight = skyLight == 15;
 		if (isFullSunlight)
 		{
-			int ny = data.y;
+			int ny = y;
 			size_t belowIndex = selfIndex;
 
-			std::array<int, 4> nxs = { data.x - 1, data.x + 1, data.x, data.x };
-			std::array<int, 4> nzs = { data.z, data.z, data.z - 1, data.z + 1 };
+			const std::array<glm::ivec2, 4> nXZs =
+			{
+				glm::ivec2(x - 1, z    ),
+				glm::ivec2(x + 1, z    ),
+				glm::ivec2(x    , z - 1),
+				glm::ivec2(x    , z + 1)
+			};
 
 			while (--ny >= 0)
 			{
@@ -780,12 +787,13 @@ uint32_t Chunk::propagateSkyLight()
 					break;
 
 				lightLevels[belowIndex].skyLight = 15;
-				neighborDirtyMask |= getNeighborDirtyMask(data.x, ny, data.z);
+				neighborDirtyMask |= getNeighborDirtyMask(x, ny, z);
 
 				for (int i = 0; i < horizontalDirections.size(); i++)
 				{
-					const int nx = nxs[i];
-					const int nz = nzs[i];
+					const glm::ivec2 nXZ = nXZs[i];
+					const int nx = nXZ.x;
+					const int nz = nXZ.y;
 					tryPropagate(nx, ny, nz, 14, false);
 				}
 			}
@@ -797,7 +805,7 @@ uint32_t Chunk::propagateSkyLight()
 				if (belowChunk)
 				{
 					constexpr int belowY = CHUNK_SIZE - 1;
-					const size_t belowIndex = getIndex(data.x, belowY, data.z);
+					const size_t belowIndex = getIndex(x, belowY, z);
 
 					if (belowChunk->lightLevels[belowIndex].skyLight < 15)
 					{
@@ -805,8 +813,8 @@ uint32_t Chunk::propagateSkyLight()
 						if (blockData && !blockData->absorbsLight)
 						{
 							belowChunk->lightLevels[belowIndex].skyLight = 15;
-							belowChunk->addSkyLightPropagationNode(data.x, belowY, data.z);
-							neighborDirtyMask |= getNeighborDirtyMask(data.x, 0, data.z);
+							belowChunk->addSkyLightPropagationNode(x, belowY, z);
+							neighborDirtyMask |= getNeighborDirtyMask(x, 0, z);
 						}
 					}
 				}
@@ -816,12 +824,10 @@ uint32_t Chunk::propagateSkyLight()
 		const int dirCount = isFullSunlight ? 4 : 6; // Skip vertical directions if source is full sunlight
 		for (int i = 0; i < dirCount; i++)
 		{
-			int dir = allDirections[i];
-
-			const glm::ivec3 offset = DirectionsTable::directions[dir];
-			const int nx = data.x + offset.x;
-			const int ny = data.y + offset.y;
-			const int nz = data.z + offset.z;
+			const glm::ivec3 offset = DirectionsTable::directionsXZY[i];
+			const int nx = x + offset.x;
+			const int ny = y + offset.y;
+			const int nz = z + offset.z;
 
 			tryPropagate(nx, ny, nz, nextLight, true);
 		}
@@ -842,7 +848,7 @@ uint32_t Chunk::propagateBlockLightRemoval()
 		for (int i = 0; i < 6; i++)
 		{
 			// Calculate neighbor block coordinates
-			const glm::ivec3 offset = DirectionsTable::directions[i];
+			const glm::ivec3 offset = DirectionsTable::directionsXYZ[i];
 			const int nx = data.x + offset.x;
 			const int ny = data.y + offset.y;
 			const int nz = data.z + offset.z;
@@ -924,7 +930,7 @@ uint32_t Chunk::propagateSkyLightRemoval()
 		for (int i = 0; i < 6; i++)
 		{
 			// Calculate neighbor block coordinates
-			const glm::ivec3 offset = DirectionsTable::directions[i];
+			const glm::ivec3 offset = DirectionsTable::directionsXYZ[i];
 			const int nx = data.x + offset.x;
 			const int ny = data.y + offset.y;
 			const int nz = data.z + offset.z;
@@ -1372,7 +1378,7 @@ void Chunk::updateMesh()
 				for (const auto& face : model->alignedFaces)
 				{
 					// Get neighbor block coordinates
-					const glm::ivec3 offset = DirectionsTable::directions[face.normal];
+					const glm::ivec3 offset = DirectionsTable::directionsXYZ[face.normal];
 					const int nx = currentBlockPosition.x + offset.x;
 					const int ny = currentBlockPosition.y + offset.y;
 					const int nz = currentBlockPosition.z + offset.z;
