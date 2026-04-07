@@ -40,8 +40,11 @@ class DynamicArray
 		if (newCapacity == 0)
 		{
 			destroy_elements();
-			::operator delete(mData);
-			mData = nullptr;
+			if (mData)
+			{
+				::operator delete(mData);
+				mData = nullptr;
+			}
 			mSize = 0;
 			mCapacity = 0;
 			return;

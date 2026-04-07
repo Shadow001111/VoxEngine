@@ -229,7 +229,7 @@ void TerrainGenerator::computeCaveMask(bool* outArray, int chunkX, int chunkY, i
 	constexpr float caveNoiseFrequency = 0.6f;
 
 	{
-		PROFILE_SCOPE("Cave mask: compute noises", ProfileCategory::TerrainGeneration);
+		PROFILE_SCOPE("Cave mask: compute worley noise", ProfileCategory::TerrainGeneration);
 
 		NoiseParams params;
 		params.frequency = caveNoiseFrequency;
@@ -238,7 +238,7 @@ void TerrainGenerator::computeCaveMask(bool* outArray, int chunkX, int chunkY, i
 	}
 
 	{
-		PROFILE_SCOPE("Cave mask: compute noises", ProfileCategory::TerrainGeneration);
+		PROFILE_SCOPE("Cave mask: compute simplex noise", ProfileCategory::TerrainGeneration);
 
 		NoiseParams params;
 		params.frequency = caveNoiseFrequency * 2.0f;

@@ -6,7 +6,7 @@ struct BlockModelData
 {
     struct AlignedFace
     {
-        uint8_t normal : 3 = 0;
+        uint8_t normal = 0;
         uint8_t textureSlot = 0;
     };
 

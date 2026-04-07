@@ -7,6 +7,9 @@
 
 #include "NoiseLib/Perlin.h"
 
+static_assert((-1 >> 1) == -1, "This compiler does not use arithmetic right shift for signed integers");
+static_assert((-1 << 1) == -2, "This compiler does not use arithmetic left shift for signed integers");
+
 struct ViewRays
 {
 	glm::vec4 bottomLeft;

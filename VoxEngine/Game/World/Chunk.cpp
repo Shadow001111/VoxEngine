@@ -18,9 +18,9 @@ Chunk::CachedBlockIds Chunk::CACHED_BLOCK_IDS;
 StructureBlockChangeManager Chunk::structureBlockChangeManager;
 
 
-static unsigned hash3(unsigned x, unsigned y, unsigned z)
+static uint32_t hash3(uint32_t x, uint32_t y, uint32_t z)
 {
-	unsigned data = x * 0x27d4eb2du + y * 0x165667b1u + z * 0x1b873593u;
+	uint32_t data = x * 0x27d4eb2du + y * 0x165667b1u + z * 0x1b873593u;
 	data ^= data >> 15u;
 	data *= 0x85ebca6bu;
 	data ^= data >> 13u;
@@ -616,9 +616,10 @@ uint32_t Chunk::propagateBlockLight()
 		for (int i = 0; i < 6; i++)
 		{
 			// Calculate neighbor block coordinates
-			int nx = data.x + DirectionsTable::dx[i];
-			int ny = data.y + DirectionsTable::dy[i];
-			int nz = data.z + DirectionsTable::dz[i];
+			const glm::ivec3 offset = DirectionsTable::directions[i];
+			const int nx = data.x + offset.x;
+			const int ny = data.y + offset.y;
+			const int nz = data.z + offset.z;
 
 			// Get neighbor chunk and block index
 			size_t neighborBlockIndex;
@@ -816,9 +817,11 @@ uint32_t Chunk::propagateSkyLight()
 		for (int i = 0; i < dirCount; i++)
 		{
 			int dir = allDirections[i];
-			const int nx = data.x + DirectionsTable::dx[dir];
-			const int ny = data.y + DirectionsTable::dy[dir];
-			const int nz = data.z + DirectionsTable::dz[dir];
+
+			const glm::ivec3 offset = DirectionsTable::directions[dir];
+			const int nx = data.x + offset.x;
+			const int ny = data.y + offset.y;
+			const int nz = data.z + offset.z;
 
 			tryPropagate(nx, ny, nz, nextLight, true);
 		}
@@ -839,9 +842,10 @@ uint32_t Chunk::propagateBlockLightRemoval()
 		for (int i = 0; i < 6; i++)
 		{
 			// Calculate neighbor block coordinates
-			int nx = data.x + DirectionsTable::dx[i];
-			int ny = data.y + DirectionsTable::dy[i];
-			int nz = data.z + DirectionsTable::dz[i];
+			const glm::ivec3 offset = DirectionsTable::directions[i];
+			const int nx = data.x + offset.x;
+			const int ny = data.y + offset.y;
+			const int nz = data.z + offset.z;
 
 			// Get neighbor chunk and block index
 			size_t neighborBlockIndex;
@@ -920,9 +924,10 @@ uint32_t Chunk::propagateSkyLightRemoval()
 		for (int i = 0; i < 6; i++)
 		{
 			// Calculate neighbor block coordinates
-			int nx = data.x + DirectionsTable::dx[i];
-			int ny = data.y + DirectionsTable::dy[i];
-			int nz = data.z + DirectionsTable::dz[i];
+			const glm::ivec3 offset = DirectionsTable::directions[i];
+			const int nx = data.x + offset.x;
+			const int ny = data.y + offset.y;
+			const int nz = data.z + offset.z;
 
 			// Get neighbor chunk and block index
 			size_t neighborBlockIndex;
@@ -1367,9 +1372,10 @@ void Chunk::updateMesh()
 				for (const auto& face : model->alignedFaces)
 				{
 					// Get neighbor block coordinates
-					int nx = currentBlockPosition.x + DirectionsTable::dx[face.normal];
-					int ny = currentBlockPosition.y + DirectionsTable::dy[face.normal];
-					int nz = currentBlockPosition.z + DirectionsTable::dz[face.normal];
+					const glm::ivec3 offset = DirectionsTable::directions[face.normal];
+					const int nx = currentBlockPosition.x + offset.x;
+					const int ny = currentBlockPosition.y + offset.y;
+					const int nz = currentBlockPosition.z + offset.z;
 
 					// Get neighbor chunk and block index
 					size_t neighborBlockIndex;
@@ -1377,6 +1383,7 @@ void Chunk::updateMesh()
 
 					const bool inSameChunk = ((nx | ny | nz) & CHUNK_UPPER_BITS_MASK) == 0;
 
+					// TODO: Try to remove this branch
 					if (inSameChunk)
 					{
 						neighborChunk = this;
@@ -1407,9 +1414,7 @@ void Chunk::updateMesh()
 
 					// Calculate shading
 					LightLevel neighborLight = neighborChunk->lightLevels[neighborBlockIndex];
-					//unsigned int ao, light;
-					//calculateFaceAmbientOcclusionAndLight(ao, light, currentBlockPosition.x, currentBlockPosition.y, currentBlockPosition.z, face.normal, neighborLight);
-
+					
 					ContextFaceAOAL aoData
 					{
 						.x = currentBlockPosition.x,

@@ -67,6 +67,15 @@ class Chunk
 		static constexpr std::array<int, 6> dx{ -1, 1, 0, 0, 0, 0 };
 		static constexpr std::array<int, 6> dy{ 0, 0, -1, 1, 0, 0 };
 		static constexpr std::array<int, 6> dz{ 0, 0, 0, 0, -1, 1 };
+
+		static constexpr std::array<glm::ivec3, 6> directions{ {
+			{-1,  0,  0},
+			{ 1,  0,  0},
+			{ 0, -1,  0},
+			{ 0,  1,  0},
+			{ 0,  0, -1},
+			{ 0,  0,  1},
+		} };
 	};
 
 	struct CoordinatesStride3D
