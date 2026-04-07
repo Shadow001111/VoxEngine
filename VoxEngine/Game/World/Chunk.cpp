@@ -683,7 +683,7 @@ uint32_t Chunk::propagateSkyLight()
 
 	uint32_t neighborDirtyMask = 0;
 
-	auto tryPropagate = [&](int nx, int ny, int nz, uint8_t lightToSet, bool includeYInSameChunkCheck) -> bool
+	auto tryPropagate = [&](int nx, int ny, int nz, uint8_t lightToSet, bool includeYInSameChunkCheck) -> void
 		{
 			size_t neighborBlockIndex;
 			Chunk* neighborChunk;
@@ -708,7 +708,7 @@ uint32_t Chunk::propagateSkyLight()
 
 				neighborChunk = neighbors[neighborChunkIndex];
 				if (!neighborChunk)
-					return false;
+					return;
 
 				neighborBlockIndex = getIndex(
 					nx & CHUNK_LOWER_BITS_MASK,
@@ -719,12 +719,12 @@ uint32_t Chunk::propagateSkyLight()
 
 			auto& dstLight = neighborChunk->lightLevels[neighborBlockIndex];
 			if (dstLight.skyLight >= lightToSet)
-				return false;
+				return;
 
 			const BlockId neighborBlock = neighborChunk->blocks[neighborBlockIndex];
 			const auto* neighborBlockData = AssetRegistry::getBlockData(neighborBlock);
 			if (!neighborBlockData || neighborBlockData->absorbsLight)
-				return false;
+				return;
 
 			dstLight.skyLight = lightToSet;
 
@@ -742,7 +742,6 @@ uint32_t Chunk::propagateSkyLight()
 			}
 
 			neighborDirtyMask |= getNeighborDirtyMask(nx, ny, nz);
-			return true;
 		};
 
 	while (!LightPropagationStorage::threadLocalSkyLightPropagation.empty())
