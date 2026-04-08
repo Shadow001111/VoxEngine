@@ -21,11 +21,11 @@ void Profiler::ProfileData::reset()
 }
 
 // Static member definitions
-robin_hood::unordered_flat_map<std::string, Profiler::ProfileData> Profiler::profileData;
+robin_hood::unordered_flat_map<const char*, Profiler::ProfileData, CStrHash, CStrEqual> Profiler::profileData;
 std::chrono::steady_clock::time_point Profiler::frameStartTime;
 std::mutex Profiler::profileDataMutex;
 
-thread_local std::string Profiler::manualProfileName;
+thread_local const char* Profiler::manualProfileName = nullptr;
 thread_local ProfileCategory Profiler::manualProfileCategory;
 thread_local std::chrono::steady_clock::time_point Profiler::manualProfileStartTime;
 
@@ -172,22 +172,22 @@ const char* Profiler::getCategoryName(ProfileCategory category)
 {
     switch (category)
     {
-    case ProfileCategory::General: return "General";
-    case ProfileCategory::Render: return "Render";
-    case ProfileCategory::ChunkLoadUnload: return "Chunk Load/Unload";
-    case ProfileCategory::ChunkBlocks: return "Chunk Blocks";
-    case ProfileCategory::ChunkLight: return "Chunk Light";
-    case ProfileCategory::ChunkMesh: return "Chunk Mesh";
-    case ProfileCategory::TerrainGeneration: return "Terrain Generation";
-    case ProfileCategory::ChunkColumnData: return "ChunkColumnData";
-    default: return "Unknown";
+    case ProfileCategory::General:          return "General";
+    case ProfileCategory::Render:           return "Render";
+    case ProfileCategory::ChunkLoadUnload:  return "Chunk Load/Unload";
+    case ProfileCategory::ChunkBlocks:      return "Chunk Blocks";
+    case ProfileCategory::ChunkLight:       return "Chunk Light";
+    case ProfileCategory::ChunkMesh:        return "Chunk Mesh";
+    case ProfileCategory::TerrainGeneration:return "Terrain Generation";
+    case ProfileCategory::ChunkColumnData:  return "ChunkColumnData";
+    default:                                return "Unknown";
     }
 }
 
 void Profiler::beginProfile(const char* profileName, ProfileCategory category)
 {
 #if PROFILING_ENABLED
-    manualProfileName = std::string(profileName);
+    manualProfileName = profileName;
     manualProfileCategory = category;
     manualProfileStartTime = std::chrono::high_resolution_clock::now();
 #endif
@@ -202,16 +202,16 @@ void Profiler::endProfile()
 #endif
 }
 
-const Profiler::ProfileData* Profiler::getProfileData(const std::string& name)
+const Profiler::ProfileData* Profiler::getProfileData(const char* name)
 {
     std::lock_guard<std::mutex> lock(profileDataMutex);
     auto it = profileData.find(name);
     return (it != profileData.end()) ? &it->second : nullptr;
 }
 
-std::vector<robin_hood::pair<std::string, Profiler::ProfileData>> Profiler::getAllProfileData()
+std::vector<robin_hood::pair<const char*, Profiler::ProfileData>> Profiler::getAllProfileData()
 {
-    std::vector<robin_hood::pair<std::string, ProfileData>> result;
+    std::vector<robin_hood::pair<const char*, ProfileData>> result;
 
     {
         std::lock_guard<std::mutex> lock(profileDataMutex);
@@ -222,7 +222,7 @@ std::vector<robin_hood::pair<std::string, Profiler::ProfileData>> Profiler::getA
         }
     }
 
-    // Sort by average time (descending)
+    // Sort by total time (descending)
     std::sort(result.begin(), result.end(),
         [](const auto& a, const auto& b) {
             return a.second.totalTime > b.second.totalTime;
@@ -231,7 +231,7 @@ std::vector<robin_hood::pair<std::string, Profiler::ProfileData>> Profiler::getA
     return result;
 }
 
-void Profiler::addSample(const std::string& name, double duration, ProfileCategory category)
+void Profiler::addSample(const char* name, double duration, ProfileCategory category)
 {
     std::lock_guard<std::mutex> lock(profileDataMutex);
     auto it = profileData.find(name);
@@ -257,7 +257,6 @@ void Profiler::resetAllProfiles()
     }
 }
 
-// ANSI Color codes for console output
 namespace ProfilerReport
 {
     constexpr int COL_NAME = 35;
@@ -274,33 +273,37 @@ namespace ProfilerReport
 void Profiler::printTableHeader(std::ostringstream& ss)
 {
     ss << std::left
-       << std::setw(ProfilerReport::COL_NAME) << "Function/Section"
-       << std::right
-       << std::setw(ProfilerReport::COL_AVG) << "Avg"
-       << std::setw(ProfilerReport::COL_MIN) << "Min"
-       << std::setw(ProfilerReport::COL_MAX) << "Max"
-       << std::setw(ProfilerReport::COL_TOTAL) << "Total"
-       << std::setw(ProfilerReport::COL_CALLS) << "Calls"
-       << std::setw(ProfilerReport::COL_PERCENT) << "Percent"
-       << "\n" << std::string(ProfilerReport::TOTAL_WIDTH, '-') << "\n";
+        << std::setw(ProfilerReport::COL_NAME) << "Function/Section"
+        << std::right
+        << std::setw(ProfilerReport::COL_AVG) << "Avg"
+        << std::setw(ProfilerReport::COL_MIN) << "Min"
+        << std::setw(ProfilerReport::COL_MAX) << "Max"
+        << std::setw(ProfilerReport::COL_TOTAL) << "Total"
+        << std::setw(ProfilerReport::COL_CALLS) << "Calls"
+        << std::setw(ProfilerReport::COL_PERCENT) << "Percent"
+        << "\n" << std::string(ProfilerReport::TOTAL_WIDTH, '-') << "\n";
 }
 
-void Profiler::printProfileEntry(std::ostringstream& ss, const std::string& name, const ProfileData& data, double frameTotalTime)
+void Profiler::printProfileEntry(std::ostringstream& ss, const char* name, const ProfileData& data, double frameTotalTime)
 {
     if (data.callCount == 0) return;
 
     double minTime = (data.minTime == std::numeric_limits<double>::max()) ? 0.0 : data.minTime;
     const char* color = getCategoryColor(data.category);
 
+    // Truncate name to fit column without allocating a std::string
+    char truncated[ProfilerReport::COL_NAME];
+    std::strncpy(truncated, name, ProfilerReport::COL_NAME - 1);
+    truncated[ProfilerReport::COL_NAME - 1] = '\0';
+
     ss << color
-        << std::setw(ProfilerReport::COL_NAME) << std::left << name.substr(0, ProfilerReport::COL_NAME - 1)
+        << std::setw(ProfilerReport::COL_NAME) << std::left << truncated
         << std::setw(ProfilerReport::COL_AVG) << std::right << formatTimeCell(data.getAverageTime())
         << std::setw(ProfilerReport::COL_MIN) << formatTimeCell(minTime)
         << std::setw(ProfilerReport::COL_MAX) << formatTimeCell(data.maxTime)
         << std::setw(ProfilerReport::COL_TOTAL) << formatTimeCell(data.totalTime)
         << std::setw(ProfilerReport::COL_CALLS) << data.callCount;
 
-    // Add percentage if not the frame total itself
     double percentage = (data.totalTime / frameTotalTime) * 100.0;
     ss << std::setw(ProfilerReport::COL_PERCENT) << percentage << "%";
 
@@ -335,7 +338,6 @@ void Profiler::printCategoryStatistics(std::ostringstream& ss, const robin_hood:
         ss << std::setw(ProfilerReport::COL_NAME) << name
             << std::setw(ProfilerReport::COL_TOTAL) << formatTimeCell(totalTime);
 
-        // Show percentage of frame time
         double percentage = (totalTime / frameTotalTime) * 100.0;
         ss << std::setprecision(1) << percentage << "%";
 
@@ -347,7 +349,6 @@ void Profiler::printProfileReport()
 {
     std::ostringstream ss;
 
-    //
     ss << "\n===[PERFORMANCE PROFILE REPORT]" << std::string(ProfilerReport::TOTAL_WIDTH - 32, '=') << "\n";
     ss << std::fixed << std::setprecision(4);
 
@@ -355,28 +356,22 @@ void Profiler::printProfileReport()
 
     auto sortedData = getAllProfileData();
 
-    // Track time per category and total time
     robin_hood::unordered_flat_map<ProfileCategory, double> categoryTotals;
-    double totalTime = 0.0f;
+    double totalTime = 0.0;
 
     for (const auto& pair : sortedData)
     {
         const auto& data = pair.second;
-
         categoryTotals[data.category] += data.totalTime;
         totalTime += data.totalTime;
     }
 
-    if (totalTime > 0.0f)
+    if (totalTime > 0.0)
     {
-        // Print all profile entries
         ss << "Entries Statistics:\n" << std::setprecision(1);
         for (const auto& pair : sortedData)
         {
-            const auto& name = pair.first;
-            const auto& data = pair.second;
-
-            printProfileEntry(ss, name, data, totalTime);
+            printProfileEntry(ss, pair.first, pair.second, totalTime);
         }
 
         ss << std::string(ProfilerReport::TOTAL_WIDTH, '=') << "\n";
@@ -384,7 +379,7 @@ void Profiler::printProfileReport()
         printCategoryStatistics(ss, categoryTotals, totalTime);
     }
 
-    ss << std::string(ProfilerReport::TOTAL_WIDTH, '=')<< "\n";
+    ss << std::string(ProfilerReport::TOTAL_WIDTH, '=') << "\n";
 
     std::cout << ss.str();
 
