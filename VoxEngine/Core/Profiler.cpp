@@ -4,15 +4,15 @@
 #include <iomanip>
 #include <algorithm>
 
-void Profiler::ProfileData::addSample(double time)
+void Profiler::ProfileData::addSample(double time) noexcept
 {
     totalTime += time;
-    minTime = std::min(minTime, time);
-    maxTime = std::max(maxTime, time);
+    if (time < minTime) minTime = time;
+    if (time > maxTime) maxTime = time; // else if?
     callCount++;
 }
 
-void Profiler::ProfileData::reset()
+void Profiler::ProfileData::reset() noexcept
 {
     totalTime = 0.0;
     minTime = std::numeric_limits<double>::max();
@@ -20,14 +20,9 @@ void Profiler::ProfileData::reset()
     callCount = 0;
 }
 
-// Static member definitions
-robin_hood::unordered_flat_map<const char*, Profiler::ProfileData, CStrHash, CStrEqual> Profiler::profileData;
-std::chrono::steady_clock::time_point Profiler::frameStartTime;
-std::mutex Profiler::profileDataMutex;
 
-thread_local const char* Profiler::manualProfileName = nullptr;
-thread_local ProfileCategory Profiler::manualProfileCategory;
-thread_local std::chrono::steady_clock::time_point Profiler::manualProfileStartTime;
+std::vector<Profiler::ThreadLocalData*> Profiler::threadRegistry;
+std::mutex Profiler::threadRegistryMtx;
 
 namespace
 {
@@ -184,47 +179,50 @@ const char* Profiler::getCategoryName(ProfileCategory category)
     }
 }
 
-void Profiler::beginProfile(const char* profileName, ProfileCategory category)
+std::vector<Profiler::NameData> Profiler::getMergeClearProfileData()
 {
-#if PROFILING_ENABLED
-    manualProfileName = profileName;
-    manualProfileCategory = category;
-    manualProfileStartTime = std::chrono::high_resolution_clock::now();
-#endif
-}
+    ProfileDataMap merged;
 
-void Profiler::endProfile()
-{
-#if PROFILING_ENABLED
-    auto endTime = std::chrono::high_resolution_clock::now();
-    double duration = std::chrono::duration<double, std::milli>(endTime - manualProfileStartTime).count();
-    Profiler::addSample(manualProfileName, duration, manualProfileCategory);
-#endif
-}
-
-const Profiler::ProfileData* Profiler::getProfileData(const char* name)
-{
-    std::lock_guard<std::mutex> lock(profileDataMutex);
-    auto it = profileData.find(name);
-    return (it != profileData.end()) ? &it->second : nullptr;
-}
-
-std::vector<robin_hood::pair<const char*, Profiler::ProfileData>> Profiler::getAllProfileData()
-{
-    std::vector<robin_hood::pair<const char*, ProfileData>> result;
-
+    std::vector<ThreadLocalData*> threads;
     {
-        std::lock_guard<std::mutex> lock(profileDataMutex);
-        result.reserve(profileData.size());
-        for (const auto& pair : profileData)
-        {
-            result.emplace_back(pair.first, pair.second);
-        }
+        std::lock_guard<std::mutex> lock(threadRegistryMtx);
+        threads = threadRegistry;
     }
 
-    // Sort by total time (descending)
+    for (ThreadLocalData* threadData : threads)
+    {
+        if (!threadData) continue;
+
+        std::lock_guard<std::mutex> lock(threadData->mtx);
+
+        for (const auto& [name, data] : threadData->profileData)
+        {
+            auto [it, inserted] = merged.emplace(name, data);
+            if (!inserted)
+            {
+                ProfileData& dst = it->second;
+                dst.totalTime += data.totalTime;
+                dst.callCount += data.callCount;
+                if (data.minTime < dst.minTime) dst.minTime = data.minTime;
+                if (data.maxTime > dst.maxTime) dst.maxTime = data.maxTime;
+                dst.category = data.category;
+            }
+        }
+
+        threadData->profileData.clear();
+    }
+
+    std::vector<NameData> result;
+    result.reserve(merged.size());
+
+    for (auto& pair : merged)
+    {
+        result.emplace_back(pair.first, pair.second);
+    }
+
     std::sort(result.begin(), result.end(),
-        [](const auto& a, const auto& b) {
+        [](const auto& a, const auto& b)
+        {
             return a.second.totalTime > b.second.totalTime;
         });
 
@@ -233,7 +231,16 @@ std::vector<robin_hood::pair<const char*, Profiler::ProfileData>> Profiler::getA
 
 void Profiler::addSample(const char* name, double duration, ProfileCategory category)
 {
-    std::lock_guard<std::mutex> lock(profileDataMutex);
+    // Registers thread once
+    thread_local ThreadLocalData threadLocalData;
+
+    // Get profile data
+    auto& profileData = threadLocalData.profileData;
+
+    // Lock mutex
+    std::lock_guard<std::mutex> lock(threadLocalData.mtx);
+
+    // Add sample to the map
     auto it = profileData.find(name);
     if (it != profileData.end())
     {
@@ -248,13 +255,12 @@ void Profiler::addSample(const char* name, double duration, ProfileCategory cate
     }
 }
 
-void Profiler::resetAllProfiles()
+void Profiler::registerThread(ThreadLocalData* data)
 {
-    std::lock_guard<std::mutex> lock(profileDataMutex);
-    for (auto& pair : profileData)
-    {
-        pair.second.reset();
-    }
+    std::lock_guard<std::mutex> lock(threadRegistryMtx);
+    threadRegistry.push_back(data);
+
+    std::cout << "Thread registered: " << std::this_thread::get_id() << "\n";
 }
 
 namespace ProfilerReport
@@ -354,7 +360,7 @@ void Profiler::printProfileReport()
 
     printTableHeader(ss);
 
-    auto sortedData = getAllProfileData();
+    auto sortedData = getMergeClearProfileData();
 
     robin_hood::unordered_flat_map<ProfileCategory, double> categoryTotals;
     double totalTime = 0.0;
@@ -382,8 +388,6 @@ void Profiler::printProfileReport()
     ss << std::string(ProfilerReport::TOTAL_WIDTH, '=') << "\n";
 
     std::cout << ss.str();
-
-    Profiler::resetAllProfiles();
 }
 
 
@@ -397,4 +401,9 @@ ScopedProfiler::~ScopedProfiler()
     auto endTime = std::chrono::high_resolution_clock::now();
     double duration = std::chrono::duration<double, std::milli>(endTime - startTime).count();
     Profiler::addSample(name, duration, category);
+}
+
+Profiler::ThreadLocalData::ThreadLocalData()
+{
+    registerThread(this);
 }

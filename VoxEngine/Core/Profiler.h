@@ -54,38 +54,38 @@ class Profiler
         uint64_t callCount = 0;
         ProfileCategory category = ProfileCategory::General;
 
-        double getAverageTime() const { return callCount > 0 ? totalTime / callCount : 0.0; }
-        void addSample(double time);
-        void reset();
+        double getAverageTime() const noexcept { return callCount > 0 ? totalTime / callCount : 0.0; }
+        void addSample(double time) noexcept;
+        void reset() noexcept;
     };
 
-    static robin_hood::unordered_flat_map<const char*, ProfileData, CStrHash, CStrEqual> profileData;
-    static std::chrono::steady_clock::time_point frameStartTime;
-    static std::mutex profileDataMutex;
+    using ProfileDataMap = robin_hood::unordered_flat_map<const char*, ProfileData, CStrHash, CStrEqual>;
+    using NameData = std::pair<const char*, ProfileData>;
 
-    static thread_local const char* manualProfileName;
-    static thread_local ProfileCategory manualProfileCategory;
-    static thread_local std::chrono::steady_clock::time_point manualProfileStartTime;
+    struct ThreadLocalData
+    {
+        ProfileDataMap profileData;
+        std::mutex mtx;
+
+        ThreadLocalData();
+    };
+
+    static std::vector<ThreadLocalData*> threadRegistry;
+    static std::mutex threadRegistryMtx;
 
     static const char* getCategoryColor(ProfileCategory category);
     static const char* getCategoryName(ProfileCategory category);
+    static std::vector<NameData> getMergeClearProfileData();
 public:
-    // Note: Tracks a single timed section per thread. If called again before endProfile(), the previous data is discarded.
-    static void beginProfile(const char* profileName, ProfileCategory category);
-    static void endProfile();
-
-    static const ProfileData* getProfileData(const char* name);
-    static std::vector<robin_hood::pair<const char*, ProfileData>> getAllProfileData();
+    static void registerThread(ThreadLocalData* data);
 
     static void addSample(const char* name, double duration, ProfileCategory category);
 
-    static void resetAllProfiles();
+    static void printProfileReport();
 private:
     static void printTableHeader(std::ostringstream& ss);
     static void printProfileEntry(std::ostringstream& ss, const char* name, const ProfileData& data, double frameTotalTime);
     static void printCategoryStatistics(std::ostringstream& ss, const robin_hood::unordered_flat_map<ProfileCategory, double>& categoryTotals, double frameTotalTime);
-public:
-    static void printProfileReport();
 };
 
 // RAII helper class for automatic profiling
