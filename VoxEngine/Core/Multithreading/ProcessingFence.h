@@ -1,6 +1,4 @@
 #pragma once
-#include <mutex>
-#include <condition_variable>
 #include <semaphore>
 #include <atomic>
 
@@ -19,26 +17,6 @@ public:
 
     // Note: This is not thread-safe. It should be used only for quick checks, where it's not critical if it returns a slightly outdated value.
     [[nodiscard]] bool isProcessing() const noexcept { return false; };
-};
-
-class MutexCVFence
-{
-    bool processing = false;
-    std::mutex mtx;
-    std::condition_variable cv;
-public:
-    MutexCVFence() = default;
-	~MutexCVFence();
-    MutexCVFence(const MutexCVFence&) = delete;
-    MutexCVFence& operator=(const MutexCVFence&) = delete;
-    MutexCVFence(MutexCVFence&&) = delete;
-    MutexCVFence& operator=(MutexCVFence&&) = delete;
-
-    void startProcessing();
-    void stopProcessing();
-
-    // Note: This is not thread-safe. It should be used only for quick checks, where it's not critical if it returns a slightly outdated value.
-    [[nodiscard]] bool isProcessing() const noexcept { return processing; };
 };
 
 class AtomicWaitFence

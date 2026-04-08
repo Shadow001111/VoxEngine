@@ -1,34 +1,5 @@
 #include "ProcessingFence.h"
 
-MutexCVFence::~MutexCVFence()
-{
-    {
-        std::lock_guard<std::mutex> lock(mtx);
-        processing = false;
-    }
-    
-    cv.notify_all(); // Allow all waiting threads to proceed
-}
-
-void MutexCVFence::startProcessing()
-{
-    std::unique_lock<std::mutex> lock(mtx);
-    // Wait until not processing
-    cv.wait(lock, [&] { return !processing; });
-    // Mark as processing
-    processing = true;
-}
-
-void MutexCVFence::stopProcessing()
-{
-    {
-        std::lock_guard<std::mutex> lock(mtx);
-        processing = false;
-    }
-    
-	cv.notify_one(); // Allow one waiting thread to proceed
-}
-
 
 AtomicWaitFence::~AtomicWaitFence()
 {
