@@ -355,7 +355,7 @@ private:
 		uint32_t outLightLevel = 0;
 
 		// In values
-		const int x, y, z;
+		const glm::ivec3 position;
 		const int normal;
 		const LightLevel centerFaceLight;
 	};

@@ -1341,9 +1341,7 @@ void Chunk::updateMesh()
 
 		localMeshInstances.clear();
 
-		const int globalChunkX = position.x * CHUNK_SIZE;
-		const int globalChunkY = position.y * CHUNK_SIZE;
-		const int globalChunkZ = position.z * CHUNK_SIZE;
+		const glm::ivec3 globalChunkPosition = position << CHUNK_SIZE_LOG2;
 		for (size_t currentBlockIndex = 0; currentBlockIndex < CHUNK_VOLUME; currentBlockIndex++)
 		{
 			glm::ivec3 currentBlockPosition = getPositionFromIndex(currentBlockIndex);
@@ -1369,10 +1367,11 @@ void Chunk::updateMesh()
 			// Aligned faces
 			if (!model->alignedFaces.empty())
 			{
+				const glm::ivec3 globalBlockPosition = globalChunkPosition + currentBlockPosition;
 				const uint32_t hash = hash3(
-					globalChunkX + currentBlockPosition.x,
-					globalChunkY + currentBlockPosition.y,
-					globalChunkZ + currentBlockPosition.z
+					globalBlockPosition.x,
+					globalBlockPosition.y,
+					globalBlockPosition.z
 				);
 				for (const auto& face : model->alignedFaces)
 				{
@@ -1422,9 +1421,7 @@ void Chunk::updateMesh()
 					
 					ContextFaceAOAL aoData
 					{
-						.x = currentBlockPosition.x,
-						.y = currentBlockPosition.y,
-						.z = currentBlockPosition.z,
+						.position = currentBlockPosition,
 						.normal = face.normal,
 						.centerFaceLight = neighborLight
 					};
@@ -1901,9 +1898,9 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(ContextFaceAOAL& context) cons
 	unsigned int ao0 = 0, ao1 = 0, ao2 = 0, ao3 = 0;
 	LightLevel lightLevels[4];
 
-	auto x = context.x;
-	auto y = context.y;
-	auto z = context.z;
+	auto x = context.position.x;
+	auto y = context.position.y;
+	auto z = context.position.z;
 	auto normal = context.normal;
 	auto centerFaceLight = context.centerFaceLight;
 
