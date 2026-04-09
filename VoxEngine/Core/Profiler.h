@@ -88,7 +88,6 @@ private:
     static void printCategoryStatistics(std::ostringstream& ss, const robin_hood::unordered_flat_map<ProfileCategory, double>& categoryTotals, double frameTotalTime);
 };
 
-// RAII helper class for automatic profiling
 class ScopedProfiler
 {
 private:

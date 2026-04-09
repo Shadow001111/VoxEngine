@@ -78,7 +78,7 @@ void TerrainGenerator::ChunkColumnDataPool::release(ChunkColumnData* chunkColumn
 //TerrainGenerator
 
 int TerrainGenerator::worldSeed = 0;
-thread_local TerrainGenerator::ThreadLocalData TerrainGenerator::threadLocalData;
+thread_local std::unique_ptr<TerrainGenerator::ThreadLocalData> TerrainGenerator::threadLocalData;
 
 using TerrainPerlinNoiseGenerator = NoiseLib::Base::BaseNoiseGenerator<
 	NoiseLib::Perlin::scalar2D,
@@ -223,8 +223,13 @@ void TerrainGenerator::unloadChunkColumnData(int chunkX, int chunkZ)
 
 void TerrainGenerator::computeCaveMask(bool* outArray, int chunkX, int chunkY, int chunkZ) const
 {
-	float* caveWorleyNoiseArray = threadLocalData.caveWorleyNoiseArray.data();
-	float* caveSimplexNoiseArray = threadLocalData.caveSimplexNoiseArray.data();
+	if (!threadLocalData)
+	{
+		threadLocalData = std::make_unique<ThreadLocalData>();
+	}
+
+	float* caveWorleyNoiseArray = threadLocalData->caveWorleyNoiseArray.data();
+	float* caveSimplexNoiseArray = threadLocalData->caveSimplexNoiseArray.data();
 
 	constexpr float caveNoiseFrequency = 0.6f;
 
@@ -234,7 +239,8 @@ void TerrainGenerator::computeCaveMask(bool* outArray, int chunkX, int chunkY, i
 		NoiseParams params;
 		params.frequency = caveNoiseFrequency;
 		params.layerCount = 2;
-		computeLayeredNoise_3D_Upscaled(caveWorleyNoiseArray, chunkX, chunkY, chunkZ, params, 4);
+		// Using simplex noise array here as temporary upscaled one, because it's unused for now
+		computeLayeredNoise_3D_Upscaled(caveWorleyNoiseArray, caveSimplexNoiseArray, chunkX, chunkY, chunkZ, params, 4);
 	}
 
 	{
@@ -365,6 +371,11 @@ float TerrainGenerator::calculateHeight(float continentalNoise, float erosionNoi
 
 void TerrainGenerator::computeInitialHeightMap(int* heightMap, int chunkX, int chunkZ)
 {
+	if (!threadLocalData)
+	{
+		threadLocalData = std::make_unique<ThreadLocalData>();
+	}
+
 	PROFILE_SCOPE("Compute height map", ProfileCategory::TerrainGeneration);
 
 	// Compute noise arrays
@@ -372,28 +383,28 @@ void TerrainGenerator::computeInitialHeightMap(int* heightMap, int chunkX, int c
 		NoiseParams params;
 		params.frequency = 0.001f;
 		params.layerCount = 3;
-		computeLayeredNoise_2D(threadLocalData.continentalNoiseArray.data(), chunkX, chunkZ, params);
+		computeLayeredNoise_2D(threadLocalData->continentalNoiseArray.data(), chunkX, chunkZ, params);
 	}
 	{
 		NoiseParams params;
 		params.frequency = 0.2f;
 		params.layerCount = 1;
-		computeLayeredNoise_2D(threadLocalData.erosionNoiseArray.data(), chunkX, chunkZ, params);
+		computeLayeredNoise_2D(threadLocalData->erosionNoiseArray.data(), chunkX, chunkZ, params);
 	}
 	{
 		NoiseParams params;
 		params.frequency = 0.1f;
 		params.layerCount = 3;
 		params.lacunarity = 4.0f;
-		computeLayeredNoise_2D(threadLocalData.weirdnessNoiseArray.data(), chunkX, chunkZ, params);
+		computeLayeredNoise_2D(threadLocalData->weirdnessNoiseArray.data(), chunkX, chunkZ, params);
 	}
 
 	// Fill height map
 	for (size_t i = 0; i < CHUNK_AREA; i++)
 	{
-		float continentalNoise = threadLocalData.continentalNoiseArray[i];
-		float erosionNoise = threadLocalData.erosionNoiseArray[i];
-		float weirdnessNoise = threadLocalData.weirdnessNoiseArray[i];
+		float continentalNoise = threadLocalData->continentalNoiseArray[i];
+		float erosionNoise = threadLocalData->erosionNoiseArray[i];
+		float weirdnessNoise = threadLocalData->weirdnessNoiseArray[i];
 		heightMap[i] = (int)calculateHeight(continentalNoise, erosionNoise, weirdnessNoise);
 	}
 }
@@ -439,11 +450,9 @@ void TerrainGenerator::computeLayeredNoise_3D(float* outArray, int chunkX, int c
 	);
 }
 
-void TerrainGenerator::computeLayeredNoise_3D_Upscaled(float* outArray, int chunkX, int chunkY, int chunkZ, const NoiseParams& params, int upscaleFactor)
+void TerrainGenerator::computeLayeredNoise_3D_Upscaled(float* outArray, float* lowResArray, int chunkX, int chunkY, int chunkZ, const NoiseParams& params, int upscaleFactor)
 {
 	upscaleFactor = std::max(upscaleFactor, 2); // Safety?
-
-	float* lowResArray = threadLocalData.noiseArrayForUpscaling.data();
 
 	// Generate noise at lower resolution
 	const int lowResSize = CHUNK_SIZE / upscaleFactor + 1; // +1 to have an extra row/column/layer for interpolation at the borders
