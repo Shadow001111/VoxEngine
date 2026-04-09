@@ -10,6 +10,8 @@
 #include "Game/World/WorldVisualSettings.h"
 #include "Game/World/Chunk/ChunkMesh/ChunkMeshAllocator.h"
 
+#include "Game/ProfileCategories.h"
+
 #include "Graphics/Camera.h"
 #include "Graphics/DrawCommands.h"
 

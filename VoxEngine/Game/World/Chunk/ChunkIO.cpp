@@ -3,6 +3,7 @@
 #include "Core/Profiler.h"
 
 #include "Game/DataPackManagment/AssetRegistry.h"
+#include "Game/ProfileCategories.h"
 
 #include "Core/Stream/StreamReader.h"
 #include "Core/Stream/StreamWriter.h"

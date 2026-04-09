@@ -4,6 +4,8 @@
 
 #include "Game/DataPackManagment/AssetRegistry.h"
 
+#include "Game/ProfileCategories.h"
+
 #include "Core/Profiler.h"
 #include "Core/Assert.h"
 #include "Core/Hashes/ivec2Hasher.h"

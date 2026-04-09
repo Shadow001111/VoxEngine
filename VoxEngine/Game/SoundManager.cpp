@@ -2,7 +2,10 @@
 #include <iostream>
 #include <fstream>
 #include "stb_vorbis.c"
+
 #include "Core/Profiler.h"
+
+#include "Game/ProfileCategories.h"
 
 static bool loadWavFile(const std::string& filename, ALuint* bufferOut)
 {

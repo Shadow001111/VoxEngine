@@ -2,6 +2,8 @@
 
 #include "Core/Profiler.h"
 
+#include "Game/ProfileCategories.h"
+
 #include "NoiseLib/Perlin.h"
 #include "NoiseLib/Simplex.h"
 #include "NoiseLib/Worley.h"

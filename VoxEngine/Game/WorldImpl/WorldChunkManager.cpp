@@ -3,6 +3,8 @@
 #include "Core/Profiler.h"
 #include "Core/Multithreading/ThreadPool.h"
 
+#include "Game/ProfileCategories.h"
+
 #include "../World/ChunkLoaders/SphericalChunkLoader.h"
 
 #include "../World/ChunkRegionManager.h"

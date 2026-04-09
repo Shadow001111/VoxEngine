@@ -523,6 +523,16 @@ static int gameFunc()
 {
     constexpr float CAMERA_FAR_PLANE = (CHUNK_LOAD_DISTANCE + 0.5f) * CHUNK_SIZE;
 
+    // Profiler categories
+    Profiler::registerProfileCategory(ProfileCategory::General, "General", Profiler::Color::BrightBlack);
+    Profiler::registerProfileCategory(ProfileCategory::Render, "Render", Profiler::Color::Red);
+    Profiler::registerProfileCategory(ProfileCategory::ChunkLoadUnload, "ChunkLoadUnload", Profiler::Color::Yellow);
+    Profiler::registerProfileCategory(ProfileCategory::ChunkBlocks, "ChunkBlocks", Profiler::Color::Green);
+    Profiler::registerProfileCategory(ProfileCategory::ChunkLight, "ChunkLight", Profiler::Color::BrightRed);
+    Profiler::registerProfileCategory(ProfileCategory::ChunkMesh, "ChunkMesh", Profiler::Color::Cyan);
+    Profiler::registerProfileCategory(ProfileCategory::ChunkColumnData, "ChunkColumnData", Profiler::Color::Blue);
+    Profiler::registerProfileCategory(ProfileCategory::TerrainGeneration, "TerrainGeneration", Profiler::Color::Magenta);
+
     // Window
     WindowManager wnd({
         .width = 1600,

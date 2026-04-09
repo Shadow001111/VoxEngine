@@ -5,6 +5,8 @@
 #include "Core/Profiler.h"
 #include "Core/Decoding/UTFDecoder.h"
 
+#include "Game/ProfileCategories.h"
+
 #include <iostream>
 
 Glyph::Glyph(uint32_t textureID, const glm::ivec2& size, const glm::ivec2& bearing, GLuint advance) :

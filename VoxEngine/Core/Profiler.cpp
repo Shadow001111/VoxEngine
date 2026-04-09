@@ -23,6 +23,7 @@ void Profiler::ProfileData::reset() noexcept
 
 std::vector<Profiler::ThreadLocalData*> Profiler::threadRegistry;
 std::mutex Profiler::threadRegistryMtx;
+robin_hood::unordered_flat_map<Profiler::ProfileCategoryId, Profiler::ProfileCategoryData> Profiler::categoryRegistry;
 
 namespace
 {
@@ -61,122 +62,56 @@ namespace
 
 namespace ProfilerColors
 {
-    enum class Color
-    {
-        Default = 39,
-        Black = 30,
-        Red = 31,
-        Green = 32,
-        Yellow = 33,
-        Blue = 34,
-        Magenta = 35,
-        Cyan = 36,
-        White = 37,
-
-        BrightBlack = 90,
-        BrightRed = 91,
-        BrightGreen = 92,
-        BrightYellow = 93,
-        BrightBlue = 94,
-        BrightMagenta = 95,
-        BrightCyan = 96,
-        BrightWhite = 97
-    };
-
-    enum class Style
-    {
-        None = 0,
-        Bold = 1,
-        Dim = 2,
-        Italic = 3,
-        Underline = 4,
-        Blink = 5,
-        Invert = 7,
-        Hidden = 8,
-        Strike = 9
-    };
-
-    std::string make_ansi_prefix(Color color = Color::Default, Color bg = Color::Default, std::initializer_list<Style> styles = {})
-    {
-        std::string result = "\033[";
-        bool first = true;
-
-        auto append_code = [&](int code)
-            {
-                if (!first)
-                {
-                    result += ';';
-                }
-                result += std::to_string(code);
-                first = false;
-            };
-
-        append_code(static_cast<int>(color));
-        append_code(static_cast<int>(bg) + 10);
-        for (auto style : styles)
-        {
-            if (style != Style::None)
-            {
-                append_code(static_cast<int>(style));
-            }
-        }
-
-        result += 'm';
-        return result;
-    }
-
     const char* RESET = "\033[0m";
-
-    const std::string DEFAULT = make_ansi_prefix(Color::Default);
-
-    const std::string RED = make_ansi_prefix(Color::Red);
-    const std::string GREEN = make_ansi_prefix(Color::Green);
-    const std::string YELLOW = make_ansi_prefix(Color::Yellow);
-    const std::string BLUE = make_ansi_prefix(Color::Blue);
-    const std::string MAGENTA = make_ansi_prefix(Color::Magenta);
-    const std::string CYAN = make_ansi_prefix(Color::Cyan);
-
-    const std::string BRIGHT_RED = make_ansi_prefix(Color::BrightRed);
-    const std::string BRIGHT_GREEN = make_ansi_prefix(Color::BrightGreen);
-    const std::string BRIGHT_YELLOW = make_ansi_prefix(Color::BrightYellow);
-    const std::string BRIGHT_BLUE = make_ansi_prefix(Color::BrightBlue);
-    const std::string BRIGHT_MAGENTA = make_ansi_prefix(Color::BrightMagenta);
-    const std::string BRIGHT_CYAN = make_ansi_prefix(Color::BrightCyan);
-
-    const std::string BRIGHT_WHITE = make_ansi_prefix(Color::BrightWhite);
-    const std::string GRAY = make_ansi_prefix(Color::BrightBlack);
 }
 
-const char* Profiler::getCategoryColor(ProfileCategory category)
+std::string Profiler::make_ansi_prefix(Color color, Color bg, std::initializer_list<Style> styles)
 {
-    switch (category)
+    std::string result = "\033[";
+    bool first = true;
+
+    auto append_code = [&](int code)
+        {
+            if (!first)
+            {
+                result += ';';
+            }
+            result += std::to_string(code);
+            first = false;
+        };
+
+    append_code(static_cast<int>(color));
+    append_code(static_cast<int>(bg) + 10);
+    for (auto style : styles)
     {
-    case ProfileCategory::General:              return ProfilerColors::GRAY.c_str();
-    case ProfileCategory::Render:               return ProfilerColors::RED.c_str();
-    case ProfileCategory::ChunkLoadUnload:      return ProfilerColors::YELLOW.c_str();
-    case ProfileCategory::ChunkBlocks:          return ProfilerColors::GREEN.c_str();
-    case ProfileCategory::ChunkLight:           return ProfilerColors::BRIGHT_RED.c_str();
-    case ProfileCategory::ChunkMesh:            return ProfilerColors::CYAN.c_str();
-    case ProfileCategory::TerrainGeneration:    return ProfilerColors::MAGENTA.c_str();
-    case ProfileCategory::ChunkColumnData:      return ProfilerColors::BLUE.c_str();
-    default:                                    return ProfilerColors::GRAY.c_str();
+        if (style != Style::None)
+        {
+            append_code(static_cast<int>(style));
+        }
     }
+
+    result += 'm';
+    return result;
 }
 
-const char* Profiler::getCategoryName(ProfileCategory category)
+const char* Profiler::getCategoryStyle(ProfileCategoryId category)
 {
-    switch (category)
+    auto it = categoryRegistry.find(category);
+    if (it == categoryRegistry.end())
     {
-    case ProfileCategory::General:          return "General";
-    case ProfileCategory::Render:           return "Render";
-    case ProfileCategory::ChunkLoadUnload:  return "Chunk Load/Unload";
-    case ProfileCategory::ChunkBlocks:      return "Chunk Blocks";
-    case ProfileCategory::ChunkLight:       return "Chunk Light";
-    case ProfileCategory::ChunkMesh:        return "Chunk Mesh";
-    case ProfileCategory::TerrainGeneration:return "Terrain Generation";
-    case ProfileCategory::ChunkColumnData:  return "ChunkColumnData";
-    default:                                return "Unknown";
+        return "";
     }
+    return it->second.style.c_str();
+}
+
+const char* Profiler::getCategoryName(ProfileCategoryId category)
+{
+    auto it = categoryRegistry.find(category);
+    if (it == categoryRegistry.end())
+    {
+        return "Unknown";
+    }
+    return it->second.name.c_str();
 }
 
 std::vector<Profiler::NameData> Profiler::getMergeClearProfileData()
@@ -229,7 +164,7 @@ std::vector<Profiler::NameData> Profiler::getMergeClearProfileData()
     return result;
 }
 
-void Profiler::addSample(const char* name, double duration, ProfileCategory category)
+void Profiler::addSample(const char* name, double duration, ProfileCategoryId category)
 {
     // Registers thread once
     thread_local ThreadLocalData threadLocalData;
@@ -259,8 +194,6 @@ void Profiler::registerThread(ThreadLocalData* data)
 {
     std::lock_guard<std::mutex> lock(threadRegistryMtx);
     threadRegistry.push_back(data);
-
-    std::cout << "Thread registered: " << std::this_thread::get_id() << "\n";
 }
 
 namespace ProfilerReport
@@ -295,7 +228,7 @@ void Profiler::printProfileEntry(std::ostringstream& ss, const char* name, const
     if (data.callCount == 0) return;
 
     double minTime = (data.minTime == std::numeric_limits<double>::max()) ? 0.0 : data.minTime;
-    const char* color = getCategoryColor(data.category);
+    const char* color = getCategoryStyle(data.category);
 
     // Truncate name to fit column without allocating a std::string
     char truncated[ProfilerReport::COL_NAME];
@@ -316,7 +249,7 @@ void Profiler::printProfileEntry(std::ostringstream& ss, const char* name, const
     ss << ProfilerColors::RESET << "\n";
 }
 
-void Profiler::printCategoryStatistics(std::ostringstream& ss, const robin_hood::unordered_flat_map<ProfileCategory, double>& categoryTotals, double frameTotalTime)
+void Profiler::printCategoryStatistics(std::ostringstream& ss, const robin_hood::unordered_flat_map<ProfileCategoryId, double>& categoryTotals, double frameTotalTime)
 {
     if (categoryTotals.empty()) return;
 
@@ -328,16 +261,16 @@ void Profiler::printCategoryStatistics(std::ostringstream& ss, const robin_hood:
     ss << std::string(ProfilerReport::TOTAL_WIDTH, '-') << "\n";
 
     // Sort categories by total time (descending)
-    std::vector<robin_hood::pair<ProfileCategory, double>> sortedCategories(categoryTotals.begin(), categoryTotals.end());
+    std::vector<robin_hood::pair<ProfileCategoryId, double>> sortedCategories(categoryTotals.begin(), categoryTotals.end());
     std::sort(sortedCategories.begin(), sortedCategories.end(),
         [](const auto& a, const auto& b) { return a.second > b.second; });
 
     for (const auto& pair : sortedCategories)
     {
-        ProfileCategory category = pair.first;
+        ProfileCategoryId category = pair.first;
         double totalTime = pair.second;
 
-        const char* color = getCategoryColor(category);
+        const char* color = getCategoryStyle(category);
         const char* name = getCategoryName(category);
 
         ss << color << std::left;
@@ -362,7 +295,7 @@ void Profiler::printProfileReport()
 
     auto sortedData = getMergeClearProfileData();
 
-    robin_hood::unordered_flat_map<ProfileCategory, double> categoryTotals;
+    robin_hood::unordered_flat_map<ProfileCategoryId, double> categoryTotals;
     double totalTime = 0.0;
 
     for (const auto& pair : sortedData)
@@ -388,19 +321,6 @@ void Profiler::printProfileReport()
     ss << std::string(ProfilerReport::TOTAL_WIDTH, '=') << "\n";
 
     std::cout << ss.str();
-}
-
-
-ScopedProfiler::ScopedProfiler(const char* profileName, ProfileCategory category) :
-    name(profileName), category(category), startTime(std::chrono::high_resolution_clock::now())
-{
-}
-
-ScopedProfiler::~ScopedProfiler()
-{
-    auto endTime = std::chrono::high_resolution_clock::now();
-    double duration = std::chrono::duration<double, std::milli>(endTime - startTime).count();
-    Profiler::addSample(name, duration, category);
 }
 
 Profiler::ThreadLocalData::ThreadLocalData()
