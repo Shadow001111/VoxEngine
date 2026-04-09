@@ -27,6 +27,8 @@ robin_hood::unordered_flat_map<Profiler::ProfileCategoryId, Profiler::ProfileCat
 
 namespace
 {
+    const char* RESET = "\033[0m";
+
     std::string formatTimeCell(double milliseconds)
     {
         double value = milliseconds;
@@ -58,11 +60,6 @@ namespace
         oss << unit;
         return oss.str();
     }
-}
-
-namespace ProfilerColors
-{
-    const char* RESET = "\033[0m";
 }
 
 std::string Profiler::make_ansi_prefix(Color color, Color bg, std::initializer_list<Style> styles)
@@ -246,7 +243,7 @@ void Profiler::printProfileEntry(std::ostringstream& ss, const char* name, const
     double percentage = (data.totalTime / frameTotalTime) * 100.0;
     ss << std::setw(ProfilerReport::COL_PERCENT) << percentage << "%";
 
-    ss << ProfilerColors::RESET << "\n";
+    ss << RESET << "\n";
 }
 
 void Profiler::printCategoryStatistics(std::ostringstream& ss, const robin_hood::unordered_flat_map<ProfileCategoryId, double>& categoryTotals, double frameTotalTime)
@@ -280,7 +277,7 @@ void Profiler::printCategoryStatistics(std::ostringstream& ss, const robin_hood:
         double percentage = (totalTime / frameTotalTime) * 100.0;
         ss << std::setprecision(1) << percentage << "%";
 
-        ss << ProfilerColors::RESET << "\n";
+        ss << RESET << "\n";
     }
 }
 

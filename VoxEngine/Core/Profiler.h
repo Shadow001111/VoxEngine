@@ -79,7 +79,7 @@ private:
         uint64_t callCount = 0;
         ProfileCategoryId category = 0;
 
-        double getAverageTime() const noexcept { return callCount > 0 ? totalTime / callCount : 0.0; }
+        double getAverageTime() const noexcept { return callCount > 0 ? totalTime / static_cast<double>(callCount) : 0.0; }
         void addSample(double time) noexcept;
         void reset() noexcept;
     };
@@ -143,26 +143,33 @@ template<typename T>
 class ScopedProfiler
 {
 private:
+    using Clock = std::chrono::steady_clock;
+
     const char* name;
     Profiler::ProfileCategoryId category;
-    std::chrono::steady_clock::time_point startTime;
+    Clock::time_point startTime;
+
 public:
-    ScopedProfiler(const char* profileName, T category) :
+    ScopedProfiler(const char* profileName, T categoryValue) :
         name(profileName),
-        category(static_cast<Profiler::ProfileCategoryId>(category)),
-        startTime(std::chrono::high_resolution_clock::now())
-    {}
+        category(static_cast<Profiler::ProfileCategoryId>(categoryValue)),
+        startTime(Clock::now())
+    {
+    }
 
     ~ScopedProfiler()
     {
-        auto endTime = std::chrono::high_resolution_clock::now();
-        double duration = std::chrono::duration<double, std::milli>(endTime - startTime).count();
+        const auto endTime = Clock::now();
+        const double duration = std::chrono::duration<double, std::milli>(endTime - startTime).count();
         Profiler::addSample(name, duration, category);
     }
 };
 
+#define PROFILE_SCOPE_CONCAT_INNER(a, b) a##b
+#define PROFILE_SCOPE_CONCAT(a, b) PROFILE_SCOPE_CONCAT_INNER(a, b)
+
 #if PROFILING_ENABLED
-#define PROFILE_SCOPE(name, category) ScopedProfiler _prof(name, category)
+#define PROFILE_SCOPE(name, category) ScopedProfiler PROFILE_SCOPE_CONCAT(_profiler_, __COUNTER__)(name, category)
 #else
 #define PROFILE_SCOPE(name, category)
 #endif
