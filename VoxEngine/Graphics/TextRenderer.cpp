@@ -469,8 +469,7 @@ void TextRenderer::init()
 
 bool TextRenderer::loadFont(const std::string& fontName, GLuint fontSize)
 {
-    auto scopeName = std::string("Load font: ") + fontName;
-    PROFILE_SCOPE(scopeName.c_str(), ProfileCategory::General);
+    PROFILE_SCOPE("Loading font", ProfileCategory::General);
 
     TextRenderer& inst = getInstance();
     auto& fonts = inst.fonts;
