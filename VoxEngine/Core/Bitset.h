@@ -45,7 +45,7 @@ public:
 
     Bitset(const Bitset& other)
     {
-        std::memcpy(data.data(), other.data(), WordCount * sizeof(Word));
+        std::memcpy(data.data(), other.data.data(), WordCount * sizeof(Word));
     }
 
     Bitset& operator=(const Bitset& other)
@@ -87,6 +87,8 @@ public:
 
         return (data[w] & mask) != 0;
     }
+
+    [[nodiscard]] bool operator[](size_t index) const noexcept { return read(index); }
 
     [[nodiscard]] bool readAndSet(size_t index, bool value) noexcept
     {

@@ -1881,8 +1881,7 @@ void Chunk::computeConnectivity()
 	std::array<bool, CHUNK_VOLUME> visited{};
 
 	// DFS stack pre-reserved to avoid repeated reallocation.
-	// Stores flat block index + unpacked 3D position to avoid
-	// calling getIndex() on every neighbor.
+	// Stores flat block index to avoid calling getIndex() on every neighbor.
 	struct StackEntry
 	{
 		glm::ivec3 pos;

@@ -373,7 +373,7 @@ bool AssetRegistry::linkBlockAssets()
 		// Enable culling for faces that have opaque aligned faces in the model
 		for (int i = 0; i < 6; i++)
 		{
-			data.faceCulling[i] = false;
+			data.faceCulling.set(i, false);
 		}
 		if (data.hasFaces)
 		{
@@ -398,7 +398,7 @@ bool AssetRegistry::linkBlockAssets()
 						}
 					}
 
-					data.faceCulling[alignedFace.normal] = shouldCull;
+					data.faceCulling.set(alignedFace.normal, shouldCull);
 				}
 			}
 		}

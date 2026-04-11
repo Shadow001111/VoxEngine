@@ -4,6 +4,7 @@
 #include "../ObjectTypes.h"
 
 #include "Core/Container/DynamicArray.h"
+#include "Core/Bitset.h"
 
 // TODO: Reduce size
 struct BlockData
@@ -26,12 +27,12 @@ struct BlockData
 	std::string stringId;
 
 	// Properties
-	bool absorbsLight = false; // TODO: In chunk light propagation use this with culling to determine. Then it must to check current and next blocks' culling values.
+	bool absorbsLight = false;
 	uint8_t lightEmission = 0;
 	bool raycastable = true;
 
 	bool hasFaces = false;
-	bool faceCulling[6] = { false, false, false, false, false, false };
+	Bitset<6, uint8_t> faceCulling{};
 
 	// Visuals
 	ModelId modelId = 0;
