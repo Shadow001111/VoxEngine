@@ -82,6 +82,8 @@ private:
 
 	// Render data containers
 	mutable std::vector<ChunkRenderInfo> chunksToRender;
+	mutable robin_hood::unordered_flat_map<const Chunk*, uint8_t> floodFillVisited;
+
 	mutable std::vector<DrawArraysIndirectCommand> chunkDrawCommands;
 	mutable std::vector<glm::ivec3> chunkPositions;
 
@@ -99,6 +101,7 @@ private:
 	void initShaders();
 
 	void collectChunksForRendering(const Camera& camera) const;
+	void collectChunksWithFloodFill(const Camera& camera) const;
 
 	void sortChunksForRendering() const;
 

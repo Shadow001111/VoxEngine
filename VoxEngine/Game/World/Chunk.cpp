@@ -267,6 +267,7 @@ void Chunk::buildBlocks()
 
 	// Trees
 	// TODO: Fix, trees spawning in air
+	if (false)
 	{
 		PROFILE_SCOPE("Generate trees", ProfileCategory::ChunkBlocks);
 	
@@ -1460,108 +1461,137 @@ void Chunk::updateConnectivity()
 
 	sideConnectivity.reset();
 
-	std::array<bool, CHUNK_VOLUME> visited{};
-
-	// Stores flat block index to avoid calling getIndex() on every neighbor.
-	struct StackEntry
 	{
-		glm::ivec3 pos;
-		int idx;
-		const BlockData* blockData;
-	};
-	std::vector<StackEntry> stack;
-	stack.reserve(CHUNK_VOLUME);
+		std::array<bool, CHUNK_VOLUME> visited{};
 
-	FenceGuard fence(processingFence);
-
-	// Precompute flat-index deltas for the 6 directions once.
-	// Works for any linear getIndex because getIndex(p+d) = getIndex(p) + getIndex(d)
-	std::array<int, 6> dirIndexDelta;
-	for (int d = 0; d < 6; d++)
-		dirIndexDelta[d] = getIndex(DirectionsTable::directionsXYZ[d]);
-
-	// Iterate boundary blocks
-	glm::ivec3 startPos;
-	for (startPos.x = 0; startPos.x < CHUNK_SIZE; startPos.x++)
-	for (startPos.y = 0; startPos.y < CHUNK_SIZE; startPos.y++)
-	for (startPos.z = 0; startPos.z < CHUNK_SIZE; startPos.z++)
-	{
-		bool isStartOnBoundary = false;
-		isStartOnBoundary |= (startPos.x == 0);
-		isStartOnBoundary |= (startPos.x == CHUNK_SIZE - 1);
-		isStartOnBoundary |= (startPos.y == 0);
-		isStartOnBoundary |= (startPos.y == CHUNK_SIZE - 1);
-		isStartOnBoundary |= (startPos.z == 0);
-		isStartOnBoundary |= (startPos.z == CHUNK_SIZE - 1);
-		if (!isStartOnBoundary) continue;
-
-		const int startIdx = getIndex(startPos);
-		if (visited[startIdx]) continue;
-		visited[startIdx] = true;
-
-		// Solid / unknown blocks need no flood fill
-		const BlockData* startData = AssetRegistry::getBlockData(blocks[startIdx]);
-		if (!startData) continue;
-
-		// Early-out: if the matrix is already fully connected, there is
-		// nothing left to discover regardless of what this component touches.
-		if (sideConnectivity.all()) break;
-
-		std::array<bool, 6> touched{};
-		touched[0] |= (startPos.x == 0);
-		touched[1] |= (startPos.x == CHUNK_SIZE - 1);
-		touched[2] |= (startPos.y == 0);
-		touched[3] |= (startPos.y == CHUNK_SIZE - 1);
-		touched[4] |= (startPos.z == 0);
-		touched[5] |= (startPos.z == CHUNK_SIZE - 1);
-
-		stack.push_back({ startPos, startIdx, startData });
-
-		while (!stack.empty())
+		struct StackEntry
 		{
-			auto [pos, idx, curData] = stack.back();
-			stack.pop_back();
+			glm::ivec3 pos;
+			int idx;
+			const BlockData* blockData;
+		};
+		std::vector<StackEntry> stack;
+		stack.reserve(CHUNK_VOLUME);
 
-			// Record which chunk faces this cell touches.
-			touched[0] |= (pos.x == 0);
-			touched[1] |= (pos.x == CHUNK_SIZE - 1);
-			touched[2] |= (pos.y == 0);
-			touched[3] |= (pos.y == CHUNK_SIZE - 1);
-			touched[4] |= (pos.z == 0);
-			touched[5] |= (pos.z == CHUNK_SIZE - 1);
+		FenceGuard fence(processingFence);
 
-			for (int dir = 0; dir < 6; dir++)
+		// Iterate boundary blocks
+		glm::ivec3 startPos;
+		for (startPos.x = 0; startPos.x < CHUNK_SIZE; startPos.x++)
+		for (startPos.y = 0; startPos.y < CHUNK_SIZE; startPos.y++)
+		for (startPos.z = 0; startPos.z < CHUNK_SIZE; startPos.z++)
+		{
+			bool isStartOnBoundary = false;
+			isStartOnBoundary |= startPos.x == 0;
+			isStartOnBoundary |= startPos.x == CHUNK_SIZE - 1;
+			isStartOnBoundary |= startPos.y == 0;
+			isStartOnBoundary |= startPos.y == CHUNK_SIZE - 1;
+			isStartOnBoundary |= startPos.z == 0;
+			isStartOnBoundary |= startPos.z == CHUNK_SIZE - 1;
+			if (!isStartOnBoundary) continue;
+
+			const int startIdx = getIndex(startPos);
+			if (visited[startIdx]) continue;
+			visited[startIdx] = true;
+
+			// Solid / unknown blocks need no flood fill
+			const BlockData* startData = AssetRegistry::getBlockData(blocks[startIdx]);
+			if (!startData) continue;
+
+			// Early-out: if the matrix is already fully connected, there is
+			// nothing left to discover regardless of what this component touches.
+			if (sideConnectivity.all()) break;
+
+			std::array<bool, 6> touched{};
+
+			stack.push_back({ startPos, startIdx, startData });
+
+			while (!stack.empty())
 			{
-				if (curData->faceCulling[dir]) continue;
+				auto cell = stack.back();
+				stack.pop_back();
+				const auto currentPosition = cell.pos;
+				const auto currentIndex = cell.idx;
+				const BlockData* currentBlockData = cell.blockData;
 
-				const glm::ivec3& offset = DirectionsTable::directionsXYZ[dir];
-				const glm::ivec3 neighborPos = pos + offset;
+				bool wasAbleToMoveOut = false;
+				for (int dir = 0; dir < 6; dir++)
+				{
+					if (currentBlockData->faceCulling[dir]) continue;
+					wasAbleToMoveOut = true;
 
-				// Bounds check
-				if (((neighborPos.x | neighborPos.y | neighborPos.z) & CHUNK_UPPER_BITS_MASK) != 0)
-					continue;
+					const glm::ivec3 neighborPos = currentPosition + DirectionsTable::directionsXYZ[dir];
 
-				const int neighborIdx = idx + dirIndexDelta[dir];
-				if (visited[neighborIdx]) continue;
-				visited[neighborIdx] = true; // Mark as visited
+					// Bounds check
+					if (((neighborPos.x | neighborPos.y | neighborPos.z) & CHUNK_UPPER_BITS_MASK) != 0)
+						continue;
 
-				const BlockData* neighborData = AssetRegistry::getBlockData(blocks[neighborIdx]);
-				if (!neighborData) continue;
+					const int neighborIdx = getIndex(neighborPos);
+					if (visited[neighborIdx]) continue;
+					visited[neighborIdx] = true; // Mark as visited
 
-				if (neighborData->faceCulling[dir ^ 1]) continue;
+					const BlockData* neighborData = AssetRegistry::getBlockData(blocks[neighborIdx]);
+					if (!neighborData) continue;
 
-				stack.push_back({ neighborPos, neighborIdx, neighborData });
+					if (neighborData->faceCulling[dir ^ 1]) continue;
+
+					stack.push_back({ neighborPos, neighborIdx, neighborData });
+				}
+
+				if (wasAbleToMoveOut)
+				{
+					// Record which chunk faces this cell touches
+					touched[0] |= currentPosition.x == 0;
+					touched[1] |= currentPosition.x == CHUNK_SIZE - 1;
+					touched[2] |= currentPosition.y == 0;
+					touched[3] |= currentPosition.y == CHUNK_SIZE - 1;
+					touched[4] |= currentPosition.z == 0;
+					touched[5] |= currentPosition.z == CHUNK_SIZE - 1;
+				}
+			}
+
+			// Connect every pair of chunk faces this component can reach.
+			for (int i = 0; i < 6; i++)
+			{
+				if (!touched[i]) continue;
+				for (int j = i; j < 6; j++)
+					if (touched[j]) sideConnectivity.set(i, j, true);
 			}
 		}
-
-		// Connect every pair of chunk faces this component can reach.
-		for (int i = 0; i < 6; i++)
-		{
-			if (!touched[i]) continue;
-			for (int j = i; j < 6; j++)
-				if (touched[j]) sideConnectivity.set(i, j, true);
-		}
 	}
+
+	//{
+	//	static std::mutex mtx;
+	//	std::lock_guard<std::mutex> lock(mtx);
+	//
+	//	for (int i = 0; i < 6; i++)
+	//	{
+	//		bool t = sideConnectivity.read(i, 2);
+	//
+	//		if (t)
+	//		{
+	//			std::cout << i << ", ";
+	//		}
+	//	}
+	//	std::cout << "\n";
+	//}
+
+	// Print
+	//{
+	//	static std::mutex mtx;
+	//	std::lock_guard<std::mutex> lock(mtx);
+	//
+	//	std::cout << "Chunk:\n";
+	//	//for (int i = 0; i < 6; i++)
+	//	{
+	//		int i = 3;
+	//		for (int j = 0; j < 6; j++)
+	//		{
+	//			std::cout << sideConnectivity.read(i, j) << " ";
+	//		}
+	//		std::cout << "\n";
+	//	}
+	//}
 }
 
 void Chunk::markAsShouldUpdateConnectivity() noexcept

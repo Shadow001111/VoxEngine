@@ -2,18 +2,15 @@
 
 #include "FileLogger.h"
 
-ThreadPool::ThreadPool(unsigned int numThreads)
+ThreadPool::ThreadPool(int numThreads)
 {
     if (numThreads == 0)
     {
-        const unsigned int minThreads = 1;
-        const unsigned int maxThreads = 999;
+        const int minThreads = 1;
+        const int maxThreads = 999;
 
         numThreads = std::thread::hardware_concurrency();
-        if (numThreads > 1)
-        {
-            numThreads = std::clamp(numThreads - 1, minThreads, maxThreads);
-        }
+        numThreads = std::clamp(numThreads - 1, minThreads, maxThreads);
     }
 
     workers.reserve(numThreads);
@@ -71,10 +68,10 @@ void ThreadPool::workerThread()
         if (!task)
         {
             FileLogger logger("log/warnings.txt");
-			logger.add("Warning: Empty task encountered in thread pool worker thread");
+			logger.add("Warning: Invalid task encountered in thread pool worker thread");
             
             completionCondition.notify_all();
-            continue; // Skip empty tasks
+            continue; // Skip invalid tasks
 		}
 
         activeTaskCount.fetch_add(1, std::memory_order_relaxed);

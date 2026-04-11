@@ -36,7 +36,7 @@ class Bitset
         return bit & WordMask;
     }
 
-    std::array<Word, WordCount> data{};
+    std::array<Word, WordCount> words{};
 public:
     Bitset() noexcept
     {
@@ -45,7 +45,7 @@ public:
 
     Bitset(const Bitset& other)
     {
-        std::memcpy(data.data(), other.data.data(), WordCount * sizeof(Word));
+        std::memcpy(words.data(), other.words.data(), WordCount * sizeof(Word));
     }
 
     Bitset& operator=(const Bitset& other)
@@ -54,7 +54,7 @@ public:
         {
             for (size_t i = 0; i < WordCount; i++)
             {
-                std::memcpy(data.data(), other.data(), WordCount * sizeof(Word));
+                std::memcpy(words.data(), other.words.data(), WordCount * sizeof(Word));
             }
         }
         return *this;
@@ -62,7 +62,7 @@ public:
 
     void reset() noexcept
     {
-        std::memset(data.data(), 0, WordCount * sizeof(Word));
+        std::memset(words.data(), 0, WordCount * sizeof(Word));
     }
 
     void set(size_t index, bool value) noexcept
@@ -72,11 +72,11 @@ public:
 
         if (value)
         {
-            data[w] |= mask;
+            words[w] |= mask;
         }
         else
         {
-            data[w] &= ~mask;
+            words[w] &= ~mask;
         }
     }
 
@@ -85,7 +85,7 @@ public:
         const size_t w = wordIndex(index);
         const Word mask = Word(1) << bitOffset(index);
 
-        return (data[w] & mask) != 0;
+        return (words[w] & mask) != 0;
     }
 
     [[nodiscard]] bool operator[](size_t index) const noexcept { return read(index); }
@@ -95,21 +95,21 @@ public:
         const size_t w = wordIndex(index);
         const Word mask = Word(1) << bitOffset(index);
 
-        bool cond = (data[w] & mask) != 0;
+        bool cond = (words[w] & mask) != 0;
         if (value)
         {
-            data[w] |= mask;
+            words[w] |= mask;
         }
         else
         {
-            data[w] &= ~mask;
+            words[w] &= ~mask;
         }
         return cond;
     }
 
     [[nodiscard]] bool any() const noexcept
     {
-        for (const auto& w : data)
+        for (const auto& w : words)
         {
             if (w != 0)
             {
@@ -128,14 +128,14 @@ public:
     {
         // Check all full words first
         for (size_t i = 0; i < Bits / BitsPerWord; i++)
-            if (data[i] != ~Word(0)) return false;
+            if (words[i] != ~Word(0)) return false;
  
         // Check remaining bits in the last partial word (if any)
         constexpr size_t remainder = Bits % BitsPerWord;
         if constexpr (remainder != 0)
         {
             constexpr Word mask = (Word(1) << remainder) - 1;
-            if ((data[WordCount - 1] & mask) != mask) return false;
+            if ((words[WordCount - 1] & mask) != mask) return false;
         }
  
         return true;

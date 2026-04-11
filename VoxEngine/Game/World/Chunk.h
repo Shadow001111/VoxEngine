@@ -319,6 +319,7 @@ public:
 	glm::ivec3 getPosition() const noexcept { return position; };
 	const auto& getNeighbors() const noexcept { return neighbors; };
 	size_t getFaceCount() const noexcept { return mesh.faceStorage.getAllFaceCount(); };
+	auto getConnectivityMatrix() const noexcept { return sideConnectivity; }
 
 	// Getters and setters for states and flags
 	State getState() const noexcept { return state.load(std::memory_order_acquire); };

@@ -133,12 +133,12 @@ void WorldChunkManager::update()
 		for (int i = 0; i < 40; i++)
 		{
 			collectChunksForLightUpdate();
-
+	
 			if (buildContainers.lightUpdateA.empty() && buildContainers.lightUpdateB.empty())
 			{
 				break;
 			}
-
+	
 			updateChunkLights();
 		}
 	}

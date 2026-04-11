@@ -6,7 +6,8 @@
 #include <functional>
 #include <atomic>
 
-#include "Core/Container/Queue.h"
+#include "Core/Container/DynamicArray.h"
+#include <queue>
 
 #if defined(__cpp_lib_move_only_function) && __cpp_lib_move_only_function >= 202110L
 #include <functional>
@@ -21,7 +22,7 @@ using move_only_function_impl = move_only_function<F>;
 class ThreadPool
 {
     using Task = move_only_function_impl<void()>;
-    using TaskQueue = Queue<Task>;
+    using TaskQueue = std::queue<Task>;// Queue<Task>;
 
     DynamicArray<std::thread> workers;
     TaskQueue tasks;
@@ -34,7 +35,7 @@ class ThreadPool
     // Statistics
     std::atomic<size_t> taskTotalCount{ 0 };
 public:
-	ThreadPool(unsigned int numThreads = 0);
+	ThreadPool(int numThreads = 0);
 	~ThreadPool();
 
     ThreadPool(const ThreadPool&) = delete;
@@ -172,7 +173,7 @@ void ParallelUtils::parallelForEach(Container& container, size_t minChunkSize, F
 {
     parallelFor(0, container.size(), minChunkSize, [&container, func](size_t i)
         {
-        func(container[i]);
+            func(container[i]);
         });
 }
 

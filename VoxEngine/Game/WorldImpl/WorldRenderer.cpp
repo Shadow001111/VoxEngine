@@ -332,6 +332,133 @@ void WorldRenderer::collectChunksForRendering(const Camera& camera) const
 	}
 }
 
+void WorldRenderer::collectChunksWithFloodFill(const Camera& camera) const
+{
+	PROFILE_SCOPE("Collect chunks for render (flood fill)", ProfileCategory::Render);
+
+	// Setup
+	chunksToRender.clear();
+
+	const glm::dvec3 cameraPosition = camera.getPosition();
+	const glm::ivec3 cameraChunkPosition = glm::ivec3(glm::floor(cameraPosition / (double)CHUNK_SIZE));
+	const auto& frustum = camera.getFrustum();
+
+	Box chunkShape(glm::dvec3(0.0), glm::dvec3(CHUNK_SIZE >> 1));
+
+	// Find the camera's starting chunk via ChunkRegion lookup
+	const Chunk* startChunk = nullptr;
+	{
+		const glm::ivec3 regionPos = ChunkRegion::getRegionPosition(cameraChunkPosition);
+		const auto& regionMap = Chunk::chunkRegionManagerInstance->getRegionMap();
+		const auto regionIt = regionMap.find(regionPos);
+
+		if (regionIt != regionMap.end())
+		{
+			const size_t chunkIndex = ChunkRegion::getChunkIndexInRegion(cameraChunkPosition);
+			startChunk = regionIt->second->getChunks()[chunkIndex];
+		}
+	}
+
+	// If the camera is outside all loaded chunks, fall back to the brute-force collector.
+	if (startChunk == nullptr)
+	{
+		collectChunksForRendering(camera);
+		return;
+	}
+
+	// BFS flood-fill
+	struct QueueNode
+	{
+		const Chunk* chunk;
+		int fromDir; // -1 = camera-origin, 0-5 = entry face index
+	};
+
+	// Reuse allocation from the previous frame.
+	floodFillVisited.clear();
+
+	// Vector used as a FIFO queue: head index advances, no element is ever
+	// removed, so no shifts occur. The allocation is also reused across frames.
+	static thread_local std::vector<QueueNode> bfsQueue;
+	bfsQueue.clear();
+
+	// Seed the BFS with the camera chunk (no entry direction).
+	// The camera chunk is always added to the render list unconditionally —
+	// the camera is inside it, so it is always "visible".
+	floodFillVisited.try_emplace(startChunk, uint8_t(0xFF)); // all bits set: treated as visited from every direction
+	bfsQueue.push_back({ startChunk, -1 });
+
+	if (startChunk->canBeRendered())
+	{
+		const glm::ivec3 delta = glm::abs(startChunk->getPosition() - cameraChunkPosition);
+		chunksToRender.emplace_back(startChunk, (unsigned int)(delta.x + delta.y + delta.z));
+	}
+
+	std::array<int, 6> chunkNeighborIndices;
+	for (int i = 0; i < 6; i++)
+	{
+		chunkNeighborIndices[i] = Chunk::getSideNeighborIndex(i);
+	}
+
+	for (size_t head = 0; head < bfsQueue.size(); head++)
+	{
+		const auto node = bfsQueue[head];
+		const Chunk* chunk = node.chunk;
+		const int fromDir = node.fromDir;
+
+		// Propagate to the 6 face-neighbors
+		auto connectivityMatrix = chunk->getConnectivityMatrix();
+		const auto& neighborChunks = chunk->getNeighbors();
+		for (int toDir = 0; toDir < 6; toDir++)
+		{
+			// Connectivity gate: when we have a valid entry face, only propagate
+			// to exit faces reachable from it in this chunk's connectivity table.
+			if (fromDir >= 0 && !connectivityMatrix.read(fromDir, toDir))
+			{
+				continue;
+			}
+
+			// Neighbor existence check.
+			const Chunk* neighbor = neighborChunks[chunkNeighborIndices[toDir]];
+			if (neighbor == nullptr)
+			{
+				continue;
+			}
+
+			// Frustum check
+			const glm::ivec3 chunkPos = neighbor->getPosition();
+			const glm::dvec3 chunkWorldPos = glm::dvec3(chunkPos << CHUNK_SIZE_LOG2);
+			chunkShape.center = chunkWorldPos + chunkShape.halfExtents;
+
+			if (!frustum.checkBox(chunkShape))
+			{
+				continue;
+			}
+
+			// Visited check: the neighbor is entered through the face opposite
+			// to toDir. XOR 1 flips the lowest bit, turning any direction index
+			// into its opposite (0<->1, 2<->3, 4<->5).
+			const int neighborFromDir = toDir ^ 1;
+			const uint8_t entryBit = static_cast<uint8_t>(1u << neighborFromDir);
+
+			auto [visIt, inserted] = floodFillVisited.emplace(neighbor, uint8_t(0));
+			if (visIt->second & entryBit)
+			{
+				continue; // (neighbor, neighborFromDir) pair already enqueued
+			}
+			visIt->second |= entryBit;
+
+			// First time this chunk is encountered
+			if (inserted && neighbor->canBeRendered())
+			{
+				const glm::ivec3 delta = glm::abs(chunkPos - cameraChunkPosition);
+				chunksToRender.emplace_back(neighbor, (unsigned int)(delta.x + delta.y + delta.z));
+			}
+
+			bfsQueue.push_back({ neighbor, neighborFromDir });
+		}
+	}
+}
+
 void WorldRenderer::sortChunksForRendering() const
 {
 	PROFILE_SCOPE("Sort chunks for render", ProfileCategory::Render);
@@ -371,7 +498,7 @@ void WorldRenderer::sortChunksForRendering() const
 		auto priority = info.manhattanDistance;
 		sortingChunkOutputArray[sortingCountArray[priority]++].chunk = info.chunk; // Move pointer only. It doesn't break anything, since we don't use distance further in render.
 	}
-		
+
 	chunksToRender.swap(sortingChunkOutputArray);
 }
 
@@ -466,7 +593,8 @@ void WorldRenderer::renderChunks(const Camera& camera, const FrameBuffer& FBO)
 	}
 
 	// Collect chunks to render and sort them
-	collectChunksForRendering(camera);
+	//collectChunksForRendering(camera);
+	collectChunksWithFloodFill(camera);
 	sortChunksForRendering();
 
 	renderStats.renderedChunkCount = chunksToRender.size();
