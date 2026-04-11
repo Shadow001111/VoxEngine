@@ -10,8 +10,6 @@
 #include "Core/Assert.h"
 #include "Core/Hashes/ivec2Hasher.h"
 
-#include <queue>
-
 thread_local ChunkMeshFaceStorage::InstancesStorage Chunk::localMeshInstances;
 
 std::atomic<bool> Chunk::gHasStructureBlockChanges{ false };
@@ -248,21 +246,21 @@ void Chunk::buildBlocks()
 				}
 			}
 		}
-	}
 
-	// Caves
-	if (computeCaveMask)
-	{
-		alignas(SimdF::bytes) bool caveMask[CHUNK_VOLUME];
-		TerrainGenerator::getInstance().computeCaveMask(caveMask, position.x, position.y, position.z);
-
-		PROFILE_SCOPE("Generate caves", ProfileCategory::ChunkBlocks);
-
-		for (int i = 0; i < CHUNK_VOLUME; i++)
+		// Caves
+		if (computeCaveMask)
 		{
-			if (caveMask[i])
+			alignas(SimdF::bytes) bool caveMask[CHUNK_VOLUME];
+			TerrainGenerator::getInstance().computeCaveMask(caveMask, position.x, position.y, position.z);
+
+			PROFILE_SCOPE("Generate caves", ProfileCategory::ChunkBlocks);
+
+			for (int i = 0; i < CHUNK_VOLUME; i++)
 			{
-				blocks[i] = CACHED_BLOCK_IDS.airId;
+				if (caveMask[i])
+				{
+					blocks[i] = CACHED_BLOCK_IDS.airId;
+				}
 			}
 		}
 	}
@@ -335,6 +333,7 @@ void Chunk::buildBlocks()
 
 	//
 	setState(Chunk::State::BlocksBuit_NeedsLight);
+	markAsShouldUpdateConnectivity();
 }
 
 void Chunk::updateStructureBlocks()
@@ -351,6 +350,11 @@ void Chunk::updateStructureBlocks()
 			auto pos = getPositionFromIndex(change.index);
 			setBlockAt(pos.x, pos.y, pos.z, change.block, false);
 		}
+	}
+
+	if (!pendingChanges.empty())
+	{
+		markAsShouldUpdateConnectivity();
 	}
 }
 
@@ -1210,236 +1214,229 @@ void Chunk::updateMesh()
 		return;
 	}
 	
+	FenceGuard scopedFence(processingFence);
+
+	PROFILE_SCOPE("Update chunk mesh", ProfileCategory::ChunkMesh);
+
+	// Collect visible faces
 	{
-		FenceGuard scopedFence(processingFence);
+		const uint32_t transformationBitMasks[3] = { 0u, 0b11u, 0b111u };
 
-		PROFILE_SCOPE("Update chunk mesh", ProfileCategory::ChunkMesh);
+		static const BlockData::TextureSlot fallbackTextureSlot(0, BlockData::TextureSlot::TextureTransformation::None, false);
 
-		// Collect visible faces
+		localMeshInstances.clear();
+
+		const glm::ivec3 globalChunkPosition = position << CHUNK_SIZE_LOG2;
+		for (size_t currentBlockIndex = 0; currentBlockIndex < CHUNK_VOLUME; currentBlockIndex++)
 		{
-			const uint32_t transformationBitMasks[3] = { 0u, 0b11u, 0b111u };
+			glm::ivec3 currentBlockPosition = getPositionFromIndex(currentBlockIndex);
 
-			static const BlockData::TextureSlot fallbackTextureSlot(0, BlockData::TextureSlot::TextureTransformation::None, false);
-
-			localMeshInstances.clear();
-
-			const glm::ivec3 globalChunkPosition = position << CHUNK_SIZE_LOG2;
-			for (size_t currentBlockIndex = 0; currentBlockIndex < CHUNK_VOLUME; currentBlockIndex++)
+			// Generate new faces for this block
+			BlockId block = blocks[currentBlockIndex];
+			const BlockData* blockData = AssetRegistry::getBlockData(block);
+			if (!(blockData && blockData->hasFaces))
 			{
-				glm::ivec3 currentBlockPosition = getPositionFromIndex(currentBlockIndex);
+				continue;
+			}
 
-				// Generate new faces for this block
-				BlockId block = blocks[currentBlockIndex];
-				const BlockData* blockData = AssetRegistry::getBlockData(block);
-				if (!(blockData && blockData->hasFaces))
+			const auto* model = AssetRegistry::getBlockModelData(blockData->modelId);
+			if (!model)
+			{
+				continue;
+			}
+
+			const auto& textureSlots = blockData->textureSlots;
+
+			// TODO: Maybe translucent faces shouldn't be culled. Maybe they should be drawn using GL_LEQUAL for depth test.
+
+			// Aligned faces
+			if (!model->alignedFaces.empty())
+			{
+				const glm::ivec3 globalBlockPosition = globalChunkPosition + currentBlockPosition;
+				const uint32_t hash = hash3(
+					globalBlockPosition.x,
+					globalBlockPosition.y,
+					globalBlockPosition.z
+				);
+				for (const auto& face : model->alignedFaces)
 				{
-					continue;
-				}
+					// Get neighbor block coordinates
+					const glm::ivec3 offset = DirectionsTable::directionsXYZ[face.normal];
+					const int nx = currentBlockPosition.x + offset.x;
+					const int ny = currentBlockPosition.y + offset.y;
+					const int nz = currentBlockPosition.z + offset.z;
 
-				const auto* model = AssetRegistry::getBlockModelData(blockData->modelId);
-				if (!model)
-				{
-					continue;
-				}
+					// Get neighbor chunk and block index
+					size_t neighborBlockIndex;
+					const Chunk* neighborChunk;
 
-				const auto& textureSlots = blockData->textureSlots;
+					const bool inSameChunk = ((nx | ny | nz) & CHUNK_UPPER_BITS_MASK) == 0;
 
-				// TODO: Maybe translucent faces shouldn't be culled. Maybe they should be drawn using GL_LEQUAL for depth test.
+					// TODO: Try to remove this branch
+					if (inSameChunk)
+					{
+						neighborChunk = this;
+						neighborBlockIndex = getIndex(nx, ny, nz);
+					}
+					else
+					{
+						neighborChunk = neighbors[getSideNeighborIndex(face.normal)];
+						if (!neighborChunk)
+						{
+							continue;
+						}
+						neighborBlockIndex = getIndex(nx & CHUNK_LOWER_BITS_MASK, ny & CHUNK_LOWER_BITS_MASK, nz & CHUNK_LOWER_BITS_MASK);
+					}
 
-				// Aligned faces
-				if (!model->alignedFaces.empty())
-				{
-					const glm::ivec3 globalBlockPosition = globalChunkPosition + currentBlockPosition;
-					const uint32_t hash = hash3(
-						globalBlockPosition.x,
-						globalBlockPosition.y,
-						globalBlockPosition.z
+					// Get neighbor block and data
+					BlockId neighborBlock = neighborChunk->blocks[neighborBlockIndex];
+					if (block == neighborBlock)
+					{
+						continue;
+					}
+
+					const BlockData* neighborBlockData = AssetRegistry::getBlockData(neighborBlock);
+					if (!neighborBlockData || neighborBlockData->faceCulling[face.normal ^ 1])
+					{
+						continue;
+					}
+
+					// Calculate shading
+					LightLevel neighborLight = neighborChunk->lightLevels[neighborBlockIndex];
+
+					ContextFaceAOAL aoData
+					{
+						.position = currentBlockPosition,
+						.normal = face.normal,
+						.centerFaceLight = neighborLight
+					};
+
+					calculateFaceAmbientOcclusionAndLight(aoData);
+
+					// Get texture
+					const auto& textureSlot = face.textureSlot < textureSlots.size() ? textureSlots[face.textureSlot] : fallbackTextureSlot;
+
+					// Calculate texture transformation
+					uint32_t faceTransformation = hash & transformationBitMasks[(size_t)textureSlot.transformation];
+
+					// Add new face
+					auto& instances = textureSlot.isTranslucent ? localMeshInstances.alignedTranslucent : localMeshInstances.alignedOpaque;
+					instances.emplace_back(
+						currentBlockPosition.x, currentBlockPosition.y, currentBlockPosition.z,
+						face.normal,
+						aoData.outAmbientOcclusion,
+						textureSlot.textureId,
+						faceTransformation,
+						aoData.outLightLevel
 					);
-					for (const auto& face : model->alignedFaces)
-					{
-						// Get neighbor block coordinates
-						const glm::ivec3 offset = DirectionsTable::directionsXYZ[face.normal];
-						const int nx = currentBlockPosition.x + offset.x;
-						const int ny = currentBlockPosition.y + offset.y;
-						const int nz = currentBlockPosition.z + offset.z;
-
-						// Get neighbor chunk and block index
-						size_t neighborBlockIndex;
-						const Chunk* neighborChunk;
-
-						const bool inSameChunk = ((nx | ny | nz) & CHUNK_UPPER_BITS_MASK) == 0;
-
-						// TODO: Try to remove this branch
-						if (inSameChunk)
-						{
-							neighborChunk = this;
-							neighborBlockIndex = getIndex(nx, ny, nz);
-						}
-						else
-						{
-							neighborChunk = neighbors[getSideNeighborIndex(face.normal)];
-							if (!neighborChunk)
-							{
-								continue;
-							}
-							neighborBlockIndex = getIndex(nx & CHUNK_LOWER_BITS_MASK, ny & CHUNK_LOWER_BITS_MASK, nz & CHUNK_LOWER_BITS_MASK);
-						}
-
-						// Get neighbor block and data
-						BlockId neighborBlock = neighborChunk->blocks[neighborBlockIndex];
-						if (block == neighborBlock)
-						{
-							continue;
-						}
-
-						const BlockData* neighborBlockData = AssetRegistry::getBlockData(neighborBlock);
-						if (!neighborBlockData || neighborBlockData->faceCulling[face.normal ^ 1])
-						{
-							continue;
-						}
-
-						// Calculate shading
-						LightLevel neighborLight = neighborChunk->lightLevels[neighborBlockIndex];
-
-						ContextFaceAOAL aoData
-						{
-							.position = currentBlockPosition,
-							.normal = face.normal,
-							.centerFaceLight = neighborLight
-						};
-
-						calculateFaceAmbientOcclusionAndLight(aoData);
-
-						// Get texture
-						const auto& textureSlot = face.textureSlot < textureSlots.size() ? textureSlots[face.textureSlot] : fallbackTextureSlot;
-
-						// Calculate texture transformation
-						uint32_t faceTransformation = hash & transformationBitMasks[(size_t)textureSlot.transformation];
-
-						// Add new face
-						auto& instances = textureSlot.isTranslucent ? localMeshInstances.alignedTranslucent : localMeshInstances.alignedOpaque;
-						instances.emplace_back(
-							currentBlockPosition.x, currentBlockPosition.y, currentBlockPosition.z,
-							face.normal,
-							aoData.outAmbientOcclusion,
-							textureSlot.textureId,
-							faceTransformation,
-							aoData.outLightLevel
-						);
-					}
 				}
+			}
 
-				// Non-aligned faces
-				// TODO: Non-aligned faces should be culled if they are on the block's border
-				if (!model->unalignedFaces.empty())
+			// Non-aligned faces
+			// TODO: Non-aligned faces should be culled if they are on the block's border
+			if (!model->unalignedFaces.empty())
+			{
+				BlockVertexLightData lightData;
+				calculateBlockVertexLight(lightData, currentBlockPosition.x, currentBlockPosition.y, currentBlockPosition.z);
+
+				UnalignedBlockFace instance;
+				instance.blockX = currentBlockPosition.x;
+				instance.blockY = currentBlockPosition.y;
+				instance.blockZ = currentBlockPosition.z;
+
+				instance.light0 = lightData.light[0].fullByte;
+				instance.light1 = lightData.light[1].fullByte;
+				instance.light2 = lightData.light[2].fullByte;
+				instance.light3 = lightData.light[3].fullByte;
+				instance.light4 = lightData.light[4].fullByte;
+				instance.light5 = lightData.light[5].fullByte;
+				instance.light6 = lightData.light[6].fullByte;
+				instance.light7 = lightData.light[7].fullByte;
+
+				instance.ao0 = lightData.ao[0];
+				instance.ao1 = lightData.ao[1];
+				instance.ao2 = lightData.ao[2];
+				instance.ao3 = lightData.ao[3];
+				instance.ao4 = lightData.ao[4];
+				instance.ao5 = lightData.ao[5];
+				instance.ao6 = lightData.ao[6];
+				instance.ao7 = lightData.ao[7];
+
+				for (const auto& face : model->unalignedFaces)
 				{
-					BlockVertexLightData lightData;
-					calculateBlockVertexLight(lightData, currentBlockPosition.x, currentBlockPosition.y, currentBlockPosition.z);
+					const auto& textureSlot = face.textureSlot < textureSlots.size() ? textureSlots[face.textureSlot] : fallbackTextureSlot;
 
-					UnalignedBlockFace instance;
-					instance.blockX = currentBlockPosition.x;
-					instance.blockY = currentBlockPosition.y;
-					instance.blockZ = currentBlockPosition.z;
+					instance.x0 = face.x0;
+					instance.y0 = face.y0;
+					instance.z0 = face.z0;
 
-					instance.light0 = lightData.light[0].fullByte;
-					instance.light1 = lightData.light[1].fullByte;
-					instance.light2 = lightData.light[2].fullByte;
-					instance.light3 = lightData.light[3].fullByte;
-					instance.light4 = lightData.light[4].fullByte;
-					instance.light5 = lightData.light[5].fullByte;
-					instance.light6 = lightData.light[6].fullByte;
-					instance.light7 = lightData.light[7].fullByte;
+					instance.x1 = face.x1;
+					instance.y1 = face.y1;
+					instance.z1 = face.z1;
 
-					instance.ao0 = lightData.ao[0];
-					instance.ao1 = lightData.ao[1];
-					instance.ao2 = lightData.ao[2];
-					instance.ao3 = lightData.ao[3];
-					instance.ao4 = lightData.ao[4];
-					instance.ao5 = lightData.ao[5];
-					instance.ao6 = lightData.ao[6];
-					instance.ao7 = lightData.ao[7];
+					instance.x2 = face.x2;
+					instance.y2 = face.y2;
+					instance.z2 = face.z2;
 
-					for (const auto& face : model->unalignedFaces)
-					{
-						const auto& textureSlot = face.textureSlot < textureSlots.size() ? textureSlots[face.textureSlot] : fallbackTextureSlot;
+					instance.x3 = face.x3;
+					instance.y3 = face.y3;
+					instance.z3 = face.z3;
 
-						instance.x0 = face.x0;
-						instance.y0 = face.y0;
-						instance.z0 = face.z0;
+					instance.u0 = face.u0;
+					instance.v0 = face.v0;
 
-						instance.x1 = face.x1;
-						instance.y1 = face.y1;
-						instance.z1 = face.z1;
+					instance.u1 = face.u1;
+					instance.v1 = face.v1;
 
-						instance.x2 = face.x2;
-						instance.y2 = face.y2;
-						instance.z2 = face.z2;
+					instance.u2 = face.u2;
+					instance.v2 = face.v2;
 
-						instance.x3 = face.x3;
-						instance.y3 = face.y3;
-						instance.z3 = face.z3;
+					instance.u3 = face.u3;
+					instance.v3 = face.v3;
 
-						instance.u0 = face.u0;
-						instance.v0 = face.v0;
+					instance.textureID = textureSlot.textureId;
 
-						instance.u1 = face.u1;
-						instance.v1 = face.v1;
+					auto& instances = textureSlot.isTranslucent ? localMeshInstances.unalignedTranslucent : localMeshInstances.unalignedOpaque;
 
-						instance.u2 = face.u2;
-						instance.v2 = face.v2;
-
-						instance.u3 = face.u3;
-						instance.v3 = face.v3;
-
-						instance.textureID = textureSlot.textureId;
-
-						auto& instances = textureSlot.isTranslucent ? localMeshInstances.unalignedTranslucent : localMeshInstances.unalignedOpaque;
-
-						instances.push_back(instance);
-					}
+					instances.push_back(instance);
 				}
-			}
-
-			// Check if chunk got unloaded by the time we were building mesh
-			if (!chunkFlags.read(Flag::IsLoadedInWorld))
-			{
-				return;
-			}
-
-			// Set mesh data
-			FenceGuard scopedMeshFence(mesh.faceStorage.processingFence);
-
-			mesh.faceStorage.instancesStorage.swap(localMeshInstances);
-
-			size_t faceCount = mesh.faceStorage.getAllFaceCount();
-			if (faceCount == 0)
-			{
-				mesh.setFlag(ChunkMesh::Flag::ShouldBeUploaded, false);
-
-				mesh.faceStorage.updateRenderFaceCount();
-
-				updateCanBeRenderedFlag();
-			}
-			else
-			{
-				mesh.setFlag(ChunkMesh::Flag::ShouldBeUploaded, true);
-
-				// Region flag
-				parentRegion->setFlag(ChunkRegion::Flag::HasMeshToUpload, true);
-				ChunkRegion::setGlobalFlag(ChunkRegion::Flag::HasMeshToUpload, true);
 			}
 		}
-	}
 
-	computeConnectivity();
+		// Check if chunk got unloaded by the time we were building mesh
+		if (!chunkFlags.read(Flag::IsLoadedInWorld))
+		{
+			return;
+		}
+
+		// Set mesh data
+		FenceGuard scopedMeshFence(mesh.faceStorage.processingFence);
+
+		mesh.faceStorage.instancesStorage.swap(localMeshInstances);
+
+		size_t faceCount = mesh.faceStorage.getAllFaceCount();
+		if (faceCount == 0)
+		{
+			mesh.setFlag(ChunkMesh::Flag::ShouldBeUploaded, false);
+
+			mesh.faceStorage.updateRenderFaceCount();
+
+			updateCanBeRenderedFlag();
+		}
+		else
+		{
+			mesh.setFlag(ChunkMesh::Flag::ShouldBeUploaded, true);
+
+			// Region flag
+			parentRegion->setFlag(ChunkRegion::Flag::HasMeshToUpload, true);
+			ChunkRegion::setGlobalFlag(ChunkRegion::Flag::HasMeshToUpload, true);
+		}
+	}
 }
 
-void Chunk::markMeshDirty()
+void Chunk::markAsShouldUpdateMesh()
 {
-	// Self flag
 	setFlag(Flag::ShouldUpdateMesh, true);
-
-	// Region flag
 	parentRegion->setFlag(ChunkRegion::Flag::HasMeshToUpdate, true);
 	ChunkRegion::setGlobalFlag(ChunkRegion::Flag::HasMeshToUpdate, true);
 }
@@ -1450,6 +1447,128 @@ void Chunk::askForMeshUpload()
 	{
 		mesh.pendingMeshUploads.push_back(this);
 	}
+}
+
+void Chunk::updateConnectivity()
+{
+	if (!chunkFlags.read(Flag::IsLoadedInWorld))
+	{
+		return;
+	}
+
+	PROFILE_SCOPE("Compute chunk connectivity", ProfileCategory::General);
+
+	sideConnectivity.reset();
+
+	std::array<bool, CHUNK_VOLUME> visited{};
+
+	// Stores flat block index to avoid calling getIndex() on every neighbor.
+	struct StackEntry
+	{
+		glm::ivec3 pos;
+		int idx;
+		const BlockData* blockData;
+	};
+	std::vector<StackEntry> stack;
+	stack.reserve(CHUNK_VOLUME);
+
+	FenceGuard fence(processingFence);
+
+	// Precompute flat-index deltas for the 6 directions once.
+	// Works for any linear getIndex because getIndex(p+d) = getIndex(p) + getIndex(d)
+	std::array<int, 6> dirIndexDelta;
+	for (int d = 0; d < 6; d++)
+		dirIndexDelta[d] = getIndex(DirectionsTable::directionsXYZ[d]);
+
+	// Iterate boundary blocks
+	glm::ivec3 startPos;
+	for (startPos.x = 0; startPos.x < CHUNK_SIZE; startPos.x++)
+	for (startPos.y = 0; startPos.y < CHUNK_SIZE; startPos.y++)
+	for (startPos.z = 0; startPos.z < CHUNK_SIZE; startPos.z++)
+	{
+		bool isStartOnBoundary = false;
+		isStartOnBoundary |= (startPos.x == 0);
+		isStartOnBoundary |= (startPos.x == CHUNK_SIZE - 1);
+		isStartOnBoundary |= (startPos.y == 0);
+		isStartOnBoundary |= (startPos.y == CHUNK_SIZE - 1);
+		isStartOnBoundary |= (startPos.z == 0);
+		isStartOnBoundary |= (startPos.z == CHUNK_SIZE - 1);
+		if (!isStartOnBoundary) continue;
+
+		const int startIdx = getIndex(startPos);
+		if (visited[startIdx]) continue;
+		visited[startIdx] = true;
+
+		// Solid / unknown blocks need no flood fill
+		const BlockData* startData = AssetRegistry::getBlockData(blocks[startIdx]);
+		if (!startData) continue;
+
+		// Early-out: if the matrix is already fully connected, there is
+		// nothing left to discover regardless of what this component touches.
+		if (sideConnectivity.all()) break;
+
+		std::array<bool, 6> touched{};
+		touched[0] |= (startPos.x == 0);
+		touched[1] |= (startPos.x == CHUNK_SIZE - 1);
+		touched[2] |= (startPos.y == 0);
+		touched[3] |= (startPos.y == CHUNK_SIZE - 1);
+		touched[4] |= (startPos.z == 0);
+		touched[5] |= (startPos.z == CHUNK_SIZE - 1);
+
+		stack.push_back({ startPos, startIdx, startData });
+
+		while (!stack.empty())
+		{
+			auto [pos, idx, curData] = stack.back();
+			stack.pop_back();
+
+			// Record which chunk faces this cell touches.
+			touched[0] |= (pos.x == 0);
+			touched[1] |= (pos.x == CHUNK_SIZE - 1);
+			touched[2] |= (pos.y == 0);
+			touched[3] |= (pos.y == CHUNK_SIZE - 1);
+			touched[4] |= (pos.z == 0);
+			touched[5] |= (pos.z == CHUNK_SIZE - 1);
+
+			for (int dir = 0; dir < 6; dir++)
+			{
+				if (curData->faceCulling[dir]) continue;
+
+				const glm::ivec3& offset = DirectionsTable::directionsXYZ[dir];
+				const glm::ivec3 neighborPos = pos + offset;
+
+				// Bounds check
+				if (((neighborPos.x | neighborPos.y | neighborPos.z) & CHUNK_UPPER_BITS_MASK) != 0)
+					continue;
+
+				const int neighborIdx = idx + dirIndexDelta[dir];
+				if (visited[neighborIdx]) continue;
+				visited[neighborIdx] = true; // Mark as visited
+
+				const BlockData* neighborData = AssetRegistry::getBlockData(blocks[neighborIdx]);
+				if (!neighborData) continue;
+
+				if (neighborData->faceCulling[dir ^ 1]) continue;
+
+				stack.push_back({ neighborPos, neighborIdx, neighborData });
+			}
+		}
+
+		// Connect every pair of chunk faces this component can reach.
+		for (int i = 0; i < 6; i++)
+		{
+			if (!touched[i]) continue;
+			for (int j = i; j < 6; j++)
+				if (touched[j]) sideConnectivity.set(i, j, true);
+		}
+	}
+}
+
+void Chunk::markAsShouldUpdateConnectivity() noexcept
+{
+	setFlag(Flag::ShouldUpdateConnectivity, true);
+	parentRegion->setFlag(ChunkRegion::Flag::HasConnectivityToUpdate, true);
+	ChunkRegion::setGlobalFlag(ChunkRegion::Flag::HasConnectivityToUpdate, true);
 }
 
 void Chunk::updateCanBeRenderedFlag() noexcept
@@ -1526,7 +1645,7 @@ void Chunk::applyNeighborDirtyMask(uint32_t mask)
 	while (mask)
 	{
 		int i = std::countr_zero(mask); // Get index of lowest set bit
-		if (neighbors[i]) neighbors[i]->markMeshDirty();
+		if (neighbors[i]) neighbors[i]->markAsShouldUpdateMesh();
 		mask &= mask - 1; // Clear lowest set bit
 	}
 }
@@ -1642,6 +1761,9 @@ void Chunk::setBlockAt(int x, int y, int z, BlockId block, bool saveBlockChanges
 
 	// Mark meshes as dirty
 	markMeshesDirtyAroundBlock(x, y, z);
+
+	// Mark connectivity as dirty
+	markAsShouldUpdateConnectivity();
 	
 	// Allow update light
 	if (lightPropagation.hasNodes())
@@ -1721,260 +1843,6 @@ void Chunk::markMeshesDirtyAroundBlock(int x, int y, int z)
 {
 	uint32_t dirtyMask = getNeighborDirtyMask(x, y, z);
 	applyNeighborDirtyMask(dirtyMask);
-}
-
-void Chunk::computeConnectivityOld()
-{
-	struct Cell
-	{
-		glm::ivec3 position;
-		int enteredFrom;
-	};
-
-	PROFILE_SCOPE("Compute chunk connectivity", ProfileCategory::ChunkMesh);
-
-	SymmetricBitMatrix<6> sideConnectivity; // 6x6 matrix
-	std::array<bool, CHUNK_VOLUME * 6> visited{};
-	std::queue<Cell> toVisit;
-
-	FenceGuard fence(processingFence);
-
-	glm::ivec3 startPosition;
-	for (startPosition.x = 0; startPosition.x < CHUNK_SIZE; startPosition.x++)
-		for (startPosition.y = 0; startPosition.y < CHUNK_SIZE; startPosition.y++)
-			for (startPosition.z = 0; startPosition.z < CHUNK_SIZE; startPosition.z++)
-			{
-				// Check if block is on boundary
-				const bool onBoundary =
-					startPosition.x == 0 || startPosition.x == CHUNK_SIZE - 1 ||
-					startPosition.y == 0 || startPosition.y == CHUNK_SIZE - 1 ||
-					startPosition.z == 0 || startPosition.z == CHUNK_SIZE - 1;
-
-				if (!onBoundary) continue;
-
-				// Get block and its data
-				const auto startIndex = getIndex(startPosition.x, startPosition.y, startPosition.z);
-				const BlockId startBlock = blocks[startIndex];
-
-				const BlockData* startBlockData = AssetRegistry::getBlockData(startBlock);
-				if (!startBlockData)
-				{
-					for (int i = 0; i < 6; i++)
-					{
-						visited[startIndex * 6 + i] = true;
-					}
-					continue;
-				}
-
-				for (int startDirection = 0; startDirection < 6; startDirection++)
-				{
-					// Check if can pass
-					if (startBlockData->faceCulling[startDirection]) continue;
-
-					// Check if was visited
-					const auto visitedIndex = startIndex * 6 + startDirection;
-					if (visited[visitedIndex]) continue;
-
-					// Mark as visited
-					visited[visitedIndex] = true;
-
-					//
-					std::array<bool, 6> touched{};
-					toVisit.push({ startPosition, startDirection });
-
-					// Flood fill
-					while (!toVisit.empty())
-					{
-						// Get front cell
-						Cell currentCell = toVisit.front();
-						toVisit.pop();
-
-						//
-						touched[0] |= currentCell.position.x == 0;
-						touched[1] |= currentCell.position.x == CHUNK_SIZE - 1;
-						touched[2] |= currentCell.position.y == 0;
-						touched[3] |= currentCell.position.y == CHUNK_SIZE - 1;
-						touched[4] |= currentCell.position.z == 0;
-						touched[5] |= currentCell.position.z == CHUNK_SIZE - 1;
-
-						// Get current block
-						const auto currentIndex = getIndex(currentCell.position);
-						BlockId currentBlock = blocks[currentIndex];
-						const BlockData* currentBlockData = AssetRegistry::getBlockData(currentBlock); // Not nullptr
-
-						// Spread
-						for (int direction = 0; direction < 6; direction++)
-						{
-							// Check if can spread
-							if (currentBlockData->faceCulling[direction]) continue;
-
-							// Don't let spread backwards
-							if (direction == currentCell.enteredFrom) continue;
-
-							// Get neighbor position
-							const glm::ivec3 offset = DirectionsTable::directionsXYZ[direction];
-							const glm::ivec3 neighborPosition = currentCell.position + offset;
-							const auto neighborIndex = getIndex(neighborPosition);
-
-							// Check if neighbor in boundaries
-							const bool isInBounds = ((neighborPosition.x | neighborPosition.y | neighborPosition.z) & CHUNK_UPPER_BITS_MASK) == 0;
-							if (!isInBounds) continue;
-
-							// Check if was visited
-							const int oppositeDirection = direction ^ 1;
-							const auto neighborVisitedIndex = neighborIndex * 6 + oppositeDirection;
-							if (visited[neighborVisitedIndex]) continue;
-
-							// Check if can pass
-							const BlockId neighborBlock = blocks[neighborIndex];
-							const BlockData* neighborBlockData = AssetRegistry::getBlockData(neighborBlock);
-							if (!neighborBlockData) continue;
-
-							if (neighborBlockData->faceCulling[oppositeDirection]) continue;
-
-							// Mark as visited
-							visited[neighborVisitedIndex] = true;
-
-							// Push next cell to queue
-							toVisit.push({ neighborPosition, oppositeDirection });
-						}
-					}
-
-					// Connect touched
-					for (int i = 0; i < 6; i++)
-					{
-						if (!touched[i]) continue;
-						for (int j = 0; j < 6; j++)
-						{
-							if (touched[j]) sideConnectivity.set(i, j, true);
-						}
-					}
-				}
-			}
-
-	// Save result (no saving for now, just display)
-	//{
-	//	static std::mutex mtx;
-	//	std::lock_guard<std::mutex> lock(mtx);
-	//
-	//	std::cout << "Conectivity:\n";
-	//	for (int i = 0; i < 6; i++)
-	//	{
-	//		for (int j = 0; j <= i; j++)
-	//		{
-	//			std::cout << (sideConnectivity.read(i, j) ? "1 " : "0 ");
-	//		}
-	//		std::cout << "\n";
-	//	}
-	//}
-}
-
-void Chunk::computeConnectivity()
-{
-	PROFILE_SCOPE("Compute chunk connectivity", ProfileCategory::ChunkMesh);
-
-	sideConnectivity.reset();
-
-	// One visited flag per block — not per (block × direction).
-	// The directional version was only needed because enteredFrom
-	// prevented a single pass from covering the full component.
-	std::array<bool, CHUNK_VOLUME> visited{};
-
-	// DFS stack pre-reserved to avoid repeated reallocation.
-	// Stores flat block index to avoid calling getIndex() on every neighbor.
-	struct StackEntry
-	{
-		glm::ivec3 pos;
-		int idx;
-		const BlockData* blockData;
-	};
-	std::vector<StackEntry> stack;
-	stack.reserve(CHUNK_VOLUME);
-
-	FenceGuard fence(processingFence);
-
-	// Precompute flat-index deltas for the 6 directions once.
-	// Works for any linear getIndex because getIndex(p+d) = getIndex(p) + getIndex(d)
-	// when getIndex(0,0,0) == 0 (true for any row/column-major layout).
-	std::array<int, 6> dirIndexDelta;
-	for (int d = 0; d < 6; d++)
-		dirIndexDelta[d] = getIndex(DirectionsTable::directionsXYZ[d]);
-
-	// Iterate boundary blocks
-	glm::ivec3 startPos;
-	for (startPos.x = 0; startPos.x < CHUNK_SIZE; startPos.x++)
-	for (startPos.y = 0; startPos.y < CHUNK_SIZE; startPos.y++)
-	for (startPos.z = 0; startPos.z < CHUNK_SIZE; startPos.z++)
-	{
-		bool isStartOnBoundary = false;
-		isStartOnBoundary |= (startPos.x == 0);
-		isStartOnBoundary |= (startPos.x == CHUNK_SIZE - 1);
-		isStartOnBoundary |= (startPos.y == 0);
-		isStartOnBoundary |= (startPos.y == CHUNK_SIZE - 1);
-		isStartOnBoundary |= (startPos.z == 0);
-		isStartOnBoundary |= (startPos.z == CHUNK_SIZE - 1);
-		if (!isStartOnBoundary) continue;
-
-		const int startIdx = getIndex(startPos);
-		if (visited[startIdx]) continue;
-		visited[startIdx] = true;
-
-		// Solid / unknown blocks need no flood fill
-		const BlockData* startData = AssetRegistry::getBlockData(blocks[startIdx]);
-		if (!startData) continue;
-
-		// Early-out: if the matrix is already fully connected, there is
-		// nothing left to discover regardless of what this component touches.
-		if (sideConnectivity.all()) break;
-
-		std::array<bool, 6> touched{};
-		stack.push_back({ startPos, startIdx, startData });
-
-		while (!stack.empty())
-		{
-			auto [pos, idx, curData] = stack.back();
-			stack.pop_back();
-
-			// Record which chunk faces this cell touches.
-			touched[0] |= (pos.x == 0);
-			touched[1] |= (pos.x == CHUNK_SIZE - 1);
-			touched[2] |= (pos.y == 0);
-			touched[3] |= (pos.y == CHUNK_SIZE - 1);
-			touched[4] |= (pos.z == 0);
-			touched[5] |= (pos.z == CHUNK_SIZE - 1);
-
-			for (int dir = 0; dir < 6; dir++)
-			{
-				if (curData->faceCulling[dir]) continue;
-
-				const glm::ivec3& offset = DirectionsTable::directionsXYZ[dir];
-				const glm::ivec3 neighborPos = pos + offset;
-
-				// Bounds check
-				if (((neighborPos.x | neighborPos.y | neighborPos.z) & CHUNK_UPPER_BITS_MASK) != 0)
-					continue;
-
-				const int neighborIdx = idx + dirIndexDelta[dir];
-				if (visited[neighborIdx]) continue;
-				visited[neighborIdx] = true; // Mark as visited
-
-				const BlockData* neighborData = AssetRegistry::getBlockData(blocks[neighborIdx]);
-				if (!neighborData) continue;
-
-				if (neighborData->faceCulling[dir ^ 1]) continue;
-
-				stack.push_back({ neighborPos, neighborIdx, neighborData });
-			}
-		}
-
-		// Connect every pair of chunk faces this component can reach.
-		for (int i = 0; i < 6; i++)
-		{
-			if (!touched[i]) continue;
-			for (int j = i; j < 6; j++)
-				if (touched[j]) sideConnectivity.set(i, j, true);
-		}
-	}
 }
 
 constexpr unsigned int getMagicNumberForDivision(unsigned int divisor, unsigned int precision)

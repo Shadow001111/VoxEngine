@@ -137,7 +137,8 @@ public:
 		IsLoadedChunkColumnData,
 		ShouldUpdateMesh,
 		//ShouldUpdateLight,
-		CanBeRendered
+		CanBeRendered,
+		ShouldUpdateConnectivity
 	};
 	
 	// Static helpers
@@ -252,8 +253,13 @@ public:
 	// Mesh
 	void updateMesh();
 	bool shouldUpdateMesh() noexcept { return isLightBuilt() && chunkFlags.readAndSet(Flag::ShouldUpdateMesh, false); };
-	void markMeshDirty();
+	void markAsShouldUpdateMesh();
 	void askForMeshUpload();
+
+	// Connectivity
+	void updateConnectivity();
+	bool shouldUpdateConnectivity() noexcept { return chunkFlags.readAndSet(Flag::ShouldUpdateConnectivity, false); };
+	void markAsShouldUpdateConnectivity() noexcept;
 
 	// Render
 	void updateCanBeRenderedFlag() noexcept;
@@ -354,8 +360,6 @@ private:
 
 	// Mesh
 	void markMeshesDirtyAroundBlock(int x, int y, int z);
-	void computeConnectivityOld();
-	void computeConnectivity();
 
 	struct ContextFaceAOAL
 	{

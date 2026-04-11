@@ -145,6 +145,9 @@ void WorldChunkManager::update()
 
 	// Update chunks meshes
 	updateChunkMeshes();
+
+	// Update chunks connectivity
+	updateChunkConnectivity();
 }
 
 void WorldChunkManager::sendChunkMeshesToGPU()
@@ -453,6 +456,64 @@ void WorldChunkManager::updateChunkMeshes()
 	chunksToProcess.clear();
 }
 
+void WorldChunkManager::updateChunkConnectivity()
+{
+	// Check global flag
+	if (!ChunkRegion::readAndSetGlobalFlag(ChunkRegion::Flag::HasConnectivityToUpdate, false))
+	{
+		return;
+	}
+
+	//
+	chunksToProcess.clear();
+
+	// Collect chunks
+	{
+		PROFILE_SCOPE("Collect chunks for connectivity updating", ProfileCategory::General);
+
+		for (const auto& [_, chunkRegion] : Chunk::chunkRegionManagerInstance->getRegionMap())
+		{
+			if (!chunkRegion->readAndSetFlag(ChunkRegion::Flag::HasConnectivityToUpdate, false))
+			{
+				continue;
+			}
+
+			for (Chunk* chunk : chunkRegion->chunks)
+			{
+				if (chunk && chunk->shouldUpdateConnectivity())
+				{
+					chunksToProcess.push_back(chunk);
+				}
+			}
+		}
+	}
+
+	// Send to thread
+	if (chunksToProcess.empty())
+	{
+		return;
+	}
+
+	ThreadPool& pool = ParallelUtils::getGlobalThreadPool();
+
+	const size_t chunkCount = chunksToProcess.size();
+	for (size_t i = 0; i < chunkCount; i += CHUNKS_PER_BATCH)
+	{
+		size_t batchEnd = std::min(i + CHUNKS_PER_BATCH, chunkCount);
+		std::vector<Chunk*> batch(chunksToProcess.begin() + i, chunksToProcess.begin() + batchEnd);
+
+		pool.enqueue([batch_ = std::move(batch)]()
+			{
+				for (Chunk* chunk : batch_)
+				{
+					chunk->updateConnectivity();
+				}
+			});
+	}
+
+	chunksToProcess.clear();
+}
+
 void WorldChunkManager::rebuildAllChunkMeshes()
 {
 	for (const auto& [_, chunkRegion] : Chunk::chunkRegionManagerInstance->getRegionMap())
@@ -461,7 +522,7 @@ void WorldChunkManager::rebuildAllChunkMeshes()
 		{
 			if (!chunk) continue;
 
-			chunk->markMeshDirty();
+			chunk->markAsShouldUpdateMesh();
 		}
 	}
 }

@@ -30,7 +30,8 @@ public:
 	{
 		HasMeshToUpload = 0,
 		HasMeshToUpdate,
-		HasLightToUpdate
+		HasLightToUpdate,
+		HasConnectivityToUpdate
 	};
 
 	ChunkRegion() = default;

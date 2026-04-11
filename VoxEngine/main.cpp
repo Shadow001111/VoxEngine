@@ -672,9 +672,10 @@ static int gameFunc()
             glm::dvec3 playerPos = player.getPosition();
             world.loadChunks(playerPos);
 
+            const float updateInterval = worldUpdateTimer.getUpdateInterval();
             while (worldUpdateTimer.shouldUpdate())
             {
-                world.update((float)worldUpdateTimer.getUpdateInterval());
+                world.update(updateInterval);
             }
         }
         world.sendChunkMeshesToGPU();

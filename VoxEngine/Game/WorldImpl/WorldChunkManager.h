@@ -56,6 +56,7 @@ public:
     void collectChunksForLightUpdate();
     void updateChunkLights();
     void updateChunkMeshes();
+    void updateChunkConnectivity();
 
     void rebuildAllChunkMeshes();
 private:
