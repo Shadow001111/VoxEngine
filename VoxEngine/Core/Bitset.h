@@ -122,7 +122,7 @@ public:
         return !any();
     }
 
-    [[nodiscard]] bool allSet() const noexcept
+    [[nodiscard]] bool all() const noexcept
     {
         // Check all full words first
         for (size_t i = 0; i < Bits / BitsPerWord; i++)

@@ -14,7 +14,31 @@ class SymmetricBitMatrix
     }
 
 public:
+    SymmetricBitMatrix() noexcept
+    {
+        reset();
+    }
+
+    SymmetricBitMatrix(const SymmetricBitMatrix& other)
+    {
+        data = other.data;
+    }
+
+    SymmetricBitMatrix& operator=(const SymmetricBitMatrix& other)
+    {
+        if (this != &other)
+        {
+            data = other.data;
+        }
+        return *this;
+    }
+
+    void reset() noexcept
+    {
+        data.reset();
+    }
+
     bool read(size_t i, size_t j) const noexcept { return data.read(index(i, j)); }
     void set(size_t i, size_t j, bool val) noexcept { data.set(index(i, j), val); }
-    bool allSet() const noexcept { return data.allSet(); }
+    bool all() const noexcept { return data.all(); }
 };

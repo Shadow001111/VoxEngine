@@ -10,7 +10,7 @@
 
 #include "Core/Multithreading/ProcessingFence.h"
 #include "Core/AtomicFlags.h"
-#include "Core/Bitset.h"
+#include "Core/SymmetricBitMatrix.h"
 
 #include "Graphics/DrawCommands.h"
 
@@ -217,6 +217,8 @@ private:
 	ChunkRegion* parentRegion = nullptr;
 
 	ChunkIO::BlockChanges blockChanges;
+
+	SymmetricBitMatrix<6> sideConnectivity;
 
 	// Data
 public:

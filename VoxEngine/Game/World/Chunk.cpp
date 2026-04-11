@@ -9,7 +9,6 @@
 #include "Core/Profiler.h"
 #include "Core/Assert.h"
 #include "Core/Hashes/ivec2Hasher.h"
-#include "Core/SymmetricBitMatrix.h"
 
 #include <queue>
 
@@ -1874,7 +1873,7 @@ void Chunk::computeConnectivity()
 {
 	PROFILE_SCOPE("Compute chunk connectivity", ProfileCategory::ChunkMesh);
 
-	SymmetricBitMatrix<6> sideConnectivity;
+	sideConnectivity.reset();
 
 	// One visited flag per block — not per (block × direction).
 	// The directional version was only needed because enteredFrom
@@ -1884,7 +1883,12 @@ void Chunk::computeConnectivity()
 	// DFS stack pre-reserved to avoid repeated reallocation.
 	// Stores flat block index + unpacked 3D position to avoid
 	// calling getIndex() on every neighbor.
-	struct StackEntry { glm::ivec3 pos; int idx; };
+	struct StackEntry
+	{
+		glm::ivec3 pos;
+		int idx;
+		const BlockData* blockData;
+	};
 	std::vector<StackEntry> stack;
 	stack.reserve(CHUNK_VOLUME);
 
@@ -1897,33 +1901,39 @@ void Chunk::computeConnectivity()
 	for (int d = 0; d < 6; d++)
 		dirIndexDelta[d] = getIndex(DirectionsTable::directionsXYZ[d]);
 
-	// Iterate EVERY block (not just boundary).  Interior passable blocks that are
-	// not reachable from any face don't contribute to connectivity, but we still
-	// have to mark them visited so the outer loop skips them in O(1).
+	// Iterate boundary blocks
 	glm::ivec3 startPos;
 	for (startPos.x = 0; startPos.x < CHUNK_SIZE; startPos.x++)
 	for (startPos.y = 0; startPos.y < CHUNK_SIZE; startPos.y++)
 	for (startPos.z = 0; startPos.z < CHUNK_SIZE; startPos.z++)
 	{
+		bool isStartOnBoundary = false;
+		isStartOnBoundary |= (startPos.x == 0);
+		isStartOnBoundary |= (startPos.x == CHUNK_SIZE - 1);
+		isStartOnBoundary |= (startPos.y == 0);
+		isStartOnBoundary |= (startPos.y == CHUNK_SIZE - 1);
+		isStartOnBoundary |= (startPos.z == 0);
+		isStartOnBoundary |= (startPos.z == CHUNK_SIZE - 1);
+		if (!isStartOnBoundary) continue;
+
 		const int startIdx = getIndex(startPos);
 		if (visited[startIdx]) continue;
 		visited[startIdx] = true;
 
-		// Solid / unknown blocks need no flood fill.
+		// Solid / unknown blocks need no flood fill
 		const BlockData* startData = AssetRegistry::getBlockData(blocks[startIdx]);
 		if (!startData) continue;
 
 		// Early-out: if the matrix is already fully connected, there is
 		// nothing left to discover regardless of what this component touches.
-		// Note: Extends execution time
-		//if (sideConnectivity.allSet()) break;
+		if (sideConnectivity.all()) break;
 
 		std::array<bool, 6> touched{};
-		stack.push_back({ startPos, startIdx });
+		stack.push_back({ startPos, startIdx, startData });
 
 		while (!stack.empty())
 		{
-			auto [pos, idx] = stack.back();
+			auto [pos, idx, curData] = stack.back();
 			stack.pop_back();
 
 			// Record which chunk faces this cell touches.
@@ -1934,29 +1944,27 @@ void Chunk::computeConnectivity()
 			touched[4] |= (pos.z == 0);
 			touched[5] |= (pos.z == CHUNK_SIZE - 1);
 
-			const BlockData* curData = AssetRegistry::getBlockData(blocks[idx]);
-
 			for (int dir = 0; dir < 6; dir++)
 			{
 				if (curData->faceCulling[dir]) continue;
 
 				const glm::ivec3& offset = DirectionsTable::directionsXYZ[dir];
-				const glm::ivec3  neighborPos = pos + offset;
+				const glm::ivec3 neighborPos = pos + offset;
 
-				// Bounds check (works for power-of-2 CHUNK_SIZE).
+				// Bounds check
 				if (((neighborPos.x | neighborPos.y | neighborPos.z) & CHUNK_UPPER_BITS_MASK) != 0)
 					continue;
 
 				const int neighborIdx = idx + dirIndexDelta[dir];
 				if (visited[neighborIdx]) continue;
-				visited[neighborIdx] = true;   // mark before pushing — prevents duplicates in stack
+				visited[neighborIdx] = true; // Mark as visited
 
 				const BlockData* neighborData = AssetRegistry::getBlockData(blocks[neighborIdx]);
-				if (!neighborData) continue;   // solid neighbor — marked visited, not pushed
+				if (!neighborData) continue;
 
 				if (neighborData->faceCulling[dir ^ 1]) continue;
 
-				stack.push_back({ neighborPos, neighborIdx });
+				stack.push_back({ neighborPos, neighborIdx, neighborData });
 			}
 		}
 
@@ -1968,22 +1976,6 @@ void Chunk::computeConnectivity()
 				if (touched[j]) sideConnectivity.set(i, j, true);
 		}
 	}
-
-	// Save result (no saving for now, just display)
-	//{
-	//	static std::mutex mtx;
-	//	std::lock_guard<std::mutex> lock(mtx);
-	//
-	//	std::cout << "Conectivity:\n";
-	//	for (int i = 0; i < 6; i++)
-	//	{
-	//		for (int j = 0; j <= i; j++)
-	//		{
-	//			std::cout << (sideConnectivity.read(i, j) ? "1 " : "0 ");
-	//		}
-	//		std::cout << "\n";
-	//	}
-	//}
 }
 
 constexpr unsigned int getMagicNumberForDivision(unsigned int divisor, unsigned int precision)
