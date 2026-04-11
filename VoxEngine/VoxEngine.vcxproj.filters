@@ -455,5 +455,8 @@
     <ClInclude Include="Game\ProfileCategories.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
+    <ClInclude Include="Core\Bitset.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

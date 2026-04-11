@@ -1,12 +1,11 @@
 #pragma once
-#include <bitset>
-#include <iostream>
+#include "Bitset.h"
 
 template <size_t N>
 class SymmetricBitMatrix
 {
     static constexpr size_t SIZE = (N * (N + 1)) >> 1;
-    std::bitset<SIZE> data;
+    Bitset<SIZE> data;
 
     constexpr size_t index(size_t i, size_t j) const
     {
@@ -15,21 +14,7 @@ class SymmetricBitMatrix
     }
 
 public:
-    bool get(size_t i, size_t j) const { return data.test(index(i, j)); }
-    void set(size_t i, size_t j, bool val) { data.set(index(i, j), val); }
-
-    void fill(bool value)
-    {
-        data.set();
-        if (!value) data.reset();
-    }
-
-    void print(std::ostream& os = std::cout) const
-    {
-        for (size_t i = 0; i < N; ++i) {
-            for (size_t j = 0; j < N; ++j)
-                os << get(i, j) << ' ';
-            os << '\n';
-        }
-    }
+    bool read(size_t i, size_t j) const noexcept { return data.read(index(i, j)); }
+    void set(size_t i, size_t j, bool val) noexcept { data.set(index(i, j), val); }
+    bool allSet() const noexcept { return data.allSet(); }
 };

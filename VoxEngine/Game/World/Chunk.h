@@ -10,6 +10,7 @@
 
 #include "Core/Multithreading/ProcessingFence.h"
 #include "Core/AtomicFlags.h"
+#include "Core/Bitset.h"
 
 #include "Graphics/DrawCommands.h"
 
@@ -142,7 +143,11 @@ public:
 	// Static helpers
 	static size_t getIndex(int x, int y, int z) noexcept { return (x << (CHUNK_SIZE_LOG2 << 1)) | (y << CHUNK_SIZE_LOG2) | z; };
 
-	static size_t getIndex(int x, int z) noexcept { return (x << CHUNK_SIZE_LOG2) | z; };
+	static size_t getIndex(const glm::ivec3& pos) noexcept { return (pos.x << (CHUNK_SIZE_LOG2 << 1)) | (pos.y << CHUNK_SIZE_LOG2) | pos.z; };
+
+	static size_t getIndex(int x, int y) noexcept { return (x << CHUNK_SIZE_LOG2) | y; };
+
+	static size_t getIndex(const glm::ivec2& pos) noexcept { return (pos.x << CHUNK_SIZE_LOG2) | pos.y; };
 
 	static constexpr inline int getNeighborIndex(int dx, int dy, int dz) noexcept
 	{
@@ -347,6 +352,8 @@ private:
 
 	// Mesh
 	void markMeshesDirtyAroundBlock(int x, int y, int z);
+	void computeConnectivityOld();
+	void computeConnectivity();
 
 	struct ContextFaceAOAL
 	{
