@@ -201,7 +201,7 @@ namespace ProfilerReport
     constexpr int COL_MAX = 11;
     constexpr int COL_TOTAL = 11;
     constexpr int COL_CALLS = 8;
-    constexpr int COL_PERCENT = 7;
+    constexpr int COL_PERCENT = 8;
 
     constexpr int TOTAL_WIDTH = COL_NAME + COL_AVG + COL_MIN + COL_MAX + COL_TOTAL + COL_CALLS + COL_PERCENT;
 }
@@ -228,9 +228,9 @@ void Profiler::printProfileEntry(std::ostringstream& ss, const char* name, const
     const char* color = getCategoryStyle(data.category);
 
     // Truncate name to fit column without allocating a std::string
-    char truncated[ProfilerReport::COL_NAME];
-    std::strncpy(truncated, name, ProfilerReport::COL_NAME - 1);
-    truncated[ProfilerReport::COL_NAME - 1] = '\0';
+    char truncated[ProfilerReport::COL_NAME + 1];
+    std::strncpy(truncated, name, ProfilerReport::COL_NAME);
+    truncated[ProfilerReport::COL_NAME] = '\0';
 
     ss << color
         << std::setw(ProfilerReport::COL_NAME) << std::left << truncated
@@ -241,7 +241,12 @@ void Profiler::printProfileEntry(std::ostringstream& ss, const char* name, const
         << std::setw(ProfilerReport::COL_CALLS) << data.callCount;
 
     double percentage = (data.totalTime / frameTotalTime) * 100.0;
-    ss << std::setw(ProfilerReport::COL_PERCENT) << percentage << "%";
+    std::string pctStr = [&] {
+        std::ostringstream tmp;
+        tmp << std::fixed << std::setprecision(1) << percentage << "%";
+        return tmp.str();
+        }();
+    ss << std::setw(ProfilerReport::COL_PERCENT) << pctStr;
 
     ss << RESET << "\n";
 }
@@ -285,7 +290,7 @@ void Profiler::printProfileReport()
 {
     std::ostringstream ss;
 
-    ss << "\n===[PERFORMANCE PROFILE REPORT]" << std::string(ProfilerReport::TOTAL_WIDTH - 32, '=') << "\n";
+    ss << "\n===[PERFORMANCE PROFILE REPORT]" << std::string(ProfilerReport::TOTAL_WIDTH - 31, '=') << "\n";
     ss << std::fixed << std::setprecision(4);
 
     printTableHeader(ss);
