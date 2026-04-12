@@ -101,7 +101,7 @@ private:
 	void initShaders();
 
 	void collectChunksForRendering(const Camera& camera) const;
-	void collectChunksWithFloodFill(const Camera& camera) const;
+	void collectChunksForRenderingWithConnectivity(const Camera& camera) const;
 
 	void sortChunksForRendering() const;
 

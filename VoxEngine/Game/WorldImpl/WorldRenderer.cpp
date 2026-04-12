@@ -332,129 +332,150 @@ void WorldRenderer::collectChunksForRendering(const Camera& camera) const
 	}
 }
 
-void WorldRenderer::collectChunksWithFloodFill(const Camera& camera) const
+void WorldRenderer::collectChunksForRenderingWithConnectivity(const Camera& camera) const
 {
 	PROFILE_SCOPE("Collect chunks for render (flood fill)", ProfileCategory::Render);
 
-	// Setup
 	chunksToRender.clear();
 
 	const glm::dvec3 cameraPosition = camera.getPosition();
-	const glm::ivec3 cameraChunkPosition = glm::ivec3(glm::floor(cameraPosition / (double)CHUNK_SIZE));
+	const glm::ivec3 cameraChunkPos = glm::ivec3(glm::floor(cameraPosition / (double)CHUNK_SIZE));
 	const auto& frustum = camera.getFrustum();
 
 	Box chunkShape(glm::dvec3(0.0), glm::dvec3(CHUNK_SIZE >> 1));
 
-	// Find the camera's starting chunk via ChunkRegion lookup
+	// Find start chunk
 	const Chunk* startChunk = nullptr;
 	{
-		const glm::ivec3 regionPos = ChunkRegion::getRegionPosition(cameraChunkPosition);
+		const glm::ivec3 regionPos = ChunkRegion::getRegionPosition(cameraChunkPos);
 		const auto& regionMap = Chunk::chunkRegionManagerInstance->getRegionMap();
-		const auto regionIt = regionMap.find(regionPos);
-
+		const auto  regionIt = regionMap.find(regionPos);
 		if (regionIt != regionMap.end())
 		{
-			const size_t chunkIndex = ChunkRegion::getChunkIndexInRegion(cameraChunkPosition);
-			startChunk = regionIt->second->getChunks()[chunkIndex];
+			const size_t idx = ChunkRegion::getChunkIndexInRegion(cameraChunkPos);
+			startChunk = regionIt->second->getChunks()[idx];
 		}
 	}
 
-	// If the camera is outside all loaded chunks, fall back to the brute-force collector.
 	if (startChunk == nullptr)
 	{
 		collectChunksForRendering(camera);
 		return;
 	}
 
-	// BFS flood-fill
+	// Region frustum culling
+	{
+		constexpr int CHUNK_REGION_SIZE_IN_BLOCKS = CHUNK_REGION_SIZE * CHUNK_SIZE;
+		Box regionShape(glm::dvec3(0.0), glm::dvec3(CHUNK_REGION_SIZE_IN_BLOCKS >> 1));
+		for (const auto& [position, region] : Chunk::chunkRegionManagerInstance->getRegionMap())
+		{
+			regionShape.center = glm::dvec3(position * CHUNK_REGION_SIZE_IN_BLOCKS) + regionShape.halfExtents;
+			region->isFrustumCulled = !frustum.checkBox(regionShape);
+		}
+	}
+
+	// --- BFS ---
+
+	// CHANGE: Queue node stores a raw pointer into the visited map's value byte.
+	//         Entry bits accumulate there live, so any direction arriving before
+	//         this node is popped is automatically folded in at pop time.
+	//         This means each chunk is enqueued exactly ONCE regardless of how
+	//         many faces it is entered from.
 	struct QueueNode
 	{
 		const Chunk* chunk;
-		int fromDir; // -1 = camera-origin, 0-5 = entry face index
+		uint8_t* visitedPtr; // live; accumulates entry-direction bits
 	};
 
-	// Reuse allocation from the previous frame.
 	floodFillVisited.clear();
 
-	// Vector used as a FIFO queue: head index advances, no element is ever
-	// removed, so no shifts occur. The allocation is also reused across frames.
 	static thread_local std::vector<QueueNode> bfsQueue;
 	bfsQueue.clear();
 
-	// Seed the BFS with the camera chunk (no entry direction).
-	// The camera chunk is always added to the render list unconditionally —
-	// the camera is inside it, so it is always "visible".
-	floodFillVisited.try_emplace(startChunk, uint8_t(0xFF)); // all bits set: treated as visited from every direction
-	bfsQueue.push_back({ startChunk, -1 });
+	// Start chunk: 0xFF = reachable from every direction
+	auto& startVisited = floodFillVisited.emplace(startChunk, uint8_t(0xFF)).first->second;
+	bfsQueue.push_back({ startChunk, &startVisited });
 
 	if (startChunk->canBeRendered())
 	{
-		const glm::ivec3 delta = glm::abs(startChunk->getPosition() - cameraChunkPosition);
-		chunksToRender.emplace_back(startChunk, (unsigned int)(delta.x + delta.y + delta.z));
+		const glm::ivec3 d = glm::abs(startChunk->getPosition() - cameraChunkPos);
+		chunksToRender.emplace_back(startChunk, (unsigned)(d.x + d.y + d.z));
 	}
 
 	std::array<int, 6> chunkNeighborIndices;
 	for (int i = 0; i < 6; i++)
-	{
 		chunkNeighborIndices[i] = Chunk::getSideNeighborIndex(i);
-	}
 
 	for (size_t head = 0; head < bfsQueue.size(); head++)
 	{
-		const auto node = bfsQueue[head];
+		const QueueNode node = bfsQueue[head];
 		const Chunk* chunk = node.chunk;
-		const int fromDir = node.fromDir;
 
-		// Propagate to the 6 face-neighbors
-		auto connectivityMatrix = chunk->getConnectivityMatrix();
+		// Read all entry directions accumulated so far (not just the one
+		//         we were pushed with). Other neighbours may have added bits
+		//         between when this node was enqueued and now.
+		const uint8_t fromDirsMask = *node.visitedPtr;
+
+		// Pre-compute the union of reachable exit faces across ALL entry
+		//         directions in one pass, outside the neighbor loop.
+		//         Old: connectivity tested once per (entry, exit) inside the loop.
+		//         New: one O(36) precompute, then the inner check is a single bit test.
+		uint8_t reachableExits;
+		if (fromDirsMask == 0xFF)
+		{
+			reachableExits = 0x3F; // all 6 exits
+		}
+		else
+		{
+			reachableExits = 0;
+			const auto connectivityMatrix = chunk->getConnectivityMatrix();
+			for (int fd = 0; fd < 6; fd++)
+			{
+				if (!(fromDirsMask & (1u << fd))) continue;
+				for (int td = 0; td < 6; td++)
+					if (connectivityMatrix.read(fd, td))
+						reachableExits |= static_cast<uint8_t>(1u << td);
+			}
+		}
+
 		const auto& neighborChunks = chunk->getNeighbors();
+
 		for (int toDir = 0; toDir < 6; toDir++)
 		{
-			// Connectivity gate: when we have a valid entry face, only propagate
-			// to exit faces reachable from it in this chunk's connectivity table.
-			if (fromDir >= 0 && !connectivityMatrix.read(fromDir, toDir))
-			{
+			if (!(reachableExits & (1u << toDir)))
 				continue;
-			}
 
-			// Neighbor existence check.
 			const Chunk* neighbor = neighborChunks[chunkNeighborIndices[toDir]];
 			if (neighbor == nullptr)
-			{
 				continue;
-			}
 
-			// Frustum check
+			if (neighbor->getParentRegion()->isFrustumCulled)
+				continue;
+
 			const glm::ivec3 chunkPos = neighbor->getPosition();
 			const glm::dvec3 chunkWorldPos = glm::dvec3(chunkPos << CHUNK_SIZE_LOG2);
 			chunkShape.center = chunkWorldPos + chunkShape.halfExtents;
-
 			if (!frustum.checkBox(chunkShape))
-			{
 				continue;
-			}
 
-			// Visited check: the neighbor is entered through the face opposite
-			// to toDir. XOR 1 flips the lowest bit, turning any direction index
-			// into its opposite (0<->1, 2<->3, 4<->5).
-			const int neighborFromDir = toDir ^ 1;
+			const int     neighborFromDir = toDir ^ 1;
 			const uint8_t entryBit = static_cast<uint8_t>(1u << neighborFromDir);
 
 			auto [visIt, inserted] = floodFillVisited.emplace(neighbor, uint8_t(0));
 			if (visIt->second & entryBit)
-			{
-				continue; // (neighbor, neighborFromDir) pair already enqueued
-			}
+				continue; // this (chunk, direction) pair is already accounted for
+
 			visIt->second |= entryBit;
 
-			// First time this chunk is encountered
-			if (inserted && neighbor->canBeRendered())
+			if (inserted)
 			{
-				const glm::ivec3 delta = glm::abs(chunkPos - cameraChunkPosition);
-				chunksToRender.emplace_back(neighbor, (unsigned int)(delta.x + delta.y + delta.z));
+				if (neighbor->canBeRendered())
+				{
+					const glm::ivec3 d = glm::abs(chunkPos - cameraChunkPos);
+					chunksToRender.emplace_back(neighbor, (unsigned)(d.x + d.y + d.z));
+				}
+				bfsQueue.push_back({ neighbor, &visIt->second });
 			}
-
-			bfsQueue.push_back({ neighbor, neighborFromDir });
 		}
 	}
 }
@@ -593,8 +614,14 @@ void WorldRenderer::renderChunks(const Camera& camera, const FrameBuffer& FBO)
 	}
 
 	// Collect chunks to render and sort them
-	//collectChunksForRendering(camera);
-	collectChunksWithFloodFill(camera);
+	if constexpr (Chunk::USE_CONNECTIVITY_TESTING)
+	{
+		collectChunksForRenderingWithConnectivity(camera);
+	}
+	else
+	{
+		collectChunksForRendering(camera);
+	}
 	sortChunksForRendering();
 
 	renderStats.renderedChunkCount = chunksToRender.size();

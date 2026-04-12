@@ -267,7 +267,6 @@ void Chunk::buildBlocks()
 
 	// Trees
 	// TODO: Fix, trees spawning in air
-	if (false)
 	{
 		PROFILE_SCOPE("Generate trees", ProfileCategory::ChunkBlocks);
 	
@@ -334,7 +333,10 @@ void Chunk::buildBlocks()
 
 	//
 	setState(Chunk::State::BlocksBuit_NeedsLight);
-	markAsShouldUpdateConnectivity();
+	if constexpr (USE_CONNECTIVITY_TESTING)
+	{
+		markAsShouldUpdateConnectivity();
+	}
 }
 
 void Chunk::updateStructureBlocks()
@@ -1467,7 +1469,6 @@ void Chunk::updateConnectivity()
 		struct StackEntry
 		{
 			glm::ivec3 pos;
-			int idx;
 			const BlockData* blockData;
 		};
 		std::vector<StackEntry> stack;
@@ -1504,14 +1505,13 @@ void Chunk::updateConnectivity()
 
 			std::array<bool, 6> touched{};
 
-			stack.push_back({ startPos, startIdx, startData });
+			stack.emplace_back(startPos, startData);
 
 			while (!stack.empty())
 			{
 				auto cell = stack.back();
 				stack.pop_back();
 				const auto currentPosition = cell.pos;
-				const auto currentIndex = cell.idx;
 				const BlockData* currentBlockData = cell.blockData;
 
 				bool wasAbleToMoveOut = false;
@@ -1535,7 +1535,7 @@ void Chunk::updateConnectivity()
 
 					if (neighborData->faceCulling[dir ^ 1]) continue;
 
-					stack.push_back({ neighborPos, neighborIdx, neighborData });
+					stack.emplace_back(neighborPos, neighborData);
 				}
 
 				if (wasAbleToMoveOut)
@@ -1793,7 +1793,10 @@ void Chunk::setBlockAt(int x, int y, int z, BlockId block, bool saveBlockChanges
 	markMeshesDirtyAroundBlock(x, y, z);
 
 	// Mark connectivity as dirty
-	markAsShouldUpdateConnectivity();
+	if constexpr (USE_CONNECTIVITY_TESTING)
+	{
+		markAsShouldUpdateConnectivity();
+	}
 	
 	// Allow update light
 	if (lightPropagation.hasNodes())

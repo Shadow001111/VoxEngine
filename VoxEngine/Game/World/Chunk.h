@@ -193,6 +193,7 @@ public:
 	static std::unique_ptr<ChunkRegionManager> chunkRegionManagerInstance;
 	static CachedBlockIds CACHED_BLOCK_IDS;
 	static constexpr std::array<uint32_t, 27> PRECOMPUTED_NEIGHBOR_DIRTY_MASKS = detail::precomputeNeighborDirtyMasks();
+	static constexpr bool USE_CONNECTIVITY_TESTING = false;
 
 	// Static data
 private:
@@ -320,6 +321,7 @@ public:
 	const auto& getNeighbors() const noexcept { return neighbors; };
 	size_t getFaceCount() const noexcept { return mesh.faceStorage.getAllFaceCount(); };
 	auto getConnectivityMatrix() const noexcept { return sideConnectivity; }
+	ChunkRegion* getParentRegion() const noexcept { return parentRegion; }
 
 	// Getters and setters for states and flags
 	State getState() const noexcept { return state.load(std::memory_order_acquire); };
