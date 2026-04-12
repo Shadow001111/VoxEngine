@@ -369,15 +369,45 @@ void Chunk::updateStructureBlocks()
 
 void Chunk::generateTree(const glm::ivec3& rootPosition)
 {
-	const int treeHeight = 4;
+	constexpr int treeHeight = 4;
+
+	bool hasReachedOtherChunk = false;
 
 	// Trunk
+	for (int i = 0; i < treeHeight; i++)
 	{
-		size_t index = getIndex(rootPosition);
-		for (int i = 0; i < treeHeight; i++)
+		int x = rootPosition.x;
+		int y = rootPosition.y + i;
+		int z = rootPosition.z;
+
+		if (((x | y | z) & CHUNK_UPPER_BITS_MASK) == 0)
 		{
-			blocks[index] = CACHED_BLOCK_IDS.oakLogId;
-			index += CoordinatesStride3D::y;
+			size_t index = getIndex(x, y, z);
+			if (blocks[index] == CACHED_BLOCK_IDS.airId)
+			{
+				blocks[index] = CACHED_BLOCK_IDS.oakLogId;
+			}
+		}
+		else
+		{
+			glm::ivec3 chunkPos = position;
+
+			if (x < 0) chunkPos.x--;
+			else if (x >= CHUNK_SIZE) chunkPos.x++;
+
+			if (y < 0) chunkPos.y--;
+			else if (y >= CHUNK_SIZE) chunkPos.y++;
+
+			if (z < 0) chunkPos.z--;
+			else if (z >= CHUNK_SIZE) chunkPos.z++;
+
+			int nx = x & CHUNK_LOWER_BITS_MASK;
+			int ny = y & CHUNK_LOWER_BITS_MASK;
+			int nz = z & CHUNK_LOWER_BITS_MASK;
+			size_t index = getIndex(nx, ny, nz);
+
+			structureBlockChangeManager.addChange(chunkPos, CACHED_BLOCK_IDS.oakLogId, index, true);
+			hasReachedOtherChunk = true;
 		}
 	}
 	
@@ -385,7 +415,6 @@ void Chunk::generateTree(const glm::ivec3& rootPosition)
 	int leavesStart = rootPosition.y + treeHeight - 2;
 	int leavesEnd = rootPosition.y + treeHeight + 2;
 
-	bool hasReachedOtherChunk = false;
 	for (int ly = leavesStart; ly <= leavesEnd; ly++)
 	{
 		for (int lx = rootPosition.x - 2; lx <= rootPosition.x + 2; lx++)
