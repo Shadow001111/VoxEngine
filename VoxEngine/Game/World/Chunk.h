@@ -254,7 +254,7 @@ public:
 	// Mesh
 	void updateMesh();
 	bool shouldUpdateMesh() noexcept { return isLightBuilt() && chunkFlags.readAndSet(Flag::ShouldUpdateMesh, false); };
-	void markAsShouldUpdateMesh();
+	void markAsShouldUpdateMesh() noexcept;
 	void askForMeshUpload();
 
 	// Connectivity
@@ -289,16 +289,16 @@ public:
 
 	// Neighbor dirty mask
 	static uint32_t getNeighborDirtyMask(int x, int y, int z) noexcept;
-	void applyNeighborDirtyMask(uint32_t mask);
+	void applyNeighborDirtyMask(uint32_t mask) noexcept;
 
 	// Grid getters
-	BlockId getBlockAt(int x, int y, int z) const { return blocks[getIndex(x, y, z)]; }
-	LightLevel getLightAt(int x, int y, int z) const { return lightLevels[getIndex(x, y, z)]; }
-	std::pair<BlockId, LightLevel> getBlockAndLightAt(int x, int y, int z) const;
+	BlockId getBlockAt(int x, int y, int z) const noexcept { return blocks[getIndex(x, y, z)]; }
+	LightLevel getLightAt(int x, int y, int z) const noexcept { return lightLevels[getIndex(x, y, z)]; }
+	std::pair<BlockId, LightLevel> getBlockAndLightAt(int x, int y, int z) const noexcept;
 
-	BlockId getBlockAt(size_t index) const { return blocks[index]; }
-	LightLevel getLightAt(size_t index) const { return lightLevels[index]; }
-	std::pair<BlockId, LightLevel> getBlockAndLightAt(size_t index) const { return std::make_pair(blocks[index], lightLevels[index]); }
+	BlockId getBlockAt(size_t index) const noexcept { return blocks[index]; }
+	LightLevel getLightAt(size_t index) const noexcept { return lightLevels[index]; }
+	std::pair<BlockId, LightLevel> getBlockAndLightAt(size_t index) const noexcept { return std::make_pair(blocks[index], lightLevels[index]); }
 
 	// Grid setters
 	void setBlockAt(int x, int y, int z, BlockId block, bool saveBlockChanges = true);

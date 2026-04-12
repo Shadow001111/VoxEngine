@@ -280,16 +280,18 @@ void Chunk::buildBlocks()
 		{
 			for (int z = 0; z < CHUNK_SIZE; z += 2)
 			{
-				int treeRootHeight = heightMap[z + x * CHUNK_SIZE] + 1;
+				int treeRootHeight = heightMap[z + (x << CHUNK_SIZE_LOG2)];
 				int localY = treeRootHeight - globalChunkPosition.y;
 
-				if (localY < 0 || localY >= CHUNK_SIZE)
-				{
-					continue;
-				}
+				//if ((localY | CHUNK_UPPER_BITS_MASK) != 0) // Allow only inside chunk
+				//{
+				//	continue;
+				//}
+
+				if (localY < 0 || localY > CHUNK_SIZE - 1) continue;
 
 				size_t rootIndex = getIndex(x, localY, z);
-				if (blocks[rootIndex] != CACHED_BLOCK_IDS.airId)
+				if (getBlockAt(rootIndex) != CACHED_BLOCK_IDS.grassBlockId)
 				{
 					continue;
 				}
@@ -303,7 +305,8 @@ void Chunk::buildBlocks()
 					continue;
 				}
 
-				generateTree({ x, localY, z });
+				blocks[rootIndex] = CACHED_BLOCK_IDS.dirtId;
+				generateTree({ x, localY + 1, z });
 			}
 		}
 	}
@@ -368,17 +371,14 @@ void Chunk::generateTree(const glm::ivec3& rootPosition)
 {
 	const int treeHeight = 4;
 
-	// Check if there's enough space for the tree
-	if (rootPosition.y + treeHeight + 3 >= CHUNK_SIZE)
-	{
-		return; // Not enough vertical space
-	}
-
 	// Trunk
-	for (int i = 0; i < treeHeight; i++)
 	{
-		size_t index = getIndex(rootPosition.x, rootPosition.y + i, rootPosition.z);
-		blocks[index] = CACHED_BLOCK_IDS.oakLogId;
+		size_t index = getIndex(rootPosition);
+		for (int i = 0; i < treeHeight; i++)
+		{
+			blocks[index] = CACHED_BLOCK_IDS.oakLogId;
+			index += CoordinatesStride3D::y;
+		}
 	}
 	
 	// Leaves - create a spherical canopy
@@ -1436,7 +1436,7 @@ void Chunk::updateMesh()
 	}
 }
 
-void Chunk::markAsShouldUpdateMesh()
+void Chunk::markAsShouldUpdateMesh() noexcept
 {
 	setFlag(Flag::ShouldUpdateMesh, true);
 	parentRegion->setFlag(ChunkRegion::Flag::HasMeshToUpdate, true);
@@ -1663,11 +1663,11 @@ uint32_t Chunk::getNeighborDirtyMask(int x, int y, int z) noexcept
 	return PRECOMPUTED_NEIGHBOR_DIRTY_MASKS[lutIndex];
 }
 
-void Chunk::applyNeighborDirtyMask(uint32_t mask)
+void Chunk::applyNeighborDirtyMask(uint32_t mask) noexcept
 {
-	// Using a loop with bit manipulation because it should reduce the number of branching and memory fetches
+	// Using a loop with bit manipulation because it should reduce the number of branching and memory fetchesd
 
-	constexpr size_t neighborCount = sizeof(neighbors) / sizeof(neighbors[0]); // Idk, neighbor.size() doesn't work for some reason
+	constexpr size_t neighborCount = sizeof(neighbors) / sizeof(neighbors[0]); // Idk, neighbor.size() doesn't work (because 'this' can't be used as constant)
 	constexpr uint32_t clearTrashMask = (1u << neighborCount) - 1; // Mask to clear bits that are out of bounds
 	mask &= clearTrashMask;
 
@@ -1679,7 +1679,7 @@ void Chunk::applyNeighborDirtyMask(uint32_t mask)
 	}
 }
 
-std::pair<BlockId, LightLevel> Chunk::getBlockAndLightAt(int x, int y, int z) const
+std::pair<BlockId, LightLevel> Chunk::getBlockAndLightAt(int x, int y, int z) const noexcept
 {
 	size_t index = getIndex(x, y, z);
 	return std::make_pair(blocks[index], lightLevels[index]);
