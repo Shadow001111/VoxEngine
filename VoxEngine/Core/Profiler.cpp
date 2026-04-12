@@ -256,11 +256,6 @@ void Profiler::printCategoryStatistics(std::ostringstream& ss, const robin_hood:
     if (categoryTotals.empty()) return;
 
     ss << "Category Statistics:\n";
-    ss << std::left;
-    ss << std::setw(ProfilerReport::COL_NAME) << "Category"
-        << std::setw(ProfilerReport::COL_TOTAL) << "Total"
-        << "% of Frame\n";
-    ss << std::string(ProfilerReport::TOTAL_WIDTH, '-') << "\n";
 
     // Sort categories by total time (descending)
     std::vector<robin_hood::pair<ProfileCategoryId, double>> sortedCategories(categoryTotals.begin(), categoryTotals.end());
@@ -271,18 +266,27 @@ void Profiler::printCategoryStatistics(std::ostringstream& ss, const robin_hood:
     {
         ProfileCategoryId category = pair.first;
         double totalTime = pair.second;
+        double percentage = (totalTime / frameTotalTime) * 100.0;
 
         const char* color = getCategoryStyle(category);
         const char* name = getCategoryName(category);
 
-        ss << color << std::left;
-        ss << std::setw(ProfilerReport::COL_NAME) << name
-            << std::setw(ProfilerReport::COL_TOTAL) << formatTimeCell(totalTime);
+        std::string pctStr = [&] {
+            std::ostringstream tmp;
+            tmp << std::fixed << std::setprecision(1) << percentage << "%";
+            return tmp.str();
+            }();
 
-        double percentage = (totalTime / frameTotalTime) * 100.0;
-        ss << std::setprecision(1) << percentage << "%";
-
-        ss << RESET << "\n";
+        ss << color << std::left
+            << std::setw(ProfilerReport::COL_NAME) << name
+            << std::right
+            << std::setw(ProfilerReport::COL_AVG) << ""
+            << std::setw(ProfilerReport::COL_MIN) << ""
+            << std::setw(ProfilerReport::COL_MAX) << ""
+            << std::setw(ProfilerReport::COL_TOTAL) << formatTimeCell(totalTime)
+            << std::setw(ProfilerReport::COL_CALLS) << ""
+            << std::setw(ProfilerReport::COL_PERCENT) << pctStr
+            << RESET << "\n";
     }
 }
 

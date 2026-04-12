@@ -1267,22 +1267,18 @@ void Chunk::updateMesh()
 				for (const auto& face : model->alignedFaces)
 				{
 					// Get neighbor block coordinates
-					const glm::ivec3 offset = DirectionsTable::directionsXYZ[face.normal];
-					const int nx = currentBlockPosition.x + offset.x;
-					const int ny = currentBlockPosition.y + offset.y;
-					const int nz = currentBlockPosition.z + offset.z;
+					const glm::ivec3 neighborBlockPosition = currentBlockPosition + DirectionsTable::directionsXYZ[face.normal];
 
 					// Get neighbor chunk and block index
 					size_t neighborBlockIndex;
 					const Chunk* neighborChunk;
 
-					const bool inSameChunk = ((nx | ny | nz) & CHUNK_UPPER_BITS_MASK) == 0;
+					const bool inSameChunk = ((neighborBlockPosition.x | neighborBlockPosition.y | neighborBlockPosition.z) & CHUNK_UPPER_BITS_MASK) == 0;
 
-					// TODO: Try to remove this branch
 					if (inSameChunk)
 					{
 						neighborChunk = this;
-						neighborBlockIndex = getIndex(nx, ny, nz);
+						neighborBlockIndex = getIndex(neighborBlockPosition);
 					}
 					else
 					{
@@ -1291,7 +1287,7 @@ void Chunk::updateMesh()
 						{
 							continue;
 						}
-						neighborBlockIndex = getIndex(nx & CHUNK_LOWER_BITS_MASK, ny & CHUNK_LOWER_BITS_MASK, nz & CHUNK_LOWER_BITS_MASK);
+						neighborBlockIndex = getIndex(neighborBlockPosition & CHUNK_LOWER_BITS_MASK);
 					}
 
 					// Get neighbor block and data
@@ -1302,13 +1298,13 @@ void Chunk::updateMesh()
 					}
 
 					const BlockData* neighborBlockData = AssetRegistry::getBlockData(neighborBlock);
-					if (!neighborBlockData || neighborBlockData->faceCulling[face.normal ^ 1])
+					if (!neighborBlockData || neighborBlockData->faceCulling[face.normal ^ (uint8_t)1])
 					{
 						continue;
 					}
 
 					// Calculate shading
-					LightLevel neighborLight = neighborChunk->lightLevels[neighborBlockIndex];
+					LightLevel neighborLight = neighborChunk->lightLevels[neighborBlockIndex]; // This line adds much to execution time, x5 in total
 
 					ContextFaceAOAL aoData
 					{
