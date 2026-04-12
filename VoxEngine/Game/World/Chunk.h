@@ -293,14 +293,34 @@ public:
 
 	// Grid getters
 	BlockId getBlockAt(int x, int y, int z) const noexcept { return blocks[getIndex(x, y, z)]; }
-	LightLevel getLightAt(int x, int y, int z) const noexcept { return lightLevels[getIndex(x, y, z)]; }
-	std::pair<BlockId, LightLevel> getBlockAndLightAt(int x, int y, int z) const noexcept;
-
+	BlockId getBlockAt(const glm::ivec3& pos) const noexcept { return blocks[getIndex(pos)]; }
 	BlockId getBlockAt(size_t index) const noexcept { return blocks[index]; }
+
+	LightLevel getLightAt(int x, int y, int z) const noexcept { return lightLevels[getIndex(x, y, z)]; }
+	LightLevel getLightAt(const glm::ivec3& pos) const noexcept { return lightLevels[getIndex(pos)]; }
 	LightLevel getLightAt(size_t index) const noexcept { return lightLevels[index]; }
+
+	std::pair<BlockId, LightLevel> getBlockAndLightAt(int x, int y, int z) const noexcept;
+	std::pair<BlockId, LightLevel> getBlockAndLightAt(const glm::ivec3& pos) const noexcept;
 	std::pair<BlockId, LightLevel> getBlockAndLightAt(size_t index) const noexcept { return std::make_pair(blocks[index], lightLevels[index]); }
 
 	// Grid setters
+	void setBlockAtRaw(int x, int y, int z, BlockId block) noexcept { blocks[getIndex(x, y, z)] = block; }
+	void setBlockAtRaw(const glm::ivec3& pos, BlockId block) noexcept { blocks[getIndex(pos)] = block; }
+	void setBlockAtRaw(size_t index, BlockId block) noexcept { blocks[index] = block; }
+
+	void setLightAtRaw(int x, int y, int z, LightLevel lightLevel) noexcept { lightLevels[getIndex(x, y, z)] = lightLevel; }
+	void setLightAtRaw(const glm::ivec3& pos, LightLevel lightLevel) noexcept { lightLevels[getIndex(pos)] = lightLevel; }
+	void setLightAtRaw(size_t index, LightLevel lightLevel) noexcept { lightLevels[index] = lightLevel; }
+
+	void setBlockLightAtRaw(int x, int y, int z, uint8_t lightLevel) noexcept { lightLevels[getIndex(x, y, z)].blockLight = lightLevel; }
+	void setBlockLightAtRaw(const glm::ivec3& pos, uint8_t lightLevel) noexcept { lightLevels[getIndex(pos)].blockLight = lightLevel; }
+	void setBlockLightAtRaw(size_t index, uint8_t lightLevel) noexcept { lightLevels[index].blockLight = lightLevel; }
+
+	void setSkyLightAtRaw(int x, int y, int z, uint8_t lightLevel) noexcept { lightLevels[getIndex(x, y, z)].skyLight = lightLevel; }
+	void setSkyLightAtRaw(const glm::ivec3& pos, uint8_t lightLevel) noexcept { lightLevels[getIndex(pos)].skyLight = lightLevel; }
+	void setSkyLightAtRaw(size_t index, uint8_t lightLevel) noexcept { lightLevels[index].skyLight = lightLevel; }
+
 	void setBlockAt(int x, int y, int z, BlockId block, bool saveBlockChanges = true);
 	void setLightAt(int x, int y, int z, LightLevel lightLevel);
 	void setBlockLightAt(int x, int y, int z, uint8_t lightLevel);

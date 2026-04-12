@@ -1714,6 +1714,12 @@ std::pair<BlockId, LightLevel> Chunk::getBlockAndLightAt(int x, int y, int z) co
 	return std::make_pair(blocks[index], lightLevels[index]);
 }
 
+std::pair<BlockId, LightLevel> Chunk::getBlockAndLightAt(const glm::ivec3& pos) const noexcept
+{
+	size_t index = getIndex(pos);
+	return std::make_pair(blocks[index], lightLevels[index]);
+}
+
 void Chunk::setBlockAt(int x, int y, int z, BlockId block, bool saveBlockChanges)
 {
 	size_t index = getIndex(x, y, z);
@@ -1743,17 +1749,17 @@ void Chunk::setBlockAt(int x, int y, int z, BlockId block, bool saveBlockChanges
 
 	if (previousBlockData->absorbsLight && !newBlockData->absorbsLight)
 	{
+		const glm::ivec3 currentBlockPosition = glm::ivec3(x, y, z);
+
 		// Collect maximum light level from neighbors and propagate it to this block
 		uint8_t maxBlockLightToSet = 0;
 		uint8_t maxSkyLightToSet = 0;
 		for (int i = 0; i < 6; i++)
 		{
-			int nx = x + DirectionsTable::dx[i];
-			int ny = y + DirectionsTable::dy[i];
-			int nz = z + DirectionsTable::dz[i];
+			glm::ivec3 npos = currentBlockPosition + DirectionsTable::directionsXYZ[i];
 
 			size_t neighborIndex;
-			Chunk* neighborChunk = traverseToSideNeighbor(nx, ny, nz, i, neighborIndex);
+			Chunk* neighborChunk = traverseToSideNeighbor(npos.x, npos.y, npos.z, i, neighborIndex);
 			if (!neighborChunk)
 			{
 				continue;
