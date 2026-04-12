@@ -933,7 +933,7 @@ void Chunk::buildLight()
 	if (!topNeighbor)
 	{
 		// Create local heightmap for this chunk
-		std::array<int, CHUNK_AREA> heightMap;
+		std::array<int, CHUNK_AREA> heightMap{};
 		heightMap.fill(-1);
 		for (int x = 0; x < CHUNK_SIZE; x++)
 		{

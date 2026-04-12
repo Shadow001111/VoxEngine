@@ -3,7 +3,8 @@
 
 struct ivec2Hasher
 {
-public:
+	ivec2Hasher() = default;
+
 	size_t operator()(const glm::ivec2& other) const noexcept;
 };
 

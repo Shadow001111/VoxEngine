@@ -46,7 +46,7 @@ class Dequeue
     }
 
     // Calculate number of blocks currently in use
-    size_t blocks_in_use() const
+    size_t blocks_in_use() const noexcept
     {
         if (mElementCount == 0) return 0;
 
@@ -54,9 +54,9 @@ class Dequeue
         size_t headBlock = mHeadBlockIndex;
         size_t tailBlock = mTailBlockIndex;
 
-        if (mTailElementIndex == 0 && tailBlock > 0)
+        if (mTailElementIndex == 0)
         {
-            tailBlock--;
+            tailBlock = (tailBlock == 0) ? mBlocks.size() - 1 : tailBlock - 1;
         }
 
         if (headBlock <= tailBlock)
@@ -80,43 +80,44 @@ class Dequeue
         DynamicArray<T*> newBlocks;
         newBlocks.resize(newSize);
 
-        // Initialize all to nullptr first
         for (size_t i = 0; i < newSize; i++)
-        {
             newBlocks[i] = nullptr;
-        }
 
-        // Copy existing blocks in order, unwrapping the circular structure
-        size_t destIdx = newSize / 4; // Start 1/4 into the new array for balanced growth
+        size_t destIdx = newSize / 4;
         size_t srcIdx = mHeadBlockIndex;
         size_t numBlocksToCopy = blocks_in_use();
 
         for (size_t i = 0; i < numBlocksToCopy; i++)
         {
-            newBlocks[destIdx++] = mBlocks[wrap_index(srcIdx++)];
+            size_t wrappedIdx = wrap_index(srcIdx++);
+            newBlocks[destIdx++] = mBlocks[wrappedIdx];
+            mBlocks[wrappedIdx] = nullptr;  // Mark as moved
         }
 
-        // Allocate blocks for empty slots
-        for (size_t i = 0; i < newSize; i++)
+        // Fix: free old blocks that were NOT moved into newBlocks
+        for (size_t i = 0; i < oldSize; i++)
         {
-            if (newBlocks[i] == nullptr)
+            if (mBlocks[i] != nullptr)
             {
-                newBlocks[i] = allocate_block();
+                deallocate_block(mBlocks[i]);
+                mBlocks[i] = nullptr;
             }
         }
 
-        // Update indices - everything is now linear in the new array
+        for (size_t i = 0; i < newSize; i++)
+        {
+            if (newBlocks[i] == nullptr)
+                newBlocks[i] = allocate_block();
+        }
+
         size_t newHeadBlock = newSize / 4;
         mTailBlockIndex = newHeadBlock + numBlocksToCopy - 1;
         if (mTailElementIndex == 0 && numBlocksToCopy > 0)
-        {
             mTailBlockIndex++;
-        }
         mHeadBlockIndex = newHeadBlock;
 
         mBlocks = std::move(newBlocks);
     }
-
 public:
     Dequeue(size_t elementCount = 0)
     {
