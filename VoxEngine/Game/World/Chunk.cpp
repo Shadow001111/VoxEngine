@@ -175,74 +175,76 @@ void Chunk::buildBlocks()
 
 	if (isInTerrainRange || isInWaterRange)
 	{
-		PROFILE_SCOPE("Build terrain", ProfileCategory::ChunkBlocks);
-
-		// Important to keep layers connected, so 'index' won't go out of sync
-		const int globalChunkY = position.y * CHUNK_SIZE;
-		for (int x = 0; x < CHUNK_SIZE; x++)
 		{
-			for (int z = 0; z < CHUNK_SIZE; z++)
+			PROFILE_SCOPE("Build terrain", ProfileCategory::ChunkBlocks);
+
+			// Important to keep layers connected, so 'index' won't go out of sync
+			const int globalChunkY = position.y * CHUNK_SIZE;
+			for (int x = 0; x < CHUNK_SIZE; x++)
 			{
-				// Compute global height
-				const int globalHeight = heightMap[z + (x << CHUNK_SIZE_LOG2)];
-
-				// Compute ranges
-				const int surfaceY = globalHeight - globalChunkY;
-				const int dirtY = surfaceY - 4;
-
-				const int stoneEnd = std::min(CHUNK_SIZE, dirtY);
-
-				const int dirtStart = std::max(0, dirtY);
-				const int dirtEnd = std::min(CHUNK_SIZE, surfaceY);
-
-				const bool hasSurface = surfaceY >= 0 && surfaceY < CHUNK_SIZE;
-
-				const int waterStart = std::max(0, surfaceY + 1);
-				const int waterEnd = std::min(CHUNK_SIZE, OCEAN_LEVEL - globalChunkY + 1);
-
-				const int airStart = std::max(waterStart, waterEnd);
-
-				// Stone
-				computeCaveMask |= stoneEnd > 0;
-				size_t index = getIndex(x, 0, z);
-				for (int y = 0; y < stoneEnd; y++)
+				for (int z = 0; z < CHUNK_SIZE; z++)
 				{
-					blocks[index] = CACHED_BLOCK_IDS.stoneId;
-					index += CoordinatesStride3D::y;
-				}
+					// Compute global height
+					const int globalHeight = heightMap[z + (x << CHUNK_SIZE_LOG2)];
 
-				// Dirt
-				computeCaveMask |= dirtEnd > dirtStart;
-				index = getIndex(x, dirtStart, z);
-				for (int y = dirtStart; y < dirtEnd; y++)
-				{
-					blocks[index] = CACHED_BLOCK_IDS.dirtId;
-					index += CoordinatesStride3D::y;
-				}
+					// Compute ranges
+					const int surfaceY = globalHeight - globalChunkY;
+					const int dirtY = surfaceY - 4;
 
-				// Grass
-				if (hasSurface)
-				{
-					index = getIndex(x, surfaceY, z);
-					blocks[index] = CACHED_BLOCK_IDS.grassBlockId;
-					computeCaveMask = true;
-				}
+					const int stoneEnd = std::min(CHUNK_SIZE, dirtY);
 
-				// Water
-				computeCaveMask |= waterEnd > waterStart;
-				index = getIndex(x, waterStart, z);
-				for (int y = waterStart; y < waterEnd; y++)
-				{
-					blocks[index] = CACHED_BLOCK_IDS.waterId;
-					index += CoordinatesStride3D::y;
-				}
+					const int dirtStart = std::max(0, dirtY);
+					const int dirtEnd = std::min(CHUNK_SIZE, surfaceY);
 
-				// Air
-				index = getIndex(x, airStart, z);
-				for (int y = airStart; y < CHUNK_SIZE; y++)
-				{
-					blocks[index] = CACHED_BLOCK_IDS.airId;
-					index += CoordinatesStride3D::y;
+					const bool hasSurface = surfaceY >= 0 && surfaceY < CHUNK_SIZE;
+
+					const int waterStart = std::max(0, surfaceY + 1);
+					const int waterEnd = std::min(CHUNK_SIZE, OCEAN_LEVEL - globalChunkY + 1);
+
+					const int airStart = std::max(waterStart, waterEnd);
+
+					// Stone
+					computeCaveMask |= stoneEnd > 0;
+					size_t index = getIndex(x, 0, z);
+					for (int y = 0; y < stoneEnd; y++)
+					{
+						blocks[index] = CACHED_BLOCK_IDS.stoneId;
+						index += CoordinatesStride3D::y;
+					}
+
+					// Dirt
+					computeCaveMask |= dirtEnd > dirtStart;
+					index = getIndex(x, dirtStart, z);
+					for (int y = dirtStart; y < dirtEnd; y++)
+					{
+						blocks[index] = CACHED_BLOCK_IDS.dirtId;
+						index += CoordinatesStride3D::y;
+					}
+
+					// Grass
+					if (hasSurface)
+					{
+						index = getIndex(x, surfaceY, z);
+						blocks[index] = CACHED_BLOCK_IDS.grassBlockId;
+						computeCaveMask = true;
+					}
+
+					// Water
+					computeCaveMask |= waterEnd > waterStart;
+					index = getIndex(x, waterStart, z);
+					for (int y = waterStart; y < waterEnd; y++)
+					{
+						blocks[index] = CACHED_BLOCK_IDS.waterId;
+						index += CoordinatesStride3D::y;
+					}
+
+					// Air
+					index = getIndex(x, airStart, z);
+					for (int y = airStart; y < CHUNK_SIZE; y++)
+					{
+						blocks[index] = CACHED_BLOCK_IDS.airId;
+						index += CoordinatesStride3D::y;
+					}
 				}
 			}
 		}
