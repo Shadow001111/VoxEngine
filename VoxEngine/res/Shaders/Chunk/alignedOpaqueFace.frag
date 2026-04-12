@@ -44,13 +44,6 @@ float interpolateLight_Quad()
 
 void main()
 {
-    vec2 offUV = uv - 0.5;
-    float uvSqDist = dot(offUV, offUV);
-    if (uvSqDist < 0.25)
-    {
-        discard;
-    }
-    
     vec4 textureColor = texture(blockTextures, vec3(texCoords, textureID));
 
     vec3 baseColor = textureColor.rgb;

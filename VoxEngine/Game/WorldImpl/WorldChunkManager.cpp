@@ -128,26 +128,26 @@ void WorldChunkManager::update()
 	}
 
 	// Update chunks lights
+	for (int i = 0; i < 40; i++)
 	{
-		// Making many iterations, so multiple passes won't trigger more mesh updating more than necessary
-		for (int i = 0; i < 40; i++)
+		collectChunksForLightUpdate();
+
+		if (buildContainers.lightUpdateA.empty() && buildContainers.lightUpdateB.empty())
 		{
-			collectChunksForLightUpdate();
-	
-			if (buildContainers.lightUpdateA.empty() && buildContainers.lightUpdateB.empty())
-			{
-				break;
-			}
-	
-			updateChunkLights();
+			break;
 		}
+
+		updateChunkLights();
 	}
 
 	// Update chunks meshes
 	updateChunkMeshes();
 
 	// Update chunks connectivity
-	updateChunkConnectivity();
+	if constexpr (Chunk::USE_CONNECTIVITY_TESTING)
+	{
+		updateChunkConnectivity();
+	}
 }
 
 void WorldChunkManager::sendChunkMeshesToGPU()

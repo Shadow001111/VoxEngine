@@ -4,9 +4,8 @@
 
 template <typename T>
     requires (std::is_unsigned_v<T>)
-struct AtomicFlags
+class AtomicFlags
 {
-private:
     std::atomic<T> bits{ 0 };
 public:
     void reset() noexcept

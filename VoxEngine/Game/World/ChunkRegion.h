@@ -19,15 +19,15 @@ class ChunkRegion
 	std::atomic<uint8_t> renderChunkCount = 0;
 
 	AtomicFlags<uint8_t> flags;
-
+public:
+	bool isFrustumCulled = true;
+private:
 	glm::ivec3 position;
 
 	AtomicBitset<CHUNK_REGION_VOLUME, size_t> savedChunksMask;
 
 	static AtomicFlags<uint8_t> globalFlags;
 public:
-	bool isFrustumCulled = true;
-
 	enum class Flag : uint8_t
 	{
 		HasMeshToUpload = 0,

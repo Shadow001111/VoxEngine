@@ -355,9 +355,12 @@ void Chunk::updateStructureBlocks()
 		}
 	}
 
-	if (!pendingChanges.empty())
+	if constexpr (USE_CONNECTIVITY_TESTING)
 	{
-		markAsShouldUpdateConnectivity();
+		if (!pendingChanges.empty())
+		{
+			markAsShouldUpdateConnectivity();
+		}
 	}
 }
 
