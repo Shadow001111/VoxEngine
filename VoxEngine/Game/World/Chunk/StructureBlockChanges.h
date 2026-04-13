@@ -20,14 +20,16 @@ struct StructureBlockChange
 		: block(block), index(index), placeIfBlockIsAir(placeIfBlockIsAir) {}
 };
 
-class StructureBlockChangeManager
+class StructureBlockManager
 {
     // Map of chunk position to pending changes
     robin_hood::unordered_flat_map<glm::ivec3, std::vector<StructureBlockChange>, ivec3Hasher> pendingChanges;
     mutable std::mutex changesMutex;
 public:
-    StructureBlockChangeManager() = default;
-    ~StructureBlockChangeManager() = default;
+    std::atomic<bool> hasAnyChanges{ false };
+
+    StructureBlockManager() = default;
+    ~StructureBlockManager() = default;
 
     // Add a block change for a specific chunk
     void addChange(const glm::ivec3& chunkPos, BlockId block, uint16_t index, bool placeIfBlockIsAir);

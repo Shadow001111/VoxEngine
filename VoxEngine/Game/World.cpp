@@ -245,7 +245,7 @@ const World::DebugData& World::getDebugData(bool updateIntense) const
 {
 	PROFILE_SCOPE("World debug data collection", ProfileCategory::General);
 
-	const auto& chunkRegions = Chunk::chunkRegionManagerInstance->getRegionMap();
+	const auto& chunkRegions = Chunk::managerInstances->chunkRegion.getRegionMap();
 
 	// Chunk region count
 	debugData.chunkRegionCount = chunkRegions.size();
@@ -300,17 +300,7 @@ bool World::placeBlock(const RaycastResult& raycast, BlockId block)
 	}
 
 	// Calculate placement position based on hit normal
-	glm::ivec3 placePos = raycast.hitBlockPosition;
-
-	switch (raycast.hitNormal)
-	{
-	case 0: placePos.x--; break; // -X
-	case 1: placePos.x++; break; // +X
-	case 2: placePos.y--; break; // -Y
-	case 3: placePos.y++; break; // +Y
-	case 4: placePos.z--; break; // -Z
-	case 5: placePos.z++; break; // +Z
-	}
+	glm::ivec3 placePos = raycast.hitBlockPosition + DirectionsTable::directionsXYZ[raycast.hitNormal];
 
 	if (!updateBlockAt(placePos, block))
 	{

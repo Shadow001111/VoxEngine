@@ -2,7 +2,7 @@
 
 #include <iostream>
 
-void StructureBlockChangeManager::addChange(const glm::ivec3& chunkPos, BlockId block, uint16_t index, bool placeIfBlockIsAir)
+void StructureBlockManager::addChange(const glm::ivec3& chunkPos, BlockId block, uint16_t index, bool placeIfBlockIsAir)
 {
     std::lock_guard<std::mutex> lock(changesMutex);
 
@@ -10,7 +10,7 @@ void StructureBlockChangeManager::addChange(const glm::ivec3& chunkPos, BlockId 
     pendingChanges[chunkPos].emplace_back(block, index, placeIfBlockIsAir);
 }
 
-std::vector<StructureBlockChange> StructureBlockChangeManager::retrieveAndClearChanges(const glm::ivec3& chunkPos)
+std::vector<StructureBlockChange> StructureBlockManager::retrieveAndClearChanges(const glm::ivec3& chunkPos)
 {
     std::lock_guard<std::mutex> lock(changesMutex);
 
@@ -27,7 +27,7 @@ std::vector<StructureBlockChange> StructureBlockChangeManager::retrieveAndClearC
     return result;
 }
 
-bool StructureBlockChangeManager::hasPendingChanges(const glm::ivec3& chunkPos) const
+bool StructureBlockManager::hasPendingChanges(const glm::ivec3& chunkPos) const
 {
     std::lock_guard<std::mutex> lock(changesMutex);
 
@@ -35,13 +35,13 @@ bool StructureBlockChangeManager::hasPendingChanges(const glm::ivec3& chunkPos) 
     return it != pendingChanges.end() && !it->second.empty();
 }
 
-void StructureBlockChangeManager::clear()
+void StructureBlockManager::clear()
 {
     std::lock_guard<std::mutex> lock(changesMutex);
     pendingChanges.clear();
 }
 
-size_t StructureBlockChangeManager::getPendingChunkCount() const
+size_t StructureBlockManager::getPendingChunkCount() const
 {
     std::lock_guard<std::mutex> lock(changesMutex);
     return pendingChanges.size();

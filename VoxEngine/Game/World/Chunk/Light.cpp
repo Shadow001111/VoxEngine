@@ -39,6 +39,7 @@ LightRemovalNode::LightRemovalNode(uint8_t x, uint8_t y, uint8_t z, uint8_t ligh
 {}
 
 
+// TODO: Try allocate these queues only for VoxEngine threads
 thread_local ChunkSpecializedQueue<LightPropagationNode> LightPropagationStorage::threadLocalBlockLightPropagation;
 thread_local ChunkSpecializedQueue<LightPropagationNode> LightPropagationStorage::threadLocalSkyLightPropagation;
 thread_local ChunkSpecializedQueue<LightRemovalNode>	 LightPropagationStorage::threadLocalBlockLightRemoval;

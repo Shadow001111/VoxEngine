@@ -24,70 +24,70 @@ namespace detail
 	constexpr auto precomputeNeighborDirtyMasks()
 	{
 		std::array<uint32_t, 27> lut{};
-		for (int dx = -1; dx <= 1; ++dx)
-			for (int dy = -1; dy <= 1; ++dy)
-				for (int dz = -1; dz <= 1; ++dz)
+		for (int dx = -1; dx <= 1; dx++)
+		for (int dy = -1; dy <= 1; dy++)
+		for (int dz = -1; dz <= 1; dz++)
+		{
+			uint32_t mask = 0;
+			for (int nx = -1; nx <= 1; nx++)
+			for (int ny = -1; ny <= 1; ny++)
+			for (int nz = -1; nz <= 1; nz++)
+			{
+				// For a block that is at offset (dx,dy,dz) from chunk center (0,0,0),
+				// which neighbors can it affect? The block is at a position that is:
+				// - If dx = -1: block is at x=0 (negative border)
+				// - If dx =  0: block is interior (1..CHUNK_SIZE-2)
+				// - If dx =  1: block is at x=CHUNK_SIZE-1 (positive border)
+
+				// The neighbor at offset (nx,ny,nz) should be marked dirty if:
+				// The block is on the border facing that neighbor
+				bool x = (nx == 0) || (nx == -1 && dx == -1) || (nx == 1 && dx == 1);
+				bool y = (ny == 0) || (ny == -1 && dy == -1) || (ny == 1 && dy == 1);
+				bool z = (nz == 0) || (nz == -1 && dz == -1) || (nz == 1 && dz == 1);
+
+				if (x && y && z)
 				{
-					uint32_t mask = 0;
-					for (int nx = -1; nx <= 1; ++nx)
-						for (int ny = -1; ny <= 1; ++ny)
-							for (int nz = -1; nz <= 1; ++nz)
-							{
-								// For a block that is at offset (dx,dy,dz) from chunk center (0,0,0),
-								// which neighbors can it affect? The block is at a position that is:
-								// - If dx = -1: block is at x=0 (negative border)
-								// - If dx = 0: block is interior (1..CHUNK_SIZE-2)
-								// - If dx = 1: block is at x=CHUNK_SIZE-1 (positive border)
-
-								// The neighbor at offset (nx,ny,nz) should be marked dirty if:
-								// The block is on the border facing that neighbor
-								bool x = (nx == 0) || (nx == -1 && dx == -1) || (nx == 1 && dx == 1);
-								bool y = (ny == 0) || (ny == -1 && dy == -1) || (ny == 1 && dy == 1);
-								bool z = (nz == 0) || (nz == -1 && dz == -1) || (nz == 1 && dz == 1);
-
-								if (x && y && z)
-								{
-									int index = (nx + 1) * 9 + (ny + 1) * 3 + (nz + 1);
-									mask |= 1u << index;
-								}
-							}
-					int lutIndex = (dx + 1) * 9 + (dy + 1) * 3 + (dz + 1);
-					lut[lutIndex] = mask;
+					int index = (nx + 1) * 9 + (ny + 1) * 3 + (nz + 1);
+					mask |= 1u << index;
 				}
+			}
+			int lutIndex = (dx + 1) * 9 + (dy + 1) * 3 + (dz + 1);
+			lut[lutIndex] = mask;
+		}
 		return lut;
 	}
 }
+
+struct DirectionsTable
+{
+	static constexpr std::array<int, 6> dx{ -1, 1, 0, 0, 0, 0 };
+	static constexpr std::array<int, 6> dy{ 0, 0, -1, 1, 0, 0 };
+	static constexpr std::array<int, 6> dz{ 0, 0, 0, 0, -1, 1 };
+
+	static constexpr std::array<glm::ivec3, 6> directionsXYZ{ {
+		{-1,  0,  0},
+		{ 1,  0,  0},
+		{ 0, -1,  0},
+		{ 0,  1,  0},
+		{ 0,  0, -1},
+		{ 0,  0,  1},
+	} };
+
+	static constexpr std::array<glm::ivec3, 6> directionsXZY{ {
+		{-1,  0,  0},
+		{ 1,  0,  0},
+		{ 0,  0, -1},
+		{ 0,  0,  1},
+		{ 0, -1,  0},
+		{ 0,  1,  0},
+	} };
+};
 
 struct BlockData;
 
 class Chunk
 {
 	// Types
-	struct DirectionsTable
-	{
-		static constexpr std::array<int, 6> dx{ -1, 1, 0, 0, 0, 0 };
-		static constexpr std::array<int, 6> dy{ 0, 0, -1, 1, 0, 0 };
-		static constexpr std::array<int, 6> dz{ 0, 0, 0, 0, -1, 1 };
-
-		static constexpr std::array<glm::ivec3, 6> directionsXYZ{ {
-			{-1,  0,  0},
-			{ 1,  0,  0},
-			{ 0, -1,  0},
-			{ 0,  1,  0},
-			{ 0,  0, -1},
-			{ 0,  0,  1},
-		} };
-
-		static constexpr std::array<glm::ivec3, 6> directionsXZY{ {
-			{-1,  0,  0},
-			{ 1,  0,  0},
-			{ 0,  0, -1},
-			{ 0,  0,  1},
-			{ 0, -1,  0},
-			{ 0,  1,  0},
-		} };
-	};
-
 	struct CoordinatesStride3D
 	{
 		static constexpr int x = CHUNK_AREA;
@@ -179,7 +179,7 @@ public:
 		return 0;
 	}
 
-	static glm::ivec3 getPositionFromIndex(int index) noexcept // Took 'size_t', but now takes 'int' because think it will be cheaper (less casts)
+	static glm::ivec3 getPositionFromIndex(int index) noexcept
 	{
 		return {
 			(index >> (CHUNK_SIZE_LOG2 << 1)) & CHUNK_LOWER_BITS_MASK,
@@ -189,21 +189,21 @@ public:
 	};
 
 	// Static data
-	static std::atomic<bool> gHasStructureBlockChanges; // TODO: Move this to StructureBlockChangeManager.
-	static std::unique_ptr<ChunkRegionManager> chunkRegionManagerInstance;
+	struct ManagerInstances
+	{
+		ChunkRegionManager chunkRegion;
+		StructureBlockManager structureBlock;
+	};
+
+	static std::unique_ptr<ManagerInstances> managerInstances;
 	static CachedBlockIds CACHED_BLOCK_IDS;
 	static constexpr std::array<uint32_t, 27> PRECOMPUTED_NEIGHBOR_DIRTY_MASKS = detail::precomputeNeighborDirtyMasks();
 	static constexpr bool USE_CONNECTIVITY_TESTING = false;
-
-	// Static data
 private:
-	static thread_local ChunkMeshFaceStorage::InstancesStorage localMeshInstances;
-	static StructureBlockChangeManager structureBlockChangeManager;
-
 	// Data
 	glm::ivec3 position;
 
-	std::atomic<State> state = State::NotInitialized_NeedsBlocks;
+	std::atomic<State> state{ State::NotInitialized_NeedsBlocks };
 	AtomicFlags<uint8_t> chunkFlags;
 
 	uint8_t loaderCount = 0;
@@ -243,7 +243,7 @@ public:
 
 	// Blocks
 	void buildBlocks();
-	bool hasStructureBlockUpdates() const { return structureBlockChangeManager.hasPendingChanges(position); };
+	bool hasStructureBlockUpdates() const { return managerInstances->structureBlock.hasPendingChanges(position); };
 	void updateStructureBlocks();
 
 	// Light

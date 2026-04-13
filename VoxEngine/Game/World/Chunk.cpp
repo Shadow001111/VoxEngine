@@ -10,14 +10,9 @@
 #include "Core/Assert.h"
 #include "Core/Hashes/ivec2Hasher.h"
 
-thread_local ChunkMeshFaceStorage::InstancesStorage Chunk::localMeshInstances;
-
-std::atomic<bool> Chunk::gHasStructureBlockChanges{ false };
-std::unique_ptr<ChunkRegionManager> Chunk::chunkRegionManagerInstance;
+std::unique_ptr<Chunk::ManagerInstances> Chunk::managerInstances;
 
 Chunk::CachedBlockIds Chunk::CACHED_BLOCK_IDS;
-
-StructureBlockChangeManager Chunk::structureBlockChangeManager;
 
 
 static uint32_t hash3(uint32_t x, uint32_t y, uint32_t z)
@@ -129,8 +124,8 @@ void Chunk::destroy()
 
 void Chunk::globalInit()
 {
-	// Create chunk region manager instance
-	chunkRegionManagerInstance = std::make_unique<ChunkRegionManager>();
+	// Create manager instances (using for clear lifetime)
+	managerInstances = std::make_unique<ManagerInstances>();
 
 	// Cache block ids
 	CACHED_BLOCK_IDS.airId = AssetRegistry::getBlockNumericalId("core:air");
@@ -144,8 +139,8 @@ void Chunk::globalInit()
 
 void Chunk::globalDestroy()
 {
-	// Destroy chunk region manager instance
-	chunkRegionManagerInstance.reset();
+	// Destroy manager instances
+	managerInstances.reset();
 }
 
 void Chunk::buildBlocks()
@@ -317,7 +312,7 @@ void Chunk::buildBlocks()
 	{
 		PROFILE_SCOPE("Apply incoming structural changes", ProfileCategory::ChunkBlocks);
 
-		auto pendingChanges = structureBlockChangeManager.retrieveAndClearChanges(position);
+		auto pendingChanges = managerInstances->structureBlock.retrieveAndClearChanges(position);
 		for (const auto& change : pendingChanges)
 		{
 			if (!change.placeIfBlockIsAir || blocks[change.index] == CACHED_BLOCK_IDS.airId)
@@ -350,7 +345,7 @@ void Chunk::updateStructureBlocks()
 
 	FenceGuard scopedFence(processingFence);
 
-	auto pendingChanges = structureBlockChangeManager.retrieveAndClearChanges(position);
+	auto pendingChanges = managerInstances->structureBlock.retrieveAndClearChanges(position);
 	for (const auto& change : pendingChanges)
 	{
 		if (!change.placeIfBlockIsAir || blocks[change.index] == CACHED_BLOCK_IDS.airId)
@@ -408,7 +403,7 @@ void Chunk::generateTree(const glm::ivec3& rootPosition)
 			int nz = z & CHUNK_LOWER_BITS_MASK;
 			size_t index = getIndex(nx, ny, nz);
 
-			structureBlockChangeManager.addChange(chunkPos, CACHED_BLOCK_IDS.oakLogId, index, true);
+			managerInstances->structureBlock.addChange(chunkPos, CACHED_BLOCK_IDS.oakLogId, index, true);
 			hasReachedOtherChunk = true;
 		}
 	}
@@ -461,7 +456,7 @@ void Chunk::generateTree(const glm::ivec3& rootPosition)
 					int nz = lz & CHUNK_LOWER_BITS_MASK;
 					size_t index = getIndex(nx, ny, nz);
 
-					structureBlockChangeManager.addChange(chunkPos, CACHED_BLOCK_IDS.oakLeavesId, index, true);
+					managerInstances->structureBlock.addChange(chunkPos, CACHED_BLOCK_IDS.oakLeavesId, index, true);
 					hasReachedOtherChunk = true;
 				}
 			}
@@ -470,7 +465,7 @@ void Chunk::generateTree(const glm::ivec3& rootPosition)
 
 	if (hasReachedOtherChunk)
 	{
-		gHasStructureBlockChanges.store(true, std::memory_order_release);
+		managerInstances->structureBlock.hasAnyChanges.store(true, std::memory_order_release);
 	}
 }
 
@@ -1261,7 +1256,7 @@ void Chunk::updateMesh()
 
 		static const BlockData::TextureSlot fallbackTextureSlot(0, BlockData::TextureSlot::TextureTransformation::None, false);
 
-		localMeshInstances.clear();
+		ChunkMeshFaceStorage::InstancesStorage localMeshInstances;
 
 		const glm::ivec3 globalChunkPosition = position << CHUNK_SIZE_LOG2;
 		for (size_t currentBlockIndex = 0; currentBlockIndex < CHUNK_VOLUME; currentBlockIndex++)

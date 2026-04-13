@@ -265,7 +265,7 @@ void WorldRenderer::collectChunksForRendering(const Camera& camera) const
 	PROFILE_SCOPE("Collect chunks for render", ProfileCategory::Render);
 
 	// Get regions
-	const auto& regions = Chunk::chunkRegionManagerInstance->getRegionMap();
+	const auto& regions = Chunk::managerInstances->chunkRegion.getRegionMap();
 
 	// Clear and reserve
 	chunksToRender.clear();
@@ -348,7 +348,7 @@ void WorldRenderer::collectChunksForRenderingWithConnectivity(const Camera& came
 	const Chunk* startChunk = nullptr;
 	{
 		const glm::ivec3 regionPos = ChunkRegion::getRegionPosition(cameraChunkPos);
-		const auto& regionMap = Chunk::chunkRegionManagerInstance->getRegionMap();
+		const auto& regionMap = Chunk::managerInstances->chunkRegion.getRegionMap();
 		const auto  regionIt = regionMap.find(regionPos);
 		if (regionIt != regionMap.end())
 		{
@@ -367,7 +367,7 @@ void WorldRenderer::collectChunksForRenderingWithConnectivity(const Camera& came
 	{
 		constexpr int CHUNK_REGION_SIZE_IN_BLOCKS = CHUNK_REGION_SIZE * CHUNK_SIZE;
 		Box regionShape(glm::dvec3(0.0), glm::dvec3(CHUNK_REGION_SIZE_IN_BLOCKS >> 1));
-		for (const auto& [position, region] : Chunk::chunkRegionManagerInstance->getRegionMap())
+		for (const auto& [position, region] : Chunk::managerInstances->chunkRegion.getRegionMap())
 		{
 			regionShape.center = glm::dvec3(position * CHUNK_REGION_SIZE_IN_BLOCKS) + regionShape.halfExtents;
 			region->isFrustumCulled = !frustum.checkBox(regionShape);
@@ -389,7 +389,7 @@ void WorldRenderer::collectChunksForRenderingWithConnectivity(const Camera& came
 
 	floodFillVisited.clear();
 
-	static thread_local std::vector<QueueNode> bfsQueue;
+	static std::vector<QueueNode> bfsQueue;
 	bfsQueue.clear();
 
 	// Start chunk: 0xFF = reachable from every direction
