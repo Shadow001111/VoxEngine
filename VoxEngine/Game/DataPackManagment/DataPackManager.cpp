@@ -1,6 +1,9 @@
 #include "DataPackManager.h"
 #include "AssetRegistry.h"
 
+#include "Core/Profiler.h"
+#include "Game/ProfileCategories.h"
+
 #include <iostream>
 #include <fstream>
 
@@ -38,11 +41,14 @@ void DataPackManager::loadAllDataPacks()
     }
 
     // Load all packs
-    for (const auto& entry : fs::directory_iterator(packsDir))
     {
-        if (entry.is_directory())
+        //PROFILE_SCOPE("Load data packs", ProfileCategory::General);
+        for (const auto& entry : fs::directory_iterator(packsDir))
         {
-            loadDataPack(entry.path());
+            if (entry.is_directory())
+            {
+                loadDataPack(entry.path());
+            }
         }
     }
 
@@ -80,7 +86,10 @@ void DataPackManager::loadDataPack(const fs::path& dataPackPath)
     metadata.name = std::move(dataPackName);
 
     // Load assets
-    loadBlocks(dataPackPath, metadata.id);
+    {
+        //PROFILE_SCOPE("BlocksAAAAAA", ProfileCategory::General);
+        loadBlocks(dataPackPath, metadata.id);
+    }
     loadBlockModels(dataPackPath, metadata.id);
     loadItems(dataPackPath, metadata.id);
     loadItemModels(dataPackPath, metadata.id);
@@ -148,6 +157,16 @@ std::optional<DataPackManager::DatapackMetadata> DataPackManager::parseMetadataJ
     return metadata;
 }
 
+std::string combineTwoStringsWithDelimiter(const std::string& a, const std::string& b, char delimiter)
+{
+    std::string result;
+    result.reserve(a.size() + 1 + b.size());
+    result.append(a);
+    result.push_back(delimiter);
+    result.append(b);
+	return result;
+}
+
 void DataPackManager::loadBlocks(const std::filesystem::path& dataPackPath, const std::string& dataPackStringId)
 {
     fs::path blocksDir = dataPackPath / "Blocks";
@@ -190,7 +209,7 @@ void DataPackManager::loadBlocks(const std::filesystem::path& dataPackPath, cons
 
         // Parse
         BlockAsset asset;
-        asset.stringId = dataPackStringId + ":" + blockName;
+		asset.stringId = combineTwoStringsWithDelimiter(dataPackStringId, blockName, ':');
         std::cout << "[DataPackManager]: Loading block " << asset.stringId << "\n";
         try
         {
@@ -488,7 +507,7 @@ void DataPackManager::loadBlockModels(const std::filesystem::path& dataPackPath,
 
         // Parse
         BlockModelData asset;
-        const std::string stringId = dataPackStringId + ":" + modelName;
+		const std::string stringId = combineTwoStringsWithDelimiter(dataPackStringId, modelName, ':');
         std::cout << "[DataPackManager]: Loading block model " << stringId << "\n";
         try
         {
@@ -758,13 +777,13 @@ void DataPackManager::loadItems(const std::filesystem::path& dataPackPath, const
         std::ifstream file(entry.path());
         if (!file)
         {
-            std::cerr << "[DataPackManager]: Failed to open iem file: " << itemFilepath << "\n";
+            std::cerr << "[DataPackManager]: Failed to open item file: " << itemFilepath << "\n";
             return;
         }
 
         // Parse
         ItemAsset asset;
-        asset.stringId = dataPackStringId + ":" + itemName;
+		asset.stringId = combineTwoStringsWithDelimiter(dataPackStringId, itemName, ':');
         std::cout << "[DataPackManager]: Loading item " << asset.stringId << "\n";
         try
         {
@@ -891,7 +910,7 @@ void DataPackManager::loadItemModels(const std::filesystem::path& dataPackPath, 
 
         // Parse
         ItemModelData asset;
-        const std::string stringId = dataPackStringId + ":" + modelName;
+		const std::string stringId = combineTwoStringsWithDelimiter(dataPackStringId, modelName, ':');
         std::cout << "[DataPackManager]: Loading item model " << stringId << "\n";
         try
         {

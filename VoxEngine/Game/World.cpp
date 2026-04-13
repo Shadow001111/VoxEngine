@@ -22,11 +22,8 @@ World::World() :
 {
 	// Datapack loading and registering assets
 	std::vector<std::string> blockTextureNames;
-	{
-		PROFILE_SCOPE("Data packs loading", ProfileCategory::General);
-		DataPackManager::loadAllDataPacks();
-		blockTextureNames = AssetRegistry::getBlockTextureNames();
-	}
+	DataPackManager::loadAllDataPacks();
+	blockTextureNames = AssetRegistry::getBlockTextureNames();
 
 	// Init sub-systems
 	chunkManager.init();

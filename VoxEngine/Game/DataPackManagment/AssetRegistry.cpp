@@ -1,7 +1,11 @@
 #include "AssetRegistry.h"
+
+#include "Core/Profiler.h"
+#include "Game/ProfileCategories.h"
+#include "Game/SoundManager.h"
+
 #include <iostream>
 #include <algorithm>
-#include "Game/SoundManager.h"
 
 DynamicArray<BlockAsset> AssetRegistry::blockAssetStorage;
 DynamicArray<ItemAsset> AssetRegistry::itemAssetStorage;
@@ -184,6 +188,36 @@ void printObjectNameValidationError(std::ostream& os,
     }
 }
 
+template <class SoundSet>
+static void loadUniqueSounds(
+	const SoundSet& sounds,
+	std::string_view logicalPrefix,
+	std::string_view diskPrefix)
+{
+	auto& sndMgr = SoundManager::getInstance();
+
+	PROFILE_SCOPE("Load sounds", ProfileCategory::General);
+
+	std::string logicalName;
+	std::string diskName;
+
+	for (const auto& sound : sounds)
+	{
+		logicalName.clear();
+		logicalName.reserve(logicalPrefix.size() + sound.size());
+		logicalName += logicalPrefix;
+		logicalName += sound;
+
+		diskName.clear();
+		diskName.reserve(diskPrefix.size() + sound.size() + 4);
+		diskName += diskPrefix;
+		diskName += sound;
+		diskName += ".ogg";
+
+		sndMgr.loadOgg(logicalName, diskName);
+	}
+}
+
 
 void AssetRegistry::reset()
 {
@@ -227,6 +261,7 @@ void AssetRegistry::registerBlock(const BlockAsset& asset)
 	data.raycastable = asset.raycastable;
 
 	// Visuals
+	data.textureSlots.reserve(asset.textureInfo.size());
 	for (const auto& assetTexture : asset.textureInfo)
 	{
 		auto& dataTexture = data.textureSlots.emplace_back();
@@ -342,81 +377,88 @@ bool AssetRegistry::linkAssets()
 bool AssetRegistry::linkBlockAssets()
 {
 	const size_t blockCount = blockAssetStorage.size();
-	auto& sndMgr = SoundManager::getInstance();
-	for (size_t i = 0; i < blockCount; i++)
-	{
-		const auto& asset = blockAssetStorage[i];
-		auto& data = blockDataStorage[i];
 
-		// Model
-		if (asset.modelName == "None")
+	robin_hood::unordered_flat_set<std::string> breakSounds;
+	robin_hood::unordered_flat_set<std::string> placeSounds;
+	robin_hood::unordered_flat_set<std::string> stepSounds;
+
+	breakSounds.reserve(blockCount);
+	placeSounds.reserve(blockCount);
+	stepSounds.reserve(blockCount);
+
+	{
+		PROFILE_SCOPE("Link assets", ProfileCategory::General);
+
+		for (size_t i = 0; i < blockCount; i++)
 		{
-			data.modelId = FALLBACK_BLOCK_MODEL_ID;
-		}
-		else
-		{
-			auto blockModelIdResult = blockModelIndexer.getId(asset.modelName);
-			if (blockModelIdResult.has_value())
+			const auto& asset = blockAssetStorage[i];
+			auto& data = blockDataStorage[i];
+
+			// Model
+			if (asset.modelName == "None")
 			{
-				data.modelId = static_cast<ModelId>(blockModelIdResult.value());
+				data.modelId = FALLBACK_BLOCK_MODEL_ID;
 			}
 			else
 			{
-				std::cerr << "[AssetRegistry]: Block model " << asset.modelName << " is not registered\n";
-				data.modelId = FALLBACK_BLOCK_MODEL_ID;
-			}
-		}
-
-		// Has faces
-		data.hasFaces = !data.textureSlots.empty();
-
-		// Enable culling for faces that have opaque aligned faces in the model
-		for (int i = 0; i < 6; i++)
-		{
-			data.faceCulling.set(i, false);
-		}
-		if (data.hasFaces)
-		{
-			const auto* model = getBlockModelData(data.modelId);
-			if (model)
-			{
-				for (const auto& alignedFace : model->alignedFaces)
+				auto blockModelIdResult = blockModelIndexer.getId(asset.modelName);
+				if (blockModelIdResult.has_value())
 				{
-					if (alignedFace.normal >= 6)
-					{
-						continue;
-					}
-
-					bool shouldCull = true;
-
-					if (alignedFace.textureSlot < data.textureSlots.size())
-					{
-						const auto& textureSlot = data.textureSlots[alignedFace.textureSlot];
-						if (textureSlot.isTranslucent)
-						{
-							shouldCull = false;
-						}
-					}
-
-					data.faceCulling.set(alignedFace.normal, shouldCull);
+					data.modelId = static_cast<ModelId>(blockModelIdResult.value());
+				}
+				else
+				{
+					std::cerr << "[AssetRegistry]: Block model " << asset.modelName << " is not registered\n";
+					data.modelId = FALLBACK_BLOCK_MODEL_ID;
 				}
 			}
-		}
 
-		// Load sounds
-		for (const auto& sound : data.breakSounds)
-		{
-			sndMgr.loadOgg("block/break/" + sound, "res/Sounds/Blocks/Break/" + sound + ".ogg");
-		}
-		for (const auto& sound : data.placeSounds)
-		{
-			sndMgr.loadOgg("block/place/" + sound, "res/Sounds/Blocks/Place/" + sound + ".ogg");
-		}
-		for (const auto& sound : data.stepSounds)
-		{
-			sndMgr.loadOgg("block/step/" + sound, "res/Sounds/Blocks/Step/" + sound + ".ogg");
+			// Has faces
+			data.hasFaces = !data.textureSlots.empty();
+
+			// Enable culling for faces that have opaque aligned faces in the model
+			for (int i = 0; i < 6; i++)
+			{
+				data.faceCulling.set(i, false);
+			}
+			if (data.hasFaces)
+			{
+				const auto* model = getBlockModelData(data.modelId);
+				if (model)
+				{
+					for (const auto& alignedFace : model->alignedFaces)
+					{
+						if (alignedFace.normal >= 6)
+						{
+							continue;
+						}
+
+						bool shouldCull = true;
+
+						if (alignedFace.textureSlot < data.textureSlots.size())
+						{
+							const auto& textureSlot = data.textureSlots[alignedFace.textureSlot];
+							if (textureSlot.isTranslucent)
+							{
+								shouldCull = false;
+							}
+						}
+
+						data.faceCulling.set(alignedFace.normal, shouldCull);
+					}
+				}
+			}
+
+			// Collect sounds only. Load them later, once each.
+			for (const auto& s : asset.breakSounds) breakSounds.emplace(s);
+			for (const auto& s : asset.placeSounds) placeSounds.emplace(s);
+			for (const auto& s : asset.stepSounds) stepSounds.emplace(s);
 		}
 	}
+
+	loadUniqueSounds(breakSounds, "block/break/", "res/Sounds/Blocks/Break/");
+	loadUniqueSounds(placeSounds, "block/place/", "res/Sounds/Blocks/Place/");
+	loadUniqueSounds(stepSounds, "block/step/", "res/Sounds/Blocks/Step/");
 
 	return true;
 }

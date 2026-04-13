@@ -72,7 +72,10 @@ static bool loadOggFile(const std::string& filename, ALuint* bufferOut)
 	int samplesPerChannel = stb_vorbis_decode_filename(filename.c_str(), &channels, &sampleRate, &pcm);
 
 	if (samplesPerChannel <= 0)
+	{
+		free(pcm);
 		return false;
+	}
 
 	size_t totalSamples = size_t(samplesPerChannel) * size_t(channels);
 	size_t dataSize = totalSamples * sizeof(short);
@@ -139,7 +142,7 @@ SoundManager::~SoundManager()
 
 bool SoundManager::loadWav(const std::string& name, const std::string& filename)
 {
-	if (buffers.count(name))
+	if (buffers.contains(name))
 		return true; // already loaded
 
 	ALuint buffer;
@@ -155,7 +158,7 @@ bool SoundManager::loadWav(const std::string& name, const std::string& filename)
 
 bool SoundManager::loadOgg(const std::string& name, const std::string& filename)
 {
-	if (buffers.count(name))
+	if (buffers.contains(name))
 		return true; // already loaded
 
 	ALuint buffer;

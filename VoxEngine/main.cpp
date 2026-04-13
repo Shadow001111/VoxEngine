@@ -24,7 +24,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #ifdef NDEBUG
-constexpr int CHUNK_LOAD_DISTANCE = 24;
+constexpr int CHUNK_LOAD_DISTANCE = 1;
 #else
 constexpr int CHUNK_LOAD_DISTANCE = 3;
 #endif
@@ -549,6 +549,9 @@ static int gameFunc()
     // Init textures
     Texture::initGlobalData();
 
+    // SoundManager
+    auto& soundManager = SoundManager::getInstance();
+
     // Check
     check();
 
@@ -659,7 +662,7 @@ static int gameFunc()
         worldDebugDataIntenseUpdateTimer.addTime(deltaTime);
 
         // Sounds
-        SoundManager::getInstance().update();
+        soundManager.update();
 
         // World
         world.setAppTime((float)time);
