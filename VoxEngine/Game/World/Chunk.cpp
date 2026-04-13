@@ -84,7 +84,7 @@ void Chunk::destroy()
 		}
 
 		FenceGuard scopedFence(mesh.faceStorage.processingFence);
-		mesh.faceStorage.clearInstances();
+		mesh.faceStorage.instancesStorage.clear();
 	}
 
 	// Release chunk column data

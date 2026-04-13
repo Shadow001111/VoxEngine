@@ -70,6 +70,8 @@ void ChunkMesh::sendMeshesToGPU()
 
 		faceStorage.updateRenderFaceCount();
 		faceStorage.setFlag(ChunkMesh::Flag::ShouldBeUploaded, false);
+		faceStorage.instancesStorage.clear();
+		faceStorage.instancesStorage.shrinkToFit();
 		faceStorage.processingFence.stopProcessing();
 		chunk->updateCanBeRenderedFlag();
 	}

@@ -332,10 +332,10 @@ bool AssetRegistry::linkAssets()
 
 	// End
 	blockAssetStorage.clear();
-	blockAssetStorage.~DynamicArray();
+	blockAssetStorage.shrink_to_fit();
 
 	itemAssetStorage.clear();
-	itemAssetStorage.~DynamicArray();
+	itemAssetStorage.shrink_to_fit();
 	return true;
 }
 

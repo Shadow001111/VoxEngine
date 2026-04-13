@@ -622,7 +622,7 @@ static int gameFunc()
     // Timers
     double lastTime = glfwGetTime();
     UpdateTimer worldUpdateTimer(20.0); worldUpdateTimer.setUpdateToTrue();
-    UpdateTimer profilerUpdateTimer(1.0 / 2.0);
+    UpdateTimer profilerUpdateTimer(1.0);// (1.0 / 2.0);
     UpdateTimer frequentUIDataUpdateTimer(1.0);
     UpdateTimer worldDebugDataIntenseUpdateTimer(1.0);
 

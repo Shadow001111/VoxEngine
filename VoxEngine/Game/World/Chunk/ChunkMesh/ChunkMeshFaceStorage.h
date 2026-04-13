@@ -42,6 +42,7 @@ struct ChunkMeshFaceStorage
 
 		void clear();
 		void swap(InstancesStorage& other) noexcept;
+		void shrinkToFit();
 
 		const void* data(MeshLayer layer) const noexcept;
 		uint32_t size(MeshLayer layer) const noexcept;
@@ -83,8 +84,6 @@ public:
 
 	void resetRenderFaceCount() noexcept { renderFaceCounts.fill(0); }
 	void updateRenderFaceCount();
-
-	void clearInstances() { instancesStorage.clear(); }
 
 	// Flag helpers
 
