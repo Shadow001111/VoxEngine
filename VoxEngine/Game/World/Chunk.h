@@ -118,6 +118,18 @@ class Chunk
 		LightLevel light[8];     // Light values for each vertex
 	};
 
+	struct BlockVertexLightDataOldV2
+	{
+		uint16_t ao;			// AO values for each vertex
+		LightLevel light[8];    // Light values for each vertex
+	};
+
+	struct BlockVertexLightDataNew
+	{
+		uint8_t ao[6];
+		LightLevel light[24];
+	};
+
 	// Types
 public:
 	enum class State : uint8_t
