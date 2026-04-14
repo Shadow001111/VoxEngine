@@ -1,0 +1,34 @@
+{
+  "faces": [
+    {
+      "type": "aligned",
+      "normal": 0,
+      "texture_slot": 0
+    },
+    {
+      "type": "aligned",
+      "normal": 1,
+      "texture_slot": 0
+    },
+    {
+      "type": "aligned",
+      "normal": 2,
+      "texture_slot": 0
+    },
+    {
+      "type": "aligned",
+      "normal": 3,
+      "texture_slot": 0
+    },
+    {
+      "type": "aligned",
+      "normal": 4,
+      "texture_slot": 0
+    },
+    {
+      "type": "aligned",
+      "normal": 5,
+      "texture_slot": 0
+    }
+  ]
+}

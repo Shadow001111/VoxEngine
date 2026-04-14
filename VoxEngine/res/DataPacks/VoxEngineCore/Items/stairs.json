@@ -1,8 +1,8 @@
 {
   "stack_size": 64,
-  "block_placeable": "core:stone",
-  "ui_texture": "stone",
-  "model": "core:cube_single_texture",
+  "block_placeable": "core:stairs",
+  "ui_texture": "stairs",
+  "model": "core:stairs",
   "model_textures": [
     {
       "name": "stone",

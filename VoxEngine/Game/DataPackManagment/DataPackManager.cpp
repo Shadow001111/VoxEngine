@@ -61,8 +61,6 @@ void DataPackManager::loadAllDataPacks()
     }
 
     std::cout << "[DataPackManager]: Assets are linked\n";
-
-    std::cout << std::flush;
 }
 
 void DataPackManager::loadDataPack(const fs::path& dataPackPath)
