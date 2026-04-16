@@ -1324,7 +1324,7 @@ void Chunk::updateMesh()
 					}
 
 					const BlockData* neighborBlockData = AssetRegistry::getBlockData(neighborBlock);
-					if (!neighborBlockData || neighborBlockData->faceCulling[face.normal ^ (uint8_t)1])
+					if (!neighborBlockData || neighborBlockData->faceCulling[face.normal ^ 1])
 					{
 						continue;
 					}
@@ -1364,14 +1364,15 @@ void Chunk::updateMesh()
 			// TODO: Non-aligned faces should be culled if they are on the block's border
 			if (!model->unalignedFaces.empty())
 			{
-				BlockVertexLightData lightData;
-				calculateBlockVertexLight(lightData, currentBlockPosition.x, currentBlockPosition.y, currentBlockPosition.z);
+				BlockVertexData lightData;
+				calculateBlockVertexLight(lightData, currentBlockPosition);
 
 				UnalignedBlockFace instance;
 				instance.blockX = currentBlockPosition.x;
 				instance.blockY = currentBlockPosition.y;
 				instance.blockZ = currentBlockPosition.z;
 
+				// 24 light values: 6 faces x 4 vertices
 				instance.light0 = lightData.light[0].fullByte;
 				instance.light1 = lightData.light[1].fullByte;
 				instance.light2 = lightData.light[2].fullByte;
@@ -1380,15 +1381,48 @@ void Chunk::updateMesh()
 				instance.light5 = lightData.light[5].fullByte;
 				instance.light6 = lightData.light[6].fullByte;
 				instance.light7 = lightData.light[7].fullByte;
+				instance.light8 = lightData.light[8].fullByte;
+				instance.light9 = lightData.light[9].fullByte;
+				instance.light10 = lightData.light[10].fullByte;
+				instance.light11 = lightData.light[11].fullByte;
+				instance.light12 = lightData.light[12].fullByte;
+				instance.light13 = lightData.light[13].fullByte;
+				instance.light14 = lightData.light[14].fullByte;
+				instance.light15 = lightData.light[15].fullByte;
+				instance.light16 = lightData.light[16].fullByte;
+				instance.light17 = lightData.light[17].fullByte;
+				instance.light18 = lightData.light[18].fullByte;
+				instance.light19 = lightData.light[19].fullByte;
+				instance.light20 = lightData.light[20].fullByte;
+				instance.light21 = lightData.light[21].fullByte;
+				instance.light22 = lightData.light[22].fullByte;
+				instance.light23 = lightData.light[23].fullByte;
 
-				instance.ao0 = lightData.ao[0];
-				instance.ao1 = lightData.ao[1];
-				instance.ao2 = lightData.ao[2];
-				instance.ao3 = lightData.ao[3];
-				instance.ao4 = lightData.ao[4];
-				instance.ao5 = lightData.ao[5];
-				instance.ao6 = lightData.ao[6];
-				instance.ao7 = lightData.ao[7];
+				// 24 AO values: unpack each per-face packed byte (v0|v1<<2|v2<<4|v3<<6) into 4 x 2-bit fields
+				instance.ao0 = (lightData.ao[0] >> 0) & 3; // face 0
+				instance.ao1 = (lightData.ao[0] >> 2) & 3;
+				instance.ao2 = (lightData.ao[0] >> 4) & 3;
+				instance.ao3 = (lightData.ao[0] >> 6) & 3;
+				instance.ao4 = (lightData.ao[1] >> 0) & 3; // face 1
+				instance.ao5 = (lightData.ao[1] >> 2) & 3;
+				instance.ao6 = (lightData.ao[1] >> 4) & 3;
+				instance.ao7 = (lightData.ao[1] >> 6) & 3;
+				instance.ao8 = (lightData.ao[2] >> 0) & 3; // face 2
+				instance.ao9 = (lightData.ao[2] >> 2) & 3;
+				instance.ao10 = (lightData.ao[2] >> 4) & 3;
+				instance.ao11 = (lightData.ao[2] >> 6) & 3;
+				instance.ao12 = (lightData.ao[3] >> 0) & 3; // face 3
+				instance.ao13 = (lightData.ao[3] >> 2) & 3;
+				instance.ao14 = (lightData.ao[3] >> 4) & 3;
+				instance.ao15 = (lightData.ao[3] >> 6) & 3;
+				instance.ao16 = (lightData.ao[4] >> 0) & 3; // face 4
+				instance.ao17 = (lightData.ao[4] >> 2) & 3;
+				instance.ao18 = (lightData.ao[4] >> 4) & 3;
+				instance.ao19 = (lightData.ao[4] >> 6) & 3;
+				instance.ao20 = (lightData.ao[5] >> 0) & 3; // face 5
+				instance.ao21 = (lightData.ao[5] >> 2) & 3;
+				instance.ao22 = (lightData.ao[5] >> 4) & 3;
+				instance.ao23 = (lightData.ao[5] >> 6) & 3;
 
 				for (const auto& face : model->unalignedFaces)
 				{
@@ -2115,89 +2149,215 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(ContextFaceAOAL& context) cons
 	std::memcpy(&light, lightLevels, sizeof(light));
 }
 
-void Chunk::calculateBlockVertexLight(BlockVertexLightData& result, int x, int y, int z) const
+void Chunk::calculateVertexAmbientOcclusionAndLightUnaligned(unsigned int& ao, LightLevel& light, const LightLevelAndIsSolid& center, const LightLevelAndIsSolid& side1, const LightLevelAndIsSolid& side2, const LightLevelAndIsSolid& corner) const
 {
-	for (int i = 0; i < 8; i++)
+	constexpr std::array<unsigned int, 5> magicNumbers = {
+		0u,
+		getMagicNumberForDivision(1, 8),
+		getMagicNumberForDivision(2, 8),
+		getMagicNumberForDivision(3, 8),
+		getMagicNumberForDivision(4, 8)
+	};
+
+	const unsigned bothSolid = side1.isSolid & side2.isSolid;
+	const unsigned use1 = !side1.isSolid;
+	const unsigned use2 = !side2.isSolid;
+	const unsigned useC = !corner.isSolid && !bothSolid;
+	const unsigned useCenter = !center.isSolid;
+
+	const unsigned blockLightSum =
+		useCenter * center.lightLevel.blockLight +
+		use1 * side1.lightLevel.blockLight +
+		use2 * side2.lightLevel.blockLight +
+		useC * corner.lightLevel.blockLight;
+
+	const unsigned skyLightSum =
+		useCenter * center.lightLevel.skyLight +
+		use1 * side1.lightLevel.skyLight +
+		use2 * side2.lightLevel.skyLight +
+		useC * corner.lightLevel.skyLight;
+
+	const unsigned count = useCenter + use1 + use2 + useC;
+	const unsigned magicNumber = magicNumbers[count];
+	light.blockLight = (blockLightSum * magicNumber) >> 8u;
+	light.skyLight = (skyLightSum * magicNumber) >> 8u;
+
+	const unsigned sideAo = (1u - bothSolid) * (use1 + use2 + useC);
+	ao = std::max((int)sideAo - center.isSolid, 0);
+}
+
+void Chunk::calculateFaceAmbientOcclusionAndLightUnaligned(ContextFaceAOAL& context) const
+{
+	LightLevelAndIsSolid neighborData[8];
+
+	unsigned int ao0 = 0, ao1 = 0, ao2 = 0, ao3 = 0;
+	LightLevel   lightLevels[4];
+
+	auto x = context.position.x;
+	auto y = context.position.y;
+	auto z = context.position.z;
+	auto normal = context.normal;
+	LightLevelAndIsSolid centerFaceData = { context.centerFaceLight, context.centerFaceIsSolid };
+
+	// getSafe / getSafe2 lambdas — identical to the aligned version
+	auto getSafe = [this, &neighborData](size_t dataIdx, int x_, int y_, int z_, int fcn)
+		{
+			size_t index;
+			const Chunk* chunk = traverseThroughNeighbors(x_, y_, z_, index);
+			if (!chunk) return;
+			BlockId    block = chunk->blocks[index];
+			LightLevel lightLevel = chunk->lightLevels[index];
+			neighborData[dataIdx].lightLevel = lightLevel;
+			const auto* blockData = AssetRegistry::getBlockData(block);
+			neighborData[dataIdx].isSolid = blockData && blockData->faceCulling[fcn];
+		};
+
+	auto getSafe2 = [this, &neighborData](size_t dataIdx, int x_, int y_, int z_, int fcn1, int fcn2)
+		{
+			size_t index;
+			const Chunk* chunk = traverseThroughNeighbors(x_, y_, z_, index);
+			if (!chunk) return;
+			BlockId    block = chunk->blocks[index];
+			LightLevel lightLevel = chunk->lightLevels[index];
+			neighborData[dataIdx].lightLevel = lightLevel;
+			const auto* blockData = AssetRegistry::getBlockData(block);
+			neighborData[dataIdx].isSolid = blockData && (blockData->faceCulling[fcn1] || blockData->faceCulling[fcn2]);
+		};
+
+	// Helper alias — reduces noise in the switch below
+	auto calcVertex = [&](unsigned int& ao, LightLevel& ll,
+		const LightLevelAndIsSolid& s1,
+		const LightLevelAndIsSolid& s2,
+		const LightLevelAndIsSolid& c)
+		{
+			calculateVertexAmbientOcclusionAndLightUnaligned(
+				ao, ll, centerFaceData, s1, s2, c);
+		};
+
+	switch (normal)
 	{
-		result.light[i].fullByte = 255u;
-		result.ao[i] = 3u;
+	case 0: // -X face
+		x--;
+		getSafe2(0, x, y - 1, z - 1, 3, 5);  getSafe(1, x, y - 1, z, 3);
+		getSafe2(2, x, y - 1, z + 1, 3, 4);  getSafe(3, x, y, z - 1, 5);
+		getSafe(4, x, y, z + 1, 4);     getSafe2(5, x, y + 1, z - 1, 2, 5);
+		getSafe(6, x, y + 1, z, 2);     getSafe2(7, x, y + 1, z + 1, 2, 4);
+
+		calcVertex(ao0, lightLevels[0], neighborData[1], neighborData[3], neighborData[0]);
+		calcVertex(ao1, lightLevels[1], neighborData[1], neighborData[4], neighborData[2]);
+		calcVertex(ao2, lightLevels[2], neighborData[6], neighborData[4], neighborData[7]);
+		calcVertex(ao3, lightLevels[3], neighborData[6], neighborData[3], neighborData[5]);
+		break;
+	case 1: // +X face
+		x++;
+		getSafe2(0, x, y - 1, z - 1, 3, 5);  getSafe(1, x, y - 1, z, 3);
+		getSafe2(2, x, y - 1, z + 1, 3, 4);  getSafe(3, x, y, z - 1, 5);
+		getSafe(4, x, y, z + 1, 4);     getSafe2(5, x, y + 1, z - 1, 2, 5);
+		getSafe(6, x, y + 1, z, 2);     getSafe2(7, x, y + 1, z + 1, 2, 4);
+
+		calcVertex(ao0, lightLevels[0], neighborData[1], neighborData[4], neighborData[2]);
+		calcVertex(ao1, lightLevels[1], neighborData[1], neighborData[3], neighborData[0]);
+		calcVertex(ao2, lightLevels[2], neighborData[6], neighborData[3], neighborData[5]);
+		calcVertex(ao3, lightLevels[3], neighborData[6], neighborData[4], neighborData[7]);
+		break;
+	case 2: // -Y face
+		y--;
+		getSafe2(0, x - 1, y, z - 1, 1, 5);  getSafe(1, x, y, z - 1, 5);
+		getSafe2(2, x + 1, y, z - 1, 0, 5);  getSafe(3, x - 1, y, z, 1);
+		getSafe(4, x + 1, y, z, 0);     getSafe2(5, x - 1, y, z + 1, 1, 4);
+		getSafe(6, x, y, z + 1, 4);     getSafe2(7, x + 1, y, z + 1, 0, 4);
+
+		calcVertex(ao0, lightLevels[0], neighborData[1], neighborData[4], neighborData[2]);
+		calcVertex(ao1, lightLevels[1], neighborData[1], neighborData[3], neighborData[0]);
+		calcVertex(ao2, lightLevels[2], neighborData[6], neighborData[3], neighborData[5]);
+		calcVertex(ao3, lightLevels[3], neighborData[6], neighborData[4], neighborData[7]);
+		break;
+	case 3: // +Y face
+		y++;
+		getSafe2(0, x - 1, y, z - 1, 1, 5);  getSafe(1, x, y, z - 1, 5);
+		getSafe2(2, x + 1, y, z - 1, 0, 5);  getSafe(3, x - 1, y, z, 1);
+		getSafe(4, x + 1, y, z, 0);     getSafe2(5, x - 1, y, z + 1, 1, 4);
+		getSafe(6, x, y, z + 1, 4);     getSafe2(7, x + 1, y, z + 1, 0, 4);
+
+		calcVertex(ao0, lightLevels[0], neighborData[4], neighborData[1], neighborData[2]);
+		calcVertex(ao1, lightLevels[1], neighborData[3], neighborData[1], neighborData[0]);
+		calcVertex(ao2, lightLevels[2], neighborData[3], neighborData[6], neighborData[5]);
+		calcVertex(ao3, lightLevels[3], neighborData[4], neighborData[6], neighborData[7]);
+		break;
+	case 4: // -Z face
+		z--;
+		getSafe2(0, x - 1, y - 1, z, 1, 3);  getSafe(1, x, y - 1, z, 3);
+		getSafe2(2, x + 1, y - 1, z, 0, 3);  getSafe(3, x - 1, y, z, 1);
+		getSafe(4, x + 1, y, z, 0);     getSafe2(5, x - 1, y + 1, z, 1, 2);
+		getSafe(6, x, y + 1, z, 2);     getSafe2(7, x + 1, y + 1, z, 0, 2);
+
+		calcVertex(ao0, lightLevels[0], neighborData[1], neighborData[4], neighborData[2]);
+		calcVertex(ao1, lightLevels[1], neighborData[1], neighborData[3], neighborData[0]);
+		calcVertex(ao2, lightLevels[2], neighborData[6], neighborData[3], neighborData[5]);
+		calcVertex(ao3, lightLevels[3], neighborData[6], neighborData[4], neighborData[7]);
+		break;
+	case 5: // +Z face
+		z++;
+		getSafe2(0, x - 1, y - 1, z, 1, 3);  getSafe(1, x, y - 1, z, 3);
+		getSafe2(2, x + 1, y - 1, z, 0, 3);  getSafe(3, x - 1, y, z, 1);
+		getSafe(4, x + 1, y, z, 0);     getSafe2(5, x - 1, y + 1, z, 1, 2);
+		getSafe(6, x, y + 1, z, 2);     getSafe2(7, x + 1, y + 1, z, 0, 2);
+
+		calcVertex(ao0, lightLevels[0], neighborData[1], neighborData[3], neighborData[0]);
+		calcVertex(ao1, lightLevels[1], neighborData[1], neighborData[4], neighborData[2]);
+		calcVertex(ao2, lightLevels[2], neighborData[6], neighborData[4], neighborData[7]);
+		calcVertex(ao3, lightLevels[3], neighborData[6], neighborData[3], neighborData[5]);
+		break;
 	}
-	return;
-	//LightLevel lightData[27];
-	//bool solidNeighbors[27];
 
-	//constexpr auto getIndex3x3 = [](int dx, int dy, int dz) constexpr {
-	//	return (dx + 1) * 9 + (dy + 1) * 3 + (dz + 1);
-	//	};
+	context.outAmbientOcclusion = ao0 | (ao1 << 2) | (ao2 << 4) | (ao3 << 6);
 
-	//auto getSafe = [this, &lightData, &solidNeighbors](size_t dataIdx, int x_, int y_, int z_)
-	//	{
-	//		size_t idx;
-	//		const Chunk* c = getChunkAndIndex_checkNeighborsTraverse(x_, y_, z_, idx);
+	static_assert(sizeof(context.outLightLevel) >= sizeof(lightLevels));
+	std::memcpy(&context.outLightLevel, lightLevels, sizeof(context.outLightLevel));
+}
 
-	//		solidNeighbors[dataIdx] = true;
-	//		if (c)
-	//		{
-	//			auto data = c->getBlockAndLightAt(idx);
-	//			lightData[dataIdx] = data.second;
-	//			solidNeighbors[dataIdx] = !BlockRegistry::getBlockDataByID(data.first)->properties.areFacesTranslucent;
-	//		}
-	//	};
+void Chunk::calculateBlockVertexLight(BlockVertexData& result, const glm::ivec3& currentBlockPosition) const
+{
+	for (int face = 0; face < 6; face++)
+	{
+		const glm::ivec3 neighborPos = currentBlockPosition + DirectionsTable::directionsXYZ[face];
 
-	//size_t idx = 0;
-	//for (int dx = -1; dx <= 1; dx++)
-	//{
-	//	for (int dy = -1; dy <= 1; dy++)
-	//	{
-	//		for (int dz = -1; dz <= 1; dz++)
-	//		{
-	//			getSafe(idx++, x + dx, y + dy, z + dz);
-	//		}
-	//	}
-	//}
-	//// TODO: Maybe center always should be not solid?
+		BlockId centerFaceBlock = {};
+		LightLevel centerFaceLight = {};
 
-	//// -1 -1 -1
-	//{
-	//	const int indices[8] = {
-	//		getIndex3x3( 0, -1,  0),
-	//		getIndex3x3(-1, -1,  0),
-	//		getIndex3x3( 0, -1, -1),
-	//		getIndex3x3(-1, -1, -1),
-	//		getIndex3x3( 0,  0,  0),
-	//		getIndex3x3(-1,  0,  0),
-	//		getIndex3x3( 0,  0, -1),
-	//		getIndex3x3(-1,  0, -1),
-	//	};
+		if (((neighborPos.x | neighborPos.y | neighborPos.z) & CHUNK_UPPER_BITS_MASK) == 0)
+		{
+			auto index = getIndex(neighborPos);
+			centerFaceBlock = blocks[index];
+			centerFaceLight = lightLevels[index];
+		}
+		else
+		{
+			const Chunk* neighborChunk = neighbors[getSideNeighborIndex(face)];
+			if (neighborChunk)
+			{
+				auto index = getIndex(neighborPos & CHUNK_LOWER_BITS_MASK);
+				centerFaceBlock = neighborChunk->blocks[index];
+				centerFaceLight = neighborChunk->lightLevels[index];
+			}
+		}
 
-	//	unsigned int blockLightSum = 0;
-	//	unsigned int skyLightSum = 0;
-	//	unsigned int validSamplesCount = 0;
-	//	for (int index : indices)
-	//	{
-	//		if (solidNeighbors[index])
-	//		{
-	//			continue;
-	//		}
+		const BlockData* centerFaceBlockData = AssetRegistry::getBlockData(centerFaceBlock);
+		const bool centerFaceIsSolid = centerFaceBlockData && centerFaceBlockData->faceCulling[face ^ 1];
 
-	//		blockLightSum += lightData[index].blockLight;
-	//		skyLightSum += lightData[index].skyLight;
-	//		validSamplesCount++;
-	//	}
+		ContextFaceAOAL aoData
+		{
+			.position = currentBlockPosition,
+			.normal = face,
+			.centerFaceLight = centerFaceLight,
+			.centerFaceIsSolid = centerFaceIsSolid
+		};
 
-	//	unsigned int avgBlockLight = 0;
-	//	unsigned int avgSkyLight = 0;
-	//	if (validSamplesCount > 0)
-	//	{
-	//		avgBlockLight = blockLightSum / validSamplesCount;
-	//		avgSkyLight = skyLightSum / validSamplesCount;
-	//	}
+		calculateFaceAmbientOcclusionAndLightUnaligned(aoData);
 
-	//	result.light[0].blockLight = avgBlockLight;
-	//	result.light[0].skyLight = avgSkyLight;
-	//	result.ao[0] = (float)validSamplesCount / 8.0f * 3.0f;
-	//}
+		result.ao[face] = static_cast<uint8_t>(aoData.outAmbientOcclusion);
 
-	////result.light[0] = LightLevel(15, 15);
-	////result.ao[0] = 3;
+		static_assert(sizeof(aoData.outLightLevel) == 4 * sizeof(LightLevel));
+		std::memcpy(&result.light[face * 4], &aoData.outLightLevel, sizeof(aoData.outLightLevel));
+	}
 }

@@ -46,8 +46,7 @@ void main()
 {
     vec4 textureColor = texture(blockTextures, vec3(texCoords, textureID));
 
-    //vec3 baseColor = textureColor.rgb;
-    vec3 baseColor = vec3(1.0);
+    vec3 baseColor = textureColor.rgb;
 
     vec3 shadedColor = baseColor * interpolateAO_Triang() * interpolateLight_Quad();
 

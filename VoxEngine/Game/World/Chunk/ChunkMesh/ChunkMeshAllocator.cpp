@@ -78,30 +78,18 @@ void ChunkMeshAllocator::configureInstanceVBO(MeshLayer layer)
 	}
 	else
 	{
-		// Block position + Us
+		// Data
 		ma.vao.enableAttribute(1);
-		ma.vao.setIntAttribute(1, 1, 0, 1, GL_UNSIGNED_INT);
+		ma.vao.setIntAttribute(1, 4, 0, 1, GL_UNSIGNED_INT);
 		ma.vao.setAttributeDivisor(1, 1);
 
-		// Vertex shifts
 		ma.vao.enableAttribute(2);
-		ma.vao.setIntAttribute(2, 2, 1 * sizeof(int), 1, GL_UNSIGNED_INT);
+		ma.vao.setIntAttribute(2, 4, 4 * sizeof(int), 1, GL_UNSIGNED_INT);
 		ma.vao.setAttributeDivisor(2, 1);
 
-		// Vs + textureID
 		ma.vao.enableAttribute(3);
-		ma.vao.setIntAttribute(3, 1, 3 * sizeof(int), 1, GL_UNSIGNED_INT);
+		ma.vao.setIntAttribute(3, 4, 8 * sizeof(int), 1, GL_UNSIGNED_INT);
 		ma.vao.setAttributeDivisor(3, 1);
-
-		// Light
-		ma.vao.enableAttribute(4);
-		ma.vao.setIntAttribute(4, 2, 4 * sizeof(int), 1, GL_UNSIGNED_INT);
-		ma.vao.setAttributeDivisor(4, 1);
-
-		// AO
-		ma.vao.enableAttribute(5);
-		ma.vao.setIntAttribute(5, 1, 6 * sizeof(int), 1, GL_UNSIGNED_INT);
-		ma.vao.setAttributeDivisor(5, 1);
 	}
 }
 

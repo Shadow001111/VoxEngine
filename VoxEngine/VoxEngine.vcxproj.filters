@@ -183,9 +183,6 @@
     <ClCompile Include="NoiseLib\Worley.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="Game\World\Chunk\ChunkMesh\MeshTemplates\UnalignedBlockFace.cpp">
-      <Filter>Исходные файлы</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="WindowManager.h">

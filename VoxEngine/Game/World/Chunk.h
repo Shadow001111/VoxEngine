@@ -112,20 +112,9 @@ class Chunk
 		bool isSolid = true;
 	};
 
-	struct BlockVertexLightData
+	struct BlockVertexData // TODO: Find a better name
 	{
-		unsigned int ao[8];      // AO values for each vertex
-		LightLevel light[8];     // Light values for each vertex
-	};
-
-	struct BlockVertexLightDataOldV2
-	{
-		uint16_t ao;			// AO values for each vertex
-		LightLevel light[8];    // Light values for each vertex
-	};
-
-	struct BlockVertexLightDataNew
-	{
+		// AO and Light data for 24 vertices (8 would be perfect, but due to same vertices having same values it's just a wet dream)
 		uint8_t ao[6];
 		LightLevel light[24];
 	};
@@ -406,10 +395,14 @@ private:
 		const glm::ivec3 position;
 		const int normal;
 		const LightLevel centerFaceLight;
+		const bool centerFaceIsSolid = false;
 	};
 
 	void calculateVertexAmbientOcclusionAndLight(unsigned int& ao, LightLevel& light, const LightLevel& centerLight, const LightLevelAndIsSolid& side1, const LightLevelAndIsSolid& side2, const LightLevelAndIsSolid& corner) const;
 	void calculateFaceAmbientOcclusionAndLight(ContextFaceAOAL& context) const;
+
+	void calculateVertexAmbientOcclusionAndLightUnaligned(unsigned int& ao, LightLevel& light, const LightLevelAndIsSolid& center, const LightLevelAndIsSolid& side1, const LightLevelAndIsSolid& side2, const LightLevelAndIsSolid& corner) const;
+	void calculateFaceAmbientOcclusionAndLightUnaligned(ContextFaceAOAL& context) const;
 	
-	void calculateBlockVertexLight(BlockVertexLightData& result, int x, int y, int z) const;
+	void calculateBlockVertexLight(BlockVertexData& result, const glm::ivec3& currentBlockPosition) const;
 };

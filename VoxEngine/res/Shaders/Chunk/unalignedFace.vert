@@ -2,11 +2,9 @@
 
 layout(location = 0) in vec2 aPos;
 
-layout(location = 1) in uint blockPositionAndUs;
-layout(location = 2) in uvec2 vertexShifts;
-layout(location = 3) in uint instanceVsAndTextureId;
-layout(location = 4) in uvec2 instanceLight;
-layout(location = 5) in uint instanceAO;
+layout(location = 1) in uvec4 faceData0; // words 0..3
+layout(location = 2) in uvec4 faceData1; // words 4..7
+layout(location = 3) in uvec4 faceData2; // words 8..11
 
 layout(binding = 0) restrict readonly buffer chunkPositionSSBO
 {
@@ -21,83 +19,111 @@ uniform float skyLightSub = 0;
 out vec2 uv;
 flat out uint textureID;
 out vec3 viewVertexPosition;
-flat out float[8] blockVertexLightData;
 out vec3 vertexLocalPos;
+flat out vec4 blockVertexLightData[6];
+flat out vec4 blockVertexAOData[6];
 
 const float INV_LIGHT_SCALE = 1.0 / 15.0;
 const float INV_AO_SCALE = 1.0 / 3.0;
 const float AO_RANGE = 0.9; // [0; 1]
 
-int getBlockLight(uint data, int i)
+uint getWord(int index)
 {
-    return int(bitfieldExtract(data, i * 8, 4));
+    switch (index)
+    {
+        case 0:  return faceData0.x;
+        case 1:  return faceData0.y;
+        case 2:  return faceData0.z;
+        case 3:  return faceData0.w;
+
+        case 4:  return faceData1.x;
+        case 5:  return faceData1.y;
+        case 6:  return faceData1.z;
+        case 7:  return faceData1.w;
+
+        case 8:  return faceData2.x;
+        case 9:  return faceData2.y;
+        case 10: return faceData2.z;
+        case 11: return faceData2.w;
+    }
+
+    return 0u; // safety fallback
 }
 
-int getSkyLight(uint data, int i)
+int getBits(uint word, int offset, int count)
 {
-    return int(bitfieldExtract(data, i * 8 + 4, 4));
+    return int(bitfieldExtract(word, offset, count));
 }
 
-uint getAO(uint data, int i)
+uint getAO(uint word, int i)
 {
-    return bitfieldExtract(data, i * 2, 2);
+    return bitfieldExtract(word, i * 2, 2);
 }
 
 void main()
 {
-    // Unpack face data
-    uvec3 blockPosition, vertexSubBlockPosition;
-    uint u, v;
-    int[8] blockLight;
-    int[8] skyLight;
-    float[8] faceAO;
+    // Fetch packed words
+    uint w0  = getWord(0);
+    uint w1  = getWord(1);
+    uint w2  = getWord(2);
+    uint w3  = getWord(3);
 
-    blockPosition.x = bitfieldExtract(blockPositionAndUs, 0, 4);
-    blockPosition.y = bitfieldExtract(blockPositionAndUs, 4, 4);
-    blockPosition.z = bitfieldExtract(blockPositionAndUs, 8, 4);
-    u = bitfieldExtract(blockPositionAndUs, 12 + gl_VertexID * 5, 5);
+    // Unpack block position and UVs
+    uvec3 blockPosition;
+    blockPosition.x = bitfieldExtract(w0, 0, 4);
+    blockPosition.y = bitfieldExtract(w0, 4, 4);
+    blockPosition.z = bitfieldExtract(w0, 8, 4);
 
-    uint vertexShiftPage = vertexShifts[gl_VertexID >> 1];
-    int vertexShiftIndex = (gl_VertexID & 1) * 15; // MUST be int, not uint
-    vertexSubBlockPosition.x = bitfieldExtract(vertexShiftPage, vertexShiftIndex     , 5);
-    vertexSubBlockPosition.y = bitfieldExtract(vertexShiftPage, vertexShiftIndex +  5, 5);
-    vertexSubBlockPosition.z = bitfieldExtract(vertexShiftPage, vertexShiftIndex + 10, 5);
+    uint u = bitfieldExtract(w0, 12 + int(gl_VertexID) * 5, 5);
+    uint v = bitfieldExtract(w3, int(gl_VertexID) * 5, 5);
+    textureID = bitfieldExtract(w3, 20, 12);
 
-    v = bitfieldExtract(instanceVsAndTextureId, gl_VertexID * 5, 5);
-    textureID = bitfieldExtract(instanceVsAndTextureId, 20, 12);
+    // Unpack per-vertex local position
+    uint shiftWord = (gl_VertexID < 2u) ? w1 : w2;
+    int shiftBase  = int(gl_VertexID & 1u) * 15;
 
-    blockLight[0] = getBlockLight(instanceLight.x, 0);
-    blockLight[1] = getBlockLight(instanceLight.x, 1);
-    blockLight[2] = getBlockLight(instanceLight.x, 2);
-    blockLight[3] = getBlockLight(instanceLight.x, 3);
-    blockLight[4] = getBlockLight(instanceLight.y, 0);
-    blockLight[5] = getBlockLight(instanceLight.y, 1);
-    blockLight[6] = getBlockLight(instanceLight.y, 2);
-    blockLight[7] = getBlockLight(instanceLight.y, 3);
+    uvec3 vertexSubBlockPosition;
+    vertexSubBlockPosition.x = bitfieldExtract(shiftWord, shiftBase + 0, 5);
+    vertexSubBlockPosition.y = bitfieldExtract(shiftWord, shiftBase + 5, 5);
+    vertexSubBlockPosition.z = bitfieldExtract(shiftWord, shiftBase + 10, 5);
 
-    skyLight[0] = int(getSkyLight(instanceLight.x, 0) - skyLightSub);
-    skyLight[1] = int(getSkyLight(instanceLight.x, 1) - skyLightSub);
-    skyLight[2] = int(getSkyLight(instanceLight.x, 2) - skyLightSub);
-    skyLight[3] = int(getSkyLight(instanceLight.x, 3) - skyLightSub);
-    skyLight[4] = int(getSkyLight(instanceLight.y, 0) - skyLightSub);
-    skyLight[5] = int(getSkyLight(instanceLight.y, 1) - skyLightSub);
-    skyLight[6] = int(getSkyLight(instanceLight.y, 2) - skyLightSub);
-    skyLight[7] = int(getSkyLight(instanceLight.y, 3) - skyLightSub);
+    // Lights: 24 values, 4 per word, 8 bits each (low nibble = block, high nibble = sky)
+    int blockLight[8];
+    int skyLight[8];
+    float faceAO[8];
 
-    faceAO[0] = 1.0 - AO_RANGE + float(getAO(instanceAO, 0)) * INV_AO_SCALE * AO_RANGE;
-    faceAO[1] = 1.0 - AO_RANGE + float(getAO(instanceAO, 1)) * INV_AO_SCALE * AO_RANGE;
-    faceAO[2] = 1.0 - AO_RANGE + float(getAO(instanceAO, 2)) * INV_AO_SCALE * AO_RANGE;
-    faceAO[3] = 1.0 - AO_RANGE + float(getAO(instanceAO, 3)) * INV_AO_SCALE * AO_RANGE;
-    faceAO[4] = 1.0 - AO_RANGE + float(getAO(instanceAO, 4)) * INV_AO_SCALE * AO_RANGE;
-    faceAO[5] = 1.0 - AO_RANGE + float(getAO(instanceAO, 5)) * INV_AO_SCALE * AO_RANGE;
-    faceAO[6] = 1.0 - AO_RANGE + float(getAO(instanceAO, 6)) * INV_AO_SCALE * AO_RANGE;
-    faceAO[7] = 1.0 - AO_RANGE + float(getAO(instanceAO, 7)) * INV_AO_SCALE * AO_RANGE;
+    uint lightWords[6] = uint[6](
+        getWord(4), getWord(5), getWord(6),
+        getWord(7), getWord(8), getWord(9)
+    );
 
-    for (int i = 0; i < 8; i++)
+    uint aoWords[2] = uint[2](
+        getWord(10), getWord(11)
+    );
+
+    for (int i = 0; i < 24; i++)
     {
-        blockVertexLightData[i] = max(blockLight[i], skyLight[i]) * INV_LIGHT_SCALE * faceAO[i];
+        // Light
+        uint lw = lightWords[i >> 2]; // divide by 4
+        int lane = i & 3;
+
+        int blockLight = int(bitfieldExtract(lw, lane * 8, 4));
+        int skyLight   = int(bitfieldExtract(lw, lane * 8 + 4, 4)) - int(skyLightSub);
+
+        // AO
+        uint aw = aoWords[i >> 4];
+        int aoLane = i & 15;
+
+        float ao = 1.0 - AO_RANGE +
+                   float(bitfieldExtract(aw, aoLane * 2, 2)) *
+                   INV_AO_SCALE * AO_RANGE;
+
+        //
+        blockVertexLightData[i >> 2][lane] = max(blockLight, skyLight) * INV_LIGHT_SCALE;
+        blockVertexAOData[i >> 2][lane] = ao;
     }
 
+    //
     vertexLocalPos = vec3(vertexSubBlockPosition) / 16.0;
     vec3 vertexPos = vertexLocalPos + vec3(blockPosition);
     uv = vec2(u, v) / 16.0;
