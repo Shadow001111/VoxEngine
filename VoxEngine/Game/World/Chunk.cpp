@@ -1318,13 +1318,14 @@ void Chunk::updateMesh()
 
 					// Get neighbor block and data
 					BlockId neighborBlock = neighborChunk->blocks[neighborBlockIndex];
-					if (block == neighborBlock)
+
+					const BlockData* neighborBlockData = AssetRegistry::getBlockData(neighborBlock);
+					if (!neighborBlockData || neighborBlockData->faceCulling[face.normal ^ 1])
 					{
 						continue;
 					}
 
-					const BlockData* neighborBlockData = AssetRegistry::getBlockData(neighborBlock);
-					if (!neighborBlockData || neighborBlockData->faceCulling[face.normal ^ 1])
+					if (block == neighborBlock && !blockData->faceCulling[face.normal])
 					{
 						continue;
 					}
