@@ -63,6 +63,7 @@ void Chunk::init(const glm::ivec3& position, const std::array<Chunk*, 27>& newNe
 	mesh.setFlag(ChunkMesh::Flag::ShouldBeUploaded, false);
 
 	// Reset grid data
+	static_assert(sizeof(BlockId) == 1, "Memset won't work properly if size isn't 1");
 	std::memset(blocks, CACHED_BLOCK_IDS.airId, sizeof(blocks));
 	std::memset(lightLevels, 0, sizeof(lightLevels));
 }
@@ -163,10 +164,10 @@ void Chunk::buildBlocks()
 
 	constexpr int OCEAN_LEVEL = 0;
 
-	const int globalChunkY = position.y * CHUNK_SIZE;
+	const glm::ivec3 globalChunkPosition = position * CHUNK_SIZE;
 
-	const bool isInTerrainRange = globalChunkY <= chunkColumnData->getMaxHeight();
-	const bool isInWaterRange = globalChunkY <= OCEAN_LEVEL;
+	const bool isInTerrainRange = globalChunkPosition.y <= chunkColumnData->getMaxHeight();
+	const bool isInWaterRange = globalChunkPosition.y <= OCEAN_LEVEL;
 
 	if (isInTerrainRange || isInWaterRange)
 	{
@@ -268,8 +269,6 @@ void Chunk::buildBlocks()
 		PROFILE_SCOPE("Generate trees", ProfileCategory::ChunkBlocks);
 	
 		const ivec2Hasher hasher;
-
-		const glm::ivec3 globalChunkPosition = position * CHUNK_SIZE;
 
 		const glm::ivec2 globalChunkXZ = { globalChunkPosition.x, globalChunkPosition.z };
 

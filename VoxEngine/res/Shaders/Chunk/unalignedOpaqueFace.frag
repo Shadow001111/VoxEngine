@@ -61,7 +61,7 @@ void main()
     vec3 n = normalize(cross(dFdx(vertexLocalPos), dFdy(vertexLocalPos)));
 
     // Calculate weights
-    vec3 w = normalize(abs(n));
+    vec3 weights = normalize(abs(n));
 
     //
     float faceLight[6];
@@ -95,18 +95,18 @@ void main()
     float lightZ = mix(faceLight[4], faceLight[5], step(0.0, n.z));
     
     float finalLight =
-        lightX * w.x +
-        lightY * w.y +
-        lightZ * w.z;
+        lightX * weights.x +
+        lightY * weights.y +
+        lightZ * weights.z;
     
     float aoX = mix(faceAO[0], faceAO[1], step(0.0, n.x));
     float aoY = mix(faceAO[2], faceAO[3], step(0.0, n.y));
     float aoZ = mix(faceAO[4], faceAO[5], step(0.0, n.z));
     
     float finalAO =
-        aoX * w.x +
-        aoY * w.y +
-        aoZ * w.z;
+        aoX * weights.x +
+        aoY * weights.y +
+        aoZ * weights.z;
 
     vec4 textureColor = texture(blockTextures, vec3(uv, textureID));
     vec3 shadedColor = textureColor.rgb * finalLight * finalAO;
