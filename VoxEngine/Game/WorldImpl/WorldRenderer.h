@@ -1,5 +1,5 @@
 #pragma once
-#include "Core/Profiler.h"
+#include "Game/TracyProfiler.h"
 
 #include "OpenGLWrappers/Shader.h"
 #include "OpenGLWrappers/ImmutableBuffer.h"
@@ -153,7 +153,7 @@ inline void WorldRenderer::renderChunkGroup(const Shader& shader)
 	// Collect draw commands
 	size_t drawCount;
 	{
-		PROFILE_SCOPE("Render: collect draw commands", ProfileCategory::Render);
+		TRACY_SCOPE("Render: collect draw commands", ProfileCategory::Render);
 
 		const size_t capacity = chunksToRender.size();
 		chunkDrawCommands.reserve(capacity);

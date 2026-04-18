@@ -7,6 +7,8 @@
 
 #include "NoiseLib/Perlin.h"
 
+#include <iostream>
+
 static_assert((-1 >> 1) == -1, "This compiler does not use arithmetic right shift for signed integers");
 static_assert((-1 << 1) == -2, "This compiler does not use arithmetic left shift for signed integers");
 
@@ -92,7 +94,7 @@ void WorldRenderer::initTextures(const std::vector<std::string>& blockTextureNam
 		textureLoadParametrs.compression = TextureCompression::Format::AUTO;
 
 		{
-			PROFILE_SCOPE("Block texture array creation", ProfileCategory::General);
+			TRACY_SCOPE("Block texture array creation", ProfileCategory::General);
 			TextureLoader::createTextureArrayFromImages(blockTextureArray, "res/BlockTextures", blockTextureNames, textureLoadParametrs);
 		}
 
@@ -141,7 +143,7 @@ void WorldRenderer::initTextures(const std::vector<std::string>& blockTextureNam
 		);
 
 		{
-			PROFILE_SCOPE("Noise texture creation", ProfileCategory::General);
+			TRACY_SCOPE("Noise texture creation", ProfileCategory::General);
 			TextureLoader::createTexture3DFromFloatData(tilingPerlinNoise3DTexture, data, textureSize, textureSize, textureSize, textureLoadParametrs);
 		}
 
@@ -262,7 +264,7 @@ void WorldRenderer::collectChunksForRendering(const Camera& camera) const
 {
 	constexpr int CHUNK_REGION_SIZE_IN_BLOCKS = CHUNK_REGION_SIZE * CHUNK_SIZE;
 
-	PROFILE_SCOPE("Collect chunks for render", ProfileCategory::Render);
+	TRACY_SCOPE("Collect chunks for render", ProfileCategory::Render);
 
 	// Get regions
 	const auto& regions = Chunk::managerInstances->chunkRegion.getRegionMap();
@@ -334,7 +336,7 @@ void WorldRenderer::collectChunksForRendering(const Camera& camera) const
 
 void WorldRenderer::collectChunksForRenderingWithConnectivity(const Camera& camera) const
 {
-	PROFILE_SCOPE("Collect chunks for render (flood fill)", ProfileCategory::Render);
+	TRACY_SCOPE("Collect chunks for render (flood fill)", ProfileCategory::Render);
 
 	chunksToRender.clear();
 
@@ -482,7 +484,7 @@ void WorldRenderer::collectChunksForRenderingWithConnectivity(const Camera& came
 
 void WorldRenderer::sortChunksForRendering() const
 {
-	PROFILE_SCOPE("Sort chunks for render", ProfileCategory::Render);
+	TRACY_SCOPE("Sort chunks for render", ProfileCategory::Render);
 
 	// Find max distance
 	unsigned int maxDistance = 0;
@@ -714,7 +716,7 @@ void WorldRenderer::compositePass(const FrameBuffer& FBO) const
 	if (!compositeShader.isValid()) return;
 
 	//
-	PROFILE_SCOPE("Render: composite pass", ProfileCategory::Render);
+	TRACY_SCOPE("Render: composite pass", ProfileCategory::Render);
 
 #pragma region GetTextures
 	auto getTextureResult = FBO.getTexture("color");

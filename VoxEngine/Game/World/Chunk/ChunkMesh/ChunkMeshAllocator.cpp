@@ -3,6 +3,9 @@
 #include <iostream>
 
 #include "Core/Assert.h"
+#include "Game/TracyProfiler.h"
+
+#include "Game/ProfileCategories.h"
 
 static constexpr std::array<const char*, 4> kLayerDebugNames = {
 	"processAlignedOpaqueMeshRequests",
@@ -125,31 +128,37 @@ void ChunkMeshAllocator::MeshAllocator::processMeshRequests(const DynamicArray<C
 	size_t oldCapacity = blockAllocator.getCapacity();
 
 	// Free blocks
-	for (ChunkMeshFaceStorage* chunkMesh : meshRequests)
 	{
-		if (!config.isCreated(chunkMesh))
+		TRACY_SCOPE("Free blocks", ProfileCategory::ChunkMesh);
+		for (ChunkMeshFaceStorage* chunkMesh : meshRequests)
 		{
-			continue;
-		}
+			if (!config.isCreated(chunkMesh))
+			{
+				continue;
+			}
 
-		ASSERT(blockAllocator.free(config.getAllocatedBlock(chunkMesh)));
+			ASSERT(blockAllocator.free(config.getAllocatedBlock(chunkMesh)));
+		}
 	}
 
 	// Allocate blocks
 	size_t stopIndex = 0;
-	for (ChunkMeshFaceStorage* chunkMesh : meshRequests)
 	{
-		auto faceCount = config.getFaceCount(chunkMesh);
-
-		auto result = blockAllocator.allocate(faceCount);
-		if (!result.has_value())
+		TRACY_SCOPE("Allocate blocks1", ProfileCategory::ChunkMesh);
+		for (ChunkMeshFaceStorage* chunkMesh : meshRequests)
 		{
-			break;
-		}
+			auto faceCount = config.getFaceCount(chunkMesh);
 
-		config.setCreated(chunkMesh, true);
-		config.setAllocatedBlock(chunkMesh, result.value());
-		stopIndex++;
+			auto result = blockAllocator.allocate(faceCount);
+			if (!result.has_value())
+			{
+				break;
+			}
+
+			config.setCreated(chunkMesh, true);
+			config.setAllocatedBlock(chunkMesh, result.value());
+			stopIndex++;
+		}
 	}
 
 	if (stopIndex == meshRequests.size())
@@ -158,20 +167,27 @@ void ChunkMeshAllocator::MeshAllocator::processMeshRequests(const DynamicArray<C
 	}
 
 	// Allocate more memory
-	size_t newCapacity = blockAllocator.getLastBlockEnd();
-	for (size_t i = stopIndex; i < meshRequests.size(); i++)
+	size_t newCapacity;
 	{
-		newCapacity += config.getFaceCount(meshRequests[i]);
+		TRACY_SCOPE("Calculate new capacity", ProfileCategory::ChunkMesh);
+		newCapacity = blockAllocator.getLastBlockEnd();
+		for (size_t i = stopIndex; i < meshRequests.size(); i++)
+		{
+			newCapacity += config.getFaceCount(meshRequests[i]);
+		}
+		newCapacity += (newCapacity >> 1); // *= 1.5
 	}
-	newCapacity += (newCapacity >> 1); // *= 1.5
 
 	blockAllocator.setCapacity(newCapacity);
 	if (oldCapacity == 0)
 	{
+		TRACY_SCOPE("Allocate storage", ProfileCategory::ChunkMesh);
 		instanceVBO.allocateStorage(newCapacity * config.faceSize, INSTANCE_VBO_FLAGS);
 	}
 	else
 	{
+		TRACY_SCOPE("Allocate storage and copy old data", ProfileCategory::ChunkMesh);
+
 		// Create new buffer
 		ImmutableBuffer newBuffer;
 		newBuffer.create(GL_ARRAY_BUFFER);
@@ -194,19 +210,23 @@ void ChunkMeshAllocator::MeshAllocator::processMeshRequests(const DynamicArray<C
 	}
 
 	// Allocate the rest of blocks
-	for (size_t i = stopIndex; i < meshRequests.size(); i++)
 	{
-		ChunkMeshFaceStorage* chunkMesh = meshRequests[i];
-		auto faceCount = config.getFaceCount(chunkMesh);
+		TRACY_SCOPE("Allocate blocks2", ProfileCategory::ChunkMesh);
 
-		auto result = blockAllocator.allocate(faceCount);
-		if (!result.has_value())
+		for (size_t i = stopIndex; i < meshRequests.size(); i++)
 		{
-			std::cerr << "[ChunkMeshAllocator]: " << config.debugName << ": mesh wasn't created.\n";
-			break;
-		}
+			ChunkMeshFaceStorage* chunkMesh = meshRequests[i];
+			auto faceCount = config.getFaceCount(chunkMesh);
 
-		config.setCreated(chunkMesh, true);
-		config.setAllocatedBlock(chunkMesh, result.value());
+			auto result = blockAllocator.allocate(faceCount);
+			if (!result.has_value())
+			{
+				std::cerr << "[ChunkMeshAllocator]: " << config.debugName << ": mesh wasn't created.\n";
+				break;
+			}
+
+			config.setCreated(chunkMesh, true);
+			config.setAllocatedBlock(chunkMesh, result.value());
+		}
 	}
 }

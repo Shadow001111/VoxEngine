@@ -2,7 +2,7 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 
-#include "Core/Profiler.h"
+#include "Game/TracyProfiler.h"
 #include "Core/Decoding/UTFDecoder.h"
 
 #include "Game/ProfileCategories.h"
@@ -253,7 +253,7 @@ void TextRenderer::loadGlyphs(FT_Face& face, Font& font)
 void TextRenderer::renderTextInternal(const void* text, size_t textLength, UTFDecoderFunction decoder, float x, float y, float rowHeight,
     const glm::vec3& color, TextAlignment alignment, const glm::vec2& bounds)
 {
-    PROFILE_SCOPE("Render text", ProfileCategory::Render);
+    TRACY_SCOPE("Render text", ProfileCategory::Render);
 
     TextRenderer& inst = getInstance();
 
@@ -469,7 +469,7 @@ void TextRenderer::init()
 
 bool TextRenderer::loadFont(const std::string& fontName, GLuint fontSize)
 {
-    PROFILE_SCOPE("Loading font", ProfileCategory::General);
+    TRACY_SCOPE("Loading font", ProfileCategory::General);
 
     TextRenderer& inst = getInstance();
     auto& fonts = inst.fonts;

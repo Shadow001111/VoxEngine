@@ -189,7 +189,6 @@
     <ClCompile Include="Graphics\TextureLoader.cpp" />
     <ClCompile Include="Core\StringIndexer.cpp" />
     <ClCompile Include="Core\Multithreading\ProcessingFence.cpp" />
-    <ClCompile Include="Core\Profiler.cpp" />
     <ClCompile Include="Core\Multithreading\ThreadPool.cpp" />
     <ClCompile Include="Graphics\Camera.cpp" />
     <ClCompile Include="glad.c" />
@@ -277,7 +276,6 @@
     <ClInclude Include="Graphics\TextureLoader.h" />
     <ClInclude Include="Core\StringIndexer.h" />
     <ClInclude Include="Core\Multithreading\ProcessingFence.h" />
-    <ClInclude Include="Core\Profiler.h" />
     <ClInclude Include="Core\Shapes\Shapes.h" />
     <ClInclude Include="Core\Multithreading\ThreadPool.h" />
     <ClInclude Include="Core\Shapes\Box.h" />
@@ -304,6 +302,7 @@
     <ClInclude Include="Core\Stream\StreamReader.h" />
     <ClInclude Include="Core\Stream\StreamWriter.h" />
     <ClInclude Include="Core\Multithreading\move_only_function.h" />
+    <ClInclude Include="Game\TracyProfiler.h" />
     <ClInclude Include="WindowManager.h" />
     <ClInclude Include="Game\WorldImpl\WorldChunkManager.h" />
     <ClInclude Include="Game\WorldImpl\WorldRenderer.h" />

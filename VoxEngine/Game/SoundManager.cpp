@@ -3,7 +3,7 @@
 #include <fstream>
 #include "stb_vorbis.c"
 
-#include "Core/Profiler.h"
+#include "Game/TracyProfiler.h"
 
 #include "Game/ProfileCategories.h"
 
@@ -196,7 +196,7 @@ void SoundManager::play(const std::string& name, float pitch, float gain, bool l
 
 void SoundManager::update()
 {
-	PROFILE_SCOPE("SoundManager update", ProfileCategory::General);
+	TRACY_SCOPE("SoundManager update", ProfileCategory::General);
 
 	for (size_t i = 0; i < sources.size();)
 	{

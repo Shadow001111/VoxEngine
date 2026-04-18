@@ -1,6 +1,6 @@
 #include "WorldChunkManager.h"
 
-#include "Core/Profiler.h"
+#include "Game/TracyProfiler.h"
 #include "Core/Multithreading/ThreadPool.h"
 
 #include "Game/ProfileCategories.h"
@@ -157,7 +157,7 @@ void WorldChunkManager::sendChunkMeshesToGPU()
 	}
 
 	{
-		PROFILE_SCOPE("Check dirty meshes to send to GPU", ProfileCategory::ChunkMesh);
+		TRACY_SCOPE("Check dirty meshes to send to GPU", ProfileCategory::ChunkMesh);
 
 		for (const auto& [_, chunkRegion] : Chunk::managerInstances->chunkRegion.getRegionMap())
 		{
@@ -221,7 +221,7 @@ void WorldChunkManager::startBuildingChunkBlocks()
 	// Collect chunks
 	chunksToProcess.clear();
 	{
-		PROFILE_SCOPE("Collect chunks for block building", ProfileCategory::ChunkBlocks);
+		TRACY_SCOPE("Collect chunks for block building", ProfileCategory::ChunkBlocks);
 
 		std::lock_guard<std::mutex> lock(buildContainers.blocksMutex);
 		chunksToProcess.reserve(buildContainers.blocks.size());
@@ -238,7 +238,7 @@ void WorldChunkManager::startBuildingChunkBlocks()
 	// Submit chunks to thread pool
 	if (!chunksToProcess.empty())
 	{
-		PROFILE_SCOPE("Send chunks to block building", ProfileCategory::ChunkBlocks);
+		TRACY_SCOPE("Send chunks to block building", ProfileCategory::ChunkBlocks);
 
 		ThreadPool& pool = ParallelUtils::getGlobalThreadPool();
 
@@ -271,7 +271,7 @@ void WorldChunkManager::startBuildingChunkLights()
 	// Collect chunks that are ready for light building
 	chunksToProcess.clear();
 	{
-		PROFILE_SCOPE("Collect chunks for light building", ProfileCategory::ChunkLight);
+		TRACY_SCOPE("Collect chunks for light building", ProfileCategory::ChunkLight);
 
 		std::lock_guard<std::mutex> lock(buildContainers.lightsMutex);
 		const size_t chunkCount = buildContainers.lights.size();
@@ -318,7 +318,7 @@ void WorldChunkManager::startBuildingChunkLights()
 	// Submit chunks to thread pool
 	if (!chunksToProcess.empty())
 	{
-		PROFILE_SCOPE("Send chunks to light building", ProfileCategory::ChunkLight);
+		TRACY_SCOPE("Send chunks to light building", ProfileCategory::ChunkLight);
 
 		ThreadPool& pool = ParallelUtils::getGlobalThreadPool();
 
@@ -351,7 +351,7 @@ void WorldChunkManager::collectChunksForLightUpdate()
 		return;
 	}
 
-	PROFILE_SCOPE("Collect chunks for light update", ProfileCategory::ChunkLight);
+	TRACY_SCOPE("Collect chunks for light update", ProfileCategory::ChunkLight);
 
 	for (const auto& [_, chunkRegion] : Chunk::managerInstances->chunkRegion.getRegionMap())
 	{
@@ -409,7 +409,7 @@ void WorldChunkManager::updateChunkMeshes()
 
 	// Collect chunks
 	{
-		PROFILE_SCOPE("Collect chunks for mesh updating", ProfileCategory::ChunkMesh);
+		TRACY_SCOPE("Collect chunks for mesh updating", ProfileCategory::ChunkMesh);
 
 		for (const auto& [_, chunkRegion] : Chunk::managerInstances->chunkRegion.getRegionMap())
 		{
@@ -467,7 +467,7 @@ void WorldChunkManager::updateChunkConnectivity()
 
 	// Collect chunks
 	{
-		PROFILE_SCOPE("Collect chunks for connectivity updating", ProfileCategory::General);
+		TRACY_SCOPE("Collect chunks for connectivity updating", ProfileCategory::General);
 
 		for (const auto& [_, chunkRegion] : Chunk::managerInstances->chunkRegion.getRegionMap())
 		{

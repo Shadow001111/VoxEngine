@@ -1,7 +1,7 @@
 ﻿#include "WindowManager.h"
 
 #include "Core/UpdateTimer.h"
-#include "Core/Profiler.h"
+#include "Game/TracyProfiler.h"
 
 #include "Game/World.h"
 #include "Game/Player/Player.h"
@@ -143,7 +143,7 @@ static void setupContainerUI(ContainerUI& c)
         std::vector<std::string> itemTextureNames = AssetRegistry::getItemUITextureNames();
 
         {
-            PROFILE_SCOPE("Item ui texture array creation", ProfileCategory::General);
+            TRACY_SCOPE("Item ui texture array creation", ProfileCategory::General);
             TextureLoader::createTextureArrayFromImages(c.itemUITextureArray, "res/ItemUITextures", itemTextureNames, textureLoadParametrs);
         }
 
@@ -525,16 +525,6 @@ static int gameFunc()
 {
     constexpr float CAMERA_FAR_PLANE = (CHUNK_LOAD_DISTANCE + 0.5f) * CHUNK_SIZE;
 
-    // Profiler categories
-    Profiler::registerProfileCategory(ProfileCategory::General, "General", Profiler::Color::BrightBlack);
-    Profiler::registerProfileCategory(ProfileCategory::Render, "Render", Profiler::Color::Red);
-    Profiler::registerProfileCategory(ProfileCategory::ChunkLoadUnload, "ChunkLoadUnload", Profiler::Color::Yellow);
-    Profiler::registerProfileCategory(ProfileCategory::ChunkBlocks, "ChunkBlocks", Profiler::Color::Green);
-    Profiler::registerProfileCategory(ProfileCategory::ChunkLight, "ChunkLight", Profiler::Color::BrightRed);
-    Profiler::registerProfileCategory(ProfileCategory::ChunkMesh, "ChunkMesh", Profiler::Color::Cyan);
-    Profiler::registerProfileCategory(ProfileCategory::ChunkColumnData, "ChunkColumnData", Profiler::Color::Blue);
-    Profiler::registerProfileCategory(ProfileCategory::TerrainGeneration, "TerrainGeneration", Profiler::Color::Magenta);
-
     // Window
     WindowManager wnd({
         .width = 1600,
@@ -771,13 +761,8 @@ static int gameFunc()
         {
 #ifdef USE_TRACY
             FrameMark;
-#else
-            Profiler::printProfileReport();
 #endif
         }
-//#ifdef USE_TRACY
-//        FrameMark;
-//#endif
     }
     return 0;
 }
@@ -792,7 +777,6 @@ int main()
     try
     {
         result = gameFunc();
-        //Profiler::printProfileReport();
     }
     catch (const std::exception& e)
     {

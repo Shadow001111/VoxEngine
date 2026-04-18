@@ -1,7 +1,7 @@
 #include "DataPackManager.h"
 #include "AssetRegistry.h"
 
-#include "Core/Profiler.h"
+#include "Game/TracyProfiler.h"
 #include "Game/ProfileCategories.h"
 
 #include <iostream>
@@ -42,7 +42,7 @@ void DataPackManager::loadAllDataPacks()
 
     // Load all packs
     {
-        //PROFILE_SCOPE("Load data packs", ProfileCategory::General);
+        //TRACY_SCOPE("Load data packs", ProfileCategory::General);
         for (const auto& entry : fs::directory_iterator(packsDir))
         {
             if (entry.is_directory())
@@ -85,7 +85,7 @@ void DataPackManager::loadDataPack(const fs::path& dataPackPath)
 
     // Load assets
     {
-        //PROFILE_SCOPE("BlocksAAAAAA", ProfileCategory::General);
+        //TRACY_SCOPE("BlocksAAAAAA", ProfileCategory::General);
         loadBlocks(dataPackPath, metadata.id);
     }
     loadBlockModels(dataPackPath, metadata.id);

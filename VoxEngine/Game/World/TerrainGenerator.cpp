@@ -1,6 +1,6 @@
 #include "TerrainGenerator.h"
 
-#include "Core/Profiler.h"
+#include "Game/TracyProfiler.h"
 
 #include "Game/ProfileCategories.h"
 
@@ -126,7 +126,7 @@ const ChunkColumnData* TerrainGenerator::loadChunkColumnData(int chunkX, int chu
 {
 	ChunkColumnData* column;
 	{
-		PROFILE_SCOPE("Load ChunkColumnData", ProfileCategory::ChunkColumnData);
+		TRACY_SCOPE("Load ChunkColumnData", ProfileCategory::ChunkColumnData);
 
 		glm::ivec2 pos(chunkX, chunkZ);
 
@@ -179,7 +179,7 @@ const ChunkColumnData* TerrainGenerator::loadChunkColumnData(int chunkX, int chu
 
 const ChunkColumnData* TerrainGenerator::getChunkColumnData(int chunkX, int chunkZ)
 {
-	PROFILE_SCOPE("Get ChunkColumnData", ProfileCategory::ChunkColumnData);
+	TRACY_SCOPE("Get ChunkColumnData", ProfileCategory::ChunkColumnData);
 
 	glm::ivec2 pos(chunkX, chunkZ);
 
@@ -194,7 +194,7 @@ const ChunkColumnData* TerrainGenerator::getChunkColumnData(int chunkX, int chun
 
 void TerrainGenerator::unloadChunkColumnData(int chunkX, int chunkZ)
 {
-	PROFILE_SCOPE("Unload ChunkColumnData", ProfileCategory::ChunkColumnData);
+	TRACY_SCOPE("Unload ChunkColumnData", ProfileCategory::ChunkColumnData);
 
 	ChunkColumnData* columnToRelease = nullptr;
 	{
@@ -236,7 +236,7 @@ void TerrainGenerator::computeCaveMask(bool* outArray, int chunkX, int chunkY, i
 	constexpr float caveNoiseFrequency = 0.6f;
 
 	{
-		PROFILE_SCOPE("Cave mask: compute worley noise", ProfileCategory::TerrainGeneration);
+		TRACY_SCOPE("Cave mask: compute worley noise", ProfileCategory::TerrainGeneration);
 
 		NoiseParams params;
 		params.frequency = caveNoiseFrequency;
@@ -246,7 +246,7 @@ void TerrainGenerator::computeCaveMask(bool* outArray, int chunkX, int chunkY, i
 	}
 
 	{
-		PROFILE_SCOPE("Cave mask: compute simplex noise", ProfileCategory::TerrainGeneration);
+		TRACY_SCOPE("Cave mask: compute simplex noise", ProfileCategory::TerrainGeneration);
 
 		NoiseParams params;
 		params.frequency = caveNoiseFrequency * 2.0f;
@@ -256,7 +256,7 @@ void TerrainGenerator::computeCaveMask(bool* outArray, int chunkX, int chunkY, i
 
 	// Simplex noise is used to smooth out upscaled worley noise, making caves less blocky
 	{
-		PROFILE_SCOPE("Cave mask: combine noises", ProfileCategory::TerrainGeneration);
+		TRACY_SCOPE("Cave mask: combine noises", ProfileCategory::TerrainGeneration);
 
 		constexpr float minThreshold = 0.38f;
 		constexpr float maxThreshold = 0.45f;
@@ -378,7 +378,7 @@ void TerrainGenerator::computeInitialHeightMap(int* heightMap, int chunkX, int c
 		threadLocalData = std::make_unique<ThreadLocalData>();
 	}
 
-	PROFILE_SCOPE("Compute height map", ProfileCategory::TerrainGeneration);
+	TRACY_SCOPE("Compute height map", ProfileCategory::TerrainGeneration);
 
 	// Compute noise arrays
 	{

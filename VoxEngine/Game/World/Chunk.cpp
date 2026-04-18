@@ -6,7 +6,7 @@
 
 #include "Game/ProfileCategories.h"
 
-#include "Core/Profiler.h"
+#include "Game/TracyProfiler.h"
 #include "Core/Assert.h"
 #include "Core/Hashes/ivec2Hasher.h"
 
@@ -40,7 +40,7 @@ static uint32_t hash3(const glm::ivec3& p)
 // Prepares chunk for use
 void Chunk::init(const glm::ivec3& position, const std::array<Chunk*, 27>& newNeighbors, ChunkRegion* parentRegion)
 {
-	PROFILE_SCOPE("Chunk init", ProfileCategory::ChunkLoadUnload);
+	TRACY_SCOPE("Chunk init", ProfileCategory::ChunkLoadUnload);
 
 	// Set position
 	this->position = position;
@@ -89,7 +89,7 @@ void Chunk::destroy()
 	}
 
 	{
-		PROFILE_SCOPE("Chunk destroy", ProfileCategory::ChunkLoadUnload);
+		TRACY_SCOPE("Chunk destroy", ProfileCategory::ChunkLoadUnload);
 
 		// Set states and flags
 		setFlag(Flag::IsLoadedInWorld, false);
@@ -183,7 +183,7 @@ void Chunk::buildBlocks()
 	if (isInTerrainRange || isInWaterRange)
 	{
 		{
-			PROFILE_SCOPE("Build terrain", ProfileCategory::ChunkBlocks);
+			TRACY_SCOPE("Build terrain", ProfileCategory::ChunkBlocks);
 
 			// Important to keep layers connected, so 'index' won't go out of sync
 			const int globalChunkY = position.y * CHUNK_SIZE;
@@ -262,7 +262,7 @@ void Chunk::buildBlocks()
 			alignas(SimdF::bytes) bool caveMask[CHUNK_VOLUME];
 			TerrainGenerator::getInstance().computeCaveMask(caveMask, position.x, position.y, position.z);
 
-			PROFILE_SCOPE("Generate caves", ProfileCategory::ChunkBlocks);
+			TRACY_SCOPE("Generate caves", ProfileCategory::ChunkBlocks);
 
 			for (int i = 0; i < CHUNK_VOLUME; i++)
 			{
@@ -277,7 +277,7 @@ void Chunk::buildBlocks()
 	// Trees
 	// TODO: Fix, trees spawning in air
 	{
-		PROFILE_SCOPE("Generate trees", ProfileCategory::ChunkBlocks);
+		TRACY_SCOPE("Generate trees", ProfileCategory::ChunkBlocks);
 	
 		const ivec2Hasher hasher;
 
@@ -320,7 +320,7 @@ void Chunk::buildBlocks()
 
 	// Incoming structures
 	{
-		PROFILE_SCOPE("Apply incoming structural changes", ProfileCategory::ChunkBlocks);
+		TRACY_SCOPE("Apply incoming structural changes", ProfileCategory::ChunkBlocks);
 
 		auto pendingChanges = managerInstances->structureBlock.retrieveAndClearChanges(position);
 		for (const auto& change : pendingChanges)
@@ -351,7 +351,7 @@ void Chunk::buildBlocks()
 
 void Chunk::updateStructureBlocks()
 {
-	PROFILE_SCOPE("Update chunk structure blocks", ProfileCategory::ChunkBlocks);
+	TRACY_SCOPE("Update chunk structure blocks", ProfileCategory::ChunkBlocks);
 
 	FenceGuard scopedFence(processingFence);
 
@@ -934,7 +934,7 @@ void Chunk::buildLight()
 
 	FenceGuard scopedFence(processingFence);
 
-	PROFILE_SCOPE("Build chunk light", ProfileCategory::ChunkLight);
+	TRACY_SCOPE("Build chunk light", ProfileCategory::ChunkLight);
 
 	const Chunk* topNeighbor = neighbors[getNeighborIndex(0, 1, 0)];
 
@@ -1208,7 +1208,7 @@ void Chunk::updateLight()
 		return;
 	}
 
-	PROFILE_SCOPE("Update chunk light", ProfileCategory::ChunkLight);
+	TRACY_SCOPE("Update chunk light", ProfileCategory::ChunkLight);
 
 	FenceGuard scopedFence(processingFence);
 
@@ -1258,7 +1258,7 @@ void Chunk::updateMesh()
 	
 	FenceGuard scopedFence(processingFence);
 
-	PROFILE_SCOPE("Update chunk mesh", ProfileCategory::ChunkMesh);
+	TRACY_SCOPE("Update chunk mesh", ProfileCategory::ChunkMesh);
 
 	// Collect visible faces
 	{
@@ -1526,7 +1526,7 @@ void Chunk::updateConnectivity()
 		return;
 	}
 
-	PROFILE_SCOPE("Compute chunk connectivity", ProfileCategory::General);
+	TRACY_SCOPE("Compute chunk connectivity", ProfileCategory::General);
 
 	sideConnectivity.reset();
 

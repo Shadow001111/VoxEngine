@@ -1,6 +1,6 @@
 #include "AssetRegistry.h"
 
-#include "Core/Profiler.h"
+#include "Game/TracyProfiler.h"
 #include "Game/ProfileCategories.h"
 #include "Game/SoundManager.h"
 
@@ -196,7 +196,7 @@ static void loadUniqueSounds(
 {
 	auto& sndMgr = SoundManager::getInstance();
 
-	PROFILE_SCOPE("Load sounds", ProfileCategory::General);
+	TRACY_SCOPE("Load sounds", ProfileCategory::General);
 
 	std::string logicalName;
 	std::string diskName;
@@ -387,7 +387,7 @@ bool AssetRegistry::linkBlockAssets()
 	stepSounds.reserve(blockCount);
 
 	{
-		PROFILE_SCOPE("Link assets", ProfileCategory::General);
+		TRACY_SCOPE("Link assets", ProfileCategory::General);
 
 		for (size_t i = 0; i < blockCount; i++)
 		{
