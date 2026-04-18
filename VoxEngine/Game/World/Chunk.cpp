@@ -82,51 +82,51 @@ void Chunk::init(const glm::ivec3& position, const std::array<Chunk*, 27>& newNe
 // Cleans up resources
 void Chunk::destroy()
 {
-	PROFILE_SCOPE("Chunk destroy", ProfileCategory::ChunkLoadUnload);
-
-	// Set states and flags
-	setFlag(Flag::IsLoadedInWorld, false);
-	setState(Chunk::State::NotInitialized_NeedsBlocks);
-
-	// Clear mesh data
-	{
-		if (readFlag(Flag::CanBeRendered))
-		{
-			parentRegion->decrementRenderChunkCount();
-		}
-
-		FenceGuard scopedFence(mesh.faceStorage.processingFence);
-		mesh.faceStorage.instancesStorage.clear();
-	}
-
 	// Release chunk column data
-	if (chunkFlags.read(Flag::IsLoadedChunkColumnData))
+	if (chunkFlags.readAndSet(Flag::IsLoadedChunkColumnData, false))
 	{
-		chunkFlags.set(Flag::IsLoadedChunkColumnData, false);
 		TerrainGenerator::getInstance().unloadChunkColumnData(position.x, position.z);
 	}
 
-	// Put fence guard here
 	{
-		FenceGuard fence(processingFence);
+		PROFILE_SCOPE("Chunk destroy", ProfileCategory::ChunkLoadUnload);
 
-		// Clear neighbors
-		constexpr int selfIndex = getNeighborIndex(0, 0, 0);
-		neighbors[selfIndex] = nullptr;
-		for (int i = 0; i < neighbors.size(); i++)
+		// Set states and flags
+		setFlag(Flag::IsLoadedInWorld, false);
+		setState(Chunk::State::NotInitialized_NeedsBlocks);
+
+		// Clear mesh data
 		{
-			if (i == selfIndex) continue;
-
-			Chunk* neighbor = neighbors[i];
-			if (neighbor)
+			if (readFlag(Flag::CanBeRendered))
 			{
-				neighbor->neighbors[getOppositeNeighborIndex(i)] = nullptr;
-				neighbors[i] = nullptr;
+				parentRegion->decrementRenderChunkCount();
 			}
+
+			FenceGuard scopedFence(mesh.faceStorage.processingFence);
+			mesh.faceStorage.instancesStorage.clear();
+			mesh.faceStorage.instancesStorage.shrinkToFit();
 		}
 
-		// Clear light queues
-		lightPropagation.clear();
+		{
+			// Clear neighbors
+			constexpr int selfIndex = getNeighborIndex(0, 0, 0);
+			neighbors[selfIndex] = nullptr;
+			for (int i = 0; i < neighbors.size(); i++)
+			{
+				if (i == selfIndex) continue;
+
+				Chunk* neighbor = neighbors[i];
+				if (neighbor)
+				{
+					neighbor->neighbors[getOppositeNeighborIndex(i)] = nullptr;
+					neighbors[i] = nullptr;
+				}
+			}
+
+			// Clear light queues
+			FenceGuard fence(processingFence);
+			lightPropagation.clear();
+		}
 	}
 
 	// TODO: Make it async. Mark chunk as processing.

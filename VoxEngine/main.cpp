@@ -769,11 +769,15 @@ static int gameFunc()
 
         if (profilerUpdateTimer.shouldUpdate())
         {
+#ifdef USE_TRACY
+            FrameMark;
+#else
             Profiler::printProfileReport();
-        }
-#ifdef TRACY_ENABLE
-        FrameMark;
 #endif
+        }
+//#ifdef USE_TRACY
+//        FrameMark;
+//#endif
     }
     return 0;
 }
