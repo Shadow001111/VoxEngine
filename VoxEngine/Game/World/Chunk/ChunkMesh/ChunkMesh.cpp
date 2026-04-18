@@ -11,20 +11,23 @@ DynamicArray<Chunk*> ChunkMesh::pendingMeshUploads;
 
 void ChunkMesh::sendMeshesToGPU()
 {
+	TRACY_SCOPE("Send chunk meshes to GPU", ProfileCategory::ChunkMesh);
+
 	// Check if there are any uploads
 	if (pendingMeshUploads.empty())
 	{
 		return;
 	}
 
-	TRACY_SCOPE("Send chunk meshes to GPU", ProfileCategory::ChunkMesh);
-
 	const size_t uploadCount = pendingMeshUploads.size();
 
 	// Mark meshes as being processed
-	for (Chunk* chunk : pendingMeshUploads)
 	{
-		chunk->mesh.faceStorage.processingFence.startProcessing();
+		TRACY_SCOPE("Lock processing fence", ProfileCategory::ChunkMesh);
+		for (Chunk* chunk : pendingMeshUploads)
+		{
+			chunk->mesh.faceStorage.processingFence.startProcessing();
+		}
 	}
 
 	// Collect per-layer reallocation requests
@@ -55,7 +58,7 @@ void ChunkMesh::sendMeshesToGPU()
 
 	// Upload face data
 	{
-		TRACY_SCOPE("Upload face data", ProfileCategory::ChunkMesh);
+		TRACY_SCOPE("Upload face data and update mesh data", ProfileCategory::ChunkMesh);
 		for (Chunk* chunk : pendingMeshUploads)
 		{
 			ChunkMeshFaceStorage& faceStorage = chunk->mesh.faceStorage;
