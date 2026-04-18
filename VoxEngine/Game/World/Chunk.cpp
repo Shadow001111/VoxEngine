@@ -26,6 +26,17 @@ static uint32_t hash3(uint32_t x, uint32_t y, uint32_t z)
 	return data;
 }
 
+static uint32_t hash3(const glm::ivec3& p)
+{
+	uint32_t data = (uint32_t)p.x * 0x27d4eb2du + (uint32_t)p.y * 0x165667b1u + (uint32_t)p.z * 0x1b873593u;
+	data ^= data >> 15u;
+	data *= 0x85ebca6bu;
+	data ^= data >> 13u;
+	data *= 0xc2b2ae35u;
+	data ^= data >> 16u;
+	return data;
+}
+
 // Prepares chunk for use
 void Chunk::init(const glm::ivec3& position, const std::array<Chunk*, 27>& newNeighbors, ChunkRegion* parentRegion)
 {
@@ -1251,11 +1262,12 @@ void Chunk::updateMesh()
 
 	// Collect visible faces
 	{
-		const uint32_t transformationBitMasks[3] = { 0u, 0b11u, 0b111u };
+		constexpr uint32_t transformationBitMasks[3] = { 0u, 0b11u, 0b111u };
 
 		static const BlockData::TextureSlot fallbackTextureSlot(0, BlockData::TextureSlot::TextureTransformation::None, false);
 
 		ChunkMeshFaceStorage::InstancesStorage localMeshInstances;
+		//localMeshInstances.reserve(CHUNK_VOLUME / 4); TODO: For some reason make app freeze
 
 		const glm::ivec3 globalChunkPosition = position << CHUNK_SIZE_LOG2;
 		for (size_t currentBlockIndex = 0; currentBlockIndex < CHUNK_VOLUME; currentBlockIndex++)
@@ -1284,11 +1296,7 @@ void Chunk::updateMesh()
 			if (!model->alignedFaces.empty())
 			{
 				const glm::ivec3 globalBlockPosition = globalChunkPosition + currentBlockPosition;
-				const uint32_t hash = hash3(
-					globalBlockPosition.x,
-					globalBlockPosition.y,
-					globalBlockPosition.z
-				);
+				const uint32_t hash = hash3(globalBlockPosition);
 				for (const auto& face : model->alignedFaces)
 				{
 					// Get neighbor block coordinates
@@ -1778,6 +1786,7 @@ void Chunk::setBlockAt(int x, int y, int z, BlockId block, bool saveBlockChanges
 	const BlockData* newBlockData = AssetRegistry::getBlockDataSafe(block);
 	uint8_t newEmission = newBlockData->lightEmission;
 
+	// TODO: Now both blocks can absorb light, but can have different faceCulling values
 	if (previousBlockData->absorbsLight && !newBlockData->absorbsLight)
 	{
 		const glm::ivec3 currentBlockPosition = glm::ivec3(x, y, z);

@@ -1,87 +1,175 @@
 #pragma once
+#include <cstddef>
+#include <cstring>
+#include <initializer_list>
 #include <iterator>
+#include <new>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
+#include <utility>
 
-template<typename T>
+#if false
+#include <vector>
+template <typename T>
+using DynamicArray = std::vector<T>;
+#else
+template <typename T>
 class DynamicArray
 {
 	T* mData = nullptr;
 	size_t mSize = 0;
 	size_t mCapacity = 0;
 
+	static constexpr bool can_memcpy_v = std::is_trivially_copyable_v<T>;
+	static constexpr bool can_memmove_v = std::is_trivially_copyable_v<T>;
+
+	static void destroy_at(T* pos) noexcept
+	{
+		if constexpr (!std::is_trivially_destructible_v<T>)
+		{
+			pos->~T();
+		}
+	}
+
+	template <typename... Args>
+	static void construct_at(T* pos, Args&&... args)
+	{
+		::new (static_cast<void*>(pos)) T(std::forward<Args>(args)...);
+	}
+
 	void destroy_elements() noexcept
 	{
 		if constexpr (!std::is_trivially_destructible_v<T>)
 		{
-			if (!mData) return;
-
-			for (size_t i = 0; i < mSize; i++)
+			for (size_t i = 0; i < mSize; ++i)
 			{
-				destruct_at(mData + i);
+				destroy_at(mData + i);
 			}
 		}
 	}
 
-	template<typename... Args>
-	inline void construct_at(T* pos, Args&&... args)
+	void deallocate_storage() noexcept
 	{
-		new (pos) T(std::forward<Args>(args)...);
+		::operator delete(mData);
+		mData = nullptr;
+		mCapacity = 0;
 	}
 
-	inline void destruct_at(T* pos)
+	void reallocate(size_t newCapacity)
 	{
-		(*pos).~T();
-	}
+		if (newCapacity == mCapacity)
+			return;
 
-	void changeCapacity(size_t newCapacity)
-	{
 		if (newCapacity == 0)
 		{
 			destroy_elements();
-			if (mData)
-			{
-				::operator delete(mData);
-				mData = nullptr;
-			}
+			deallocate_storage();
 			mSize = 0;
-			mCapacity = 0;
 			return;
 		}
 
 		T* newData = static_cast<T*>(::operator new(newCapacity * sizeof(T)));
 
-		if constexpr (std::is_trivially_move_constructible_v<T>)
+		if (mData)
 		{
-			std::memcpy(newData, mData, mSize * sizeof(T));
-		}
-		else
-		{
-			size_t i = 0;
-			try
+			if constexpr (can_memcpy_v)
 			{
-				for (; i < mSize; i++)
+				if (mSize != 0)
 				{
-					construct_at(newData + i, std::move(mData[i]));
+					std::memcpy(newData, mData, mSize * sizeof(T));
 				}
 			}
-			catch (...)
+			else
 			{
-				for (size_t j = 0; j < i; j++)
+				size_t constructed = 0;
+				try
 				{
-					destruct_at(newData + j);
+					for (; constructed < mSize; ++constructed)
+					{
+						construct_at(newData + constructed, std::move_if_noexcept(mData[constructed]));
+					}
 				}
-				::operator delete(newData);
-				throw;
+				catch (...)
+				{
+					for (size_t i = 0; i < constructed; ++i)
+					{
+						destroy_at(newData + i);
+					}
+					::operator delete(newData);
+					throw;
+				}
 			}
+
+			destroy_elements();
+			::operator delete(mData);
 		}
 
-		destroy_elements();
-		::operator delete(mData);
 		mData = newData;
 		mCapacity = newCapacity;
 	}
+
+	void grow_for_one_more()
+	{
+		const size_t newCapacity = (mCapacity == 0) ? 1 : (mCapacity * 2);
+		reallocate(newCapacity);
+	}
+
+	void validate_index(size_t index) const
+	{
+		if (index >= mSize)
+		{
+			throw std::out_of_range("Index " + std::to_string(index) +
+				" is out of range. DynamicArray size is " + std::to_string(mSize));
+		}
+	}
+
+	void validate_nonempty(const char* fn) const
+	{
+		if (mSize == 0)
+		{
+			throw std::out_of_range(std::string(fn) + " called on empty DynamicArray");
+		}
+	}
+
+	template <typename ForwardIt>
+	void assign_from_forward_range(ForwardIt first, ForwardIt last)
+	{
+		size_t count = 0;
+		for (auto it = first; it != last; ++it)
+			++count;
+
+		if (count == 0)
+		{
+			return;
+		}
+
+		mData = static_cast<T*>(::operator new(count * sizeof(T)));
+		mCapacity = count;
+
+		size_t constructed = 0;
+		try
+		{
+			for (auto it = first; it != last; ++it, ++constructed)
+			{
+				construct_at(mData + constructed, *it);
+			}
+		}
+		catch (...)
+		{
+			for (size_t i = 0; i < constructed; ++i)
+			{
+				destroy_at(mData + i);
+			}
+			::operator delete(mData);
+			mData = nullptr;
+			mCapacity = 0;
+			throw;
+		}
+
+		mSize = count;
+	}
+
 public:
 	using value_type = T;
 	using size_type = size_t;
@@ -91,60 +179,16 @@ public:
 	using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
 	// Creation, destruction, copying, moving
-	DynamicArray() noexcept : mData(nullptr), mSize(0), mCapacity(0) {}
+	DynamicArray() noexcept = default;
 
 	explicit DynamicArray(size_t size)
 	{
-		if (size == 0) return;
-
-		mData = static_cast<T*>(::operator new(size * sizeof(T)));
-		mSize = size;
-		mCapacity = size;
-
-		size_t i = 0;
-		try
-		{
-			for (; i < size; i++)
-			{
-				construct_at(mData + i);
-			}
-		}
-		catch (...)
-		{
-			for (size_t j = 0; j < i; j++)
-			{
-				destruct_at(mData + j);
-			}
-			::operator delete(mData);
-			throw;
-		}
+		resize(size);
 	}
 
 	explicit DynamicArray(size_t size, const T& value)
 	{
-		if (size == 0) return;
-
-		mData = static_cast<T*>(::operator new(size * sizeof(T)));
-		mSize = size;
-		mCapacity = size;
-
-		size_t i = 0;
-		try
-		{
-			for (; i < size; i++)
-			{
-				construct_at(mData + i, value);
-			}
-		}
-		catch (...)
-		{
-			for (size_t j = 0; j < i; j++)
-			{
-				destruct_at(mData + j);
-			}
-			::operator delete(mData);
-			throw;
-		}
+		resize(size, value);
 	}
 
 	explicit DynamicArray(const T* begin, const T* end)
@@ -153,113 +197,101 @@ public:
 		{
 			throw std::invalid_argument("Null pointer provided to DynamicArray constructor");
 		}
-		else if (end <= begin)
+		if (end < begin)
 		{
-			throw std::invalid_argument("Invalid range: end must be greater than begin");
+			throw std::invalid_argument("Invalid range: end must be greater than or equal to begin");
 		}
 
-		mSize = end - begin;
-
-		if (mSize == 0) return;
-
-		mCapacity = mSize;
-		mData = static_cast<T*>(::operator new(mCapacity * sizeof(T)));
-
-		if constexpr (std::is_trivially_copy_constructible_v<T>)
+		const size_t count = static_cast<size_t>(end - begin);
+		if (count == 0)
 		{
-			std::memcpy(mData, begin, mSize * sizeof(T));
+			return;
+		}
+
+		mData = static_cast<T*>(::operator new(count * sizeof(T)));
+		mCapacity = count;
+
+		if constexpr (can_memcpy_v)
+		{
+			std::memcpy(mData, begin, count * sizeof(T));
 		}
 		else
 		{
-			size_t i = 0;
+			size_t constructed = 0;
 			try
 			{
-				for (; i < mSize; i++)
+				for (; constructed < count; ++constructed)
 				{
-					construct_at(mData + i, begin[i]);
+					construct_at(mData + constructed, begin[constructed]);
 				}
 			}
 			catch (...)
 			{
-				for (size_t j = 0; j < i; j++)
+				for (size_t i = 0; i < constructed; ++i)
 				{
-					destruct_at(mData + j);
+					destroy_at(mData + i);
 				}
 				::operator delete(mData);
+				mData = nullptr;
+				mCapacity = 0;
 				throw;
 			}
 		}
+
+		mSize = count;
 	}
 
 	DynamicArray(std::initializer_list<T> init)
 	{
-		mSize = init.size();
-
-		if (mSize == 0) return;
-
-		mCapacity = mSize;
-		mData = static_cast<T*>(::operator new(mCapacity * sizeof(T)));
-
-		const auto* start = init.begin();
-
-		if constexpr (std::is_trivially_copy_constructible_v<T>)
+		const size_t count = init.size();
+		if (count == 0)
 		{
-			std::memcpy(mData, start, mSize * sizeof(T));
+			return;
+		}
+
+		mData = static_cast<T*>(::operator new(count * sizeof(T)));
+		mCapacity = count;
+
+		if constexpr (can_memcpy_v)
+		{
+			std::memcpy(mData, init.begin(), count * sizeof(T));
 		}
 		else
 		{
-			size_t i = 0;
+			size_t constructed = 0;
 			try
 			{
-				for (; i < mSize; i++)
+				for (const T& value : init)
 				{
-					construct_at(mData + i, start + i);
+					construct_at(mData + constructed, value);
+					++constructed;
 				}
 			}
 			catch (...)
 			{
-				for (size_t j = 0; j < i; j++)
+				for (size_t i = 0; i < constructed; ++i)
 				{
-					destruct_at(mData + j);
+					destroy_at(mData + i);
 				}
 				::operator delete(mData);
+				mData = nullptr;
+				mCapacity = 0;
 				throw;
 			}
 		}
+
+		mSize = count;
 	}
 
-	template<typename InputIt>
+	template <typename InputIt,
+		std::enable_if_t<!std::is_integral_v<InputIt>, int> = 0>
 	DynamicArray(InputIt first, InputIt last)
 	{
-		mSize = 0;
-		for (InputIt it = first; it != last; ++it)
-		{
-			mSize++;
-		}
+		using category = typename std::iterator_traits<InputIt>::iterator_category;
+		static_assert(std::is_base_of_v<std::forward_iterator_tag, category>,
+			"DynamicArray range constructor requires at least a forward iterator");
 
-		if (mSize == 0) return;
-
-		mCapacity = mSize;
-		mData = static_cast<T*>(::operator new(mCapacity * sizeof(T)));
-
-		size_t i = 0;
-		try
-		{
-			for (InputIt it = first; it != last; ++it)
-			{
-				construct_at(mData + i, *it);
-				i++;
-			}
-		}
-		catch (...)
-		{
-			for (size_t j = 0; j < i; j++)
-			{
-				destruct_at(mData + j);
-			}
-			::operator delete(mData);
-			throw;
-		}
+		assign_from_forward_range(first, last);
 	}
 
 	~DynamicArray()
@@ -268,48 +300,47 @@ public:
 		{
 			destroy_elements();
 			::operator delete(mData);
-			mData = nullptr;
 		}
 	}
 
 	DynamicArray(const DynamicArray& other)
 	{
-		mSize = other.mSize;
-		if (other.mCapacity > 0)
-		{
-			mCapacity = other.mCapacity;
-			mData = static_cast<T*>(::operator new(mCapacity * sizeof(T)));
-		}
+		if (other.mSize == 0)
+			return;
 
-		if (mSize == 0 || mCapacity == 0) return;
+		mData = static_cast<T*>(::operator new(other.mSize * sizeof(T)));
+		mCapacity = other.mSize;
 
-		if constexpr (std::is_trivially_copy_constructible_v<T>)
+		if constexpr (can_memcpy_v)
 		{
-			std::memcpy(mData, other.mData, mSize * sizeof(T));
+			std::memcpy(mData, other.mData, other.mSize * sizeof(T));
 		}
 		else
 		{
-			size_t i = 0;
+			size_t constructed = 0;
 			try
 			{
-				for (; i < mSize; i++)
+				for (; constructed < other.mSize; ++constructed)
 				{
-					construct_at(mData + i, other.mData[i]);
+					construct_at(mData + constructed, other.mData[constructed]);
 				}
 			}
 			catch (...)
 			{
-				for (size_t j = 0; j < i; j++)
+				for (size_t i = 0; i < constructed; ++i)
 				{
-					destruct_at(mData + j);
+					destroy_at(mData + i);
 				}
 				::operator delete(mData);
+				mData = nullptr;
+				mCapacity = 0;
 				throw;
 			}
 		}
+
+		mSize = other.mSize;
 	}
 
-	// TODO: Implement it properly
 	DynamicArray& operator=(const DynamicArray& other)
 	{
 		if (this != &other)
@@ -320,10 +351,8 @@ public:
 		return *this;
 	}
 
-	DynamicArray(DynamicArray&& other) noexcept :
-		mData(other.mData),
-		mSize(other.mSize),
-		mCapacity(other.mCapacity)
+	DynamicArray(DynamicArray&& other) noexcept
+		: mData(other.mData), mSize(other.mSize), mCapacity(other.mCapacity)
 	{
 		other.mData = nullptr;
 		other.mSize = 0;
@@ -352,77 +381,56 @@ public:
 	}
 
 	// Swap
-
 	void swap(DynamicArray& other) noexcept
 	{
-		std::swap(mData, other.mData);
-		std::swap(mSize, other.mSize);
-		std::swap(mCapacity, other.mCapacity);
+		using std::swap;
+		swap(mData, other.mData);
+		swap(mSize, other.mSize);
+		swap(mCapacity, other.mCapacity);
 	}
 
 	// Element access
-
 	[[nodiscard]] T& operator[](size_t index) noexcept { return mData[index]; }
-
 	[[nodiscard]] const T& operator[](size_t index) const noexcept { return mData[index]; }
 
 	[[nodiscard]] T& at(size_t index)
 	{
-		if (index >= mSize)
-		{
-			throw std::out_of_range("Index " + std::to_string(index) + " is out of range. DynamicArray size is " + std::to_string(mSize));
-		}
+		validate_index(index);
 		return mData[index];
 	}
 
 	[[nodiscard]] const T& at(size_t index) const
 	{
-		if (index >= mSize)
-		{
-			throw std::out_of_range("Index " + std::to_string(index) + " is out of range. DynamicArray size is " + std::to_string(mSize));
-		}
+		validate_index(index);
 		return mData[index];
 	}
 
 	[[nodiscard]] T& front()
 	{
-		if (mSize == 0)
-		{
-			throw std::out_of_range("front() called on empty DynamicArray");
-		}
+		validate_nonempty("front()");
 		return mData[0];
 	}
 
 	[[nodiscard]] const T& front() const
 	{
-		if (mSize == 0)
-		{
-			throw std::out_of_range("front() called on empty DynamicArray");
-		}
+		validate_nonempty("front()");
 		return mData[0];
 	}
 
 	[[nodiscard]] T& back()
 	{
-		if (mSize == 0)
-		{
-			throw std::out_of_range("back() called on empty DynamicArray");
-		}
+		validate_nonempty("back()");
 		return mData[mSize - 1];
 	}
 
 	[[nodiscard]] const T& back() const
 	{
-		if (mSize == 0)
-		{
-			throw std::out_of_range("back() called on empty DynamicArray");
-		}
+		validate_nonempty("back()");
 		return mData[mSize - 1];
 	}
 
 	// Modifiers
-
-	void clear()
+	void clear() noexcept
 	{
 		destroy_elements();
 		mSize = 0;
@@ -432,122 +440,168 @@ public:
 	{
 		if (newCapacity > mCapacity)
 		{
-			changeCapacity(newCapacity);
+			reallocate(newCapacity);
 		}
 	}
 
 	void resize(size_t newSize)
 	{
-		if (newSize > mSize)
-		{
-			if (newSize > mCapacity)
-			{
-				changeCapacity(newSize);
-			}
-
-			for (size_t i = mSize; i < newSize; i++)
-			{
-				construct_at(mData + i);
-			}
-		}
-		else if (newSize < mSize)
+		if (newSize < mSize)
 		{
 			if constexpr (!std::is_trivially_destructible_v<T>)
 			{
-				for (size_t i = newSize; i < mSize; i++)
+				for (size_t i = newSize; i < mSize; ++i)
 				{
-					destruct_at(mData + i);
+					destroy_at(mData + i);
 				}
 			}
+			mSize = newSize;
+			return;
 		}
+
+		if (newSize > mCapacity)
+		{
+			reallocate(newSize);
+		}
+
+		size_t constructed = mSize;
+		try
+		{
+			for (; constructed < newSize; ++constructed)
+			{
+				construct_at(mData + constructed);
+			}
+		}
+		catch (...)
+		{
+			for (size_t i = mSize; i < constructed; ++i)
+			{
+				destroy_at(mData + i);
+			}
+			throw;
+		}
+
 		mSize = newSize;
 	}
 
 	void resize(size_t newSize, const T& value)
 	{
-		if (newSize > mSize)
-		{
-			if (newSize > mCapacity)
-			{
-				changeCapacity(newSize);
-			}
-
-			for (size_t i = mSize; i < newSize; i++)
-			{
-				construct_at(mData + i, value);
-			}
-		}
-		else if (newSize < mSize)
+		if (newSize < mSize)
 		{
 			if constexpr (!std::is_trivially_destructible_v<T>)
 			{
-				for (size_t i = newSize; i < mSize; i++)
+				for (size_t i = newSize; i < mSize; ++i)
 				{
-					destruct_at(mData + i);
+					destroy_at(mData + i);
 				}
 			}
+			mSize = newSize;
+			return;
 		}
+
+		if (newSize > mCapacity)
+		{
+			reallocate(newSize);
+		}
+
+		size_t constructed = mSize;
+		try
+		{
+			for (; constructed < newSize; ++constructed)
+			{
+				construct_at(mData + constructed, value);
+			}
+		}
+		catch (...)
+		{
+			for (size_t i = mSize; i < constructed; ++i)
+			{
+				destroy_at(mData + i);
+			}
+			throw;
+		}
+
 		mSize = newSize;
 	}
 
 	void fill(const T& value)
 	{
-		for (size_t i = 0; i < mSize; i++)
+		for (size_t i = 0; i < mSize; ++i)
 		{
 			mData[i] = value;
 		}
 	}
 
-	template<typename... Args>
+	template <typename... Args>
 	T& emplace_back(Args&&... args)
 	{
 		if (mSize >= mCapacity)
 		{
-			size_t newCapacity = mCapacity * 2;
-			if (newCapacity == 0) newCapacity = 1;
-			changeCapacity(newCapacity);
+			grow_for_one_more();
 		}
 
 		construct_at(mData + mSize, std::forward<Args>(args)...);
-
-		return mData[mSize++];
+		++mSize;
+		return mData[mSize - 1];
 	}
 
-	template<typename... Args>
+	template <typename... Args>
 	T& emplace(size_t index, Args&&... args)
 	{
-		if (index > mSize) throw std::out_of_range("DynamicArray::emplace: position out of range");
+		if (index > mSize)
+		{
+			throw std::out_of_range("DynamicArray::emplace: position out of range");
+		}
 
 		if (mSize >= mCapacity)
 		{
-			size_t newCapacity = mCapacity * 2;
-			if (newCapacity == 0) newCapacity = 1;
-			changeCapacity(newCapacity);
+			grow_for_one_more();
 		}
 
-		if constexpr (std::is_trivially_move_constructible_v<T>)
+		if constexpr (std::is_trivially_copyable_v<T>)
 		{
-			std::memmove(mData + index + 1, mData + index, (mSize - index) * sizeof(T));
+			if (index < mSize)
+			{
+				std::memmove(mData + index + 1, mData + index, (mSize - index) * sizeof(T));
+			}
 		}
 		else
 		{
+			size_t moved = 0;
+			try
+			{
+				for (size_t i = mSize; i > index; --i)
+				{
+					construct_at(mData + i, std::move_if_noexcept(mData[i - 1]));
+					++moved;
+				}
+			}
+			catch (...)
+			{
+				// Roll back any elements we already shifted into the gap.
+				for (size_t i = 0; i < moved; ++i)
+				{
+					const size_t pos = mSize - i;
+					destroy_at(mData + pos);
+				}
+				throw;
+			}
+
 			for (size_t i = mSize; i > index; --i)
 			{
-				construct_at(mData + i, std::move(mData[i - 1]));
-				mData[i - 1].~T();
+				destroy_at(mData + (i - 1));
 			}
 		}
 
 		construct_at(mData + index, std::forward<Args>(args)...);
-
-		mSize++;
+		++mSize;
 		return mData[index];
 	}
 
-	template<typename... Args>
+	template <typename... Args>
 	iterator emplace(const_iterator pos, Args&&... args)
 	{
-		const size_t index = pos - cbegin();
+		const size_t index = static_cast<size_t>(pos - cbegin());
 		emplace(index, std::forward<Args>(args)...);
 		return begin() + index;
 	}
@@ -574,14 +628,14 @@ public:
 
 	iterator insert(const_iterator pos, const T& value)
 	{
-		const size_t index = pos - cbegin();
+		const size_t index = static_cast<size_t>(pos - cbegin());
 		emplace(index, value);
 		return begin() + index;
 	}
 
 	iterator insert(const_iterator pos, T&& value)
 	{
-		const size_t index = pos - cbegin();
+		const size_t index = static_cast<size_t>(pos - cbegin());
 		emplace(index, std::move(value));
 		return begin() + index;
 	}
@@ -589,123 +643,98 @@ public:
 	void erase(size_t index)
 	{
 		if (index >= mSize)
-			throw std::out_of_range("DynamicArray::erase: position out of range");
-
-		if constexpr (std::is_trivially_destructible_v<T>)
 		{
-			std::memmove(mData + index, mData + index + 1, (mSize - index - 1) * sizeof(T));
+			throw std::out_of_range("DynamicArray::erase: position out of range");
+		}
+
+		if constexpr (std::is_trivially_copyable_v<T>)
+		{
+			if (index + 1 < mSize)
+			{
+				std::memmove(mData + index, mData + index + 1, (mSize - index - 1) * sizeof(T));
+			}
 		}
 		else
 		{
-			mData[index].~T();
-			for (size_t i = index + 1; i < mSize; i++)
+			destroy_at(mData + index);
+			for (size_t i = index + 1; i < mSize; ++i)
 			{
-				construct_at(mData + i - 1, std::move(mData[i]));
-				mData[i].~T();
+				construct_at(mData + i - 1, std::move_if_noexcept(mData[i]));
+				destroy_at(mData + i);
 			}
 		}
-		mSize--;
+
+		--mSize;
 	}
 
 	void erase(size_t start, size_t end)
 	{
 		if (start > mSize || end > mSize || start > end)
-			throw std::out_of_range("DynamicArray::erase: invalid range");
-
-		size_t count = end - start;
-		if (count == 0)
-			return;
-
-		if constexpr (!std::is_trivially_destructible_v<T>)
 		{
-			for (size_t i = start; i < end; i++)
-				mData[i].~T();
+			throw std::out_of_range("DynamicArray::erase: invalid range");
 		}
 
-		if constexpr (std::is_trivially_move_constructible_v<T>)
+		const size_t count = end - start;
+		if (count == 0)
 		{
-			std::memmove(mData + start, mData + end, (mSize - end) * sizeof(T));
+			return;
+		}
+
+		if constexpr (std::is_trivially_copyable_v<T>)
+		{
+			if (end < mSize)
+			{
+				std::memmove(mData + start, mData + end, (mSize - end) * sizeof(T));
+			}
 		}
 		else
 		{
-			for (size_t i = end; i < mSize; i++)
+			for (size_t i = start; i < end; ++i)
 			{
-				construct_at(mData + i - count, std::move(mData[i]));
-				mData[i].~T();
+				destroy_at(mData + i);
+			}
+
+			for (size_t i = end; i < mSize; ++i)
+			{
+				construct_at(mData + i - count, std::move_if_noexcept(mData[i]));
+				destroy_at(mData + i);
 			}
 		}
+
 		mSize -= count;
 	}
 
 	iterator erase(const_iterator pos)
 	{
-		const size_t index = pos - cbegin();
+		const size_t index = static_cast<size_t>(pos - cbegin());
 		erase(index);
 		return begin() + index;
 	}
 
 	iterator erase(const_iterator first, const_iterator last)
 	{
-		size_t start = first - cbegin();
-		size_t end = last - cbegin();
-
-		if (start > mSize || end > mSize || start > end)
-			throw std::out_of_range("DynamicArray::erase: invalid range");
-
-		size_t count = end - start;
-		if (count == 0)
-			return begin() + start;
-
-		if constexpr (!std::is_trivially_destructible_v<T>)
-		{
-			for (size_t i = start; i < end; ++i)
-				mData[i].~T();
-		}
-
-		if constexpr (std::is_trivially_move_constructible_v<T>)
-		{
-			std::memmove(mData + start, mData + end, (mSize - end) * sizeof(T));
-		}
-		else
-		{
-			for (size_t i = end; i < mSize; i++)
-			{
-				construct_at(mData + i - count, std::move(mData[i]));
-				mData[i].~T();
-			}
-		}
-		mSize -= count;
-
+		const size_t start = static_cast<size_t>(first - cbegin());
+		const size_t end = static_cast<size_t>(last - cbegin());
+		erase(start, end);
 		return begin() + start;
 	}
 
 	void pop_back()
 	{
-		if (mSize == 0)
-		{
-			throw std::out_of_range("DynamicArray::pop_back(): cannot pop from empty array");
-		}
-
-		if constexpr (!std::is_trivially_destructible_v<T>)
-		{
-			mData[--mSize].~T();
-		}
-		else
-		{
-			mSize--;
-		}
+		validate_nonempty("pop_back()");
+		--mSize;
+		destroy_at(mData + mSize);
 	}
 
 	void shrink_to_fit()
 	{
 		if (mCapacity > mSize)
 		{
-			changeCapacity(mSize);
+			reallocate(mSize);
 		}
 	}
 
 	// Iterator support
-
 	[[nodiscard]] iterator begin() noexcept { return mData; }
 	[[nodiscard]] iterator end() noexcept { return mData + mSize; }
 
@@ -723,9 +752,16 @@ public:
 	[[nodiscard]] const_reverse_iterator crend() const noexcept { return const_reverse_iterator(cbegin()); }
 
 	// Getters
-
-	[[nodiscard]] T* data() const noexcept { return mData; }
+	[[nodiscard]] T* data() noexcept { return mData; }
+	[[nodiscard]] const T* data() const noexcept { return mData; }
 	[[nodiscard]] size_t size() const noexcept { return mSize; }
 	[[nodiscard]] size_t capacity() const noexcept { return mCapacity; }
 	[[nodiscard]] bool empty() const noexcept { return mSize == 0; }
 };
+
+template <typename T>
+void swap(DynamicArray<T>& a, DynamicArray<T>& b) noexcept
+{
+	a.swap(b);
+}
+#endif

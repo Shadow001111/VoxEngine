@@ -37,6 +37,14 @@ void ChunkMeshFaceStorage::InstancesStorage::shrinkToFit()
 	unalignedTranslucent.shrink_to_fit();
 }
 
+void ChunkMeshFaceStorage::InstancesStorage::reserve(size_t count)
+{
+	alignedOpaque.reserve(count);
+	alignedTranslucent.reserve(count);
+	unalignedOpaque.reserve(count);
+	unalignedTranslucent.reserve(count);
+}
+
 const void* ChunkMeshFaceStorage::InstancesStorage::data(MeshLayer layer) const noexcept
 {
 	switch (layer)

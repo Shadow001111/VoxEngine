@@ -492,7 +492,7 @@ bool AssetRegistry::linkItemAssets()
 BlockId AssetRegistry::getBlockNumericalId(const std::string& stringId)
 {
 	auto result = blockIndexer.getId(stringId);
-	return result.has_value() ? static_cast<BlockId>(result.value()) : FALLBACK_BLOCK_ID;
+	return result.value_or(FALLBACK_BLOCK_ID);
 }
 
 //ModelId AssetRegistry::getBlockModelNumericalId(const std::string& stringId)
@@ -504,7 +504,7 @@ BlockId AssetRegistry::getBlockNumericalId(const std::string& stringId)
 ItemId AssetRegistry::getItemNumericalId(const std::string& stringId)
 {
 	auto result = itemIndexer.getId(stringId);
-	return result.has_value() ? static_cast<ItemId>(result.value()) : FALLBACK_ITEM_ID;
+	return result.value_or(FALLBACK_ITEM_ID);
 }
 
 const ItemData* AssetRegistry::getItemDataSafe(ItemId numericalId)

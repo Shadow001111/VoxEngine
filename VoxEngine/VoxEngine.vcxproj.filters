@@ -410,15 +410,6 @@
     <ClInclude Include="Game\World\ChunkRegionManager.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="Core\Container\DynamicArray.h">
-      <Filter>Файлы заголовков</Filter>
-    </ClInclude>
-    <ClInclude Include="Core\Container\Dequeue.h">
-      <Filter>Файлы заголовков</Filter>
-    </ClInclude>
-    <ClInclude Include="Core\Container\Queue.h">
-      <Filter>Файлы заголовков</Filter>
-    </ClInclude>
     <ClInclude Include="Core\Simd.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
@@ -453,6 +444,15 @@
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Core\Bitset.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\Container\Dequeue.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\Container\DynamicArray.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\Container\Queue.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
   </ItemGroup>

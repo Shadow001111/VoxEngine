@@ -43,6 +43,7 @@ struct ChunkMeshFaceStorage
 		void clear();
 		void swap(InstancesStorage& other) noexcept;
 		void shrinkToFit();
+		void reserve(size_t count);
 
 		const void* data(MeshLayer layer) const noexcept;
 		uint32_t size(MeshLayer layer) const noexcept;
