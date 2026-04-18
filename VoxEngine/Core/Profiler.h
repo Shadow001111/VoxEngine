@@ -169,7 +169,12 @@ public:
 #define PROFILE_SCOPE_CONCAT(a, b) PROFILE_SCOPE_CONCAT_INNER(a, b)
 
 #if PROFILING_ENABLED
-#define PROFILE_SCOPE(name, category) ScopedProfiler PROFILE_SCOPE_CONCAT(_profiler_, __COUNTER__)(name, category)
+    #ifdef TRACY_ENABLE
+        #include <tracy/Tracy.hpp>
+        #define PROFILE_SCOPE(name, category) ZoneScopedN(name)
+    #else
+        #define PROFILE_SCOPE(name, category) ScopedProfiler PROFILE_SCOPE_CONCAT(_profiler_, __COUNTER__)(name, category)
+    #endif
 #else
-#define PROFILE_SCOPE(name, category)
+    #define PROFILE_SCOPE(name, category)
 #endif

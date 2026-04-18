@@ -23,6 +23,8 @@
 #include <iomanip>
 #include <glm/gtc/matrix_transform.hpp>
 
+#include <tracy/Tracy.hpp>
+
 #ifdef NDEBUG
 constexpr int CHUNK_LOAD_DISTANCE = 24;
 #else
@@ -769,6 +771,9 @@ static int gameFunc()
         {
             Profiler::printProfileReport();
         }
+#ifdef TRACY_ENABLE
+        FrameMark;
+#endif
     }
     return 0;
 }
