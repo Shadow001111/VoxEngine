@@ -12,6 +12,7 @@ class WorldChunkManager
     {
         robin_hood::unordered_flat_set<Chunk*> blocks;
         robin_hood::unordered_flat_set<Chunk*> lights;
+        robin_hood::unordered_flat_set<Chunk*> remainingLights;
         std::mutex blocksMutex;
         std::mutex lightsMutex;
 

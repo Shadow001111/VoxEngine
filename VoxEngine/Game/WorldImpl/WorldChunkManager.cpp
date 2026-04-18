@@ -276,13 +276,12 @@ void WorldChunkManager::startBuildingChunkLights()
 		std::lock_guard<std::mutex> lock(buildContainers.lightsMutex);
 		const size_t chunkCount = buildContainers.lights.size();
 
-		robin_hood::unordered_flat_set<Chunk*> remainingChunks;
+		auto& remainingChunks = buildContainers.remainingLights;
 		remainingChunks.reserve(chunkCount);
 
 		chunksToProcess.reserve(chunkCount);
 		for (Chunk* chunk : buildContainers.lights)
 		{
-			// Should always pass the test, but sometimes it doesn't
 			if (!chunk->areBlocksBuilt() || chunk->isLightBuilt())
 			{
 				continue;
@@ -303,16 +302,17 @@ void WorldChunkManager::startBuildingChunkLights()
 
 			if (allNeighborsReady)
 			{
+				chunk->setState(Chunk::State::BuildingLight);
 				chunksToProcess.push_back(chunk);
 			}
 			else
 			{
-				// Keep in container, waiting for neighbors
 				remainingChunks.insert(chunk);
 			}
 		}
 
 		buildContainers.lights.swap(remainingChunks);
+		remainingChunks.clear();
 	}
 
 	// Submit chunks to thread pool
@@ -323,16 +323,16 @@ void WorldChunkManager::startBuildingChunkLights()
 		ThreadPool& pool = ParallelUtils::getGlobalThreadPool();
 
 		const size_t chunkCount = chunksToProcess.size();
+		const auto begin = chunksToProcess.cbegin();
 		for (size_t i = 0; i < chunkCount; i += CHUNKS_PER_BATCH)
 		{
 			size_t batchEnd = std::min(i + CHUNKS_PER_BATCH, chunkCount);
-			std::vector<Chunk*> batch(chunksToProcess.begin() + i, chunksToProcess.begin() + batchEnd);
+			std::vector<Chunk*> batch(begin + i, begin + batchEnd);
 
 			pool.enqueue([batch_ = std::move(batch)]()
 				{
 					for (Chunk* chunk : batch_)
 					{
-						chunk->setState(Chunk::State::BuildingLight);
 						chunk->buildLight();
 					}
 				});

@@ -217,7 +217,9 @@ void APIENTRY WindowManager::glDebugOutput(GLenum source, GLenum type, GLuint id
         // Non-significant error/warning codes
         id == 131169 || id == 131185 || id == 131218 || id == 131204 ||
         // Pixel sync
-        id == 131154
+        id == 131154 ||
+        // Moving memory to HOST
+        id == 131186
         ) return;
 
     std::cout << "---------------\n";
