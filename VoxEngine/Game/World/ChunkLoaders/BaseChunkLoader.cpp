@@ -25,18 +25,20 @@ void BaseChunkLoader::computeDiffs()
     TRACY_SCOPE("Compute differences", ProfileCategory::General);
 
     toLoad.clear();
+    toLoad.reserve(loaded.size());
     for (const auto& pos : loaded)
     {
-        if (!prevLoaded.contains(pos))
+        if (prevLoaded.find(pos) == prevLoaded.end())
         {
             toLoad.push_back(pos);
         }
     }
 
     toUnload.clear();
+    toUnload.reserve(prevLoaded.size());
     for (const auto& pos : prevLoaded)
     {
-        if (!loaded.contains(pos))
+        if (loaded.find(pos) == loaded.end())
         {
             toUnload.push_back(pos);
         }
