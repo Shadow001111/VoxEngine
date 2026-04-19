@@ -144,7 +144,7 @@ void ChunkMeshAllocator::MeshAllocator::processMeshRequests(const DynamicArray<C
 	// Allocate blocks
 	size_t stopIndex = 0;
 	{
-		TRACY_SCOPE("Allocate blocks1", ProfileCategory::ChunkMesh);
+		TRACY_SCOPE("Allocate blocks", ProfileCategory::ChunkMesh);
 		for (ChunkMeshFaceStorage* chunkMesh : meshRequests)
 		{
 			auto faceCount = config.getFaceCount(chunkMesh);
@@ -170,7 +170,7 @@ void ChunkMeshAllocator::MeshAllocator::processMeshRequests(const DynamicArray<C
 	size_t newCapacity;
 	{
 		TRACY_SCOPE("Calculate new capacity", ProfileCategory::ChunkMesh);
-		newCapacity = blockAllocator.getLastBlockEnd();
+		newCapacity = blockAllocator.getLastAllocatedBlockEnd();
 		for (size_t i = stopIndex; i < meshRequests.size(); i++)
 		{
 			newCapacity += config.getFaceCount(meshRequests[i]);
@@ -194,9 +194,12 @@ void ChunkMeshAllocator::MeshAllocator::processMeshRequests(const DynamicArray<C
 		newBuffer.allocateStorage(newCapacity * config.faceSize, INSTANCE_VBO_FLAGS);
 
 		// Copy data to a new buffer
-		const auto& currentBlocks = blockAllocator.getAllAllocations();
-		const auto& firstBlock = *currentBlocks.begin();
-		const auto& lastBlock = *std::prev(currentBlocks.end());
+		const auto& allocations = blockAllocator.getAllAllocatedBlocks();
+
+		ChunkMeshFaceStorage::Block firstBlock = allocations.front();
+
+		ChunkMeshFaceStorage::Block lastBlock = allocations.back();
+
 		newBuffer.copyRangeFrom(
 			instanceVBO,
 			firstBlock.offset * config.faceSize,
@@ -211,7 +214,7 @@ void ChunkMeshAllocator::MeshAllocator::processMeshRequests(const DynamicArray<C
 
 	// Allocate the rest of blocks
 	{
-		TRACY_SCOPE("Allocate blocks2", ProfileCategory::ChunkMesh);
+		TRACY_SCOPE("Allocate blocks", ProfileCategory::ChunkMesh);
 
 		for (size_t i = stopIndex; i < meshRequests.size(); i++)
 		{
