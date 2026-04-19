@@ -1,9 +1,9 @@
 #include "SphericalChunkLoader.h"
 #include <cmath>
 
-std::vector<glm::ivec3> SphericalChunkLoader::getPositionsToLoad(const glm::ivec3& playerChunkPosition, int loadRadius)
+void SphericalChunkLoader::getPositionsToLoad(const glm::ivec3& playerChunkPosition, int loadRadius, std::vector<glm::ivec3>& positions)
 {
-    std::vector<glm::ivec3> positions;
+    // Reserve space
     {
         int r = loadRadius + 1;
         int approximateSphereVolume = 4 * r * r * r;
@@ -34,6 +34,4 @@ std::vector<glm::ivec3> SphericalChunkLoader::getPositionsToLoad(const glm::ivec
             }
         }
     }
-
-    return positions;
 }

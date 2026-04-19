@@ -9,6 +9,7 @@ class BaseChunkLoader
 {
     using ChunkSet = robin_hood::unordered_flat_set<glm::ivec3, ivec3Hasher>;
 
+    std::vector<glm::ivec3> chunkLoaderPositions;
     ChunkSet loaded;
     ChunkSet prevLoaded;
     std::vector<glm::ivec3> toLoad;
@@ -18,10 +19,10 @@ public:
 
 	void update(const glm::ivec3& playerChunkPosition, int loadRadius);
 
-    std::vector<glm::ivec3> getChunksToLoad() const { return toLoad; }
-    std::vector<glm::ivec3> getChunksToUnload() const { return toUnload; }
+    const std::vector<glm::ivec3>& getChunksToLoad() const noexcept { return toLoad; }
+    const std::vector<glm::ivec3>& getChunksToUnload() const noexcept { return toUnload; }
 protected:
-    virtual std::vector<glm::ivec3> getPositionsToLoad(const glm::ivec3& playerChunkPosition, int loadRadius) = 0;
+    virtual void getPositionsToLoad(const glm::ivec3& playerChunkPosition, int loadRadius, std::vector<glm::ivec3>& positions) = 0;
 private:
     void computeDiffs();
 };
