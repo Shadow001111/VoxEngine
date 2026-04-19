@@ -56,6 +56,19 @@ namespace detail
 		}
 		return lut;
 	}
+
+	static constexpr glm::ivec3 computeNeighborOffset(int idx) noexcept
+	{
+		return { (idx / 9) - 1, (idx / 3 % 3) - 1, (idx % 3) - 1 };
+	}
+
+	static constexpr auto buildNeighborOffsetTable() noexcept
+	{
+		std::array<glm::ivec3, 27> table{};
+		for (int i = 0; i < 27; i++)
+			table[i] = computeNeighborOffset(i);
+		return table;
+	}
 }
 
 struct DirectionsTable
@@ -163,7 +176,8 @@ public:
 
 	static constexpr inline glm::ivec3 getNeighborOffset(int idx) noexcept
 	{
-		return { (idx / 9) - 1, (idx / 3 % 3) - 1, (idx % 3) - 1 };
+		constexpr auto table = detail::buildNeighborOffsetTable();
+		return table[idx];
 	}
 
 	static constexpr int getSideNeighborIndex(int side) noexcept

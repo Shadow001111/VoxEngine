@@ -63,6 +63,7 @@ public:
 private:
     void loadChunk(const glm::ivec3& chunkPosition);
     void unloadChunk(const glm::ivec3& chunkPosition);
+    void collectChunkNeighbors(const glm::ivec3& chunkPosition, std::array<Chunk*, 27>& neighbors) const;
 
     template<typename T, typename... Args>
     T* createChunkLoader(Args&&... args)
