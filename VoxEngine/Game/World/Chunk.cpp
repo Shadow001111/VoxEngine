@@ -72,11 +72,6 @@ void Chunk::init(const glm::ivec3& position, const std::array<Chunk*, 27>& newNe
 	// Reset mesh data
 	mesh.faceStorage.resetRenderFaceCount();
 	mesh.setFlag(ChunkMesh::Flag::ShouldBeUploaded, false);
-
-	// Reset grid data
-	static_assert(sizeof(BlockId) == 1, "Memset won't work properly if size isn't 1");
-	std::memset(blocks, CACHED_BLOCK_IDS.airId, sizeof(blocks));
-	std::memset(lightLevels, 0, sizeof(lightLevels));
 }
 
 // Cleans up resources
@@ -160,7 +155,16 @@ void Chunk::buildBlocks()
 		return;
 	}
 
+	TRACY_SCOPE("Build chunk blocks", ProfileCategory::ChunkBlocks);
+
 	FenceGuard scopedFence(processingFence);
+
+	// Reset blocks
+	static_assert(sizeof(BlockId) == 1, "Memset won't work properly if size isn't 1");
+	{
+		TRACY_SCOPE("Memset", ProfileCategory::General);
+		std::memset(blocks, CACHED_BLOCK_IDS.airId, sizeof(blocks));
+	}
 
 	// Load chunk column data
 	const ChunkColumnData* chunkColumnData;
@@ -930,9 +934,15 @@ void Chunk::buildLight()
 		return;
 	}
 
+	TRACY_SCOPE("Build chunk light", ProfileCategory::ChunkLight);
+
 	FenceGuard scopedFence(processingFence);
 
-	TRACY_SCOPE("Build chunk light", ProfileCategory::ChunkLight);
+	// Reset light levels
+	{
+		TRACY_SCOPE("Memset", ProfileCategory::General);
+		std::memset(lightLevels, 0, sizeof(lightLevels));
+	}
 
 	const Chunk* topNeighbor = neighbors[getNeighborIndex(0, 1, 0)];
 
