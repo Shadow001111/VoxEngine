@@ -48,7 +48,7 @@ public:
 public:
 	void preparation();
 
-	void loadChunks(const glm::dvec3& playerPos) { chunkManager.loadChunks(playerPos, chunkLoadingDistance); }
+	void loadChunksAroundPlayer(const glm::dvec3& playerPos) { chunkManager.loadChunksAroundPlayer(playerPos, chunkLoadingDistance); }
 
 	void update(float deltaTime);
 

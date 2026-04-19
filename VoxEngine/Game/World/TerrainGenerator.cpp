@@ -330,6 +330,8 @@ size_t TerrainGenerator::getChunkColumnDataCount() const
 
 void TerrainGenerator::initChunkColumnData(ChunkColumnData* column, int chunkX, int chunkZ)
 {
+	TRACY_SCOPE("Init chunk column data", ProfileCategory::TerrainGeneration);
+
 	column->init(chunkX, chunkZ);
 	auto heightMap = column->heightMapWrite();
 	computeInitialHeightMap(heightMap, chunkX, chunkZ);

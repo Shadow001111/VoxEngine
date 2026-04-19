@@ -43,7 +43,7 @@ void WorldChunkManager::preparation(size_t chunkCount)
 	Chunk::managerInstances->chunkRegion.preparation(regionCount);
 }
 
-void WorldChunkManager::loadChunks(const glm::dvec3& playerPos, int chunkLoadingDistance)
+void WorldChunkManager::loadChunksAroundPlayer(const glm::dvec3& playerPos, int chunkLoadingDistance)
 {
 	// Check if player chunk position changed
 	glm::ivec3 chunkLoaderPos = glm::ivec3(glm::floor(playerPos)) >> CHUNK_SIZE_LOG2;
@@ -54,6 +54,8 @@ void WorldChunkManager::loadChunks(const glm::dvec3& playerPos, int chunkLoading
 	lastChunkLoaderPos = chunkLoaderPos;
 	lastChunkLoadingDistance = chunkLoadingDistance;
 
+	TRACY_SCOPE("Load chunks arond player", ProfileCategory::ChunkLoadUnload);
+
 	// Update chunk loaders
 	for (auto& chunkLoader : chunkLoaders)
 	{
@@ -61,22 +63,28 @@ void WorldChunkManager::loadChunks(const glm::dvec3& playerPos, int chunkLoading
 	}
 
 	// Load chunks
-	for (auto& chunkLoader : chunkLoaders)
 	{
-		const auto& positions = chunkLoader->getChunksToLoad();
-		for (const auto& pos : positions)
+		TRACY_SCOPE("Load", ProfileCategory::ChunkLoadUnload);
+		for (auto& chunkLoader : chunkLoaders)
 		{
-			loadChunk(pos);
+			const auto& positions = chunkLoader->getChunksToLoad();
+			for (const auto& pos : positions)
+			{
+				loadChunk(pos);
+			}
 		}
 	}
 
 	// Unload chunks
-	for (auto& chunkLoader : chunkLoaders)
 	{
-		const auto& positions = chunkLoader->getChunksToUnload();
-		for (const auto& pos : positions)
+		TRACY_SCOPE("Unload", ProfileCategory::ChunkLoadUnload);
+		for (auto& chunkLoader : chunkLoaders)
 		{
-			unloadChunk(pos);
+			const auto& positions = chunkLoader->getChunksToUnload();
+			for (const auto& pos : positions)
+			{
+				unloadChunk(pos);
+			}
 		}
 	}
 }
@@ -527,14 +535,18 @@ void WorldChunkManager::rebuildAllChunkMeshes()
 
 void WorldChunkManager::loadChunk(const glm::ivec3& chunkPosition)
 {
-	// Get region position
-	glm::ivec3 regionPosition = ChunkRegion::getRegionPosition(chunkPosition);
+	// Get region
+	glm::ivec3 regionPosition;
+	ChunkRegion* region;
+	size_t index;
 
-	// Get region at position
-	ChunkRegion* region = Chunk::managerInstances->chunkRegion.getOrCreateRegion(regionPosition);
+	{
+		TRACY_SCOPE("Get region", ProfileCategory::ChunkLoadUnload);
 
-	// Get chunk index in region
-	size_t index = ChunkRegion::getChunkIndexInRegion(chunkPosition);
+		regionPosition = ChunkRegion::getRegionPosition(chunkPosition);
+		region = Chunk::managerInstances->chunkRegion.getOrCreateRegion(regionPosition);
+		index = ChunkRegion::getChunkIndexInRegion(chunkPosition);
+	}
 
 	// Check if chunk already exists
 	if (region->chunks[index])
@@ -546,25 +558,34 @@ void WorldChunkManager::loadChunk(const glm::ivec3& chunkPosition)
 	// Find existing neighbors
 	constexpr int selfIndex = Chunk::getNeighborIndex(0, 0, 0);
 	std::array<Chunk*, 27> neighbors{ nullptr };
-	for (int i = 0; i < neighbors.size(); i++)
 	{
-		if (i == selfIndex)
+		TRACY_SCOPE("Collect chunk neighbors", ProfileCategory::ChunkLoadUnload);
+		for (int i = 0; i < neighbors.size(); i++)
 		{
-			continue;
-		}
+			if (i == selfIndex)
+			{
+				continue;
+			}
 
-		glm::ivec3 neighborOffset = Chunk::getNeighborOffset(i);
-		glm::ivec3 neighborPosition = chunkPosition + neighborOffset;
-		neighbors[i] = getChunkAt(neighborPosition);
+			glm::ivec3 neighborOffset = Chunk::getNeighborOffset(i);
+			glm::ivec3 neighborPosition = chunkPosition + neighborOffset;
+			neighbors[i] = getChunkAt(neighborPosition);
+		}
 	}
 
 	// Create and initialize chunk
-	Chunk* chunk = chunkPool.acquire();
+	Chunk* chunk;
+	{
+		TRACY_SCOPE("Acuire chunk from pool", ProfileCategory::ChunkLoadUnload);
+		chunk = chunkPool.acquire();
+	}
 	chunk->addLoader();
 	chunk->init(chunkPosition, neighbors, region);
 
 	// Send chunk to building blocks
 	{
+		TRACY_SCOPE("Insert in build block container", ProfileCategory::ChunkLoadUnload);
+
 		std::lock_guard<std::mutex> lock(buildContainers.blocksMutex);
 		buildContainers.blocks.insert(chunk);
 	}

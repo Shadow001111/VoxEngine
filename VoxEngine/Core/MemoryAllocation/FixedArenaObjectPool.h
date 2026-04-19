@@ -1,6 +1,8 @@
 #pragma once
 #include "FixedArenaAllocator.h"
 
+#include "Game/TracyProfiler.h"
+
 template<typename T, size_t ArenaBlockSize = 256>
 class FixedArenaObjectPool
 {
@@ -26,11 +28,15 @@ public:
             return object;
         }
 
-        // When no objects in pool, allocate additional ones
-        allocate(10);
+        // When no objects in pool, allocate more
+        {
+            TRACY_SCOPE("Allocate more objects", ProfileCategory::General);
+            allocate(64 + 1);
+        }
 
-        // And one more too
-        return allocator.create();
+        T* obj = pool.back();
+        pool.pop_back();
+        return obj;
     }
 
     void release(T* object)

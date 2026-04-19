@@ -43,7 +43,7 @@ public:
 
     void preparation(size_t chunkCount);
 
-    void loadChunks(const glm::dvec3& playerPos, int chunkLoadingDistance);
+    void loadChunksAroundPlayer(const glm::dvec3& playerPos, int chunkLoadingDistance);
 
     void update();
 

@@ -82,51 +82,49 @@ void Chunk::init(const glm::ivec3& position, const std::array<Chunk*, 27>& newNe
 // Cleans up resources
 void Chunk::destroy()
 {
+	TRACY_SCOPE("Chunk destroy", ProfileCategory::ChunkLoadUnload);
+
 	// Release chunk column data
 	if (chunkFlags.readAndSet(Flag::IsLoadedChunkColumnData, false))
 	{
 		TerrainGenerator::getInstance().unloadChunkColumnData(position.x, position.z);
 	}
 
+	// Set states and flags
+	setFlag(Flag::IsLoadedInWorld, false);
+	setState(Chunk::State::NotInitialized_NeedsBlocks);
+
+	// Reset mesh data
+	if (readFlag(Flag::CanBeRendered))
 	{
-		TRACY_SCOPE("Chunk destroy", ProfileCategory::ChunkLoadUnload);
+		parentRegion->decrementRenderChunkCount();
+	}
 
-		// Set states and flags
-		setFlag(Flag::IsLoadedInWorld, false);
-		setState(Chunk::State::NotInitialized_NeedsBlocks);
+	{
+		FenceGuard scopedFence(mesh.faceStorage.processingFence);
+		mesh.faceStorage.instancesStorage.clear();
+		mesh.faceStorage.instancesStorage.shrinkToFit();
+	}
+	
+	// Reset neighbors
+	constexpr int selfIndex = getNeighborIndex(0, 0, 0);
+	neighbors[selfIndex] = nullptr;
+	for (int i = 0; i < neighbors.size(); i++)
+	{
+		if (i == selfIndex) continue;
 
-		// Clear mesh data
+		Chunk* neighbor = neighbors[i];
+		if (neighbor)
 		{
-			if (readFlag(Flag::CanBeRendered))
-			{
-				parentRegion->decrementRenderChunkCount();
-			}
-
-			FenceGuard scopedFence(mesh.faceStorage.processingFence);
-			mesh.faceStorage.instancesStorage.clear();
-			mesh.faceStorage.instancesStorage.shrinkToFit();
+			neighbor->neighbors[getOppositeNeighborIndex(i)] = nullptr;
+			neighbors[i] = nullptr;
 		}
+	}
 
-		{
-			// Clear neighbors
-			constexpr int selfIndex = getNeighborIndex(0, 0, 0);
-			neighbors[selfIndex] = nullptr;
-			for (int i = 0; i < neighbors.size(); i++)
-			{
-				if (i == selfIndex) continue;
-
-				Chunk* neighbor = neighbors[i];
-				if (neighbor)
-				{
-					neighbor->neighbors[getOppositeNeighborIndex(i)] = nullptr;
-					neighbors[i] = nullptr;
-				}
-			}
-
-			// Clear light queues
-			FenceGuard fence(processingFence);
-			lightPropagation.clear();
-		}
+	// Clear light queues
+	{
+		FenceGuard fence(processingFence);
+		lightPropagation.clear();
 	}
 
 	// TODO: Make it async. Mark chunk as processing.

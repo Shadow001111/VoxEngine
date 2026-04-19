@@ -665,7 +665,7 @@ static int gameFunc()
         if (worldUpdateTimer.peek())
         {
             glm::dvec3 playerPos = player.getPosition();
-            world.loadChunks(playerPos);
+            world.loadChunksAroundPlayer(playerPos);
 
             const float updateInterval = worldUpdateTimer.getUpdateInterval();
             while (worldUpdateTimer.shouldUpdate())

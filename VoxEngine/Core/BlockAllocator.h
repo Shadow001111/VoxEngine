@@ -1,13 +1,10 @@
 #pragma once
-
 #include <optional>
 #include <concepts>
 #include <limits>
 #include <algorithm>
 #include <map>
 #include <vector>
-
-#include "Game/TracyProfiler.h"
 
 template<std::unsigned_integral TIndex>
 class BlockAllocator
@@ -218,8 +215,6 @@ public:
 
 	std::optional<Block> allocate(TIndex size)
 	{
-		TRACY_SCOPE("Allocate", ProfileCategory::General);
-
 		if (size == 0)
 		{
 			return std::nullopt;
@@ -259,8 +254,6 @@ public:
 
 	bool free(const Block& blockToFree)
 	{
-		TRACY_SCOPE("Free", ProfileCategory::General);
-
 		if (blockToFree.size == 0)
 		{
 			return false;
@@ -381,6 +374,55 @@ public:
 		}
 
 		return lastAllocatedEnd;
+	}
+
+	std::optional<std::pair<TIndex, TIndex>> getAllocatedRangeBounds() const noexcept
+	{
+		TIndex cursor = 0;
+
+		std::optional<TIndex> firstStart;
+		TIndex lastEnd = 0;
+
+		for (const auto& [freeOffset, freeSize] : freeByOffset)
+		{
+			// If there is an allocated region before this free block
+			if (freeOffset > cursor)
+			{
+				if (!firstStart.has_value())
+				{
+					firstStart = cursor;
+				}
+
+				lastEnd = freeOffset;
+			}
+
+			TIndex freeEnd = 0;
+			if (!tryAdd(freeOffset, freeSize, freeEnd))
+			{
+				return std::nullopt; // overflow / invalid state
+			}
+
+			cursor = freeEnd;
+		}
+
+		// Tail allocation after last free block
+		if (cursor < capacity)
+		{
+			if (!firstStart.has_value())
+			{
+				firstStart = cursor;
+			}
+
+			lastEnd = capacity;
+		}
+
+		if (!firstStart.has_value())
+		{
+			// No allocations at all
+			return std::nullopt;
+		}
+
+		return std::pair<TIndex, TIndex>{ *firstStart, lastEnd };
 	}
 
 	TIndex getFreeSpaceSum() const noexcept
