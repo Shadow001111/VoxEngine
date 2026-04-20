@@ -100,13 +100,11 @@ protected:
             loaded_[region].setIndex(Region::getIndexFromPosition(position));
         }
     };
-
 private:
     RegionMap loaded;
     RegionMap prevLoaded;
     std::vector<glm::ivec3> toLoad;
     std::vector<glm::ivec3> toUnload;
-
 public:
     virtual ~BaseChunkLoader() = default;
 
@@ -121,12 +119,10 @@ public:
     {
         return toUnload;
     }
-
 protected:
     virtual void getPositionsToLoad(const glm::ivec3& playerChunkPosition,
         int loadRadius,
         PositionHandler& handler) = 0;
-
 private:
     void computeDiffs();
 };

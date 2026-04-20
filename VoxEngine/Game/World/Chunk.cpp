@@ -155,6 +155,8 @@ void Chunk::buildBlocks()
 		return;
 	}
 
+	ASSERT(!areBlocksBuilt());
+
 	TRACY_SCOPE("Build chunk blocks", ProfileCategory::ChunkBlocks);
 
 	FenceGuard scopedFence(processingFence);

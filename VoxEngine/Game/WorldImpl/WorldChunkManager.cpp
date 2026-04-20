@@ -9,6 +9,8 @@
 
 #include "../World/ChunkRegionManager.h"
 
+#include <iostream>
+
 constexpr size_t CHUNKS_PER_BATCH = 16;
 
 WorldChunkManager::~WorldChunkManager()
@@ -96,15 +98,7 @@ void WorldChunkManager::update()
 	chunkPool.returnProcessingChunksToPool();
 
 	// Start building chunk blocks
-	bool buildBlocks = false;
-	{
-		std::lock_guard<std::mutex> lock(buildContainers.blocksMutex);
-		buildBlocks = !buildContainers.blocks.empty();
-	}
-	if (buildBlocks)
-	{
-		startBuildingChunkBlocks();
-	}
+	startBuildingChunkBlocks();
 
 	// Update chunks structure blocks
 	if (Chunk::managerInstances->structureBlock.hasAnyChanges.exchange(false, std::memory_order_acquire))
@@ -227,20 +221,30 @@ bool WorldChunkManager::chunkExistsAt(const glm::ivec3& chunkPosition) const
 
 void WorldChunkManager::startBuildingChunkBlocks()
 {
-	// Collect chunks
+	// Validate and collect chunks
 	chunksToProcess.clear();
 	{
-		TRACY_SCOPE("Collect chunks for block building", ProfileCategory::ChunkBlocks);
+		TRACY_SCOPE("Validate chunks for block building", ProfileCategory::ChunkBlocks);
 
-		std::lock_guard<std::mutex> lock(buildContainers.blocksMutex);
-		chunksToProcess.reserve(buildContainers.blocks.size());
-		for (Chunk* chunk : buildContainers.blocks)
+		size_t chunkCount = buildContainers.blocks.size();
+		for (size_t i = 0; i < chunkCount;)
 		{
+			Chunk* chunk = buildContainers.blocks[i];
 			if (chunk->getState() == Chunk::State::NotInitialized_NeedsBlocks)
 			{
-				chunksToProcess.push_back(chunk);
+				i++;
+			}
+			else
+			{
+				std::swap(chunk, buildContainers.blocks.back());
+				chunkCount--;
 			}
 		}
+
+		buildContainers.blocks.resize(chunkCount);
+
+		chunksToProcess.swap(buildContainers.blocks);
+
 		buildContainers.blocks.clear();
 	}
 
@@ -572,9 +576,7 @@ void WorldChunkManager::loadChunk(const glm::ivec3& chunkPosition)
 	// Send chunk to building blocks
 	{
 		TRACY_SCOPE("Insert in build block container", ProfileCategory::ChunkLoadUnload);
-
-		std::lock_guard<std::mutex> lock(buildContainers.blocksMutex);
-		buildContainers.blocks.insert(chunk);
+		buildContainers.blocks.push_back(chunk);
 	}
 
 	// Add chunk to the region
