@@ -118,15 +118,7 @@ void WorldChunkManager::update()
 	}
 
 	// Start building chunk lights
-	bool buildLights = false;
-	{
-		std::lock_guard< LockableBase(std::mutex)> lock(buildContainers.lightsMutex);
-		buildLights = !buildContainers.lights.empty();
-	}
-	if (buildLights)
-	{
-		startBuildingChunkLights();
-	}
+	startBuildingChunkLights();
 
 	// Update chunks lights
 	for (int i = 0; i < 40; i++)
@@ -271,7 +263,7 @@ void WorldChunkManager::startBuildingChunkBlocks()
 
 					{
 						std::lock_guard<LockableBase(std::mutex)> lock(buildContainers.lightsMutex);
-						buildContainers.lights.insert(batch_.begin(), batch_.end());
+						buildContainers.lightsIncoming.insert(batch_.begin(), batch_.end());
 					}
 				});
 		}
@@ -281,31 +273,49 @@ void WorldChunkManager::startBuildingChunkBlocks()
 
 void WorldChunkManager::startBuildingChunkLights()
 {
-	// Collect chunks that are ready for light building
 	chunksToProcess.clear();
+
+	// 1. Swap/Move incoming chunks to a local temporary set
+	static robin_hood::unordered_flat_set<Chunk*> localIncoming;
+	localIncoming.clear();
 	{
-		TRACY_SCOPE("Collect chunks for light building", ProfileCategory::ChunkLight);
-
-		std::lock_guard< LockableBase(std::mutex)> lock(buildContainers.lightsMutex);
-		const size_t chunkCount = buildContainers.lights.size();
-
-		auto& remainingChunks = buildContainers.remainingLights;
-		remainingChunks.reserve(chunkCount);
-
-		chunksToProcess.reserve(chunkCount);
-		for (Chunk* chunk : buildContainers.lights)
+		TRACY_SCOPE("Sync Light Containers", ProfileCategory::ChunkLight);
+		std::lock_guard<LockableBase(std::mutex)> lock(buildContainers.lightsMutex);
+		if (!buildContainers.lightsIncoming.empty())
 		{
+			localIncoming.swap(buildContainers.lightsIncoming);
+		}
+	}
+
+	// 2. Merge new incoming chunks into our long-term processing set
+	if (!localIncoming.empty())
+	{
+		buildContainers.lightsProcessing.insert(localIncoming.begin(), localIncoming.end());
+	}
+
+	if (buildContainers.lightsProcessing.empty()) return;
+
+	// 3. Process the local set (No lock held here!)
+	{
+		TRACY_SCOPE("Check Ready Chunks", ProfileCategory::ChunkLight);
+
+		// We use an iterator to erase chunks as they become ready
+		for (auto it = buildContainers.lightsProcessing.begin(); it != buildContainers.lightsProcessing.end();)
+		{
+			Chunk* chunk = *it;
+
 			if (!chunk->areBlocksBuilt() || chunk->isLightBuilt())
 			{
+				it = buildContainers.lightsProcessing.erase(it);
 				continue;
 			}
 
-			// Check if all neighbors have blocks built
+			// Check neighbors (CPU intensive part now outside the lock)
 			bool allNeighborsReady = true;
-			const auto& neigbors = chunk->getNeighbors();
+			const auto& neighbors = chunk->getNeighbors();
 			for (int i = 0; i < 6; i++)
 			{
-				const Chunk* neighbor = neigbors[Chunk::getSideNeighborIndex(i)];
+				const Chunk* neighbor = neighbors[Chunk::getSideNeighborIndex(i)];
 				if (neighbor && !neighbor->areBlocksBuilt())
 				{
 					allNeighborsReady = false;
@@ -317,30 +327,26 @@ void WorldChunkManager::startBuildingChunkLights()
 			{
 				chunk->setState(Chunk::State::BuildingLight);
 				chunksToProcess.push_back(chunk);
+				it = buildContainers.lightsProcessing.erase(it); // Remove from processing
 			}
 			else
 			{
-				remainingChunks.insert(chunk);
+				++it; // Keep in processing for next frame
 			}
 		}
-
-		buildContainers.lights.swap(remainingChunks);
-		remainingChunks.clear();
 	}
 
-	// Submit chunks to thread pool
+	// 4. Submit chunks to thread pool
 	if (!chunksToProcess.empty())
 	{
 		TRACY_SCOPE("Send chunks to light building", ProfileCategory::ChunkLight);
-
 		ThreadPool& pool = ParallelUtils::getGlobalThreadPool();
-
 		const size_t chunkCount = chunksToProcess.size();
-		const auto begin = chunksToProcess.cbegin();
+
 		for (size_t i = 0; i < chunkCount; i += CHUNKS_PER_BATCH)
 		{
 			size_t batchEnd = std::min(i + CHUNKS_PER_BATCH, chunkCount);
-			std::vector<Chunk*> batch(begin + i, begin + batchEnd);
+			std::vector<Chunk*> batch(chunksToProcess.begin() + i, chunksToProcess.begin() + batchEnd);
 
 			pool.enqueue([batch_ = std::move(batch)]()
 				{
