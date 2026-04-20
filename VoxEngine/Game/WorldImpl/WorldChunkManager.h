@@ -13,7 +13,7 @@ class WorldChunkManager
         std::vector<Chunk*> blocks;
         robin_hood::unordered_flat_set<Chunk*> lights;
         robin_hood::unordered_flat_set<Chunk*> remainingLights;
-        std::mutex lightsMutex;
+        TracyLockable(std::mutex, lightsMutex);
 
         std::vector<Chunk*> lightUpdateA;
         std::vector<Chunk*> lightUpdateB;

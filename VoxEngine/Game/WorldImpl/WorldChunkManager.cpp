@@ -120,7 +120,7 @@ void WorldChunkManager::update()
 	// Start building chunk lights
 	bool buildLights = false;
 	{
-		std::lock_guard<std::mutex> lock(buildContainers.lightsMutex);
+		std::lock_guard< LockableBase(std::mutex)> lock(buildContainers.lightsMutex);
 		buildLights = !buildContainers.lights.empty();
 	}
 	if (buildLights)
@@ -270,7 +270,7 @@ void WorldChunkManager::startBuildingChunkBlocks()
 					}
 
 					{
-						std::lock_guard<std::mutex> lock(buildContainers.lightsMutex);
+						std::lock_guard<LockableBase(std::mutex)> lock(buildContainers.lightsMutex);
 						buildContainers.lights.insert(batch_.begin(), batch_.end());
 					}
 				});
@@ -286,7 +286,7 @@ void WorldChunkManager::startBuildingChunkLights()
 	{
 		TRACY_SCOPE("Collect chunks for light building", ProfileCategory::ChunkLight);
 
-		std::lock_guard<std::mutex> lock(buildContainers.lightsMutex);
+		std::lock_guard< LockableBase(std::mutex)> lock(buildContainers.lightsMutex);
 		const size_t chunkCount = buildContainers.lights.size();
 
 		auto& remainingChunks = buildContainers.remainingLights;
