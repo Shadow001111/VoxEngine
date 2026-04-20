@@ -1,6 +1,8 @@
 #include "ChunkRegion.h"
 #include "Chunk/ChunkIO.h"
 
+#include "Core/Multithreading/ThreadPool.h"
+
 AtomicFlags<uint8_t> ChunkRegion::globalFlags;
 
 glm::ivec3 ChunkRegion::getRegionPosition(const glm::ivec3& chunkPosition)
@@ -25,5 +27,11 @@ void ChunkRegion::init(const glm::ivec3& regionPosition)
 
 	flags.reset();
 
-	savedChunksMask = ChunkIO::checkChunkRegionForSaves(position);
+	ThreadPool& threadPool = ParallelUtils::getGlobalThreadPool();
+
+	threadPool.enqueue([this, pos = position]()
+		{
+			savedChunksMask = ChunkIO::checkChunkRegionForSaves(pos);
+			isSavedChunksMaskInitialized.store(true, std::memory_order_release);
+		});
 }

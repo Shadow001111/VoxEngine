@@ -25,6 +25,7 @@ private:
 	glm::ivec3 position;
 
 	AtomicBitset<CHUNK_REGION_VOLUME, size_t> savedChunksMask;
+	std::atomic<bool> isSavedChunksMaskInitialized{ false };
 
 	static AtomicFlags<uint8_t> globalFlags;
 public:
@@ -45,8 +46,16 @@ public:
 
 	void init(const glm::ivec3& regionPosition);
 
-	void setHasSavedData(size_t chunkIndex, bool value) noexcept { savedChunksMask.set(chunkIndex, value); }
-	[[nodiscard]] bool hasSavedData(size_t chunkIndex) const noexcept { return savedChunksMask.read(chunkIndex); }
+	void setHasSavedData(size_t chunkIndex, bool value) noexcept
+	{
+		isSavedChunksMaskInitialized.wait(false, std::memory_order_acquire);
+		savedChunksMask.set(chunkIndex, value);
+	}
+	[[nodiscard]] bool hasSavedData(size_t chunkIndex) const noexcept
+	{
+		isSavedChunksMaskInitialized.wait(false, std::memory_order_acquire);
+		return savedChunksMask.read(chunkIndex);
+	}
 
 	void setFlag(Flag flag, bool value) noexcept { flags.set(static_cast<unsigned>(flag), value); }
 	[[nodiscard]] bool readFlag(Flag flag) const noexcept { return flags.read(static_cast<unsigned>(flag)); }

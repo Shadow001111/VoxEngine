@@ -155,8 +155,6 @@ void Chunk::buildBlocks()
 		return;
 	}
 
-	ASSERT(!areBlocksBuilt());
-
 	TRACY_SCOPE("Build chunk blocks", ProfileCategory::ChunkBlocks);
 
 	FenceGuard scopedFence(processingFence);
@@ -505,9 +503,17 @@ void Chunk::removeBlockChange(BlockId block, uint16_t idx)
 
 void Chunk::loadSave()
 {
+	if (!parentRegion) return;
+
 	// Skip the filesystem entirely if the region tells us this chunk has never been written to disk
 	size_t indexInRegion = ChunkRegion::getChunkIndexInRegion(position);
-	if (!parentRegion || !parentRegion->hasSavedData(indexInRegion)) return;
+	bool hasSavedData;
+	{
+		TRACY_SCOPE("Check for saved data", ProfileCategory::ChunkBlocks);
+		hasSavedData = parentRegion->hasSavedData(indexInRegion);
+	}
+	if (!hasSavedData) return;
+
 	ChunkIO::loadBlocks(blockChanges, blocks, parentRegion->getPosition(), indexInRegion);
 }
 
@@ -518,7 +524,10 @@ void Chunk::save() const
 	bool hasChanges = !blockChanges.empty();
 
 	size_t indexInRegion = ChunkRegion::getChunkIndexInRegion(position);
-	parentRegion->setHasSavedData(indexInRegion, hasChanges);
+	{
+		TRACY_SCOPE("Set has saved data", ProfileCategory::ChunkBlocks);
+		parentRegion->setHasSavedData(indexInRegion, hasChanges);
+	}
 
 	if (hasChanges)
 	{
