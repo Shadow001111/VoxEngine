@@ -58,6 +58,7 @@ void ChunkMesh::sendMeshesToGPU()
 
 	// Upload face data
 	{
+		// Note: If it takes too long, that's when VBO buffer have been reallocated
 		TRACY_SCOPE("Upload face data and update mesh data", ProfileCategory::ChunkMesh);
 		for (Chunk* chunk : pendingMeshUploads)
 		{

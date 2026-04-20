@@ -2,7 +2,7 @@
 #include <iostream>
 #include <utility>
 
-#define BUFFER_SAFETY_CHECKS 1
+#define BUFFER_SAFETY_CHECKS false
 
 ImmutableBuffer::~ImmutableBuffer()
 {
