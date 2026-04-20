@@ -55,11 +55,10 @@ void BaseChunkLoader::computeDiffs()
 
 void BaseChunkLoader::Region::appendPositionsFromBits(const glm::ivec3& region, const Bitset& bits, std::vector<glm::ivec3>& out)
 {
-    for (int i = 0; i < REGION_VOLUME; i++)
+    TRACY_SCOPE("Append positions from bits", ProfileCategory::General);
+
+    for (size_t i = bits.findFirst(); i < REGION_VOLUME; i = bits.findNext(i))
     {
-        if (bits.test(i))
-        {
-            out.push_back(getPositionFromIndex(region, i));
-        }
+        out.push_back(getPositionFromIndex(region, static_cast<int>(i)));
     }
 }

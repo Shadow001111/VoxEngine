@@ -45,20 +45,14 @@ void WorldChunkManager::preparation(size_t chunkCount)
 
 void WorldChunkManager::loadChunksAroundPlayer(const glm::dvec3& playerPos, int chunkLoadingDistance)
 {
-	TRACY_SCOPE("Load chunks around player", ProfileCategory::ChunkLoadUnload);
-
 	// Check if player chunk position changed
 	glm::ivec3 chunkLoaderPos = glm::ivec3(glm::floor(playerPos)) >> CHUNK_SIZE_LOG2;
+	if (lastChunkLoaderPos == chunkLoaderPos && lastChunkLoadingDistance == chunkLoadingDistance)
 	{
-		TRACY_SCOPE("Check if position was changed", ProfileCategory::ChunkLoadUnload);
-
-		if (lastChunkLoaderPos == chunkLoaderPos && lastChunkLoadingDistance == chunkLoadingDistance)
-		{
-			return;
-		}
-		lastChunkLoaderPos = chunkLoaderPos;
-		lastChunkLoadingDistance = chunkLoadingDistance;
+		return;
 	}
+	lastChunkLoaderPos = chunkLoaderPos;
+	lastChunkLoadingDistance = chunkLoadingDistance;
 
 	// Update chunk loaders
 	{
@@ -71,7 +65,7 @@ void WorldChunkManager::loadChunksAroundPlayer(const glm::dvec3& playerPos, int 
 
 	// Load chunks
 	{
-		TRACY_SCOPE("Load", ProfileCategory::ChunkLoadUnload);
+		TRACY_SCOPE("Load chunks around player", ProfileCategory::ChunkLoadUnload);
 		for (auto& chunkLoader : chunkLoaders)
 		{
 			const auto& positions = chunkLoader->getChunksToLoad();
@@ -84,7 +78,7 @@ void WorldChunkManager::loadChunksAroundPlayer(const glm::dvec3& playerPos, int 
 
 	// Unload chunks
 	{
-		TRACY_SCOPE("Unload", ProfileCategory::ChunkLoadUnload);
+		TRACY_SCOPE("Unload chunks far from player", ProfileCategory::ChunkLoadUnload);
 		for (auto& chunkLoader : chunkLoaders)
 		{
 			const auto& positions = chunkLoader->getChunksToUnload();

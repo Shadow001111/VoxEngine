@@ -1,10 +1,11 @@
 #pragma once
-#include <bitset>
 #include <vector>
 
 #include <glm/glm.hpp>
 #include "robin_hood.h"
+
 #include "Core/Hashes/ivec3Hasher.h"
+#include "Core/Bitset.h"
 
 class BaseChunkLoader
 {
@@ -17,8 +18,7 @@ protected:
         static constexpr int REGION_MASK = REGION_SIZE - 1;
         static constexpr int REGION_VOLUME = REGION_SIZE * REGION_SIZE * REGION_SIZE;
 
-        using Bitset = std::bitset<REGION_VOLUME>;
-
+        using Bitset = Bitset<REGION_VOLUME, uint64_t>;
     private:
         Bitset bits_{};
 
@@ -60,7 +60,7 @@ protected:
 
         void setIndex(int index) noexcept
         {
-            bits_.set(index);
+            bits_.set(index, true);
         }
 
         void appendAllPositions(const glm::ivec3& region, std::vector<glm::ivec3>& out) const
@@ -81,6 +81,7 @@ protected:
         }
     };
 
+    // Using object pool made everything slower, so I use Region, not Region*
     using RegionMap = robin_hood::unordered_flat_map<glm::ivec3, Region, ivec3Hasher>;
 
     class PositionHandler
@@ -89,10 +90,9 @@ protected:
         RegionMap& loaded_;
 
     public:
-        explicit PositionHandler(RegionMap& loaded) noexcept
-            : loaded_(loaded)
-        {
-        }
+        explicit PositionHandler(RegionMap& loaded) noexcept :
+            loaded_(loaded)
+        {}
 
         void insert(const glm::ivec3& position)
         {

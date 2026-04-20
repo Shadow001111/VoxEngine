@@ -1,4 +1,5 @@
 #pragma once
+#include <bit>
 #include <array>
 #include <cstddef>
 #include <type_traits>
@@ -36,6 +37,11 @@ class Bitset
         return bit & WordMask;
     }
 
+    static inline int countTrailingZeros(Word w) noexcept
+    {
+        return std::countr_zero(w);
+    }
+
     std::array<Word, WordCount> words{};
 public:
     Bitset() noexcept
@@ -52,10 +58,7 @@ public:
     {
         if (this != &other)
         {
-            for (size_t i = 0; i < WordCount; i++)
-            {
-                std::memcpy(words.data(), other.words.data(), WordCount * sizeof(Word));
-            }
+            std::memcpy(words.data(), other.words.data(), WordCount * sizeof(Word));
         }
         return *this;
     }
@@ -139,5 +142,94 @@ public:
         }
  
         return true;
+    }
+
+    // Returns the index of the first set bit, or Bits if none
+    [[nodiscard]] size_t findFirst() const noexcept
+    {
+        for (size_t i = 0; i < WordCount; i++)
+        {
+            if (words[i] != 0)
+                return i * BitsPerWord + countTrailingZeros(words[i]);
+        }
+        return Bits;
+    }
+
+    // Returns the index of the next set bit strictly after pos, or Bits if none
+    [[nodiscard]] size_t findNext(size_t pos) const noexcept
+    {
+        const size_t next = pos + 1;
+        if (next >= Bits)
+            return Bits;
+
+        size_t wi = wordIndex(next);
+        const size_t offset = bitOffset(next);
+
+        // Mask off bits below 'next' within the starting word
+        const Word masked = words[wi] & (~Word(0) << offset);
+        if (masked != 0)
+            return wi * BitsPerWord + countTrailingZeros(masked);
+
+        // Scan remaining words
+        wi++; // Move to next
+        for (; wi < WordCount; wi++)
+        {
+            if (words[wi] != 0)
+                return wi * BitsPerWord + countTrailingZeros(words[wi]);
+        }
+        return Bits;
+    }
+
+    [[nodiscard]] Bitset operator~() const noexcept
+    {
+        Bitset result;
+        for (size_t i = 0; i < WordCount; ++i)
+            result.words[i] = ~words[i];
+        return result;
+    }
+
+    [[nodiscard]] Bitset operator&(const Bitset& rhs) const noexcept
+    {
+        Bitset result;
+        for (size_t i = 0; i < WordCount; ++i)
+            result.words[i] = words[i] & rhs.words[i];
+        return result;
+    }
+
+    [[nodiscard]] Bitset operator|(const Bitset& rhs) const noexcept
+    {
+        Bitset result;
+        for (size_t i = 0; i < WordCount; ++i)
+            result.words[i] = words[i] | rhs.words[i];
+        return result;
+    }
+
+    [[nodiscard]] Bitset operator^(const Bitset& rhs) const noexcept
+    {
+        Bitset result;
+        for (size_t i = 0; i < WordCount; ++i)
+            result.words[i] = words[i] ^ rhs.words[i];
+        return result;
+    }
+
+    Bitset& operator&=(const Bitset& rhs) noexcept
+    {
+        for (size_t i = 0; i < WordCount; ++i)
+            words[i] &= rhs.words[i];
+        return *this;
+    }
+
+    Bitset& operator|=(const Bitset& rhs) noexcept
+    {
+        for (size_t i = 0; i < WordCount; ++i)
+            words[i] |= rhs.words[i];
+        return *this;
+    }
+
+    Bitset& operator^=(const Bitset& rhs) noexcept
+    {
+        for (size_t i = 0; i < WordCount; ++i)
+            words[i] ^= rhs.words[i];
+        return *this;
     }
 };
