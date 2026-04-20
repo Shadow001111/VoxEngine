@@ -38,30 +38,35 @@ static uint32_t hash3(const glm::ivec3& p)
 }
 
 // Prepares chunk for use
-void Chunk::init(const glm::ivec3& position, const std::array<Chunk*, 27>& newNeighbors, ChunkRegion* parentRegion)
+void Chunk::init(const glm::ivec3& newPosition, const std::array<Chunk*, 27>& newNeighbors, ChunkRegion* newParentRegion)
 {
 	TRACY_SCOPE("Chunk init", ProfileCategory::ChunkLoadUnload);
 
-	// Set position
-	this->position = position;
+	// Set position and parent region
+	position = newPosition;
+	parentRegion = newParentRegion;
 
 	// Set neighbors
-	this->neighbors = newNeighbors;
+	neighbors = newNeighbors;
 	constexpr int selfIndex = getNeighborIndex(0, 0, 0);
-	neighbors[selfIndex] = this; // Set self pointer for easier access. This also allows to use the same indexing for neighbors and self.
-	for (int i = 0; i < newNeighbors.size(); i++)
-	{
-		if (i == selfIndex) continue;
 
-		Chunk* neighbor = this->neighbors[i];
+	for (int i = 0; i < selfIndex; i++)
+	{
+		Chunk* neighbor = neighbors[i];
 		if (neighbor)
 		{
 			neighbor->neighbors[getOppositeNeighborIndex(i)] = this;
 		}
 	}
-
-	// Set parent region
-	this->parentRegion = parentRegion;
+	neighbors[selfIndex] = this;
+	for (int i = selfIndex + 1; i < newNeighbors.size(); i++)
+	{
+		Chunk* neighbor = neighbors[i];
+		if (neighbor)
+		{
+			neighbor->neighbors[getOppositeNeighborIndex(i)] = this;
+		}
+	}
 
 	// Reset state and flags
 	setState(Chunk::State::NotInitialized_NeedsBlocks);

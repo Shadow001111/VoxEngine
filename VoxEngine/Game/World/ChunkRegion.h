@@ -48,7 +48,7 @@ public:
 
 	void setHasSavedData(size_t chunkIndex, bool value) noexcept
 	{
-		isSavedChunksMaskInitialized.wait(false, std::memory_order_acquire);
+		// Don't wait here, because chunk reads first, then sets, meaning that data have been initialized
 		savedChunksMask.set(chunkIndex, value);
 	}
 	[[nodiscard]] bool hasSavedData(size_t chunkIndex) const noexcept

@@ -250,7 +250,7 @@ public:
 	Chunk& operator=(Chunk&&)	   = delete;
 
 	// Init/destroy
-	void init(const glm::ivec3& position, const std::array<Chunk*, 27>& newNeighbors, ChunkRegion* parentRegion);
+	void init(const glm::ivec3& newPosition, const std::array<Chunk*, 27>& newNeighbors, ChunkRegion* newParentRegion);
 	void destroy();
 
 	static void globalInit();
