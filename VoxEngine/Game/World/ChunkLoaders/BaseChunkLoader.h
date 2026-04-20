@@ -17,9 +17,12 @@ protected:
         static constexpr int REGION_SIZE = 1 << REGION_SIZE_LOG2;
         static constexpr int REGION_MASK = REGION_SIZE - 1;
         static constexpr int REGION_VOLUME = REGION_SIZE * REGION_SIZE * REGION_SIZE;
+
         using Bitset = std::bitset<REGION_VOLUME>;
+
     private:
         Bitset bits_{};
+
     public:
         static glm::ivec3 transformPositionToRegion(const glm::ivec3& pos) noexcept
         {
@@ -35,7 +38,9 @@ protected:
         {
             const glm::ivec3 local = pos & glm::ivec3(REGION_MASK);
 
-            return (local.x << (REGION_SIZE_LOG2 * 2)) | (local.y << REGION_SIZE_LOG2) | local.z;
+            return (local.x << (REGION_SIZE_LOG2 * 2)) |
+                (local.y << REGION_SIZE_LOG2) |
+                local.z;
         }
 
         static glm::ivec3 getPositionFromIndex(const glm::ivec3& region, int index) noexcept
@@ -90,8 +95,25 @@ protected:
 
     using RegionMap = robin_hood::unordered_flat_map<glm::ivec3, Region, ivec3Hasher>;
 
+    class PositionHandler
+    {
+    private:
+        RegionMap& loaded_;
+
+    public:
+        explicit PositionHandler(RegionMap& loaded) noexcept
+            : loaded_(loaded)
+        {
+        }
+
+        void insert(const glm::ivec3& position)
+        {
+            const glm::ivec3 region = Region::transformPositionToRegion(position);
+            loaded_[region].setIndex(Region::getIndexFromPosition(position));
+        }
+    };
+
 private:
-    std::vector<glm::ivec3> chunkLoaderPositions;
     RegionMap loaded;
     RegionMap prevLoaded;
     std::vector<glm::ivec3> toLoad;
@@ -115,7 +137,7 @@ public:
 protected:
     virtual void getPositionsToLoad(const glm::ivec3& playerChunkPosition,
         int loadRadius,
-        std::vector<glm::ivec3>& positions) = 0;
+        PositionHandler& handler) = 0;
 
 private:
     void computeDiffs();

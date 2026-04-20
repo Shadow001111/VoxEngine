@@ -1,4 +1,3 @@
-// BaseChunkLoader.cpp
 #include "BaseChunkLoader.h"
 #include "Game/TracyProfiler.h"
 
@@ -7,25 +6,13 @@ void BaseChunkLoader::update(const glm::ivec3& playerChunkPosition, int loadRadi
     TRACY_SCOPE("ChunkLoader update", ProfileCategory::General);
 
     prevLoaded.swap(loaded);
+
     loaded.clear();
 
-    chunkLoaderPositions.clear();
     {
         TRACY_SCOPE("Get positions", ProfileCategory::General);
-        getPositionsToLoad(playerChunkPosition, loadRadius, chunkLoaderPositions);
-    }
-
-    {
-        TRACY_SCOPE("Insert positions", ProfileCategory::General);
-
-        const int estimatedRegions = static_cast<int>(chunkLoaderPositions.size()) / Region::REGION_VOLUME + 1;
-        loaded.reserve(estimatedRegions);
-
-        for (const auto& pos : chunkLoaderPositions)
-        {
-            const glm::ivec3 region = Region::transformPositionToRegion(pos);
-            loaded[region].setIndex(Region::getIndexFromPosition(pos));
-        }
+        PositionHandler handler(loaded);
+        getPositionsToLoad(playerChunkPosition, loadRadius, handler);
     }
 
     computeDiffs();
