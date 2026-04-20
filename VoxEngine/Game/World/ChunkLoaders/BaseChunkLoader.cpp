@@ -23,41 +23,43 @@ void BaseChunkLoader::computeDiffs()
     TRACY_SCOPE("Compute differences", ProfileCategory::General);
 
     toLoad.clear();
-    toUnload.clear();
-
+    for (const auto& [region, current] : loaded)
     {
-        TRACY_SCOPE("Compute to load", ProfileCategory::General);
+        auto it = prevLoaded.find(region);
 
-        for (const auto& [region, current] : loaded)
+        if (it == prevLoaded.end())
         {
-            auto it = prevLoaded.find(region);
-
-            if (it == prevLoaded.end())
-            {
-                current.appendAllPositions(region, toLoad);
-            }
-            else
-            {
-                Region::appendPositionsFromBits(region, current.bits() & ~it->second.bits(), toLoad);
-            }
+            current.appendAllPositions(region, toLoad);
+        }
+        else
+        {
+            Region::appendPositionsFromBits(region, current.bits() & ~it->second.bits(), toLoad);
         }
     }
 
+    toUnload.clear();
+    for (const auto& [region, previous] : prevLoaded)
     {
-        TRACY_SCOPE("Compute to unload", ProfileCategory::General);
+        auto it = loaded.find(region);
 
-        for (const auto& [region, previous] : prevLoaded)
+        if (it == loaded.end())
         {
-            auto it = loaded.find(region);
+            previous.appendAllPositions(region, toUnload);
+        }
+        else
+        {
+            Region::appendPositionsFromBits(region, previous.bits() & ~it->second.bits(), toUnload);
+        }
+    }
+}
 
-            if (it == loaded.end())
-            {
-                previous.appendAllPositions(region, toUnload);
-            }
-            else
-            {
-                Region::appendPositionsFromBits(region, previous.bits() & ~it->second.bits(), toUnload);
-            }
+void BaseChunkLoader::Region::appendPositionsFromBits(const glm::ivec3& region, const Bitset& bits, std::vector<glm::ivec3>& out)
+{
+    for (int i = 0; i < REGION_VOLUME; i++)
+    {
+        if (bits.test(i))
+        {
+            out.push_back(getPositionFromIndex(region, i));
         }
     }
 }

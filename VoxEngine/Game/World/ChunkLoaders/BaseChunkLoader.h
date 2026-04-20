@@ -1,5 +1,4 @@
 #pragma once
-
 #include <bitset>
 #include <vector>
 
@@ -36,7 +35,7 @@ protected:
 
         static int getIndexFromPosition(const glm::ivec3& pos) noexcept
         {
-            const glm::ivec3 local = pos & glm::ivec3(REGION_MASK);
+            const glm::ivec3 local = pos & REGION_MASK;
 
             return (local.x << (REGION_SIZE_LOG2 * 2)) |
                 (local.y << REGION_SIZE_LOG2) |
@@ -69,18 +68,7 @@ protected:
             appendPositionsFromBits(region, bits_, out);
         }
 
-        static void appendPositionsFromBits(const glm::ivec3& region,
-            const Bitset& bits,
-            std::vector<glm::ivec3>& out)
-        {
-            for (int i = 0; i < REGION_VOLUME; ++i)
-            {
-                if (bits.test(i))
-                {
-                    out.push_back(getPositionFromIndex(region, i));
-                }
-            }
-        }
+        static void appendPositionsFromBits(const glm::ivec3& region, const Bitset& bits, std::vector<glm::ivec3>& out);
 
         const Bitset& bits() const noexcept
         {
