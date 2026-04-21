@@ -163,10 +163,14 @@ void Chunk::buildBlocks()
 	FenceGuard scopedFence(processingFence);
 
 	// Reset blocks
-	static_assert(sizeof(BlockId) == 1, "Memset won't work properly if size isn't 1");
 	{
-		TRACY_SCOPE_NC("Memset", ProfileCategory::General);
-		std::memset(blocks, CACHED_BLOCK_IDS.airId, sizeof(blocks));
+		TRACY_SCOPE_NC("Reset blocks", ProfileCategory::General);
+		//std::memset(blocks, CACHED_BLOCK_IDS.airId, sizeof(blocks));
+		
+		for (int i = 0; i < CHUNK_VOLUME; i++)
+		{
+			cells[i].block = CACHED_BLOCK_IDS.airId;
+		}
 	}
 
 	// Load chunk column data
@@ -220,7 +224,7 @@ void Chunk::buildBlocks()
 					size_t index = getIndex(x, 0, z);
 					for (int y = 0; y < stoneEnd; y++)
 					{
-						blocks[index] = CACHED_BLOCK_IDS.stoneId;
+						cells[index].block = CACHED_BLOCK_IDS.stoneId;
 						index += CoordinatesStride3D::y;
 					}
 
@@ -229,7 +233,7 @@ void Chunk::buildBlocks()
 					index = getIndex(x, dirtStart, z);
 					for (int y = dirtStart; y < dirtEnd; y++)
 					{
-						blocks[index] = CACHED_BLOCK_IDS.dirtId;
+						cells[index].block = CACHED_BLOCK_IDS.dirtId;
 						index += CoordinatesStride3D::y;
 					}
 
@@ -237,7 +241,7 @@ void Chunk::buildBlocks()
 					if (hasSurface)
 					{
 						index = getIndex(x, surfaceY, z);
-						blocks[index] = CACHED_BLOCK_IDS.grassBlockId;
+						cells[index].block = CACHED_BLOCK_IDS.grassBlockId;
 						computeCaveMask = true;
 					}
 
@@ -246,7 +250,7 @@ void Chunk::buildBlocks()
 					index = getIndex(x, waterStart, z);
 					for (int y = waterStart; y < waterEnd; y++)
 					{
-						blocks[index] = CACHED_BLOCK_IDS.waterId;
+						cells[index].block = CACHED_BLOCK_IDS.waterId;
 						index += CoordinatesStride3D::y;
 					}
 
@@ -254,7 +258,7 @@ void Chunk::buildBlocks()
 					index = getIndex(x, airStart, z);
 					for (int y = airStart; y < CHUNK_SIZE; y++)
 					{
-						blocks[index] = CACHED_BLOCK_IDS.airId;
+						cells[index].block = CACHED_BLOCK_IDS.airId;
 						index += CoordinatesStride3D::y;
 					}
 				}
@@ -273,7 +277,7 @@ void Chunk::buildBlocks()
 			{
 				if (caveMask[i])
 				{
-					blocks[i] = CACHED_BLOCK_IDS.airId;
+					cells[i].block = CACHED_BLOCK_IDS.airId;
 				}
 			}
 		}
@@ -317,7 +321,7 @@ void Chunk::buildBlocks()
 					continue;
 				}
 
-				blocks[rootIndex] = CACHED_BLOCK_IDS.dirtId;
+				cells[rootIndex].block = CACHED_BLOCK_IDS.dirtId;
 				generateTree({ x, localY + 1, z });
 			}
 		}
@@ -330,9 +334,9 @@ void Chunk::buildBlocks()
 		auto pendingChanges = managerInstances->structureBlock.retrieveAndClearChanges(position);
 		for (const auto& change : pendingChanges)
 		{
-			if (!change.placeIfBlockIsAir || blocks[change.index] == CACHED_BLOCK_IDS.airId)
+			if (!change.placeIfBlockIsAir || cells[change.index].block == CACHED_BLOCK_IDS.airId)
 			{
-				blocks[change.index] = change.block;
+				cells[change.index].block = change.block;
 			}
 		}
 	}
@@ -363,7 +367,7 @@ void Chunk::updateStructureBlocks()
 	auto pendingChanges = managerInstances->structureBlock.retrieveAndClearChanges(position);
 	for (const auto& change : pendingChanges)
 	{
-		if (!change.placeIfBlockIsAir || blocks[change.index] == CACHED_BLOCK_IDS.airId)
+		if (!change.placeIfBlockIsAir || cells[change.index].block == CACHED_BLOCK_IDS.airId)
 		{
 			auto pos = getPositionFromIndex(change.index);
 			setBlockAt(pos.x, pos.y, pos.z, change.block, false);
@@ -395,9 +399,9 @@ void Chunk::generateTree(const glm::ivec3& rootPosition)
 		if (((x | y | z) & CHUNK_UPPER_BITS_MASK) == 0)
 		{
 			size_t index = getIndex(x, y, z);
-			if (blocks[index] == CACHED_BLOCK_IDS.airId)
+			if (cells[index].block == CACHED_BLOCK_IDS.airId)
 			{
-				blocks[index] = CACHED_BLOCK_IDS.oakLogId;
+				cells[index].block = CACHED_BLOCK_IDS.oakLogId;
 			}
 		}
 		else
@@ -448,9 +452,9 @@ void Chunk::generateTree(const glm::ivec3& rootPosition)
 				if (((lx | ly | lz) & CHUNK_UPPER_BITS_MASK) == 0)
 				{
 					size_t index = getIndex(lx, ly, lz);
-					if (blocks[index] == CACHED_BLOCK_IDS.airId)
+					if (cells[index].block == CACHED_BLOCK_IDS.airId)
 					{
-						blocks[index] = CACHED_BLOCK_IDS.oakLeavesId;
+						cells[index].block = CACHED_BLOCK_IDS.oakLeavesId;
 					}
 				}
 				else
@@ -517,7 +521,7 @@ void Chunk::loadSave()
 	}
 	if (!hasSavedData) return;
 
-	ChunkIO::loadBlocks(blockChanges, blocks, parentRegion->getPosition(), indexInRegion);
+	//ChunkIO::loadBlocks(blockChanges, blocks, parentRegion->getPosition(), indexInRegion);
 }
 
 void Chunk::save() const
@@ -546,7 +550,7 @@ uint32_t Chunk::propagateBlockLight()
 		const auto data = LightPropagationStorage::threadLocalBlockLightPropagation.pop_and_return_unsafe();
 
 		// Get light level at current block
-		uint8_t blockLight = lightLevels[getIndex(data.x, data.y, data.z)].blockLight;
+		uint8_t blockLight = cells[getIndex(data.x, data.y, data.z)].lightLevel.blockLight;
 		if (blockLight < 2)
 		{
 			continue;
@@ -601,7 +605,7 @@ uint32_t Chunk::propagateBlockLight()
 			}
 
 			// Propagate
-			neighborChunk->lightLevels[neighborBlockIndex].blockLight = lightToSet;
+			neighborChunk->cells[neighborBlockIndex].lightLevel.blockLight = lightToSet;
 			if (isNeighborBlockInSameChunk)
 			{
 				LightPropagationStorage::threadLocalBlockLightPropagation.emplace(nx, ny, nz);
@@ -661,11 +665,11 @@ uint32_t Chunk::propagateSkyLight()
 				);
 			}
 
-			auto& dstLight = neighborChunk->lightLevels[neighborBlockIndex];
+			auto& dstLight = neighborChunk->cells[neighborBlockIndex].lightLevel;
 			if (dstLight.skyLight >= lightToSet)
 				return;
 
-			const BlockId neighborBlock = neighborChunk->blocks[neighborBlockIndex];
+			const BlockId neighborBlock = neighborChunk->cells[neighborBlockIndex].block;
 			const auto* neighborBlockData = AssetRegistry::getBlockData(neighborBlock);
 			if (!neighborBlockData || neighborBlockData->absorbsLight)
 				return;
@@ -696,7 +700,7 @@ uint32_t Chunk::propagateSkyLight()
 		const int z = data.z;
 
 		const size_t selfIndex = getIndex(x, y, z);
-		const uint8_t skyLight = lightLevels[selfIndex].skyLight;
+		const uint8_t skyLight = cells[selfIndex].lightLevel.skyLight;
 		if (skyLight < 2)
 			continue;
 
@@ -721,15 +725,15 @@ uint32_t Chunk::propagateSkyLight()
 			{
 				belowIndex -= CoordinatesStride3D::y; // Move down one block in the column
 
-				if (lightLevels[belowIndex].skyLight == 15)
+				if (cells[belowIndex].lightLevel.skyLight == 15)
 					break;
 
-				const BlockId block = blocks[belowIndex];
+				const BlockId block = cells[belowIndex].block;
 				const auto* blockData = AssetRegistry::getBlockData(block);
 				if (!blockData || blockData->absorbsLight)
 					break;
 
-				lightLevels[belowIndex].skyLight = 15;
+				cells[belowIndex].lightLevel.skyLight = 15;
 				neighborDirtyMask |= getNeighborDirtyMask(x, ny, z);
 
 				for (int i = 0; i < horizontalDirections.size(); i++)
@@ -750,12 +754,12 @@ uint32_t Chunk::propagateSkyLight()
 					constexpr int belowY = CHUNK_SIZE - 1;
 					const size_t belowIndex = getIndex(x, belowY, z);
 
-					if (belowChunk->lightLevels[belowIndex].skyLight < 15)
+					if (belowChunk->cells[belowIndex].lightLevel.skyLight < 15)
 					{
-						const auto* blockData = AssetRegistry::getBlockData(belowChunk->blocks[belowIndex]);
+						const auto* blockData = AssetRegistry::getBlockData(belowChunk->cells[belowIndex].block);
 						if (blockData && !blockData->absorbsLight)
 						{
-							belowChunk->lightLevels[belowIndex].skyLight = 15;
+							belowChunk->cells[belowIndex].lightLevel.skyLight = 15;
 							belowChunk->addSkyLightPropagationNode(x, belowY, z);
 							neighborDirtyMask |= getNeighborDirtyMask(x, 0, z);
 						}
@@ -832,7 +836,7 @@ uint32_t Chunk::propagateBlockLightRemoval()
 			uint8_t neighborBlockLight = neighborChunk->getLightAt(neighborBlockIndex).blockLight;
 			if (neighborBlockLight > 0 && neighborBlockLight < data.lightLevel)
 			{
-				neighborChunk->lightLevels[neighborBlockIndex].blockLight = 0;
+				neighborChunk->cells[neighborBlockIndex].lightLevel.blockLight = 0;
 				if (isNeighborBlockInSameChunk)
 				{
 					LightPropagationStorage::threadLocalBlockLightRemoval.emplace(nx, ny, nz, neighborBlockLight);
@@ -917,7 +921,7 @@ uint32_t Chunk::propagateSkyLightRemoval()
 			if (neighborSkyLight > 0 &&
 				(neighborSkyLight < data.lightLevel || (isMaxLightLevel && i == 2)))
 			{
-				neighborChunk->lightLevels[neighborBlockIndex].skyLight = 0;
+				neighborChunk->cells[neighborBlockIndex].lightLevel.skyLight = 0;
 				if (isNeighborBlockInSameChunk)
 				{
 					LightPropagationStorage::threadLocalSkyLightRemoval.emplace(nx, ny, nz, neighborSkyLight);
@@ -959,8 +963,13 @@ void Chunk::buildLight()
 
 	// Reset light levels
 	{
-		TRACY_SCOPE_NC("Memset", ProfileCategory::General);
-		std::memset(lightLevels, 0, sizeof(lightLevels));
+		TRACY_SCOPE_NC("Reset light levels", ProfileCategory::General);
+		//std::memset(lightLevels, 0, sizeof(lightLevels));
+
+		for (int i = 0; i < CHUNK_VOLUME; i++)
+		{
+			cells[i].lightLevel.fullByte = 0;
+		}
 	}
 
 	const Chunk* topNeighbor = neighbors[getNeighborIndex(0, 1, 0)];
@@ -974,7 +983,7 @@ void Chunk::buildLight()
 		{
 			size_t index = getIndex(x, y, z);
 
-			const auto* blockData = AssetRegistry::getBlockData(blocks[index]);
+			const auto* blockData = AssetRegistry::getBlockData(cells[index].block);
 			if (!blockData)
 			{
 				continue;
@@ -986,7 +995,7 @@ void Chunk::buildLight()
 				continue;
 			}
 
-			lightLevels[index].blockLight = emission;
+			cells[index].lightLevel.blockLight = emission;
 			LightPropagationStorage::threadLocalBlockLightPropagation.emplace(x, y, z);
 		}
 	}
@@ -1007,7 +1016,7 @@ void Chunk::buildLight()
 				{
 					for (int y = CHUNK_SIZE - 1; y >= 0; y--)
 					{
-						BlockId block = blocks[getIndex(x, y, z)];
+						BlockId block = cells[getIndex(x, y, z)].block;
 						const auto* blockData = AssetRegistry::getBlockData(block);
 						if (!blockData || blockData->absorbsLight)
 						{
@@ -1071,7 +1080,7 @@ void Chunk::buildLight()
 
 					for (int y = localHeightToStartAddingNodes; y < CHUNK_SIZE; y++)
 					{
-						lightLevels[getIndex(x, y, z)].skyLight = 15;
+						cells[getIndex(x, y, z)].lightLevel.skyLight = 15;
 					}
 
 					LightPropagationStorage::threadLocalSkyLightPropagation.emplace(x, localHeightToStartAddingNodes, z);
@@ -1086,14 +1095,14 @@ void Chunk::buildLight()
 		//	for (int z = 0; z < CHUNK_SIZE; z++)
 		//	{
 		//		size_t index = getIndex(x, CHUNK_SIZE - 1, z);
-		//		BlockId block = blocks[index];
+		//		BlockId block = cells[index].block;
 		//		const auto* blockData = AssetRegistry::getBlockData(block);
 		//		if (!blockData || blockData->absorbsLight)
 		//		{
 		//			continue;
 		//		}
 		//
-		//		lightLevels[index].skyLight = 15;
+		//		cells[index].lightLevel.skyLight = 15;
 		//		LightPropagationStorage::threadLocalSkyLightPropagation.queue.emplace(x, CHUNK_SIZE - 1, z);
 		//	}
 		//}
@@ -1107,13 +1116,13 @@ void Chunk::buildLight()
 		auto processNeighborFace = [&](int x, int y, int z, int nx, int ny, int nz, const Chunk* neighbor, bool propagatingFromTop)
 			{
 				size_t index = getIndex(x, y, z);
-				const auto* blockData = AssetRegistry::getBlockData(blocks[index]);
+				const auto* blockData = AssetRegistry::getBlockData(cells[index].block);
 				if (!blockData || blockData->absorbsLight)
 				{
 					return;
 				}
 
-				LightLevel& currentLight = lightLevels[index];
+				LightLevel& currentLight = cells[index].lightLevel;
 				LightLevel neighborLight = neighbor->getLightAt(nx, ny, nz);
 
 				// Block light
@@ -1320,7 +1329,7 @@ void Chunk::updateMesh()
 			glm::ivec3 currentBlockPosition = getPositionFromIndex(currentBlockIndex);
 
 			// Generate new faces for this block
-			BlockId block = blocks[currentBlockIndex];
+			BlockId block = cells[currentBlockIndex].block;
 			const BlockData* blockData = AssetRegistry::getBlockData(block);
 			if (!(blockData && blockData->hasFaces))
 			{
@@ -1369,7 +1378,7 @@ void Chunk::updateMesh()
 					}
 
 					// Get neighbor block and data
-					BlockId neighborBlock = neighborChunk->blocks[neighborBlockIndex];
+					BlockId neighborBlock = neighborChunk->cells[neighborBlockIndex].block;
 
 					const BlockData* neighborBlockData = AssetRegistry::getBlockData(neighborBlock);
 					if (!neighborBlockData || neighborBlockData->faceCulling[face.normal ^ 1])
@@ -1383,7 +1392,7 @@ void Chunk::updateMesh()
 					}
 
 					// Calculate shading
-					LightLevel neighborLight = neighborChunk->lightLevels[neighborBlockIndex]; // This line adds much to execution time, x5 in total
+					LightLevel neighborLight = neighborChunk->cells[neighborBlockIndex].lightLevel; // This line adds much to execution time, x5 in total
 
 					ContextFaceAOAL aoData
 					{
@@ -1608,7 +1617,7 @@ void Chunk::updateConnectivity()
 			visited[startIdx] = true;
 
 			// Solid / unknown blocks need no flood fill
-			const BlockData* startData = AssetRegistry::getBlockData(blocks[startIdx]);
+			const BlockData* startData = AssetRegistry::getBlockData(cells[startIdx].block);
 			if (!startData) continue;
 
 			// Early-out: if the matrix is already fully connected, there is
@@ -1642,7 +1651,7 @@ void Chunk::updateConnectivity()
 					if (visited[neighborIdx]) continue;
 					visited[neighborIdx] = true; // Mark as visited
 
-					const BlockData* neighborData = AssetRegistry::getBlockData(blocks[neighborIdx]);
+					const BlockData* neighborData = AssetRegistry::getBlockData(cells[neighborIdx].block);
 					if (!neighborData) continue;
 
 					if (neighborData->faceCulling[dir ^ 1]) continue;
@@ -1797,27 +1806,27 @@ void Chunk::applyNeighborDirtyMask(uint32_t mask) noexcept
 std::pair<BlockId, LightLevel> Chunk::getBlockAndLightAt(int x, int y, int z) const noexcept
 {
 	size_t index = getIndex(x, y, z);
-	return std::make_pair(blocks[index], lightLevels[index]);
+	return std::make_pair(cells[index].block, cells[index].lightLevel);
 }
 
 std::pair<BlockId, LightLevel> Chunk::getBlockAndLightAt(const glm::ivec3& pos) const noexcept
 {
 	size_t index = getIndex(pos);
-	return std::make_pair(blocks[index], lightLevels[index]);
+	return std::make_pair(cells[index].block, cells[index].lightLevel);
 }
 
 void Chunk::setBlockAt(int x, int y, int z, BlockId block, bool saveBlockChanges)
 {
 	size_t index = getIndex(x, y, z);
 
-	BlockId previousBlock = blocks[index];
+	BlockId previousBlock = cells[index].block;
 	if (previousBlock == block)
 	{
 		return;
 	}
 
 	// Update array
-	blocks[index] = block;
+	cells[index].block = block;
 
 	// Update changedBlocks map
 	if (saveBlockChanges)
@@ -1868,28 +1877,28 @@ void Chunk::setBlockAt(int x, int y, int z, BlockId block, bool saveBlockChanges
 
 		if (maxBlockLightToSet > 0)
 		{
-			lightLevels[index].blockLight = maxBlockLightToSet;
+			cells[index].lightLevel.blockLight = maxBlockLightToSet;
 			if (maxBlockLightToSet > 1) addBlockLightPropagationNode(x, y, z);
 		}
 		if (maxSkyLightToSet > 0)
 		{
-			lightLevels[index].skyLight = maxSkyLightToSet;
+			cells[index].lightLevel.skyLight = maxSkyLightToSet;
 			if (maxSkyLightToSet > 1) addSkyLightPropagationNode(x, y, z);
 		}
 	}
 	else if (!previousBlockData->absorbsLight && newBlockData->absorbsLight)
 	{
 		// Remove light at this block
-		uint8_t currentBlockLight = lightLevels[index].blockLight;
+		uint8_t currentBlockLight = cells[index].lightLevel.blockLight;
 		if (currentBlockLight > 0)
 		{
-			lightLevels[index].blockLight = 0;
+			cells[index].lightLevel.blockLight = 0;
 			addBlockLightRemovalNode(x, y, z, currentBlockLight);
 		}
-		uint8_t currentSkyLight = lightLevels[index].skyLight;
+		uint8_t currentSkyLight = cells[index].lightLevel.skyLight;
 		if (currentSkyLight > 0)
 		{
-			lightLevels[index].skyLight = 0;
+			cells[index].lightLevel.skyLight = 0;
 			addSkyLightRemovalNode(x, y, z, currentSkyLight);
 		}
 	}
@@ -1899,13 +1908,13 @@ void Chunk::setBlockAt(int x, int y, int z, BlockId block, bool saveBlockChanges
 	{
 		if (previousEmission > newEmission)
 		{
-			lightLevels[index].blockLight = 0;
+			cells[index].lightLevel.blockLight = 0;
 			addBlockLightRemovalNode(x, y, z, previousEmission);
 		}
 
 		if (newEmission > 0)
 		{
-			lightLevels[index].blockLight = newEmission;
+			cells[index].lightLevel.blockLight = newEmission;
 			addBlockLightPropagationNode(x, y, z);
 		}
 	}
@@ -1929,25 +1938,25 @@ void Chunk::setBlockAt(int x, int y, int z, BlockId block, bool saveBlockChanges
 
 void Chunk::setLightAt(int x, int y, int z, LightLevel lightValue)
 {
-	lightLevels[getIndex(x, y, z)] = lightValue;
+	cells[getIndex(x, y, z)].lightLevel = lightValue;
 	markMeshesDirtyAroundBlock(x, y, z);
 }
 
 void Chunk::setBlockLightAt(int x, int y, int z, uint8_t lightLevel)
 {
-	lightLevels[getIndex(x, y, z)].blockLight = lightLevel;
+	cells[getIndex(x, y, z)].lightLevel.blockLight = lightLevel;
 	markMeshesDirtyAroundBlock(x, y, z);
 }
 
 void Chunk::setSkyLightAt(int x, int y, int z, uint8_t lightLevel)
 {
-	lightLevels[getIndex(x, y, z)].skyLight = lightLevel;
+	cells[getIndex(x, y, z)].lightLevel.skyLight = lightLevel;
 	markMeshesDirtyAroundBlock(x, y, z);
 }
 
 void Chunk::setLightAt(size_t index, LightLevel lightValue)
 {
-	lightLevels[index] = lightValue;
+	cells[index].lightLevel = lightValue;
 
 	glm::ivec3 pos = getPositionFromIndex(index);
 	markMeshesDirtyAroundBlock(pos.x, pos.y, pos.z);
@@ -1955,7 +1964,7 @@ void Chunk::setLightAt(size_t index, LightLevel lightValue)
 
 void Chunk::setBlockLightAt(size_t index, uint8_t lightLevel)
 {
-	lightLevels[index].blockLight = lightLevel;
+	cells[index].lightLevel.blockLight = lightLevel;
 
 	glm::ivec3 pos = getPositionFromIndex(index);
 	markMeshesDirtyAroundBlock(pos.x, pos.y, pos.z);
@@ -1963,7 +1972,7 @@ void Chunk::setBlockLightAt(size_t index, uint8_t lightLevel)
 
 void Chunk::setSkyLightAt(size_t index, uint8_t lightLevel)
 {
-	lightLevels[index].skyLight = lightLevel;
+	cells[index].lightLevel.skyLight = lightLevel;
 
 	glm::ivec3 pos = getPositionFromIndex(index);
 	markMeshesDirtyAroundBlock(pos.x, pos.y, pos.z);
@@ -2057,7 +2066,7 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(ContextFaceAOAL& context) cons
 	LightLevelAndIsSolid neighborData[8];
 
 	unsigned int ao0 = 0, ao1 = 0, ao2 = 0, ao3 = 0;
-	LightLevel lightLevels[4];
+	LightLevel localLightLevels[4];
 
 	auto x = context.position.x;
 	auto y = context.position.y;
@@ -2072,8 +2081,8 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(ContextFaceAOAL& context) cons
 
 			if (!chunk) return;
 
-			BlockId block = chunk->blocks[index];
-			LightLevel lightLevel = chunk->lightLevels[index];
+			BlockId block = chunk->cells[index].block;
+			LightLevel lightLevel = chunk->cells[index].lightLevel;
 
 			neighborData[dataIdx].lightLevel = lightLevel;
 
@@ -2088,8 +2097,8 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(ContextFaceAOAL& context) cons
 
 			if (!chunk) return;
 
-			BlockId block = chunk->blocks[index];
-			LightLevel lightLevel = chunk->lightLevels[index];
+			BlockId block = chunk->cells[index].block;
+			LightLevel lightLevel = chunk->cells[index].lightLevel;
 
 			neighborData[dataIdx].lightLevel = lightLevel;
 
@@ -2110,10 +2119,10 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(ContextFaceAOAL& context) cons
 		getSafe (6, x, y + 1, z	   , 2);
 		getSafe2(7, x, y + 1, z + 1, 2, 4);
 
-		calculateVertexAmbientOcclusionAndLight(ao0, lightLevels[0], centerFaceLight, neighborData[1], neighborData[3], neighborData[0]);
-		calculateVertexAmbientOcclusionAndLight(ao1, lightLevels[1], centerFaceLight, neighborData[1], neighborData[4], neighborData[2]);
-		calculateVertexAmbientOcclusionAndLight(ao2, lightLevels[2], centerFaceLight, neighborData[6], neighborData[4], neighborData[7]);
-		calculateVertexAmbientOcclusionAndLight(ao3, lightLevels[3], centerFaceLight, neighborData[6], neighborData[3], neighborData[5]);
+		calculateVertexAmbientOcclusionAndLight(ao0, localLightLevels[0], centerFaceLight, neighborData[1], neighborData[3], neighborData[0]);
+		calculateVertexAmbientOcclusionAndLight(ao1, localLightLevels[1], centerFaceLight, neighborData[1], neighborData[4], neighborData[2]);
+		calculateVertexAmbientOcclusionAndLight(ao2, localLightLevels[2], centerFaceLight, neighborData[6], neighborData[4], neighborData[7]);
+		calculateVertexAmbientOcclusionAndLight(ao3, localLightLevels[3], centerFaceLight, neighborData[6], neighborData[3], neighborData[5]);
 		break;
 	case 1: // +X face
 		x++;
@@ -2126,10 +2135,10 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(ContextFaceAOAL& context) cons
 		getSafe (6, x, y + 1, z    , 2);
 		getSafe2(7, x, y + 1, z + 1, 2, 4);
 
-		calculateVertexAmbientOcclusionAndLight(ao0, lightLevels[0], centerFaceLight, neighborData[1], neighborData[4], neighborData[2]);
-		calculateVertexAmbientOcclusionAndLight(ao1, lightLevels[1], centerFaceLight, neighborData[1], neighborData[3], neighborData[0]);
-		calculateVertexAmbientOcclusionAndLight(ao2, lightLevels[2], centerFaceLight, neighborData[6], neighborData[3], neighborData[5]);
-		calculateVertexAmbientOcclusionAndLight(ao3, lightLevels[3], centerFaceLight, neighborData[6], neighborData[4], neighborData[7]);
+		calculateVertexAmbientOcclusionAndLight(ao0, localLightLevels[0], centerFaceLight, neighborData[1], neighborData[4], neighborData[2]);
+		calculateVertexAmbientOcclusionAndLight(ao1, localLightLevels[1], centerFaceLight, neighborData[1], neighborData[3], neighborData[0]);
+		calculateVertexAmbientOcclusionAndLight(ao2, localLightLevels[2], centerFaceLight, neighborData[6], neighborData[3], neighborData[5]);
+		calculateVertexAmbientOcclusionAndLight(ao3, localLightLevels[3], centerFaceLight, neighborData[6], neighborData[4], neighborData[7]);
 		break;
 	case 2: // -Y face
 		y--;
@@ -2142,10 +2151,10 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(ContextFaceAOAL& context) cons
 		getSafe (6, x    , y, z + 1, 4);
 		getSafe2(7, x + 1, y, z + 1, 0, 4);
 
-		calculateVertexAmbientOcclusionAndLight(ao0, lightLevels[0], centerFaceLight, neighborData[1], neighborData[4], neighborData[2]);
-		calculateVertexAmbientOcclusionAndLight(ao1, lightLevels[1], centerFaceLight, neighborData[1], neighborData[3], neighborData[0]);
-		calculateVertexAmbientOcclusionAndLight(ao2, lightLevels[2], centerFaceLight, neighborData[6], neighborData[3], neighborData[5]);
-		calculateVertexAmbientOcclusionAndLight(ao3, lightLevels[3], centerFaceLight, neighborData[6], neighborData[4], neighborData[7]);
+		calculateVertexAmbientOcclusionAndLight(ao0, localLightLevels[0], centerFaceLight, neighborData[1], neighborData[4], neighborData[2]);
+		calculateVertexAmbientOcclusionAndLight(ao1, localLightLevels[1], centerFaceLight, neighborData[1], neighborData[3], neighborData[0]);
+		calculateVertexAmbientOcclusionAndLight(ao2, localLightLevels[2], centerFaceLight, neighborData[6], neighborData[3], neighborData[5]);
+		calculateVertexAmbientOcclusionAndLight(ao3, localLightLevels[3], centerFaceLight, neighborData[6], neighborData[4], neighborData[7]);
 		break;
 	case 3: // +Y face
 		y++;
@@ -2158,10 +2167,10 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(ContextFaceAOAL& context) cons
 		getSafe (6, x    , y, z + 1, 4);
 		getSafe2(7, x + 1, y, z + 1, 0, 4);
 
-		calculateVertexAmbientOcclusionAndLight(ao0, lightLevels[0], centerFaceLight, neighborData[4], neighborData[1], neighborData[2]);
-		calculateVertexAmbientOcclusionAndLight(ao1, lightLevels[1], centerFaceLight, neighborData[3], neighborData[1], neighborData[0]);
-		calculateVertexAmbientOcclusionAndLight(ao2, lightLevels[2], centerFaceLight, neighborData[3], neighborData[6], neighborData[5]);
-		calculateVertexAmbientOcclusionAndLight(ao3, lightLevels[3], centerFaceLight, neighborData[4], neighborData[6], neighborData[7]);
+		calculateVertexAmbientOcclusionAndLight(ao0, localLightLevels[0], centerFaceLight, neighborData[4], neighborData[1], neighborData[2]);
+		calculateVertexAmbientOcclusionAndLight(ao1, localLightLevels[1], centerFaceLight, neighborData[3], neighborData[1], neighborData[0]);
+		calculateVertexAmbientOcclusionAndLight(ao2, localLightLevels[2], centerFaceLight, neighborData[3], neighborData[6], neighborData[5]);
+		calculateVertexAmbientOcclusionAndLight(ao3, localLightLevels[3], centerFaceLight, neighborData[4], neighborData[6], neighborData[7]);
 		break;
 	case 4: // -Z face
 		z--;
@@ -2174,10 +2183,10 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(ContextFaceAOAL& context) cons
 		getSafe (6, x    , y + 1, z, 2);
 		getSafe2(7, x + 1, y + 1, z, 0, 2);
 
-		calculateVertexAmbientOcclusionAndLight(ao0, lightLevels[0], centerFaceLight, neighborData[1], neighborData[4], neighborData[2]);
-		calculateVertexAmbientOcclusionAndLight(ao1, lightLevels[1], centerFaceLight, neighborData[1], neighborData[3], neighborData[0]);
-		calculateVertexAmbientOcclusionAndLight(ao2, lightLevels[2], centerFaceLight, neighborData[6], neighborData[3], neighborData[5]);
-		calculateVertexAmbientOcclusionAndLight(ao3, lightLevels[3], centerFaceLight, neighborData[6], neighborData[4], neighborData[7]);
+		calculateVertexAmbientOcclusionAndLight(ao0, localLightLevels[0], centerFaceLight, neighborData[1], neighborData[4], neighborData[2]);
+		calculateVertexAmbientOcclusionAndLight(ao1, localLightLevels[1], centerFaceLight, neighborData[1], neighborData[3], neighborData[0]);
+		calculateVertexAmbientOcclusionAndLight(ao2, localLightLevels[2], centerFaceLight, neighborData[6], neighborData[3], neighborData[5]);
+		calculateVertexAmbientOcclusionAndLight(ao3, localLightLevels[3], centerFaceLight, neighborData[6], neighborData[4], neighborData[7]);
 		break;
 	case 5: // +Z face
 		z++;
@@ -2190,10 +2199,10 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(ContextFaceAOAL& context) cons
 		getSafe (6, x    , y + 1, z, 2);
 		getSafe2(7, x + 1, y + 1, z, 0, 2);
 
-		calculateVertexAmbientOcclusionAndLight(ao0, lightLevels[0], centerFaceLight, neighborData[1], neighborData[3], neighborData[0]);
-		calculateVertexAmbientOcclusionAndLight(ao1, lightLevels[1], centerFaceLight, neighborData[1], neighborData[4], neighborData[2]);
-		calculateVertexAmbientOcclusionAndLight(ao2, lightLevels[2], centerFaceLight, neighborData[6], neighborData[4], neighborData[7]);
-		calculateVertexAmbientOcclusionAndLight(ao3, lightLevels[3], centerFaceLight, neighborData[6], neighborData[3], neighborData[5]);
+		calculateVertexAmbientOcclusionAndLight(ao0, localLightLevels[0], centerFaceLight, neighborData[1], neighborData[3], neighborData[0]);
+		calculateVertexAmbientOcclusionAndLight(ao1, localLightLevels[1], centerFaceLight, neighborData[1], neighborData[4], neighborData[2]);
+		calculateVertexAmbientOcclusionAndLight(ao2, localLightLevels[2], centerFaceLight, neighborData[6], neighborData[4], neighborData[7]);
+		calculateVertexAmbientOcclusionAndLight(ao3, localLightLevels[3], centerFaceLight, neighborData[6], neighborData[3], neighborData[5]);
 		break;
 	}
 
@@ -2201,8 +2210,8 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(ContextFaceAOAL& context) cons
 
 	auto& light = context.outLightLevel;
 
-	static_assert(sizeof(light) >= sizeof(lightLevels), "light packing too small");
-	std::memcpy(&light, lightLevels, sizeof(light));
+	static_assert(sizeof(light) >= sizeof(localLightLevels), "light packing too small");
+	std::memcpy(&light, localLightLevels, sizeof(light));
 }
 
 void Chunk::calculateVertexAmbientOcclusionAndLightUnaligned(unsigned int& ao, LightLevel& light, const LightLevelAndIsSolid& center, const LightLevelAndIsSolid& side1, const LightLevelAndIsSolid& side2, const LightLevelAndIsSolid& corner) const
@@ -2247,7 +2256,7 @@ void Chunk::calculateFaceAmbientOcclusionAndLightUnaligned(ContextFaceAOAL& cont
 	LightLevelAndIsSolid neighborData[8];
 
 	unsigned int ao0 = 0, ao1 = 0, ao2 = 0, ao3 = 0;
-	LightLevel   lightLevels[4];
+	LightLevel localLightLevels[4];
 
 	auto x = context.position.x;
 	auto y = context.position.y;
@@ -2261,8 +2270,8 @@ void Chunk::calculateFaceAmbientOcclusionAndLightUnaligned(ContextFaceAOAL& cont
 			size_t index;
 			const Chunk* chunk = traverseThroughNeighbors(x_, y_, z_, index);
 			if (!chunk) return;
-			BlockId    block = chunk->blocks[index];
-			LightLevel lightLevel = chunk->lightLevels[index];
+			BlockId    block = chunk->cells[index].block;
+			LightLevel lightLevel = chunk->cells[index].lightLevel;
 			neighborData[dataIdx].lightLevel = lightLevel;
 			const auto* blockData = AssetRegistry::getBlockData(block);
 			neighborData[dataIdx].isSolid = blockData && blockData->faceCulling[fcn];
@@ -2273,8 +2282,8 @@ void Chunk::calculateFaceAmbientOcclusionAndLightUnaligned(ContextFaceAOAL& cont
 			size_t index;
 			const Chunk* chunk = traverseThroughNeighbors(x_, y_, z_, index);
 			if (!chunk) return;
-			BlockId    block = chunk->blocks[index];
-			LightLevel lightLevel = chunk->lightLevels[index];
+			BlockId    block = chunk->cells[index].block;
+			LightLevel lightLevel = chunk->cells[index].lightLevel;
 			neighborData[dataIdx].lightLevel = lightLevel;
 			const auto* blockData = AssetRegistry::getBlockData(block);
 			neighborData[dataIdx].isSolid = blockData && (blockData->faceCulling[fcn1] || blockData->faceCulling[fcn2]);
@@ -2299,10 +2308,10 @@ void Chunk::calculateFaceAmbientOcclusionAndLightUnaligned(ContextFaceAOAL& cont
 		getSafe(4, x, y, z + 1, 4);     getSafe2(5, x, y + 1, z - 1, 2, 5);
 		getSafe(6, x, y + 1, z, 2);     getSafe2(7, x, y + 1, z + 1, 2, 4);
 
-		calcVertex(ao0, lightLevels[0], neighborData[1], neighborData[3], neighborData[0]);
-		calcVertex(ao1, lightLevels[1], neighborData[1], neighborData[4], neighborData[2]);
-		calcVertex(ao2, lightLevels[2], neighborData[6], neighborData[4], neighborData[7]);
-		calcVertex(ao3, lightLevels[3], neighborData[6], neighborData[3], neighborData[5]);
+		calcVertex(ao0, localLightLevels[0], neighborData[1], neighborData[3], neighborData[0]);
+		calcVertex(ao1, localLightLevels[1], neighborData[1], neighborData[4], neighborData[2]);
+		calcVertex(ao2, localLightLevels[2], neighborData[6], neighborData[4], neighborData[7]);
+		calcVertex(ao3, localLightLevels[3], neighborData[6], neighborData[3], neighborData[5]);
 		break;
 	case 1: // +X face
 		x++;
@@ -2311,10 +2320,10 @@ void Chunk::calculateFaceAmbientOcclusionAndLightUnaligned(ContextFaceAOAL& cont
 		getSafe(4, x, y, z + 1, 4);     getSafe2(5, x, y + 1, z - 1, 2, 5);
 		getSafe(6, x, y + 1, z, 2);     getSafe2(7, x, y + 1, z + 1, 2, 4);
 
-		calcVertex(ao0, lightLevels[0], neighborData[1], neighborData[4], neighborData[2]);
-		calcVertex(ao1, lightLevels[1], neighborData[1], neighborData[3], neighborData[0]);
-		calcVertex(ao2, lightLevels[2], neighborData[6], neighborData[3], neighborData[5]);
-		calcVertex(ao3, lightLevels[3], neighborData[6], neighborData[4], neighborData[7]);
+		calcVertex(ao0, localLightLevels[0], neighborData[1], neighborData[4], neighborData[2]);
+		calcVertex(ao1, localLightLevels[1], neighborData[1], neighborData[3], neighborData[0]);
+		calcVertex(ao2, localLightLevels[2], neighborData[6], neighborData[3], neighborData[5]);
+		calcVertex(ao3, localLightLevels[3], neighborData[6], neighborData[4], neighborData[7]);
 		break;
 	case 2: // -Y face
 		y--;
@@ -2323,10 +2332,10 @@ void Chunk::calculateFaceAmbientOcclusionAndLightUnaligned(ContextFaceAOAL& cont
 		getSafe(4, x + 1, y, z, 0);     getSafe2(5, x - 1, y, z + 1, 1, 4);
 		getSafe(6, x, y, z + 1, 4);     getSafe2(7, x + 1, y, z + 1, 0, 4);
 
-		calcVertex(ao0, lightLevels[0], neighborData[1], neighborData[4], neighborData[2]);
-		calcVertex(ao1, lightLevels[1], neighborData[1], neighborData[3], neighborData[0]);
-		calcVertex(ao2, lightLevels[2], neighborData[6], neighborData[3], neighborData[5]);
-		calcVertex(ao3, lightLevels[3], neighborData[6], neighborData[4], neighborData[7]);
+		calcVertex(ao0, localLightLevels[0], neighborData[1], neighborData[4], neighborData[2]);
+		calcVertex(ao1, localLightLevels[1], neighborData[1], neighborData[3], neighborData[0]);
+		calcVertex(ao2, localLightLevels[2], neighborData[6], neighborData[3], neighborData[5]);
+		calcVertex(ao3, localLightLevels[3], neighborData[6], neighborData[4], neighborData[7]);
 		break;
 	case 3: // +Y face
 		y++;
@@ -2335,10 +2344,10 @@ void Chunk::calculateFaceAmbientOcclusionAndLightUnaligned(ContextFaceAOAL& cont
 		getSafe(4, x + 1, y, z, 0);     getSafe2(5, x - 1, y, z + 1, 1, 4);
 		getSafe(6, x, y, z + 1, 4);     getSafe2(7, x + 1, y, z + 1, 0, 4);
 
-		calcVertex(ao0, lightLevels[0], neighborData[4], neighborData[1], neighborData[2]);
-		calcVertex(ao1, lightLevels[1], neighborData[3], neighborData[1], neighborData[0]);
-		calcVertex(ao2, lightLevels[2], neighborData[3], neighborData[6], neighborData[5]);
-		calcVertex(ao3, lightLevels[3], neighborData[4], neighborData[6], neighborData[7]);
+		calcVertex(ao0, localLightLevels[0], neighborData[4], neighborData[1], neighborData[2]);
+		calcVertex(ao1, localLightLevels[1], neighborData[3], neighborData[1], neighborData[0]);
+		calcVertex(ao2, localLightLevels[2], neighborData[3], neighborData[6], neighborData[5]);
+		calcVertex(ao3, localLightLevels[3], neighborData[4], neighborData[6], neighborData[7]);
 		break;
 	case 4: // -Z face
 		z--;
@@ -2347,10 +2356,10 @@ void Chunk::calculateFaceAmbientOcclusionAndLightUnaligned(ContextFaceAOAL& cont
 		getSafe(4, x + 1, y, z, 0);     getSafe2(5, x - 1, y + 1, z, 1, 2);
 		getSafe(6, x, y + 1, z, 2);     getSafe2(7, x + 1, y + 1, z, 0, 2);
 
-		calcVertex(ao0, lightLevels[0], neighborData[1], neighborData[4], neighborData[2]);
-		calcVertex(ao1, lightLevels[1], neighborData[1], neighborData[3], neighborData[0]);
-		calcVertex(ao2, lightLevels[2], neighborData[6], neighborData[3], neighborData[5]);
-		calcVertex(ao3, lightLevels[3], neighborData[6], neighborData[4], neighborData[7]);
+		calcVertex(ao0, localLightLevels[0], neighborData[1], neighborData[4], neighborData[2]);
+		calcVertex(ao1, localLightLevels[1], neighborData[1], neighborData[3], neighborData[0]);
+		calcVertex(ao2, localLightLevels[2], neighborData[6], neighborData[3], neighborData[5]);
+		calcVertex(ao3, localLightLevels[3], neighborData[6], neighborData[4], neighborData[7]);
 		break;
 	case 5: // +Z face
 		z++;
@@ -2359,17 +2368,17 @@ void Chunk::calculateFaceAmbientOcclusionAndLightUnaligned(ContextFaceAOAL& cont
 		getSafe(4, x + 1, y, z, 0);     getSafe2(5, x - 1, y + 1, z, 1, 2);
 		getSafe(6, x, y + 1, z, 2);     getSafe2(7, x + 1, y + 1, z, 0, 2);
 
-		calcVertex(ao0, lightLevels[0], neighborData[1], neighborData[3], neighborData[0]);
-		calcVertex(ao1, lightLevels[1], neighborData[1], neighborData[4], neighborData[2]);
-		calcVertex(ao2, lightLevels[2], neighborData[6], neighborData[4], neighborData[7]);
-		calcVertex(ao3, lightLevels[3], neighborData[6], neighborData[3], neighborData[5]);
+		calcVertex(ao0, localLightLevels[0], neighborData[1], neighborData[3], neighborData[0]);
+		calcVertex(ao1, localLightLevels[1], neighborData[1], neighborData[4], neighborData[2]);
+		calcVertex(ao2, localLightLevels[2], neighborData[6], neighborData[4], neighborData[7]);
+		calcVertex(ao3, localLightLevels[3], neighborData[6], neighborData[3], neighborData[5]);
 		break;
 	}
 
 	context.outAmbientOcclusion = ao0 | (ao1 << 2) | (ao2 << 4) | (ao3 << 6);
 
-	static_assert(sizeof(context.outLightLevel) >= sizeof(lightLevels));
-	std::memcpy(&context.outLightLevel, lightLevels, sizeof(context.outLightLevel));
+	static_assert(sizeof(context.outLightLevel) >= sizeof(localLightLevels));
+	std::memcpy(&context.outLightLevel, localLightLevels, sizeof(context.outLightLevel));
 }
 
 void Chunk::calculateBlockVertexLight(BlockVertexData& result, const glm::ivec3& currentBlockPosition) const
@@ -2384,8 +2393,8 @@ void Chunk::calculateBlockVertexLight(BlockVertexData& result, const glm::ivec3&
 		if (((neighborPos.x | neighborPos.y | neighborPos.z) & CHUNK_UPPER_BITS_MASK) == 0)
 		{
 			auto index = getIndex(neighborPos);
-			centerFaceBlock = blocks[index];
-			centerFaceLight = lightLevels[index];
+			centerFaceBlock = cells[index].block;
+			centerFaceLight = cells[index].lightLevel;
 		}
 		else
 		{
@@ -2393,8 +2402,8 @@ void Chunk::calculateBlockVertexLight(BlockVertexData& result, const glm::ivec3&
 			if (neighborChunk)
 			{
 				auto index = getIndex(neighborPos & CHUNK_LOWER_BITS_MASK);
-				centerFaceBlock = neighborChunk->blocks[index];
-				centerFaceLight = neighborChunk->lightLevels[index];
+				centerFaceBlock = neighborChunk->cells[index].block;
+				centerFaceLight = neighborChunk->cells[index].lightLevel;
 			}
 		}
 
