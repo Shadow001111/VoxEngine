@@ -48,17 +48,10 @@ void Chunk::init(const glm::ivec3& newPosition, const std::array<Chunk*, 27>& ne
 	neighbors = newNeighbors;
 	constexpr int selfIndex = getNeighborIndex(0, 0, 0);
 
-	for (int i = 0; i < selfIndex; i++)
+	for (int i = 0; i < newNeighbors.size(); i++)
 	{
-		Chunk* neighbor = neighbors[i];
-		if (neighbor)
-		{
-			neighbor->neighbors[getOppositeNeighborIndex(i)] = this;
-		}
-	}
-	neighbors[selfIndex] = this;
-	for (int i = selfIndex + 1; i < newNeighbors.size(); i++)
-	{
+		if (i == selfIndex) [[unlikely]] continue;
+
 		Chunk* neighbor = neighbors[i];
 		if (neighbor)
 		{
@@ -109,7 +102,7 @@ void Chunk::destroy()
 	neighbors[selfIndex] = nullptr;
 	for (int i = 0; i < neighbors.size(); i++)
 	{
-		if (i == selfIndex) continue;
+		if (i == selfIndex) [[unlikely]] continue;
 
 		Chunk* neighbor = neighbors[i];
 		if (neighbor)

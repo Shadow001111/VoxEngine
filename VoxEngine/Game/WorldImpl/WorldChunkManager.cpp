@@ -553,22 +553,14 @@ void WorldChunkManager::rebuildAllChunkMeshes()
 void WorldChunkManager::loadChunk(const glm::ivec3& chunkPosition)
 {
 	// Get region
-	glm::ivec3 regionPosition;
-	ChunkRegion* region;
-	size_t index;
-
-	{
-		TRACY_SCOPE_NC("Get region", ProfileCategory::ChunkLoadUnload);
-
-		regionPosition = ChunkRegion::getRegionPosition(chunkPosition);
-		region = Chunk::managerInstances->chunkRegion.getOrCreateRegion(regionPosition);
-		index = ChunkRegion::getChunkIndexInRegion(chunkPosition);
-	}
+	glm::ivec3 regionPosition = ChunkRegion::getRegionPosition(chunkPosition);
+	ChunkRegion*  region = Chunk::managerInstances->chunkRegion.getOrCreateRegion(regionPosition);
+	size_t index = ChunkRegion::getChunkIndexInRegion(chunkPosition);
 
 	// Check if chunk already exists
 	if (region->chunks[index])
 	{
-		// If loaded, it should just add loader to existent chunk, but we don't need it right now.
+		// If loaded, it should just add loader to existent chunk, but we don't need it right now
 		return;
 	}
 
@@ -653,7 +645,7 @@ void WorldChunkManager::collectChunkNeighbors(const glm::ivec3& chunkPosition, s
 		ChunkRegion* r = Chunk::managerInstances->chunkRegion.getRegion(centerRegPos);
 		if (!r) return;
 
-		for (int i = 0; i < 27; ++i)
+		for (int i = 0; i < 27; i++)
 		{
 			if (i == selfIndex) [[unlikely]] continue;
 			const glm::ivec3 neighborPos = chunkPosition + Chunk::getNeighborOffset(i);
