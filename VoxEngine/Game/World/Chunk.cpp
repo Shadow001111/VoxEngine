@@ -3,10 +3,8 @@
 #include "TerrainGenerator.h"
 
 #include "Game/DataPackManagment/AssetRegistry.h"
-
-#include "Game/ProfileCategories.h"
-
 #include "Game/TracyProfiler.h"
+
 #include "Core/Assert.h"
 #include "Core/Hashes/ivec2Hasher.h"
 
@@ -529,10 +527,7 @@ void Chunk::save() const
 	bool hasChanges = !blockChanges.empty();
 
 	size_t indexInRegion = ChunkRegion::getChunkIndexInRegion(position);
-	{
-		TRACY_SCOPE("Set has saved data", ProfileCategory::ChunkBlocks);
-		parentRegion->setHasSavedData(indexInRegion, hasChanges);
-	}
+	parentRegion->setHasSavedData(indexInRegion, hasChanges);
 
 	if (hasChanges)
 	{
@@ -542,6 +537,8 @@ void Chunk::save() const
 
 uint32_t Chunk::propagateBlockLight()
 {
+	TRACY_SCOPE("Propagate block light", ProfileCategory::ChunkLight);
+
 	uint32_t neighborDirtyMask = 0;
 	while (!LightPropagationStorage::threadLocalBlockLightPropagation.empty())
 	{
@@ -624,6 +621,8 @@ uint32_t Chunk::propagateBlockLight()
 
 uint32_t Chunk::propagateSkyLight()
 {
+	TRACY_SCOPE("Propagate sky light", ProfileCategory::ChunkLight);
+
 	constexpr std::array<int, 4> horizontalDirections{ 0, 1, 4, 5 };
 
 	uint32_t neighborDirtyMask = 0;
@@ -782,6 +781,8 @@ uint32_t Chunk::propagateSkyLight()
 
 uint32_t Chunk::propagateBlockLightRemoval()
 {
+	TRACY_SCOPE("Propagate block light removal", ProfileCategory::ChunkLight);
+
 	uint32_t neighborDirtyMask = 0;
 	while (!LightPropagationStorage::threadLocalBlockLightRemoval.empty())
 	{
@@ -862,6 +863,8 @@ uint32_t Chunk::propagateBlockLightRemoval()
 
 uint32_t Chunk::propagateSkyLightRemoval()
 {
+	TRACY_SCOPE("Propagate sky light removal", ProfileCategory::ChunkLight);
+
 	uint32_t neighborDirtyMask = 0;
 	while (!LightPropagationStorage::threadLocalSkyLightRemoval.empty())
 	{
@@ -963,50 +966,54 @@ void Chunk::buildLight()
 	const Chunk* topNeighbor = neighbors[getNeighborIndex(0, 1, 0)];
 
 	// Collect block light sources
-	for (int x = 0; x < CHUNK_SIZE; x++)
 	{
+		TRACY_SCOPE("Collect block light sources", ProfileCategory::ChunkLight);
+		for (int x = 0; x < CHUNK_SIZE; x++)
 		for (int y = 0; y < CHUNK_SIZE; y++)
+		for (int z = 0; z < CHUNK_SIZE; z++)
 		{
-			for (int z = 0; z < CHUNK_SIZE; z++)
+			size_t index = getIndex(x, y, z);
+
+			const auto* blockData = AssetRegistry::getBlockData(blocks[index]);
+			if (!blockData)
 			{
-				size_t index = getIndex(x, y, z);
-
-				const auto* blockData = AssetRegistry::getBlockData(blocks[index]);
-				if (!blockData)
-				{
-					continue;
-				}
-
-				uint8_t emission = blockData->lightEmission;
-				if (emission == 0)
-				{
-					continue;
-				}
-
-				lightLevels[index].blockLight = emission;
-				LightPropagationStorage::threadLocalBlockLightPropagation.emplace(x, y, z);
+				continue;
 			}
+
+			uint8_t emission = blockData->lightEmission;
+			if (emission == 0)
+			{
+				continue;
+			}
+
+			lightLevels[index].blockLight = emission;
+			LightPropagationStorage::threadLocalBlockLightPropagation.emplace(x, y, z);
 		}
 	}
 
 	// Collect sky light sources
 	if (!topNeighbor)
 	{
-		// Create local heightmap for this chunk
+		TRACY_SCOPE("Collect sky light sources", ProfileCategory::ChunkLight);
+
+		// Compute local heightmap for this chunk
 		std::array<int, CHUNK_AREA> heightMap{};
-		heightMap.fill(-1);
-		for (int x = 0; x < CHUNK_SIZE; x++)
 		{
-			for (int z = 0; z < CHUNK_SIZE; z++)
+			TRACY_SCOPE("Compute local heightmap", ProfileCategory::ChunkLight);
+			heightMap.fill(-1);
+			for (int x = 0; x < CHUNK_SIZE; x++)
 			{
-				for (int y = CHUNK_SIZE - 1; y >= 0; y--)
+				for (int z = 0; z < CHUNK_SIZE; z++)
 				{
-					BlockId block = blocks[getIndex(x, y, z)];
-					const auto* blockData = AssetRegistry::getBlockData(block);
-					if (!blockData || blockData->absorbsLight)
+					for (int y = CHUNK_SIZE - 1; y >= 0; y--)
 					{
-						heightMap[getIndex(x, z)] = y;
-						break;
+						BlockId block = blocks[getIndex(x, y, z)];
+						const auto* blockData = AssetRegistry::getBlockData(block);
+						if (!blockData || blockData->absorbsLight)
+						{
+							heightMap[getIndex(x, z)] = y;
+							break;
+						}
 					}
 				}
 			}
@@ -1017,52 +1024,58 @@ void Chunk::buildLight()
 		std::array<int, CHUNK_AREA> addNodeHeightMap;
 		addNodeHeightMap.fill(MAX_LOCAL_HEIGHT); // Unfilled values will make nodes appear on every y coord
 		// Coords won't be on border, so values on borders won't change
-		for (int x = 1; x < CHUNK_SIZE - 1; x++)
 		{
-			for (int z = 1; z < CHUNK_SIZE - 1; z++)
+			TRACY_SCOPE("Compute height for nods", ProfileCategory::ChunkLight);
+			for (int x = 1; x < CHUNK_SIZE - 1; x++)
 			{
-				// Get neighbor heights (in index increasing order)
-				const int nxHeight = heightMap[getIndex(x - 1, z)];
-				const int nzHeight = heightMap[getIndex(x, z - 1)];
-				const int pzHeight = heightMap[getIndex(x, z + 1)];
-				const int pxHeight = heightMap[getIndex(x + 1, z)];
-		
-				// Get max height
-				const int maxXHeight = std::max(nxHeight, pxHeight);
-				const int maxZHeight = std::max(pzHeight, nzHeight);
-				const int maxHeight = std::max(maxXHeight, maxZHeight);
-		
-				// Set localHeightToStartAddingNodes to the corresponding max height minus one (there can be nothing under toppest block)
-				int localHeightToStartAddingNodes = maxHeight - 1;
-				localHeightToStartAddingNodes = std::max(localHeightToStartAddingNodes, 0); // Must place at bottom, so it can propagate on neighbor chunk
-		
-				addNodeHeightMap[getIndex(x, z)] = localHeightToStartAddingNodes;
+				for (int z = 1; z < CHUNK_SIZE - 1; z++)
+				{
+					// Get neighbor heights (in index increasing order)
+					const int nxHeight = heightMap[getIndex(x - 1, z)];
+					const int nzHeight = heightMap[getIndex(x, z - 1)];
+					const int pzHeight = heightMap[getIndex(x, z + 1)];
+					const int pxHeight = heightMap[getIndex(x + 1, z)];
+
+					// Get max height
+					const int maxXHeight = std::max(nxHeight, pxHeight);
+					const int maxZHeight = std::max(pzHeight, nzHeight);
+					const int maxHeight = std::max(maxXHeight, maxZHeight);
+
+					// Set localHeightToStartAddingNodes to the corresponding max height minus one (there can be nothing under toppest block)
+					int localHeightToStartAddingNodes = maxHeight - 1;
+					localHeightToStartAddingNodes = std::max(localHeightToStartAddingNodes, 0); // Must place at bottom, so it can propagate on neighbor chunk
+
+					addNodeHeightMap[getIndex(x, z)] = localHeightToStartAddingNodes;
+				}
 			}
 		}
 		
 		// Create nodes and fill light levels
-		for (int x = 0; x < CHUNK_SIZE; x++)
 		{
-			for (int z = 0; z < CHUNK_SIZE; z++)
+			TRACY_SCOPE("Create nodes and fill light levels", ProfileCategory::ChunkLight);
+			for (int x = 0; x < CHUNK_SIZE; x++)
 			{
-				const size_t index = getIndex(x, z);
-				const int firstExposedY = heightMap[index] + 1;
-		
-				if (firstExposedY >= CHUNK_SIZE)
+				for (int z = 0; z < CHUNK_SIZE; z++)
 				{
-					continue; // No exposed blocks in this column
+					const size_t index = getIndex(x, z);
+					const int firstExposedY = heightMap[index] + 1;
+
+					if (firstExposedY >= CHUNK_SIZE)
+					{
+						continue; // No exposed blocks in this column
+					}
+
+					// Filling light
+
+					const int localHeightToStartAddingNodes = addNodeHeightMap[index];
+
+					for (int y = localHeightToStartAddingNodes; y < CHUNK_SIZE; y++)
+					{
+						lightLevels[getIndex(x, y, z)].skyLight = 15;
+					}
+
+					LightPropagationStorage::threadLocalSkyLightPropagation.emplace(x, localHeightToStartAddingNodes, z);
 				}
-		
-				// Filling light
-
-				const int localHeightToStartAddingNodes = addNodeHeightMap[index];
-
-				for (int y = localHeightToStartAddingNodes; y < CHUNK_SIZE; y++)
-				{
-					lightLevels[getIndex(x, y, z)].skyLight = 15;
-				}
-
-				LightPropagationStorage::threadLocalSkyLightPropagation.emplace(x, localHeightToStartAddingNodes, z);
 			}
 		}
 
@@ -1089,6 +1102,8 @@ void Chunk::buildLight()
 	// Collect light from neighbors
 	// TODO: If neighbor block is solid, then check if it's a light source and propagate from it
 	{
+		TRACY_SCOPE("Collect light levels from neighbors", ProfileCategory::ChunkLight);
+
 		auto processNeighborFace = [&](int x, int y, int z, int nx, int ny, int nz, const Chunk* neighbor, bool propagatingFromTop)
 			{
 				size_t index = getIndex(x, y, z);
@@ -1209,14 +1224,17 @@ void Chunk::buildLight()
 
 	// Let neighbor chunks' lights be updated
 	bool hasNeighborToUpdate = false;
-	for (int i = 0; i < 6; i++)
 	{
-		auto index = getSideNeighborIndex(i);
-		Chunk* neighbor = neighbors[index];
-		if (neighbor && neighbor->lightPropagation.hasNodes())
+		TRACY_SCOPE("Let neighbor chunks be updated", ProfileCategory::ChunkLight);
+		for (int i = 0; i < 6; i++)
 		{
-			neighbor->parentRegion->setFlag(ChunkRegion::Flag::HasLightToUpdate, true);
-			hasNeighborToUpdate = true;
+			auto index = getSideNeighborIndex(i);
+			Chunk* neighbor = neighbors[index];
+			if (neighbor && neighbor->lightPropagation.hasNodes())
+			{
+				neighbor->parentRegion->setFlag(ChunkRegion::Flag::HasLightToUpdate, true);
+				hasNeighborToUpdate = true;
+			}
 		}
 	}
 	if (hasNeighborToUpdate)
@@ -1257,14 +1275,17 @@ void Chunk::updateLight()
 
 	// Let neighbor chunks' lights be updated
 	bool hasNeighborToUpdate = false;
-	for (int i = 0; i < 6; i++)
 	{
-		auto index = getSideNeighborIndex(i);
-		Chunk* neighbor = neighbors[index];
-		if (neighbor && neighbor->lightPropagation.hasNodes())
+		TRACY_SCOPE("Let neighbor chunks be updated", ProfileCategory::ChunkLight);
+		for (int i = 0; i < 6; i++)
 		{
-			neighbor->parentRegion->setFlag(ChunkRegion::Flag::HasLightToUpdate, true);
-			hasNeighborToUpdate = true;
+			auto index = getSideNeighborIndex(i);
+			Chunk* neighbor = neighbors[index];
+			if (neighbor && neighbor->lightPropagation.hasNodes())
+			{
+				neighbor->parentRegion->setFlag(ChunkRegion::Flag::HasLightToUpdate, true);
+				hasNeighborToUpdate = true;
+			}
 		}
 	}
 	if (hasNeighborToUpdate)
@@ -1757,6 +1778,8 @@ uint32_t Chunk::getNeighborDirtyMask(int x, int y, int z) noexcept
 
 void Chunk::applyNeighborDirtyMask(uint32_t mask) noexcept
 {
+	TRACY_SCOPE("Apply neighbor dirty mask", ProfileCategory::General);
+
 	// Using a loop with bit manipulation because it should reduce the number of branching and memory fetchesd
 
 	constexpr size_t neighborCount = sizeof(neighbors) / sizeof(neighbors[0]); // Idk, neighbor.size() doesn't work (because 'this' can't be used as constant)

@@ -7,8 +7,7 @@ class BufferStreamWriter
 	T* destination = nullptr;
 public:
 	BufferStreamWriter(T* destination) : destination(destination)
-	{
-	}
+	{}
 
 	void writeSingle(const T* source)
 	{
@@ -41,5 +40,5 @@ public:
 		destination++;
 	}
 
-	const T* getDestination() const { return destination; }
+	const T* getDestination() const noexcept { return destination; }
 };

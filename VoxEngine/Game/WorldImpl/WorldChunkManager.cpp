@@ -213,6 +213,8 @@ bool WorldChunkManager::chunkExistsAt(const glm::ivec3& chunkPosition) const
 
 void WorldChunkManager::startBuildingChunkBlocks()
 {
+	TRACY_SCOPE("Start building chunk blocks", ProfileCategory::ChunkLight);
+
 	// Validate and collect chunks
 	chunksToProcess.clear();
 	{
@@ -273,6 +275,8 @@ void WorldChunkManager::startBuildingChunkBlocks()
 
 void WorldChunkManager::startBuildingChunkLights()
 {
+	TRACY_SCOPE("Start building chunk lights", ProfileCategory::ChunkLight);
+
 	chunksToProcess.clear();
 
 	// 1. Swap/Move incoming chunks to a local temporary set

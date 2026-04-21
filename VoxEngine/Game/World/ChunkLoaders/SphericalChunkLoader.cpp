@@ -26,4 +26,5 @@ void SphericalChunkLoader::getPositionsToLoad(const glm::ivec3& playerChunkPosit
             }
         }
     }
+    // Note: Computing offsets once and adding them to playerChunkPosition to insert was slower
 }

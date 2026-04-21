@@ -11,6 +11,7 @@
 #include "Core/Multithreading/ProcessingFence.h"
 #include "Core/AtomicFlags.h"
 #include "Core/SymmetricBitMatrix.h"
+#include "Core/Assert.h"
 
 #include "Graphics/DrawCommands.h"
 
@@ -289,7 +290,7 @@ public:
 
 		// Check if face created and it's not empty
 		unsigned int faceCount = mesh.faceStorage.renderFaceCounts[layerIndex];
-		if (faceCount == 0 || !mesh.readFlag(createdFlag))
+		if (faceCount == 0) // || !mesh.readFlag(createdFlag)
 		{
 			return;
 		}
