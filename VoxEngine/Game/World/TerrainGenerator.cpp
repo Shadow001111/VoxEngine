@@ -194,8 +194,6 @@ const ChunkColumnData* TerrainGenerator::getChunkColumnData(int chunkX, int chun
 
 void TerrainGenerator::unloadChunkColumnData(int chunkX, int chunkZ)
 {
-	TRACY_SCOPE_NC("Unload ChunkColumnData", ProfileCategory::ChunkColumnData);
-
 	ChunkColumnData* columnToRelease = nullptr;
 	{
 		std::lock_guard lock(dataMutex);

@@ -627,8 +627,6 @@ uint32_t Chunk::propagateSkyLight()
 {
 	TRACY_SCOPE_NC("Propagate sky light", ProfileCategory::ChunkLight);
 
-	constexpr std::array<int, 4> horizontalDirections{ 0, 1, 4, 5 };
-
 	uint32_t neighborDirtyMask = 0;
 
 	auto tryPropagate = [&](int nx, int ny, int nz, uint8_t lightToSet, bool includeYInSameChunkCheck) -> void
@@ -736,7 +734,7 @@ uint32_t Chunk::propagateSkyLight()
 				cells[belowIndex].lightLevel.skyLight = 15;
 				neighborDirtyMask |= getNeighborDirtyMask(x, ny, z);
 
-				for (int i = 0; i < horizontalDirections.size(); i++)
+				for (int i = 0; i < 4; i++) // XZ directions
 				{
 					const glm::ivec2 nXZ = nXZs[i];
 					const int nx = nXZ.x;

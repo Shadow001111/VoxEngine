@@ -574,10 +574,7 @@ void WorldChunkManager::loadChunk(const glm::ivec3& chunkPosition)
 
 	// Find existing neighbors
 	std::array<Chunk*, 27> neighbors{ nullptr };
-	{
-		TRACY_SCOPE_NC("Collect chunk neighbors", ProfileCategory::ChunkLoadUnload);
-		collectChunkNeighbors(chunkPosition, neighbors);
-	}
+	collectChunkNeighbors(chunkPosition, neighbors);
 
 	// Create and initialize chunk
 	Chunk* chunk;
@@ -586,10 +583,7 @@ void WorldChunkManager::loadChunk(const glm::ivec3& chunkPosition)
 	chunk->init(chunkPosition, neighbors, region);
 
 	// Send chunk to building blocks
-	{
-		TRACY_SCOPE_NC("Insert in build block container", ProfileCategory::ChunkLoadUnload);
-		buildContainers.blocks.push_back(chunk);
-	}
+	buildContainers.blocks.push_back(chunk);
 
 	// Add chunk to the region
 	region->chunks[index] = chunk;
@@ -605,7 +599,7 @@ void WorldChunkManager::unloadChunk(const glm::ivec3& chunkPosition)
 
 	// Get chunk region if exists
 	ChunkRegion* chunkRegion = Chunk::managerInstances->chunkRegion.getRegion(regionPosition);
-	if (!chunkRegion)
+	if (!chunkRegion) [[unlikely]]
 	{
 		return;
 	}
@@ -615,7 +609,7 @@ void WorldChunkManager::unloadChunk(const glm::ivec3& chunkPosition)
 
 	// Check if chunk exists
 	Chunk* chunk = chunkRegion->chunks[index];
-	if (!chunk)
+	if (!chunk) [[unlikely]]
 	{
 		return;
 	}
@@ -644,31 +638,54 @@ void WorldChunkManager::unloadChunk(const glm::ivec3& chunkPosition)
 
 void WorldChunkManager::collectChunkNeighbors(const glm::ivec3& chunkPosition, std::array<Chunk*, 27>& neighbors) const
 {
+	TRACY_SCOPE_NC("Collect chunk neighbors", ProfileCategory::ChunkLoadUnload);
+
 	constexpr int selfIndex = Chunk::getNeighborIndex(0, 0, 0);
 
-	struct RegionEntry { glm::ivec3 pos; ChunkRegion* region; };
-	RegionEntry regionCache[8];
-	int cacheSize = 0;
+	// Fast Path: Check if the chunk is internal (not on a region boundary)
+	const glm::ivec3 centerRegPos = ChunkRegion::getRegionPosition(chunkPosition);
+	const bool isInternal =
+		ChunkRegion::getRegionPosition(chunkPosition - 1) == centerRegPos &&
+		ChunkRegion::getRegionPosition(chunkPosition + 1) == centerRegPos;
 
-	auto getRegionCached = [&](const glm::ivec3& rpos) -> ChunkRegion*
+	if (isInternal)
+	{
+		ChunkRegion* r = Chunk::managerInstances->chunkRegion.getRegion(centerRegPos);
+		if (!r) return;
+
+		for (int i = 0; i < 27; ++i)
 		{
-			for (int k = 0; k < cacheSize; k++)
-				if (regionCache[k].pos == rpos)
-					return regionCache[k].region;
+			if (i == selfIndex) [[unlikely]] continue;
+			const glm::ivec3 neighborPos = chunkPosition + Chunk::getNeighborOffset(i);
+			neighbors[i] = r->chunks[ChunkRegion::getChunkIndexInRegion(neighborPos)];
+		}
+		return;
+	}
 
-			ChunkRegion* r = Chunk::managerInstances->chunkRegion.getRegion(rpos);
-			regionCache[cacheSize++] = { rpos, r };
-			return r;
-		};
+	// Slow Path: Use bit-combining to index cache
+	ChunkRegion* regionCache[8] = { nullptr };
+	uint8_t cacheMask = 0; // Tracks which of the 8 slots are filled
 
 	for (int i = 0; i < 27; i++)
 	{
-		if (i == selfIndex) continue;
+		if (i == selfIndex) [[unlikely]] continue;
 
 		const glm::ivec3 neighborPos = chunkPosition + Chunk::getNeighborOffset(i);
-		ChunkRegion* r = getRegionCached(ChunkRegion::getRegionPosition(neighborPos));
-		if (!r) continue;
+		const glm::ivec3 rpos = ChunkRegion::getRegionPosition(neighborPos);
 
-		neighbors[i] = r->chunks[ChunkRegion::getChunkIndexInRegion(neighborPos)];
+		// Combine the last bits of x, y, z into a 3-bit index (0-7)
+		const int idx = (rpos.x & 1) | ((rpos.y & 1) << 1) | ((rpos.z & 1) << 2);
+
+		// If this region bit-pattern hasn't been cached yet, fetch it
+		if (!(cacheMask & (1 << idx)))
+		{
+			regionCache[idx] = Chunk::managerInstances->chunkRegion.getRegion(rpos);
+			cacheMask |= (1 << idx);
+		}
+
+		if (regionCache[idx])
+		{
+			neighbors[i] = regionCache[idx]->chunks[ChunkRegion::getChunkIndexInRegion(neighborPos)];
+		}
 	}
 }

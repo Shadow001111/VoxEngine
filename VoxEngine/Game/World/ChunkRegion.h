@@ -68,8 +68,8 @@ public:
 	[[nodiscard]] const auto& getChunks() const noexcept { return chunks; };
 	[[nodiscard]] const size_t getChunkCount() const noexcept { return chunkCount; };
 
-	[[nodiscard]] static glm::ivec3 getRegionPosition(const glm::ivec3& chunkPosition);
-	[[nodiscard]] static size_t getChunkIndexInRegion(const glm::ivec3& chunkPosition);
+	[[nodiscard]] static glm::ivec3 getRegionPosition(const glm::ivec3& chunkPosition) noexcept { return chunkPosition >> CHUNK_REGION_SIZE_LOG2; }
+	[[nodiscard]] static size_t getChunkIndexInRegion(const glm::ivec3& chunkPosition) noexcept;
 
 	void incrementRenderChunkCount() noexcept { renderChunkCount.fetch_add(1, std::memory_order_acq_rel); }
 	void decrementRenderChunkCount() noexcept { renderChunkCount.fetch_sub(1, std::memory_order_acq_rel); }
