@@ -3,14 +3,14 @@
 
 void BaseChunkLoader::update(const glm::ivec3& playerChunkPosition, int loadRadius)
 {
-    TRACY_SCOPE("ChunkLoader update", ProfileCategory::General);
+    TRACY_SCOPE_NC("ChunkLoader update", ProfileCategory::General);
 
     prevLoaded.swap(loaded);
 
     loaded.clear();
 
     {
-        TRACY_SCOPE("Get positions", ProfileCategory::General);
+        TRACY_SCOPE_NC("Get positions", ProfileCategory::General);
         PositionHandler handler(loaded);
         getPositionsToLoad(playerChunkPosition, loadRadius, handler);
     }
@@ -20,7 +20,7 @@ void BaseChunkLoader::update(const glm::ivec3& playerChunkPosition, int loadRadi
 
 void BaseChunkLoader::computeDiffs()
 {
-    TRACY_SCOPE("Compute differences", ProfileCategory::General);
+    TRACY_SCOPE_NC("Compute differences", ProfileCategory::General);
 
     toLoad.clear();
     for (const auto& [region, current] : loaded)

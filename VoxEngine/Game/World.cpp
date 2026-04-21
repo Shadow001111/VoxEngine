@@ -112,7 +112,7 @@ void World::update(float deltaTime)
 // TODO: Make raycast undependable of float precision. Or do the same for voxel marker rendering.
 RaycastResult World::raycast(const glm::dvec3& origin, const glm::dvec3& direction, float maxDistance) const
 {
-	TRACY_SCOPE("Raycast", ProfileCategory::General);
+	TRACY_SCOPE_NC("Raycast", ProfileCategory::General);
 
 	RaycastResult result;
 
@@ -240,7 +240,7 @@ RaycastResult World::raycast(const glm::dvec3& origin, const glm::dvec3& directi
 
 const World::DebugData& World::getDebugData(bool updateIntense) const
 {
-	TRACY_SCOPE("World debug data collection", ProfileCategory::General);
+	TRACY_SCOPE_NC("World debug data collection", ProfileCategory::General);
 
 	const auto& chunkRegions = Chunk::managerInstances->chunkRegion.getRegionMap();
 

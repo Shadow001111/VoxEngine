@@ -141,7 +141,7 @@ public:
 template<MeshLayer layer>
 inline void WorldRenderer::renderChunkGroup(const Shader& shader)
 {
-	TRACY_SCOPE("Render chunk group", ProfileCategory::Render);
+	TRACY_SCOPE_NC("Render chunk group", ProfileCategory::Render);
 
 	// Check if shader is valid
 	if (!shader.isValid())
@@ -155,7 +155,7 @@ inline void WorldRenderer::renderChunkGroup(const Shader& shader)
 	// Collect draw commands
 	size_t drawCount;
 	{
-		TRACY_SCOPE("Collect draw commands", ProfileCategory::Render);
+		TRACY_SCOPE_NC("Collect draw commands", ProfileCategory::Render);
 
 		const size_t capacity = chunksToRender.size();
 		chunkDrawCommands.reserve(capacity);
@@ -175,7 +175,7 @@ inline void WorldRenderer::renderChunkGroup(const Shader& shader)
 
 	// Collect statistics
 	{
-		TRACY_SCOPE("Collect statistics", ProfileCategory::Render);
+		TRACY_SCOPE_NC("Collect statistics", ProfileCategory::Render);
 		for (size_t i = 0; i < drawCount; i++)
 		{
 			renderStats.renderedChunkFaceCount += chunkDrawCommands[i].instanceCount;
@@ -188,7 +188,7 @@ inline void WorldRenderer::renderChunkGroup(const Shader& shader)
 
 	// Bind VAO and render
 	{
-		TRACY_SCOPE("Bind VAO and render", ProfileCategory::Render);
+		TRACY_SCOPE_NC("Bind VAO and render", ProfileCategory::Render);
 		ChunkMeshAllocator::getInstance().bindVAO(layer);
 		glMultiDrawArraysIndirect(GL_TRIANGLE_FAN, NULL, (GLsizei)drawCount, 0);
 	}

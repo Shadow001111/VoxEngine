@@ -433,7 +433,7 @@ std::vector<ChunkIO::PackInfo> ChunkIO::transformPackDataMapToSortedVector(const
 
 void ChunkIO::loadBlocks(BlockChanges& blockChanges, BlockId* blocks, const glm::ivec3& chunkRegionPosition, size_t chunkIndexInRegion)
 {
-	TRACY_SCOPE("Load chunk blocks", ProfileCategory::ChunkBlocks);
+	TRACY_SCOPE_NC("Load chunk blocks", ProfileCategory::ChunkBlocks);
 
 	// Get chunk file path
 	fs::path chunkRegionDirectoryPath = getFilePathFromPosition(chunkRegionPosition);
@@ -465,7 +465,7 @@ void ChunkIO::saveBlocks(const BlockChanges& blockChanges, const glm::ivec3& chu
 		return;
 	}
 
-	TRACY_SCOPE("Save chunk blocks", ProfileCategory::ChunkBlocks);
+	TRACY_SCOPE_NC("Save chunk blocks", ProfileCategory::ChunkBlocks);
 
 	// Compute hash value
 	uint64_t hashValue = computeHash(blockChanges);
@@ -582,7 +582,7 @@ void ChunkIO::saveBlocks(const BlockChanges& blockChanges, const glm::ivec3& chu
 
 AtomicBitset<CHUNK_REGION_VOLUME, size_t> ChunkIO::checkChunkRegionForSaves(const glm::ivec3& regionPosition)
 {
-	TRACY_SCOPE("Scan chunk region directory", ProfileCategory::ChunkBlocks);
+	TRACY_SCOPE_NC("Scan chunk region directory", ProfileCategory::ChunkBlocks);
 
 	AtomicBitset<CHUNK_REGION_VOLUME, size_t> mask;
 

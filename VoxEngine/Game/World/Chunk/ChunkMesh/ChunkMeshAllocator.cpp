@@ -129,7 +129,7 @@ void ChunkMeshAllocator::MeshAllocator::processMeshRequests(const DynamicArray<C
 
 	// Free blocks
 	{
-		TRACY_SCOPE("Free blocks", ProfileCategory::ChunkMesh);
+		TRACY_SCOPE_NC("Free blocks", ProfileCategory::ChunkMesh);
 		for (ChunkMeshFaceStorage* chunkMesh : meshRequests)
 		{
 			if (!config.isCreated(chunkMesh))
@@ -144,7 +144,7 @@ void ChunkMeshAllocator::MeshAllocator::processMeshRequests(const DynamicArray<C
 	// Allocate blocks
 	size_t stopIndex = 0;
 	{
-		TRACY_SCOPE("Allocate blocks", ProfileCategory::ChunkMesh);
+		TRACY_SCOPE_NC("Allocate blocks", ProfileCategory::ChunkMesh);
 		for (ChunkMeshFaceStorage* chunkMesh : meshRequests)
 		{
 			auto faceCount = config.getFaceCount(chunkMesh);
@@ -169,7 +169,7 @@ void ChunkMeshAllocator::MeshAllocator::processMeshRequests(const DynamicArray<C
 	// Allocate more memory
 	size_t newCapacity;
 	{
-		TRACY_SCOPE("Calculate new capacity", ProfileCategory::ChunkMesh);
+		TRACY_SCOPE_NC("Calculate new capacity", ProfileCategory::ChunkMesh);
 		newCapacity = blockAllocator.getLastAllocatedBlockEnd();
 		for (size_t i = stopIndex; i < meshRequests.size(); i++)
 		{
@@ -181,12 +181,12 @@ void ChunkMeshAllocator::MeshAllocator::processMeshRequests(const DynamicArray<C
 	blockAllocator.setCapacity(newCapacity);
 	if (oldCapacity == 0)
 	{
-		TRACY_SCOPE("Allocate storage", ProfileCategory::ChunkMesh);
+		TRACY_SCOPE_NC("Allocate storage", ProfileCategory::ChunkMesh);
 		instanceVBO.allocateStorage(newCapacity * config.faceSize, INSTANCE_VBO_FLAGS);
 	}
 	else
 	{
-		TRACY_SCOPE("Allocate storage and copy old data", ProfileCategory::ChunkMesh);
+		TRACY_SCOPE_NC("Allocate storage and copy old data", ProfileCategory::ChunkMesh);
 
 		// Create new buffer
 		ImmutableBuffer newBuffer;
@@ -214,7 +214,7 @@ void ChunkMeshAllocator::MeshAllocator::processMeshRequests(const DynamicArray<C
 
 	// Allocate the rest of blocks
 	{
-		TRACY_SCOPE("Allocate blocks", ProfileCategory::ChunkMesh);
+		TRACY_SCOPE_NC("Allocate blocks", ProfileCategory::ChunkMesh);
 
 		for (size_t i = stopIndex; i < meshRequests.size(); i++)
 		{

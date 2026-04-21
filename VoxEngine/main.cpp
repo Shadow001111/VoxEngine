@@ -143,7 +143,7 @@ static void setupContainerUI(ContainerUI& c)
         std::vector<std::string> itemTextureNames = AssetRegistry::getItemUITextureNames();
 
         {
-            TRACY_SCOPE("Item ui texture array creation", ProfileCategory::General);
+            TRACY_SCOPE_NC("Item ui texture array creation", ProfileCategory::General);
             TextureLoader::createTextureArrayFromImages(c.itemUITextureArray, "res/ItemUITextures", itemTextureNames, textureLoadParametrs);
         }
 

@@ -196,7 +196,7 @@ static void loadUniqueSounds(
 {
 	auto& sndMgr = SoundManager::getInstance();
 
-	TRACY_SCOPE("Load sounds", ProfileCategory::General);
+	TRACY_SCOPE_NC("Load sounds", ProfileCategory::General);
 
 	std::string logicalName;
 	std::string diskName;
@@ -387,7 +387,7 @@ bool AssetRegistry::linkBlockAssets()
 	stepSounds.reserve(blockCount);
 
 	{
-		TRACY_SCOPE("Link assets", ProfileCategory::General);
+		TRACY_SCOPE_NC("Link assets", ProfileCategory::General);
 
 		for (size_t i = 0; i < blockCount; i++)
 		{

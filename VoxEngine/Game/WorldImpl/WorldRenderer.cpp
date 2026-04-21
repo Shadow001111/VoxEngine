@@ -94,7 +94,7 @@ void WorldRenderer::initTextures(const std::vector<std::string>& blockTextureNam
 		textureLoadParametrs.compression = TextureCompression::Format::AUTO;
 
 		{
-			TRACY_SCOPE("Block texture array creation", ProfileCategory::General);
+			TRACY_SCOPE_NC("Block texture array creation", ProfileCategory::General);
 			TextureLoader::createTextureArrayFromImages(blockTextureArray, "res/BlockTextures", blockTextureNames, textureLoadParametrs);
 		}
 
@@ -143,7 +143,7 @@ void WorldRenderer::initTextures(const std::vector<std::string>& blockTextureNam
 		);
 
 		{
-			TRACY_SCOPE("Noise texture creation", ProfileCategory::General);
+			TRACY_SCOPE_NC("Noise texture creation", ProfileCategory::General);
 			TextureLoader::createTexture3DFromFloatData(tilingPerlinNoise3DTexture, data, textureSize, textureSize, textureSize, textureLoadParametrs);
 		}
 
@@ -264,7 +264,7 @@ void WorldRenderer::collectChunksForRendering(const Camera& camera) const
 {
 	constexpr int CHUNK_REGION_SIZE_IN_BLOCKS = CHUNK_REGION_SIZE * CHUNK_SIZE;
 
-	TRACY_SCOPE("Collect chunks", ProfileCategory::Render);
+	TRACY_SCOPE_NC("Collect chunks", ProfileCategory::Render);
 
 	// Get regions
 	const auto& regions = Chunk::managerInstances->chunkRegion.getRegionMap();
@@ -336,7 +336,7 @@ void WorldRenderer::collectChunksForRendering(const Camera& camera) const
 
 void WorldRenderer::collectChunksForRenderingWithConnectivity(const Camera& camera) const
 {
-	TRACY_SCOPE("Collect chunks (connectivity)", ProfileCategory::Render);
+	TRACY_SCOPE_NC("Collect chunks (connectivity)", ProfileCategory::Render);
 
 	chunksToRender.clear();
 
@@ -484,7 +484,7 @@ void WorldRenderer::collectChunksForRenderingWithConnectivity(const Camera& came
 
 void WorldRenderer::sortChunksForRendering() const
 {
-	TRACY_SCOPE("Sort chunks", ProfileCategory::Render);
+	TRACY_SCOPE_NC("Sort chunks", ProfileCategory::Render);
 
 	// Find max distance
 	unsigned int maxDistance = 0;
@@ -527,7 +527,7 @@ void WorldRenderer::sortChunksForRendering() const
 
 void WorldRenderer::ensureCapacityForChunkRenderBuffers(size_t drawCount)
 {
-	TRACY_SCOPE("Ensure capacity of gpu buffers", ProfileCategory::Render);
+	TRACY_SCOPE_NC("Ensure capacity of gpu buffers", ProfileCategory::Render);
 
 	// Draw commands
 	const size_t drawCommandBufferRequiredCapacity = drawCount * sizeof(DrawArraysIndirectCommand);
@@ -554,7 +554,7 @@ void WorldRenderer::ensureCapacityForChunkRenderBuffers(size_t drawCount)
 
 void WorldRenderer::passDataToChunkRenderBuffers(size_t drawCount)
 {
-	TRACY_SCOPE("Pass data to gpu buffers", ProfileCategory::Render);
+	TRACY_SCOPE_NC("Pass data to gpu buffers", ProfileCategory::Render);
 
 	// Draw commands
 	const size_t drawCommandBufferRequiredCapacity = drawCount * sizeof(DrawArraysIndirectCommand);
@@ -567,11 +567,11 @@ void WorldRenderer::passDataToChunkRenderBuffers(size_t drawCount)
 
 void WorldRenderer::renderChunks(const Camera& camera, const FrameBuffer& FBO)
 {
-	TRACY_SCOPE("Render chunks", ProfileCategory::Render);
+	TRACY_SCOPE_NC("Render chunks", ProfileCategory::Render);
 
 	// Set uniforms
 	{
-		TRACY_SCOPE("Set uniforms", ProfileCategory::Render);
+		TRACY_SCOPE_NC("Set uniforms", ProfileCategory::Render);
 
 		glm::vec3 fogColor = glm::mix(visualSettings.nightBackgroundColor, visualSettings.dayBackgroundColor, references.dayNightCycleValue);
 
@@ -716,7 +716,7 @@ void WorldRenderer::compositePass(const FrameBuffer& FBO) const
 	if (!compositeShader.isValid()) return;
 
 	//
-	TRACY_SCOPE("Composite pass", ProfileCategory::Render);
+	TRACY_SCOPE_NC("Composite pass", ProfileCategory::Render);
 
 #pragma region GetTextures
 	auto getTextureResult = FBO.getTexture("color");
@@ -884,11 +884,11 @@ void WorldRenderer::update()
 
 void WorldRenderer::render(const Camera& camera, const FrameBuffer& FBO, const RaycastResult& raycast)
 {
-	TRACY_SCOPE("World render", ProfileCategory::Render);
+	TRACY_SCOPE_NC("World render", ProfileCategory::Render);
 
 	// Clear buffers
 	{
-		TRACY_SCOPE("Clear buffers", ProfileCategory::Render);
+		TRACY_SCOPE_NC("Clear buffers", ProfileCategory::Render);
 
 		//const float color[] = { 0.0f, 0.0f, 0.0f, 1.0f };
 		//FBO.clearDrawBuffer("color", color);

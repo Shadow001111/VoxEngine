@@ -196,7 +196,7 @@ void SoundManager::play(const std::string& name, float pitch, float gain, bool l
 
 void SoundManager::update()
 {
-	TRACY_SCOPE("SoundManager update", ProfileCategory::General);
+	TRACY_SCOPE_NC("SoundManager update", ProfileCategory::General);
 
 	for (size_t i = 0; i < sources.size();)
 	{

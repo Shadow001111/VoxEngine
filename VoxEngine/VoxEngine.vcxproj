@@ -225,6 +225,7 @@
     <ClInclude Include="Core\MemoryAllocation\AlignedStorage.h" />
     <ClInclude Include="Core\Simd.h" />
     <ClInclude Include="Game\ProfileCategories.h" />
+    <ClInclude Include="Game\TracyProfiler.h" />
     <ClInclude Include="Game\World\ChunkRegionManager.h" />
     <ClInclude Include="Game\World\Chunk\ChunkIO.h" />
     <ClInclude Include="Game\World\Chunk\ChunkMesh\ChunkMesh.h" />
@@ -302,7 +303,7 @@
     <ClInclude Include="Core\Stream\StreamReader.h" />
     <ClInclude Include="Core\Stream\StreamWriter.h" />
     <ClInclude Include="Core\Multithreading\move_only_function.h" />
-    <ClInclude Include="Game\TracyProfiler.h" />
+    <ClInclude Include="Core\TracyProfiler.h" />
     <ClInclude Include="WindowManager.h" />
     <ClInclude Include="Game\WorldImpl\WorldChunkManager.h" />
     <ClInclude Include="Game\WorldImpl\WorldRenderer.h" />

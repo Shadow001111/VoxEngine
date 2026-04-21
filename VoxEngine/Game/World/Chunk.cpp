@@ -38,7 +38,7 @@ static uint32_t hash3(const glm::ivec3& p)
 // Prepares chunk for use
 void Chunk::init(const glm::ivec3& newPosition, const std::array<Chunk*, 27>& newNeighbors, ChunkRegion* newParentRegion)
 {
-	TRACY_SCOPE("Chunk init", ProfileCategory::ChunkLoadUnload);
+	TRACY_SCOPE_NC("Chunk init", ProfileCategory::ChunkLoadUnload);
 
 	// Set position and parent region
 	position = newPosition;
@@ -80,7 +80,7 @@ void Chunk::init(const glm::ivec3& newPosition, const std::array<Chunk*, 27>& ne
 // Cleans up resources
 void Chunk::destroy()
 {
-	TRACY_SCOPE("Chunk destroy", ProfileCategory::ChunkLoadUnload);
+	TRACY_SCOPE_NC("Chunk destroy", ProfileCategory::ChunkLoadUnload);
 
 	// Release chunk column data
 	if (chunkFlags.readAndSet(Flag::IsLoadedChunkColumnData, false))
@@ -158,14 +158,14 @@ void Chunk::buildBlocks()
 		return;
 	}
 
-	TRACY_SCOPE("Build chunk blocks", ProfileCategory::ChunkBlocks);
+	TRACY_SCOPE_NC("Build chunk blocks", ProfileCategory::ChunkBlocks);
 
 	FenceGuard scopedFence(processingFence);
 
 	// Reset blocks
 	static_assert(sizeof(BlockId) == 1, "Memset won't work properly if size isn't 1");
 	{
-		TRACY_SCOPE("Memset", ProfileCategory::General);
+		TRACY_SCOPE_NC("Memset", ProfileCategory::General);
 		std::memset(blocks, CACHED_BLOCK_IDS.airId, sizeof(blocks));
 	}
 
@@ -188,7 +188,7 @@ void Chunk::buildBlocks()
 	if (isInTerrainRange || isInWaterRange)
 	{
 		{
-			TRACY_SCOPE("Build terrain", ProfileCategory::ChunkBlocks);
+			TRACY_SCOPE_NC("Build terrain", ProfileCategory::ChunkBlocks);
 
 			// Important to keep layers connected, so 'index' won't go out of sync
 			const int globalChunkY = position.y * CHUNK_SIZE;
@@ -267,7 +267,7 @@ void Chunk::buildBlocks()
 			alignas(SimdF::bytes) bool caveMask[CHUNK_VOLUME];
 			TerrainGenerator::getInstance().computeCaveMask(caveMask, position.x, position.y, position.z);
 
-			TRACY_SCOPE("Generate caves", ProfileCategory::ChunkBlocks);
+			TRACY_SCOPE_NC("Generate caves", ProfileCategory::ChunkBlocks);
 
 			for (int i = 0; i < CHUNK_VOLUME; i++)
 			{
@@ -282,7 +282,7 @@ void Chunk::buildBlocks()
 	// Trees
 	// TODO: Fix, trees spawning in air
 	{
-		TRACY_SCOPE("Generate trees", ProfileCategory::ChunkBlocks);
+		TRACY_SCOPE_NC("Generate trees", ProfileCategory::ChunkBlocks);
 	
 		const ivec2Hasher hasher;
 
@@ -325,7 +325,7 @@ void Chunk::buildBlocks()
 
 	// Incoming structures
 	{
-		TRACY_SCOPE("Apply incoming structural changes", ProfileCategory::ChunkBlocks);
+		TRACY_SCOPE_NC("Apply incoming structural changes", ProfileCategory::ChunkBlocks);
 
 		auto pendingChanges = managerInstances->structureBlock.retrieveAndClearChanges(position);
 		for (const auto& change : pendingChanges)
@@ -356,7 +356,7 @@ void Chunk::buildBlocks()
 
 void Chunk::updateStructureBlocks()
 {
-	TRACY_SCOPE("Update chunk structure blocks", ProfileCategory::ChunkBlocks);
+	TRACY_SCOPE_NC("Update chunk structure blocks", ProfileCategory::ChunkBlocks);
 
 	FenceGuard scopedFence(processingFence);
 
@@ -512,7 +512,7 @@ void Chunk::loadSave()
 	size_t indexInRegion = ChunkRegion::getChunkIndexInRegion(position);
 	bool hasSavedData;
 	{
-		TRACY_SCOPE("Check for saved data", ProfileCategory::ChunkBlocks);
+		TRACY_SCOPE_NC("Check for saved data", ProfileCategory::ChunkBlocks);
 		hasSavedData = parentRegion->hasSavedData(indexInRegion);
 	}
 	if (!hasSavedData) return;
@@ -537,7 +537,7 @@ void Chunk::save() const
 
 uint32_t Chunk::propagateBlockLight()
 {
-	TRACY_SCOPE("Propagate block light", ProfileCategory::ChunkLight);
+	TRACY_SCOPE_NC("Propagate block light", ProfileCategory::ChunkLight);
 
 	uint32_t neighborDirtyMask = 0;
 	while (!LightPropagationStorage::threadLocalBlockLightPropagation.empty())
@@ -621,7 +621,7 @@ uint32_t Chunk::propagateBlockLight()
 
 uint32_t Chunk::propagateSkyLight()
 {
-	TRACY_SCOPE("Propagate sky light", ProfileCategory::ChunkLight);
+	TRACY_SCOPE_NC("Propagate sky light", ProfileCategory::ChunkLight);
 
 	constexpr std::array<int, 4> horizontalDirections{ 0, 1, 4, 5 };
 
@@ -781,7 +781,7 @@ uint32_t Chunk::propagateSkyLight()
 
 uint32_t Chunk::propagateBlockLightRemoval()
 {
-	TRACY_SCOPE("Propagate block light removal", ProfileCategory::ChunkLight);
+	TRACY_SCOPE_NC("Propagate block light removal", ProfileCategory::ChunkLight);
 
 	uint32_t neighborDirtyMask = 0;
 	while (!LightPropagationStorage::threadLocalBlockLightRemoval.empty())
@@ -863,7 +863,7 @@ uint32_t Chunk::propagateBlockLightRemoval()
 
 uint32_t Chunk::propagateSkyLightRemoval()
 {
-	TRACY_SCOPE("Propagate sky light removal", ProfileCategory::ChunkLight);
+	TRACY_SCOPE_NC("Propagate sky light removal", ProfileCategory::ChunkLight);
 
 	uint32_t neighborDirtyMask = 0;
 	while (!LightPropagationStorage::threadLocalSkyLightRemoval.empty())
@@ -953,13 +953,13 @@ void Chunk::buildLight()
 		return;
 	}
 
-	TRACY_SCOPE("Build chunk light", ProfileCategory::ChunkLight);
+	TRACY_SCOPE_NC("Build chunk light", ProfileCategory::ChunkLight);
 
 	FenceGuard scopedFence(processingFence);
 
 	// Reset light levels
 	{
-		TRACY_SCOPE("Memset", ProfileCategory::General);
+		TRACY_SCOPE_NC("Memset", ProfileCategory::General);
 		std::memset(lightLevels, 0, sizeof(lightLevels));
 	}
 
@@ -967,7 +967,7 @@ void Chunk::buildLight()
 
 	// Collect block light sources
 	{
-		TRACY_SCOPE("Collect block light sources", ProfileCategory::ChunkLight);
+		TRACY_SCOPE_NC("Collect block light sources", ProfileCategory::ChunkLight);
 		for (int x = 0; x < CHUNK_SIZE; x++)
 		for (int y = 0; y < CHUNK_SIZE; y++)
 		for (int z = 0; z < CHUNK_SIZE; z++)
@@ -994,12 +994,12 @@ void Chunk::buildLight()
 	// Collect sky light sources
 	if (!topNeighbor)
 	{
-		TRACY_SCOPE("Collect sky light sources", ProfileCategory::ChunkLight);
+		TRACY_SCOPE_NC("Collect sky light sources", ProfileCategory::ChunkLight);
 
 		// Compute local heightmap for this chunk
 		std::array<int, CHUNK_AREA> heightMap{};
 		{
-			TRACY_SCOPE("Compute local heightmap", ProfileCategory::ChunkLight);
+			TRACY_SCOPE_NC("Compute local heightmap", ProfileCategory::ChunkLight);
 			heightMap.fill(-1);
 			for (int x = 0; x < CHUNK_SIZE; x++)
 			{
@@ -1025,7 +1025,7 @@ void Chunk::buildLight()
 		addNodeHeightMap.fill(MAX_LOCAL_HEIGHT); // Unfilled values will make nodes appear on every y coord
 		// Coords won't be on border, so values on borders won't change
 		{
-			TRACY_SCOPE("Compute height for nods", ProfileCategory::ChunkLight);
+			TRACY_SCOPE_NC("Compute height for nods", ProfileCategory::ChunkLight);
 			for (int x = 1; x < CHUNK_SIZE - 1; x++)
 			{
 				for (int z = 1; z < CHUNK_SIZE - 1; z++)
@@ -1052,7 +1052,7 @@ void Chunk::buildLight()
 		
 		// Create nodes and fill light levels
 		{
-			TRACY_SCOPE("Create nodes and fill light levels", ProfileCategory::ChunkLight);
+			TRACY_SCOPE_NC("Create nodes and fill light levels", ProfileCategory::ChunkLight);
 			for (int x = 0; x < CHUNK_SIZE; x++)
 			{
 				for (int z = 0; z < CHUNK_SIZE; z++)
@@ -1102,7 +1102,7 @@ void Chunk::buildLight()
 	// Collect light from neighbors
 	// TODO: If neighbor block is solid, then check if it's a light source and propagate from it
 	{
-		TRACY_SCOPE("Collect light levels from neighbors", ProfileCategory::ChunkLight);
+		TRACY_SCOPE_NC("Collect light levels from neighbors", ProfileCategory::ChunkLight);
 
 		auto processNeighborFace = [&](int x, int y, int z, int nx, int ny, int nz, const Chunk* neighbor, bool propagatingFromTop)
 			{
@@ -1225,7 +1225,7 @@ void Chunk::buildLight()
 	// Let neighbor chunks' lights be updated
 	bool hasNeighborToUpdate = false;
 	{
-		TRACY_SCOPE("Let neighbor chunks be updated", ProfileCategory::ChunkLight);
+		TRACY_SCOPE_NC("Let neighbor chunks be updated", ProfileCategory::ChunkLight);
 		for (int i = 0; i < 6; i++)
 		{
 			auto index = getSideNeighborIndex(i);
@@ -1250,7 +1250,7 @@ void Chunk::updateLight()
 		return;
 	}
 
-	TRACY_SCOPE("Update chunk light", ProfileCategory::ChunkLight);
+	TRACY_SCOPE_NC("Update chunk light", ProfileCategory::ChunkLight);
 
 	FenceGuard scopedFence(processingFence);
 
@@ -1276,7 +1276,7 @@ void Chunk::updateLight()
 	// Let neighbor chunks' lights be updated
 	bool hasNeighborToUpdate = false;
 	{
-		TRACY_SCOPE("Let neighbor chunks be updated", ProfileCategory::ChunkLight);
+		TRACY_SCOPE_NC("Let neighbor chunks be updated", ProfileCategory::ChunkLight);
 		for (int i = 0; i < 6; i++)
 		{
 			auto index = getSideNeighborIndex(i);
@@ -1303,7 +1303,7 @@ void Chunk::updateMesh()
 	
 	FenceGuard scopedFence(processingFence);
 
-	TRACY_SCOPE("Update chunk mesh", ProfileCategory::ChunkMesh);
+	TRACY_SCOPE_NC("Update chunk mesh", ProfileCategory::ChunkMesh);
 
 	// Collect visible faces
 	{
@@ -1571,7 +1571,7 @@ void Chunk::updateConnectivity()
 		return;
 	}
 
-	TRACY_SCOPE("Compute chunk connectivity", ProfileCategory::General);
+	TRACY_SCOPE_NC("Compute chunk connectivity", ProfileCategory::General);
 
 	sideConnectivity.reset();
 
@@ -1778,7 +1778,7 @@ uint32_t Chunk::getNeighborDirtyMask(int x, int y, int z) noexcept
 
 void Chunk::applyNeighborDirtyMask(uint32_t mask) noexcept
 {
-	TRACY_SCOPE("Apply neighbor dirty mask", ProfileCategory::General);
+	TRACY_SCOPE_NC("Apply neighbor dirty mask", ProfileCategory::General);
 
 	// Using a loop with bit manipulation because it should reduce the number of branching and memory fetchesd
 

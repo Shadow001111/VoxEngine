@@ -126,7 +126,7 @@ const ChunkColumnData* TerrainGenerator::loadChunkColumnData(int chunkX, int chu
 {
 	ChunkColumnData* column;
 	{
-		TRACY_SCOPE("Load ChunkColumnData", ProfileCategory::ChunkColumnData);
+		TRACY_SCOPE_NC("Load ChunkColumnData", ProfileCategory::ChunkColumnData);
 
 		glm::ivec2 pos(chunkX, chunkZ);
 
@@ -179,7 +179,7 @@ const ChunkColumnData* TerrainGenerator::loadChunkColumnData(int chunkX, int chu
 
 const ChunkColumnData* TerrainGenerator::getChunkColumnData(int chunkX, int chunkZ)
 {
-	TRACY_SCOPE("Get ChunkColumnData", ProfileCategory::ChunkColumnData);
+	TRACY_SCOPE_NC("Get ChunkColumnData", ProfileCategory::ChunkColumnData);
 
 	glm::ivec2 pos(chunkX, chunkZ);
 
@@ -194,7 +194,7 @@ const ChunkColumnData* TerrainGenerator::getChunkColumnData(int chunkX, int chun
 
 void TerrainGenerator::unloadChunkColumnData(int chunkX, int chunkZ)
 {
-	TRACY_SCOPE("Unload ChunkColumnData", ProfileCategory::ChunkColumnData);
+	TRACY_SCOPE_NC("Unload ChunkColumnData", ProfileCategory::ChunkColumnData);
 
 	ChunkColumnData* columnToRelease = nullptr;
 	{
@@ -236,7 +236,7 @@ void TerrainGenerator::computeCaveMask(bool* outArray, int chunkX, int chunkY, i
 	constexpr float caveNoiseFrequency = 0.6f;
 
 	{
-		TRACY_SCOPE("Cave mask: compute worley noise", ProfileCategory::TerrainGeneration);
+		TRACY_SCOPE_NC("Cave mask: compute worley noise", ProfileCategory::TerrainGeneration);
 
 		NoiseParams params;
 		params.frequency = caveNoiseFrequency;
@@ -246,7 +246,7 @@ void TerrainGenerator::computeCaveMask(bool* outArray, int chunkX, int chunkY, i
 	}
 
 	{
-		TRACY_SCOPE("Cave mask: compute simplex noise", ProfileCategory::TerrainGeneration);
+		TRACY_SCOPE_NC("Cave mask: compute simplex noise", ProfileCategory::TerrainGeneration);
 
 		NoiseParams params;
 		params.frequency = caveNoiseFrequency * 2.0f;
@@ -256,7 +256,7 @@ void TerrainGenerator::computeCaveMask(bool* outArray, int chunkX, int chunkY, i
 
 	// Simplex noise is used to smooth out upscaled worley noise, making caves less blocky
 	{
-		TRACY_SCOPE("Cave mask: combine noises", ProfileCategory::TerrainGeneration);
+		TRACY_SCOPE_NC("Cave mask: combine noises", ProfileCategory::TerrainGeneration);
 
 		constexpr float minThreshold = 0.38f;
 		constexpr float maxThreshold = 0.45f;
@@ -330,7 +330,7 @@ size_t TerrainGenerator::getChunkColumnDataCount() const
 
 void TerrainGenerator::initChunkColumnData(ChunkColumnData* column, int chunkX, int chunkZ)
 {
-	TRACY_SCOPE("Init chunk column data", ProfileCategory::TerrainGeneration);
+	TRACY_SCOPE_NC("Init chunk column data", ProfileCategory::TerrainGeneration);
 
 	column->init(chunkX, chunkZ);
 	auto heightMap = column->heightMapWrite();
@@ -380,7 +380,7 @@ void TerrainGenerator::computeInitialHeightMap(int* heightMap, int chunkX, int c
 		threadLocalData = std::make_unique<ThreadLocalData>();
 	}
 
-	TRACY_SCOPE("Compute height map", ProfileCategory::TerrainGeneration);
+	TRACY_SCOPE_NC("Compute height map", ProfileCategory::TerrainGeneration);
 
 	// Compute noise arrays
 	{

@@ -11,7 +11,7 @@ DynamicArray<Chunk*> ChunkMesh::pendingMeshUploads;
 
 void ChunkMesh::sendMeshesToGPU()
 {
-	TRACY_SCOPE("Send chunk meshes to GPU", ProfileCategory::ChunkMesh);
+	TRACY_SCOPE_NC("Send chunk meshes to GPU", ProfileCategory::ChunkMesh);
 
 	// Check if there are any uploads
 	if (pendingMeshUploads.empty())
@@ -23,7 +23,7 @@ void ChunkMesh::sendMeshesToGPU()
 
 	// Mark meshes as being processed
 	{
-		TRACY_SCOPE("Lock processing fence", ProfileCategory::ChunkMesh);
+		TRACY_SCOPE_NC("Lock processing fence", ProfileCategory::ChunkMesh);
 		for (Chunk* chunk : pendingMeshUploads)
 		{
 			chunk->mesh.faceStorage.processingFence.startProcessing();
@@ -36,7 +36,7 @@ void ChunkMesh::sendMeshesToGPU()
 		r.reserve(uploadCount);
 
 	{
-		TRACY_SCOPE("Collect requests", ProfileCategory::ChunkMesh);
+		TRACY_SCOPE_NC("Collect requests", ProfileCategory::ChunkMesh);
 		for (Chunk* chunk : pendingMeshUploads)
 		{
 			ChunkMeshFaceStorage& faceStorage = chunk->mesh.faceStorage;
@@ -52,14 +52,14 @@ void ChunkMesh::sendMeshesToGPU()
 	// Allocate memory for meshes
 	auto& allocator = ChunkMeshAllocator::getInstance();
 	{
-		TRACY_SCOPE("Allocate memory for meshes", ProfileCategory::ChunkMesh);
+		TRACY_SCOPE_NC("Allocate memory for meshes", ProfileCategory::ChunkMesh);
 		allocator.processMeshAllocationRequests(requests);
 	}
 
 	// Upload face data
 	{
 		// Note: If it takes too long, that's when VBO buffer have been reallocated
-		TRACY_SCOPE("Upload face data and update mesh data", ProfileCategory::ChunkMesh);
+		TRACY_SCOPE_NC("Upload face data and update mesh data", ProfileCategory::ChunkMesh);
 		for (Chunk* chunk : pendingMeshUploads)
 		{
 			ChunkMeshFaceStorage& faceStorage = chunk->mesh.faceStorage;

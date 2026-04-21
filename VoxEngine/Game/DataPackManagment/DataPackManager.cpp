@@ -42,7 +42,7 @@ void DataPackManager::loadAllDataPacks()
 
     // Load all packs
     {
-        //TRACY_SCOPE("Load data packs", ProfileCategory::General);
+        //TRACY_SCOPE_NC("Load data packs", ProfileCategory::General);
         for (const auto& entry : fs::directory_iterator(packsDir))
         {
             if (entry.is_directory())
@@ -85,7 +85,7 @@ void DataPackManager::loadDataPack(const fs::path& dataPackPath)
 
     // Load assets
     {
-        //TRACY_SCOPE("BlocksAAAAAA", ProfileCategory::General);
+        //TRACY_SCOPE_NC("BlocksAAAAAA", ProfileCategory::General);
         loadBlocks(dataPackPath, metadata.id);
     }
     loadBlockModels(dataPackPath, metadata.id);

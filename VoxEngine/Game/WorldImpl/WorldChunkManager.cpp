@@ -58,7 +58,7 @@ void WorldChunkManager::loadChunksAroundPlayer(const glm::dvec3& playerPos, int 
 
 	// Update chunk loaders
 	{
-		TRACY_SCOPE("Update chunk loaders", ProfileCategory::ChunkLoadUnload);
+		TRACY_SCOPE_NC("Update chunk loaders", ProfileCategory::ChunkLoadUnload);
 		for (auto& chunkLoader : chunkLoaders)
 		{
 			chunkLoader->update(chunkLoaderPos, chunkLoadingDistance);
@@ -67,7 +67,7 @@ void WorldChunkManager::loadChunksAroundPlayer(const glm::dvec3& playerPos, int 
 
 	// Load chunks
 	{
-		TRACY_SCOPE("Load chunks around player", ProfileCategory::ChunkLoadUnload);
+		TRACY_SCOPE_NC("Load chunks around player", ProfileCategory::ChunkLoadUnload);
 		for (auto& chunkLoader : chunkLoaders)
 		{
 			const auto& positions = chunkLoader->getChunksToLoad();
@@ -80,7 +80,7 @@ void WorldChunkManager::loadChunksAroundPlayer(const glm::dvec3& playerPos, int 
 
 	// Unload chunks
 	{
-		TRACY_SCOPE("Unload chunks far from player", ProfileCategory::ChunkLoadUnload);
+		TRACY_SCOPE_NC("Unload chunks far from player", ProfileCategory::ChunkLoadUnload);
 		for (auto& chunkLoader : chunkLoaders)
 		{
 			const auto& positions = chunkLoader->getChunksToUnload();
@@ -152,7 +152,7 @@ void WorldChunkManager::sendChunkMeshesToGPU()
 	}
 
 	{
-		TRACY_SCOPE("Check dirty meshes to send to GPU", ProfileCategory::ChunkMesh);
+		TRACY_SCOPE_NC("Check dirty meshes to send to GPU", ProfileCategory::ChunkMesh);
 
 		for (const auto& [_, chunkRegion] : Chunk::managerInstances->chunkRegion.getRegionMap())
 		{
@@ -213,12 +213,12 @@ bool WorldChunkManager::chunkExistsAt(const glm::ivec3& chunkPosition) const
 
 void WorldChunkManager::startBuildingChunkBlocks()
 {
-	TRACY_SCOPE("Start building chunk blocks", ProfileCategory::ChunkLight);
+	TRACY_SCOPE_NC("Start building chunk blocks", ProfileCategory::ChunkLight);
 
 	// Validate and collect chunks
 	chunksToProcess.clear();
 	{
-		TRACY_SCOPE("Validate chunks for block building", ProfileCategory::ChunkBlocks);
+		TRACY_SCOPE_NC("Validate chunks for block building", ProfileCategory::ChunkBlocks);
 
 		size_t chunkCount = buildContainers.blocks.size();
 		for (size_t i = 0; i < chunkCount;)
@@ -245,7 +245,7 @@ void WorldChunkManager::startBuildingChunkBlocks()
 	// Submit chunks to thread pool
 	if (!chunksToProcess.empty())
 	{
-		TRACY_SCOPE("Send chunks to block building", ProfileCategory::ChunkBlocks);
+		TRACY_SCOPE_NC("Send chunks to block building", ProfileCategory::ChunkBlocks);
 
 		ThreadPool& pool = ParallelUtils::getGlobalThreadPool();
 
@@ -275,7 +275,7 @@ void WorldChunkManager::startBuildingChunkBlocks()
 
 void WorldChunkManager::startBuildingChunkLights()
 {
-	TRACY_SCOPE("Start building chunk lights", ProfileCategory::ChunkLight);
+	TRACY_SCOPE_NC("Start building chunk lights", ProfileCategory::ChunkLight);
 
 	chunksToProcess.clear();
 
@@ -283,7 +283,7 @@ void WorldChunkManager::startBuildingChunkLights()
 	static robin_hood::unordered_flat_set<Chunk*> localIncoming;
 	localIncoming.clear();
 	{
-		TRACY_SCOPE("Sync Light Containers", ProfileCategory::ChunkLight);
+		TRACY_SCOPE_NC("Sync Light Containers", ProfileCategory::ChunkLight);
 		std::lock_guard<LockableBase(std::mutex)> lock(buildContainers.lightsMutex);
 		if (!buildContainers.lightsIncoming.empty())
 		{
@@ -301,7 +301,7 @@ void WorldChunkManager::startBuildingChunkLights()
 
 	// 3. Process the local set (No lock held here!)
 	{
-		TRACY_SCOPE("Check Ready Chunks", ProfileCategory::ChunkLight);
+		TRACY_SCOPE_NC("Check Ready Chunks", ProfileCategory::ChunkLight);
 
 		// We use an iterator to erase chunks as they become ready
 		for (auto it = buildContainers.lightsProcessing.begin(); it != buildContainers.lightsProcessing.end();)
@@ -343,7 +343,7 @@ void WorldChunkManager::startBuildingChunkLights()
 	// 4. Submit chunks to thread pool
 	if (!chunksToProcess.empty())
 	{
-		TRACY_SCOPE("Send chunks to light building", ProfileCategory::ChunkLight);
+		TRACY_SCOPE_NC("Send chunks to light building", ProfileCategory::ChunkLight);
 		ThreadPool& pool = ParallelUtils::getGlobalThreadPool();
 		const size_t chunkCount = chunksToProcess.size();
 
@@ -374,7 +374,7 @@ void WorldChunkManager::collectChunksForLightUpdate()
 		return;
 	}
 
-	TRACY_SCOPE("Collect chunks for light update", ProfileCategory::ChunkLight);
+	TRACY_SCOPE_NC("Collect chunks for light update", ProfileCategory::ChunkLight);
 
 	for (const auto& [_, chunkRegion] : Chunk::managerInstances->chunkRegion.getRegionMap())
 	{
@@ -432,7 +432,7 @@ void WorldChunkManager::updateChunkMeshes()
 
 	// Collect chunks
 	{
-		TRACY_SCOPE("Collect chunks for mesh updating", ProfileCategory::ChunkMesh);
+		TRACY_SCOPE_NC("Collect chunks for mesh updating", ProfileCategory::ChunkMesh);
 
 		for (const auto& [_, chunkRegion] : Chunk::managerInstances->chunkRegion.getRegionMap())
 		{
@@ -490,7 +490,7 @@ void WorldChunkManager::updateChunkConnectivity()
 
 	// Collect chunks
 	{
-		TRACY_SCOPE("Collect chunks for connectivity updating", ProfileCategory::General);
+		TRACY_SCOPE_NC("Collect chunks for connectivity updating", ProfileCategory::General);
 
 		for (const auto& [_, chunkRegion] : Chunk::managerInstances->chunkRegion.getRegionMap())
 		{
@@ -556,7 +556,7 @@ void WorldChunkManager::loadChunk(const glm::ivec3& chunkPosition)
 	size_t index;
 
 	{
-		TRACY_SCOPE("Get region", ProfileCategory::ChunkLoadUnload);
+		TRACY_SCOPE_NC("Get region", ProfileCategory::ChunkLoadUnload);
 
 		regionPosition = ChunkRegion::getRegionPosition(chunkPosition);
 		region = Chunk::managerInstances->chunkRegion.getOrCreateRegion(regionPosition);
@@ -573,7 +573,7 @@ void WorldChunkManager::loadChunk(const glm::ivec3& chunkPosition)
 	// Find existing neighbors
 	std::array<Chunk*, 27> neighbors{ nullptr };
 	{
-		TRACY_SCOPE("Collect chunk neighbors", ProfileCategory::ChunkLoadUnload);
+		TRACY_SCOPE_NC("Collect chunk neighbors", ProfileCategory::ChunkLoadUnload);
 		collectChunkNeighbors(chunkPosition, neighbors);
 	}
 
@@ -585,7 +585,7 @@ void WorldChunkManager::loadChunk(const glm::ivec3& chunkPosition)
 
 	// Send chunk to building blocks
 	{
-		TRACY_SCOPE("Insert in build block container", ProfileCategory::ChunkLoadUnload);
+		TRACY_SCOPE_NC("Insert in build block container", ProfileCategory::ChunkLoadUnload);
 		buildContainers.blocks.push_back(chunk);
 	}
 

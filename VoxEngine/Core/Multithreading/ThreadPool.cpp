@@ -2,6 +2,8 @@
 
 #include "FileLogger.h"
 
+#include "Core/TracyProfiler.h"
+
 ThreadPool::ThreadPool(int numThreads)
 {
     if (numThreads == 0)
@@ -16,7 +18,7 @@ ThreadPool::ThreadPool(int numThreads)
     workers.reserve(numThreads);
     for (size_t i = 0; i < numThreads; i++)
     {
-        workers.emplace_back(&ThreadPool::workerThread, this);
+        workers.emplace_back(&ThreadPool::workerThread, this, i);
     }
 }
 
@@ -47,8 +49,13 @@ void ThreadPool::shutdown()
     workers.clear();
 }
 
-void ThreadPool::workerThread()
+void ThreadPool::workerThread(int id)
 {
+    {
+        std::string threadName = std::to_string(id);
+        tracy::SetThreadName(threadName.c_str());
+    }
+
     Task task;
     while (true)
     {

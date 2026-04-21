@@ -54,7 +54,7 @@ public:
     size_t getTaskCount() const { return tasks.size(); }
     size_t getTaskTotalCount() const { return taskTotalCount.load(std::memory_order_relaxed); }
 private:
-	void workerThread();
+	void workerThread(int id);
 };
 
 template<class F, class ...Args>

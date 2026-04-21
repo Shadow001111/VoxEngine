@@ -452,6 +452,9 @@
     <ClInclude Include="Core\Container\Queue.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
+    <ClInclude Include="Core\TracyProfiler.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
     <ClInclude Include="Game\TracyProfiler.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
