@@ -5,9 +5,9 @@
 #include <future>
 #include <functional>
 #include <atomic>
+#include <queue>
 
 #include "Core/Container/DynamicArray.h"
-#include <queue>
 
 #if defined(__cpp_lib_move_only_function) && __cpp_lib_move_only_function >= 202110L
 #include <functional>
@@ -26,7 +26,7 @@ class ThreadPool
 
     DynamicArray<std::thread> workers;
     TaskQueue tasks;
-	std::mutex queueMutex;
+    std::mutex queueMutex;
 	std::condition_variable newTaskCondition;
     std::condition_variable completionCondition;
     std::atomic<bool> stop{ false };
@@ -72,7 +72,7 @@ inline void ThreadPool::enqueue(F&& f, Args && ...args)
 
     // Push the task into the queue
     {
-        std::unique_lock<std::mutex> lock(queueMutex);
+        std::unique_lock lock(queueMutex);
         tasks.push(std::move(task));
     }
     newTaskCondition.notify_one();
@@ -97,7 +97,7 @@ inline auto ThreadPool::enqueueFuture(F&& f, Args && ...args) -> std::future<typ
     std::future<return_type> res = task.get_future();
     
     {
-        std::unique_lock<std::mutex> lock(queueMutex);
+        std::unique_lock lock(queueMutex);
         tasks.emplace([task = std::move(task)]() mutable { task(); });
     }
     newTaskCondition.notify_one();

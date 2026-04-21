@@ -3,8 +3,6 @@
 
 #include "Game/TracyProfiler.h"
 
-#include "Game/ProfileCategories.h"
-
 #include "ChunkMeshAllocator.h"
 
 DynamicArray<Chunk*> ChunkMesh::pendingMeshUploads;

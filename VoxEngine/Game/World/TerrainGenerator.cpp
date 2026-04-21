@@ -64,7 +64,7 @@ void ChunkColumnData::setToInitialized()
 
 ChunkColumnData* TerrainGenerator::ChunkColumnDataPool::acquire()
 {
-	std::lock_guard<std::mutex> lock(poolMutex);
+	std::lock_guard lock(poolMutex);
 	return FixedArenaObjectPool::acquire();
 }
 
@@ -72,7 +72,7 @@ void TerrainGenerator::ChunkColumnDataPool::release(ChunkColumnData* chunkColumn
 {
 	chunkColumnData->destroy();
 
-	std::lock_guard<std::mutex> lock(poolMutex);
+	std::lock_guard lock(poolMutex);
 	pool.push_back(chunkColumnData);
 }
 
@@ -132,7 +132,7 @@ const ChunkColumnData* TerrainGenerator::loadChunkColumnData(int chunkX, int chu
 
 		// Check if column already exists
 		{
-			std::lock_guard<std::mutex> lock(dataMutex);
+			std::lock_guard lock(dataMutex);
 			auto it = chunkColumnData.find(pos);
 			if (it != chunkColumnData.end())
 			{
@@ -147,7 +147,7 @@ const ChunkColumnData* TerrainGenerator::loadChunkColumnData(int chunkX, int chu
 
 		{
 			// Check again in case another thread created it while we were acquiring from pool
-			std::lock_guard<std::mutex> lock(dataMutex);
+			std::lock_guard lock(dataMutex);
 
 			ChunkColumnData* foundColumn = nullptr;
 			bool isColumnFound = false;
@@ -183,7 +183,7 @@ const ChunkColumnData* TerrainGenerator::getChunkColumnData(int chunkX, int chun
 
 	glm::ivec2 pos(chunkX, chunkZ);
 
-	std::lock_guard<std::mutex> lock(dataMutex);
+	std::lock_guard lock(dataMutex);
 	const auto& it = chunkColumnData.find(pos);
 	if (it != chunkColumnData.end())
 	{
@@ -198,7 +198,7 @@ void TerrainGenerator::unloadChunkColumnData(int chunkX, int chunkZ)
 
 	ChunkColumnData* columnToRelease = nullptr;
 	{
-		std::lock_guard<std::mutex> lock(dataMutex);
+		std::lock_guard lock(dataMutex);
 
 		glm::ivec2 pos(chunkX, chunkZ);
 		auto it = chunkColumnData.find(pos);
@@ -324,7 +324,7 @@ void TerrainGenerator::computeCaveMask(bool* outArray, int chunkX, int chunkY, i
 
 size_t TerrainGenerator::getChunkColumnDataCount() const
 {
-	std::lock_guard<std::mutex> lock(dataMutex);
+	std::lock_guard lock(dataMutex);
 	return chunkColumnData.size();
 }
 

@@ -1674,7 +1674,7 @@ void Chunk::updateConnectivity()
 
 	//{
 	//	static std::mutex mtx;
-	//	std::lock_guard<std::mutex> lock(mtx);
+	//	std::lock_guard lock(mtx);
 	//
 	//	for (int i = 0; i < 6; i++)
 	//	{
@@ -1691,7 +1691,7 @@ void Chunk::updateConnectivity()
 	// Print
 	//{
 	//	static std::mutex mtx;
-	//	std::lock_guard<std::mutex> lock(mtx);
+	//	std::lock_guard lock(mtx);
 	//
 	//	std::cout << "Chunk:\n";
 	//	//for (int i = 0; i < 6; i++)

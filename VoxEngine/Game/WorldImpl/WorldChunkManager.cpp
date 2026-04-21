@@ -400,6 +400,8 @@ void WorldChunkManager::collectChunksForLightUpdate()
 
 void WorldChunkManager::updateChunkLights()
 {
+	TRACY_SCOPE_NC("Update chunk lights", ProfileCategory::ChunkLight);
+
 	// Using parallelForEach because it will assure that all tasks are done before returning
 	// Update chunks in two separate passes in checkboard pattern to make less iterations
 	// Could make this non-blocking, but I don't want to get more work because of it (idk what's better)

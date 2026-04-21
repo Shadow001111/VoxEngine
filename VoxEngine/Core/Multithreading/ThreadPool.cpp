@@ -30,7 +30,7 @@ ThreadPool::~ThreadPool()
 void ThreadPool::shutdown()
 {
     {
-        std::unique_lock<std::mutex> lock(queueMutex);
+        std::unique_lock lock(queueMutex);
 
         completionCondition.wait(lock, [this]
             {
@@ -60,7 +60,7 @@ void ThreadPool::workerThread(int id)
     while (true)
     {
         {
-            std::unique_lock<std::mutex> lock(queueMutex);
+            std::unique_lock lock(queueMutex);
             newTaskCondition.wait(lock, [this] { return !tasks.empty() || stop.load(std::memory_order_relaxed); });
 
             if (stop.load(std::memory_order_relaxed))
@@ -99,7 +99,7 @@ void ThreadPool::workerThread(int id)
         activeTaskCount.fetch_sub(1, std::memory_order_relaxed);
 
         {
-            std::unique_lock<std::mutex> lock(queueMutex);
+            std::unique_lock lock(queueMutex);
             if (tasks.empty() && activeTaskCount.load(std::memory_order_relaxed) == 0)
             {
                 completionCondition.notify_all();

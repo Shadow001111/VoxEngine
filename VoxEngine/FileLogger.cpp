@@ -39,7 +39,7 @@ FileLogger::FileLogger(const fs::path& fpath)
 
 void FileLogger::add(std::string_view line)
 {
-    std::lock_guard<std::mutex> lock(mtx);
+    std::lock_guard lock(mtx);
 
     if (!file.is_open())
     {
