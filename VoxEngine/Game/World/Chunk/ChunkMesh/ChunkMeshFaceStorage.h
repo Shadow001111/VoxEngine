@@ -47,6 +47,7 @@ struct ChunkMeshFaceStorage
 
 		const void* data(MeshLayer layer) const noexcept;
 		uint32_t size(MeshLayer layer) const noexcept;
+		uint32_t capacity(MeshLayer layer) const noexcept;
 	};
 
 	enum class Flag : uint8_t
@@ -68,7 +69,7 @@ struct ChunkMeshFaceStorage
 
 	Flags<uint8_t> flags;
 
-	AtomicWaitFence processingFence;
+	mutable AtomicWaitFence processingFence;
 
 	InstancesStorage instancesStorage;
 public:
@@ -103,4 +104,6 @@ public:
 	uint32_t getAllFaceCount() const noexcept;
 	uint32_t getAllFaceCapacity() const noexcept;
 	uint32_t getAllRenderFaceCount() const noexcept;
+
+	size_t getTotalInstanceStorageCapacityinBytes() const noexcept;
 };

@@ -25,11 +25,7 @@
 
 #include <tracy/Tracy.hpp>
 
-#ifdef NDEBUG
 const int CHUNK_LOAD_DISTANCE = 24;
-#else
-const int CHUNK_LOAD_DISTANCE = 3;
-#endif
 
 
 static std::string formatSize(size_t value)
@@ -435,7 +431,8 @@ static void renderDebugData(const WindowManager& wnd, const Player& player, cons
     // Huge memory
     ss << "\nChunk draw command buffer: " << formatSizeBinary(renderStats.chunkDrawCommandBufferSizeInBytes);
     ss << "\nChunk position buffer: " << formatSizeBinary(renderStats.chunkPositionBufferSizeInBytes);
-    ss << "\nChunk light queues' total capacity: " << formatSizeBinary(worldData.totalChunkLightQueuesCapacityInBytes);
+    ss << "\nChunk light queues' size: " << formatSizeBinary(worldData.totalChunkLightQueuesCapacityInBytes);
+    ss << "\nChunk mesh's instance storage's size: " << formatSizeBinary(worldData.totalChunkMeshInstanceStorageCapacityInBytes);
 
     // Player orientation
     //const Camera& camera = player.getCamera();

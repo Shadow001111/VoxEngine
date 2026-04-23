@@ -61,10 +61,22 @@ uint32_t ChunkMeshFaceStorage::InstancesStorage::size(MeshLayer layer) const noe
 {
 	switch (layer)
 	{
-	case MeshLayer::AlignedOpaque:      return static_cast<uint32_t>(alignedOpaque.size());
-	case MeshLayer::AlignedTranslucent: return static_cast<uint32_t>(alignedTranslucent.size());
-	case MeshLayer::UnalignedOpaque:    return static_cast<uint32_t>(unalignedOpaque.size());
+	case MeshLayer::AlignedOpaque:        return static_cast<uint32_t>(alignedOpaque.size());
+	case MeshLayer::AlignedTranslucent:   return static_cast<uint32_t>(alignedTranslucent.size());
+	case MeshLayer::UnalignedOpaque:      return static_cast<uint32_t>(unalignedOpaque.size());
 	case MeshLayer::UnalignedTranslucent: return static_cast<uint32_t>(unalignedTranslucent.size());
+	default: return 0;
+	}
+}
+
+uint32_t ChunkMeshFaceStorage::InstancesStorage::capacity(MeshLayer layer) const noexcept
+{
+	switch (layer)
+	{
+	case MeshLayer::AlignedOpaque:        return static_cast<uint32_t>(alignedOpaque.capacity());
+	case MeshLayer::AlignedTranslucent:   return static_cast<uint32_t>(alignedTranslucent.capacity());
+	case MeshLayer::UnalignedOpaque:      return static_cast<uint32_t>(unalignedOpaque.capacity());
+	case MeshLayer::UnalignedTranslucent: return static_cast<uint32_t>(unalignedTranslucent.capacity());
 	default: return 0;
 	}
 }
@@ -100,5 +112,16 @@ uint32_t ChunkMeshFaceStorage::getAllRenderFaceCount() const noexcept
 	uint32_t total = 0;
 	for (uint32_t c : renderFaceCounts)
 		total += c;
+	return total;
+}
+
+size_t ChunkMeshFaceStorage::getTotalInstanceStorageCapacityinBytes() const noexcept
+{
+	size_t total = 0;
+	for (int i = 0; i < (int)MeshLayer::Count; i++)
+	{
+		MeshLayer layer = static_cast<MeshLayer>(i);
+		total += instancesStorage.capacity(layer) * faceStructSize(layer);
+	}
 	return total;
 }

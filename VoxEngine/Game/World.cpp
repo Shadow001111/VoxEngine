@@ -252,6 +252,7 @@ const World::DebugData& World::getDebugData(bool updateIntense) const
 		debugData.chunkCount = 0;
 		debugData.totalChunkFaceCount = 0;
 		debugData.totalChunkLightQueuesCapacityInBytes = 0;
+		debugData.totalChunkMeshInstanceStorageCapacityInBytes = 0;
 
 		for (const auto& [_, chunkRegion] : chunkRegions)
 		{
@@ -260,10 +261,13 @@ const World::DebugData& World::getDebugData(bool updateIntense) const
 				if (!chunk) continue;
 
 				debugData.chunkCount++;
-				debugData.totalChunkFaceCount += chunk->getFaceCount();
+				debugData.totalChunkFaceCount += chunk->getMeshFaceCount();
 				debugData.totalChunkLightQueuesCapacityInBytes += chunk->getLightQueuesTotalCapacityInBytes();
+				debugData.totalChunkMeshInstanceStorageCapacityInBytes += chunk->getMeshInstanceStorageTotalCapacityInBytes();
 			}
 		}
+
+		debugData.totalChunkSizeInBytes = debugData.chunkCount * sizeof(Chunk);
 	}
 
 	// Chunk face capacity

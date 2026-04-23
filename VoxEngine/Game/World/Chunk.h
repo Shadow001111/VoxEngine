@@ -239,7 +239,7 @@ private:
 	std::array<Chunk*, 27> neighbors{ nullptr }; // Pointers to neighboring chunks, including itself, for easier access
 	ChunkRegion* parentRegion = nullptr;
 
-	ChunkIO::BlockChanges blockChanges;
+	ChunkIO::BlockChanges blockChanges; // TOOD: Should be thread-safe
 
 	SymmetricBitMatrix<6> sideConnectivity;
 
@@ -364,8 +364,9 @@ public:
 	ChunkRegion* getParentRegion() const noexcept { return parentRegion; }
 
 	// Chunk statistics getters
-	size_t getFaceCount() const noexcept { return mesh.faceStorage.getAllFaceCount(); };
+	size_t getMeshFaceCount() const noexcept { return mesh.faceStorage.getAllFaceCount(); };
 	size_t getLightQueuesTotalCapacityInBytes() const noexcept { return lightPropagation.getTotalCapacityInBytes(); }
+	size_t getMeshInstanceStorageTotalCapacityInBytes() const noexcept;
 
 	// Getters and setters for states and flags
 	State getState() const noexcept { return state.load(std::memory_order_acquire); };

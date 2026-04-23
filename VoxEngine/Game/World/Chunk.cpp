@@ -2034,6 +2034,12 @@ void Chunk::addSkyLightRemovalNode(int x, int y, int z, uint8_t lightLevel)
 	lightPropagation.skyLightRemovalQueue.emplace(x, y, z, lightLevel);
 }
 
+size_t Chunk::getMeshInstanceStorageTotalCapacityInBytes() const noexcept
+{
+	FenceGuard scopedMeshFence(mesh.faceStorage.processingFence);
+	return mesh.faceStorage.getTotalInstanceStorageCapacityinBytes();
+}
+
 void Chunk::markMeshesDirtyAroundBlock(int x, int y, int z)
 {
 	uint32_t dirtyMask = getNeighborDirtyMask(x, y, z);

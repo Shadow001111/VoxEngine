@@ -1,6 +1,5 @@
 #pragma once
 #include "ChunkSpecializedQueue.h"
-#include <mutex>
 
 #include "Core/Multithreading/ProcessingFence.h"
 
