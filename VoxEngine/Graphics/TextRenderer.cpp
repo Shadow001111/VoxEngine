@@ -282,7 +282,8 @@ void TextRenderer::renderTextInternal(const void* text, size_t textLength, UTFDe
     textShader.setVec3("textColor", color.x, color.y, color.z);
 
     // Decode text
-    std::vector<uint32_t> codepoints;
+    static std::vector<uint32_t> codepoints;
+    codepoints.clear();
     codepoints.reserve(textLength);
 
     size_t index = 0;
@@ -293,39 +294,43 @@ void TextRenderer::renderTextInternal(const void* text, size_t textLength, UTFDe
     const uint32_t replaceCodepoint = '?';
     const bool doesNotReplaceCodepointExist = glyphs.find(replaceCodepoint) == glyphs.end();
 
-    while (index < textLength)
     {
-        uint32_t codepoint = decoder(text, textLength, index);
+        TRACY_SCOPE_NC("Decode text", ProfileCategory::General);
 
-        if (codepoint == UTFDecoder::INVALID_CODEPOINT)
+        while (index < textLength)
         {
-            break;
-        }
-        else if (codepoint == '\n')
-        {
-            // Update max line width for current line
-            maxLineWidth = std::max(maxLineWidth, currentLineWidth);
-            currentLineWidth = 0.0f;
-            lineCount++;
-            codepoints.push_back(codepoint);
-            continue;
-        }
+            uint32_t codepoint = decoder(text, textLength, index);
 
-        // Check if glyph exists, replace if not
-        auto it = glyphs.find(codepoint);
-        if (it == glyphs.end())
-        {
-            if (doesNotReplaceCodepointExist)
+            if (codepoint == UTFDecoder::INVALID_CODEPOINT)
             {
+                break;
+            }
+            else if (codepoint == '\n')
+            {
+                // Update max line width for current line
+                maxLineWidth = std::max(maxLineWidth, currentLineWidth);
+                currentLineWidth = 0.0f;
+                lineCount++;
+                codepoints.push_back(codepoint);
                 continue;
             }
-            codepoint = replaceCodepoint;
+
+            // Check if glyph exists, replace if not
+            auto it = glyphs.find(codepoint);
+            if (it == glyphs.end())
+            {
+                if (doesNotReplaceCodepointExist)
+                {
+                    continue;
+                }
+                codepoint = replaceCodepoint;
+            }
+
+            const Glyph& glyph = it->second;
+            currentLineWidth += (glyph.advance >> 6) * scale;
+
+            codepoints.push_back(codepoint);
         }
-
-        const Glyph& glyph = it->second;
-        currentLineWidth += (glyph.advance >> 6) * scale;
-
-        codepoints.push_back(codepoint);
     }
 
     // Update max line width for the last line
@@ -410,43 +415,46 @@ void TextRenderer::renderTextInternal(const void* text, size_t textLength, UTFDe
     }
     y -= rowHeight;
 
-    // Second pass: render glyphs
+    // Render glyphs
     const float startX = x;
 
-    for (uint32_t codepoint : codepoints)
     {
-        if (codepoint == '\n')
+        TRACY_SCOPE_NC("Render glyphs", ProfileCategory::Render);
+        for (uint32_t codepoint : codepoints)
         {
-            y -= rowHeight;  // y increases downward
-            x = startX;
-            continue;
+            if (codepoint == '\n')
+            {
+                y -= rowHeight;  // y increases downward
+                x = startX;
+                continue;
+            }
+
+            auto it = glyphs.find(codepoint);
+            if (it == glyphs.end())
+            {
+                continue; // Should not happen since we filtered already
+            }
+
+            const Glyph& glyph = it->second;
+
+            if (glyph.textureID)
+            {
+                float xpos = x + glyph.bearing.x * scale;
+                float ypos = y - (glyph.size.y - glyph.bearing.y) * scale;  // y increases downward
+                float w = glyph.size.x * scale;
+                float h = glyph.size.y * scale;
+
+                GlyphInstance glyphInstance = {
+                    glm::vec4(xpos, ypos, w, h),
+                    glm::vec2(glyph.size.x * invMaxGlyphSize.x, glyph.size.y * invMaxGlyphSize.y),
+                    glyph.textureID - 1
+                };
+
+                inst.pushGlyph(glyphInstance);
+            }
+
+            x += (glyph.advance >> 6) * scale;
         }
-
-        auto it = glyphs.find(codepoint);
-        if (it == glyphs.end())
-        {
-            continue; // Should not happen since we filtered already
-        }
-
-        const Glyph& glyph = it->second;
-
-        if (glyph.textureID)
-        {
-            float xpos = x + glyph.bearing.x * scale;
-            float ypos = y - (glyph.size.y - glyph.bearing.y) * scale;  // y increases downward
-            float w = glyph.size.x * scale;
-            float h = glyph.size.y * scale;
-
-            GlyphInstance glyphInstance = {
-                glm::vec4(xpos, ypos, w, h),
-                glm::vec2(glyph.size.x * invMaxGlyphSize.x, glyph.size.y * invMaxGlyphSize.y),
-                glyph.textureID - 1
-            };
-
-            inst.pushGlyph(glyphInstance);
-        }
-
-        x += (glyph.advance >> 6) * scale;
     }
 
     inst.flushGlyphs();

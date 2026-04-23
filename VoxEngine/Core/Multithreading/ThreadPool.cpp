@@ -55,7 +55,6 @@ void ThreadPool::workerThread(int id)
         std::string threadName = std::to_string(id);
         tracy::SetThreadName(threadName.c_str());
     }
-
     Task task;
     while (true)
     {

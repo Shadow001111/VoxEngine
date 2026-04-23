@@ -1,4 +1,5 @@
 #pragma once
+#include <tracy/Tracy.hpp>
 #include <cstdint>
 
 constexpr static uint32_t getTracyColor(uint32_t category)
@@ -64,13 +65,6 @@ constexpr static uint32_t getTracyColor(uint32_t category)
 }
 
 #ifdef TRACY_ENABLE
-#define USE_TRACY true
-#else
-#define USE_TRACY false
-#endif
-
-#if USE_TRACY
-#include <tracy/Tracy.hpp>
 #define TRACY_SCOPE_N(name) ZoneScopedN(name)
 #define TRACY_SCOPE_NC(name, category) ZoneScopedNC(name, getTracyColor(static_cast<uint32_t>(category)))
 #else

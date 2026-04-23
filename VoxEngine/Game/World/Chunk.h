@@ -171,23 +171,23 @@ public:
 
 	static size_t getIndex(const glm::ivec2& pos) noexcept { return (pos.x << CHUNK_SIZE_LOG2) | pos.y; };
 
-	static constexpr inline int getNeighborIndex(int dx, int dy, int dz) noexcept
+	static constexpr int getNeighborIndex(int dx, int dy, int dz) noexcept
 	{
 		return (dx + 1) * 9 + (dy + 1) * 3 + (dz + 1);
 	}
 
-	static constexpr inline int getOppositeNeighborIndex(int idx) noexcept
+	static int getOppositeNeighborIndex(int idx) noexcept
 	{
 		return 26 - idx;
 	}
 
-	static constexpr inline glm::ivec3 getNeighborOffset(int idx) noexcept
+	static glm::ivec3 getNeighborOffset(int idx) noexcept
 	{
 		constexpr auto table = detail::buildNeighborOffsetTable();
 		return table[idx];
 	}
 
-	static constexpr int getSideNeighborIndex(int side) noexcept
+	static int getSideNeighborIndex(int side) noexcept
 	{
 		switch (side)
 		{

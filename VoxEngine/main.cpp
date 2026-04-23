@@ -26,9 +26,9 @@
 #include <tracy/Tracy.hpp>
 
 #ifdef NDEBUG
-constexpr int CHUNK_LOAD_DISTANCE = 24;
+const int CHUNK_LOAD_DISTANCE = 24;
 #else
-constexpr int CHUNK_LOAD_DISTANCE = 3;
+const int CHUNK_LOAD_DISTANCE = 3;
 #endif
 
 
@@ -385,6 +385,8 @@ static void renderHotbarAndInventory(const float aspectRatio, const ContainerUI&
 
 static void renderUI(const float aspectRatio, const ContainerUI& c, const Player& player)
 {
+    TRACY_SCOPE_NC("Render UI", ProfileCategory::Render);
+
     //glDisable(GL_BLEND);
     //renderDepthBuffer(aspectRatio, c, player);
 
@@ -396,6 +398,8 @@ static void renderUI(const float aspectRatio, const ContainerUI& c, const Player
 
 static void renderDebugData(const WindowManager& wnd, const Player& player, const DebugUIMetrics& metrics)
 {
+    TRACY_SCOPE_NC("Render debug data", ProfileCategory::Render);
+
     // Get data refs
 	const auto& worldData = metrics.worldDebugData;
 	const auto& renderStats = worldData.renderStats;
@@ -759,7 +763,7 @@ static int gameFunc()
 
         if (profilerUpdateTimer.shouldUpdate())
         {
-#ifdef USE_TRACY
+#ifdef TRACY_ENABLE
             FrameMark;
 #endif
         }

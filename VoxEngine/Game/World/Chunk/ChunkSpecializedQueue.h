@@ -17,7 +17,7 @@ template<typename T>
 class ChunkSpecializedQueue
 {
     using index_t = uint16_t;
-    static constexpr index_t DEFAULT_CAPACITY = 1024;
+    static constexpr index_t DEFAULT_CAPACITY = 128;
 
     T* mData = nullptr;
     index_t mSize = 0;

@@ -9,7 +9,7 @@ namespace NoiseLib::Base
     float sumOfGeometricSeries(float firstTerm, float commonRatio, int numberOfTerms);
 
 
-    __forceinline inline uint32_t hash_int2(const glm::ivec2& v)
+    __forceinline uint32_t hash_int2(const glm::ivec2& v)
     {
         uint32_t h = 0xdeadbeefu;
         h ^= (uint32_t)v.x + 0x9e3779b9u + (h << 6u) + (h >> 2u);
@@ -22,7 +22,7 @@ namespace NoiseLib::Base
         return h;
     }
 
-    __forceinline inline uint32_t hash_int3(const glm::ivec3& v)
+    __forceinline uint32_t hash_int3(const glm::ivec3& v)
     {
         uint32_t h = 0xdeadbeefu;
         h ^= (uint32_t)v.x + 0x9e3779b9u + (h << 6u) + (h >> 2u);
@@ -36,7 +36,7 @@ namespace NoiseLib::Base
         return h;
     }
 
-    __forceinline inline SimdI hash_int2_simd(const SimdI& vx, const SimdI& vy)
+    __forceinline SimdI hash_int2_simd(const SimdI& vx, const SimdI& vy)
     {
         const SimdI MAGIC(0x9e3779b9);
         const SimdI M1(0x85ebca6b);
@@ -65,7 +65,7 @@ namespace NoiseLib::Base
         return h;
     }
 
-    __forceinline inline SimdI hash_int3_simd(const SimdI& vx, const SimdI& vy, const SimdI& vz)
+    __forceinline SimdI hash_int3_simd(const SimdI& vx, const SimdI& vy, const SimdI& vz)
     {
         const SimdI MAGIC(0x9e3779b9);
         const SimdI M1(0x85ebca6b);
@@ -100,22 +100,22 @@ namespace NoiseLib::Base
     }
 
 
-    __forceinline inline int wrap(int idx, int period)
+    __forceinline int wrap(int idx, int period)
     {
         return idx - period * floorf((float)idx / (float)period);
     }
 
-    __forceinline inline glm::ivec2 wrap(const glm::ivec2& idx, int period)
+    __forceinline glm::ivec2 wrap(const glm::ivec2& idx, int period)
     {
         return glm::vec2(idx) - (float)period * glm::floor(glm::vec2(idx) / (float)period);
     }
 
-    __forceinline inline glm::ivec3 wrap(const glm::ivec3& idx, int period)
+    __forceinline glm::ivec3 wrap(const glm::ivec3& idx, int period)
     {
         return glm::vec3(idx) - (float)period * glm::floor(glm::vec3(idx) / (float)period);
     }
 
-    __forceinline inline SimdI wrap_simd(const SimdI& idx, const SimdI& period)
+    __forceinline SimdI wrap_simd(const SimdI& idx, const SimdI& period)
     {
         auto idxF = idx.to_float();
         auto periodF = period.to_float();
@@ -125,7 +125,7 @@ namespace NoiseLib::Base
     }
 
 
-    __forceinline inline float grad2(uint32_t hash, const glm::vec2& p)
+    __forceinline float grad2(uint32_t hash, const glm::vec2& p)
     {
         switch (hash & 7)
         {
@@ -140,7 +140,7 @@ namespace NoiseLib::Base
         }
     }
 
-    __forceinline inline float grad3(uint32_t hash, const glm::vec3& p)
+    __forceinline float grad3(uint32_t hash, const glm::vec3& p)
     {
         constexpr glm::vec3 gradients[16] = {
             { 1, 1, 0}, {-1, 1, 0}, { 1,-1, 0}, {-1,-1, 0},
@@ -151,7 +151,7 @@ namespace NoiseLib::Base
         return glm::dot(gradients[hash & 15u], p);
     }
 
-    __forceinline inline SimdF grad2_simd(const SimdI& hash, const SimdF& dx, const SimdF& dy)
+    __forceinline SimdF grad2_simd(const SimdI& hash, const SimdF& dx, const SimdF& dy)
     {
         const SimdI b0(1);
         const SimdI b1(2);
@@ -174,7 +174,7 @@ namespace NoiseLib::Base
         return SimdF::blendv(both, single, mbit2);
     }
 
-    __forceinline inline SimdF grad3_simd(const SimdI& hash, const SimdF& dx, const SimdF& dy, const SimdF& dz)
+    __forceinline SimdF grad3_simd(const SimdI& hash, const SimdF& dx, const SimdF& dy, const SimdF& dz)
     {
         const SimdI b0(1);
         const SimdI b1(2);

@@ -48,7 +48,7 @@ void Chunk::init(const glm::ivec3& newPosition, const std::array<Chunk*, 27>& ne
 	neighbors = newNeighbors;
 	constexpr int selfIndex = getNeighborIndex(0, 0, 0);
 
-	for (int i = 0; i < newNeighbors.size(); i++)
+	for (int i = 0; i < neighbors.size(); i++)
 	{
 		if (i == selfIndex) [[unlikely]] continue;
 
@@ -712,6 +712,9 @@ uint32_t Chunk::propagateSkyLight()
 				glm::ivec2(x    , z + 1)
 			};
 
+			const uint32_t maskInteriorY = getNeighborDirtyMask(x, 1, z);        // any interior y
+			const uint32_t maskBottomY = getNeighborDirtyMask(x, 0, z);
+
 			while (--ny >= 0)
 			{
 				belowIndex -= CoordinatesStride3D::y; // Move down one block in the column
@@ -725,7 +728,7 @@ uint32_t Chunk::propagateSkyLight()
 					break;
 
 				cells[belowIndex].lightLevel.skyLight = 15;
-				neighborDirtyMask |= getNeighborDirtyMask(x, ny, z);
+				neighborDirtyMask |= (ny == 0) ? maskBottomY : maskInteriorY;
 
 				for (int i = 0; i < 4; i++) // XZ directions
 				{
@@ -1100,8 +1103,9 @@ void Chunk::buildLight()
 	}
 
 	// Collect light from neighbors
-	// TODO: If neighbor block is solid, then check if it's a light source and propagate from it
 	{
+		// TODO: If neighbor block is solid, then check if it's a light source and propagate from it
+
 		TRACY_SCOPE_NC("Collect light levels from neighbors", ProfileCategory::ChunkLight);
 
 		auto processNeighborFace = [&](int x, int y, int z, int nx, int ny, int nz, const Chunk* neighbor, bool propagatingFromTop)
@@ -1224,17 +1228,14 @@ void Chunk::buildLight()
 
 	// Let neighbor chunks' lights be updated
 	bool hasNeighborToUpdate = false;
+	for (int i = 0; i < 6; i++)
 	{
-		TRACY_SCOPE_NC("Let neighbor chunks be updated", ProfileCategory::ChunkLight);
-		for (int i = 0; i < 6; i++)
+		auto index = getSideNeighborIndex(i);
+		Chunk* neighbor = neighbors[index];
+		if (neighbor && neighbor->lightPropagation.hasNodes())
 		{
-			auto index = getSideNeighborIndex(i);
-			Chunk* neighbor = neighbors[index];
-			if (neighbor && neighbor->lightPropagation.hasNodes())
-			{
-				neighbor->parentRegion->setFlag(ChunkRegion::Flag::HasLightToUpdate, true);
-				hasNeighborToUpdate = true;
-			}
+			neighbor->parentRegion->setFlag(ChunkRegion::Flag::HasLightToUpdate, true);
+			hasNeighborToUpdate = true;
 		}
 	}
 	if (hasNeighborToUpdate)
@@ -1275,17 +1276,14 @@ void Chunk::updateLight()
 
 	// Let neighbor chunks' lights be updated
 	bool hasNeighborToUpdate = false;
+	for (int i = 0; i < 6; i++)
 	{
-		TRACY_SCOPE_NC("Let neighbor chunks be updated", ProfileCategory::ChunkLight);
-		for (int i = 0; i < 6; i++)
+		auto index = getSideNeighborIndex(i);
+		Chunk* neighbor = neighbors[index];
+		if (neighbor && neighbor->lightPropagation.hasNodes())
 		{
-			auto index = getSideNeighborIndex(i);
-			Chunk* neighbor = neighbors[index];
-			if (neighbor && neighbor->lightPropagation.hasNodes())
-			{
-				neighbor->parentRegion->setFlag(ChunkRegion::Flag::HasLightToUpdate, true);
-				hasNeighborToUpdate = true;
-			}
+			neighbor->parentRegion->setFlag(ChunkRegion::Flag::HasLightToUpdate, true);
+			hasNeighborToUpdate = true;
 		}
 	}
 	if (hasNeighborToUpdate)
@@ -1312,7 +1310,7 @@ void Chunk::updateMesh()
 		static const BlockData::TextureSlot fallbackTextureSlot(0, BlockData::TextureSlot::TextureTransformation::None, false);
 
 		ChunkMeshFaceStorage::InstancesStorage localMeshInstances;
-		//localMeshInstances.reserve(CHUNK_VOLUME / 4); TODO: For some reason make app freeze
+		//localMeshInstances.reserve(CHUNK_VOLUME / 4); //TODO: For some reason make app freeze
 
 		const glm::ivec3 globalChunkPosition = position << CHUNK_SIZE_LOG2;
 		for (size_t currentBlockIndex = 0; currentBlockIndex < CHUNK_VOLUME; currentBlockIndex++)
@@ -1328,7 +1326,7 @@ void Chunk::updateMesh()
 			}
 
 			const auto* model = AssetRegistry::getBlockModelData(blockData->modelId);
-			if (!model)
+			if (!model) [[unlikely]]
 			{
 				continue;
 			}
@@ -1373,11 +1371,6 @@ void Chunk::updateMesh()
 
 					const BlockData* neighborBlockData = AssetRegistry::getBlockData(neighborBlock);
 					if (!neighborBlockData || neighborBlockData->faceCulling[face.normal ^ 1])
-					{
-						continue;
-					}
-
-					if (block == neighborBlock && !blockData->faceCulling[face.normal])
 					{
 						continue;
 					}

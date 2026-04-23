@@ -569,8 +569,7 @@ void WorldChunkManager::loadChunk(const glm::ivec3& chunkPosition)
 	collectChunkNeighbors(chunkPosition, neighbors);
 
 	// Create and initialize chunk
-	Chunk* chunk;
-	chunk = chunkPool.acquire();
+	Chunk* chunk = chunkPool.acquire();
 	chunk->addLoader();
 	chunk->init(chunkPosition, neighbors, region);
 

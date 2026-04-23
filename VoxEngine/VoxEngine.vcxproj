@@ -159,6 +159,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\tracy\public\TracyClient.cpp" />
+    <ClCompile Include="Core\TracyPtofiler.cpp" />
     <ClCompile Include="Game\World\ChunkRegionManager.cpp" />
     <ClCompile Include="Game\World\Chunk\ChunkIO.cpp" />
     <ClCompile Include="Game\World\Chunk\ChunkMesh\ChunkMesh.cpp" />
