@@ -83,9 +83,7 @@ int TerrainGenerator::worldSeed = 0;
 thread_local std::unique_ptr<TerrainGenerator::ThreadLocalData> TerrainGenerator::threadLocalData;
 
 using TerrainPerlinNoiseGenerator = NoiseLib::Base::BaseNoiseGenerator<
-	NoiseLib::Perlin::scalar2D,
 	NoiseLib::Perlin::simd2D,
-	NoiseLib::Perlin::scalar3D,
 	NoiseLib::Perlin::simd3D,
 	false, // Not seamless
 	true,  // Aligned data
@@ -93,9 +91,7 @@ using TerrainPerlinNoiseGenerator = NoiseLib::Base::BaseNoiseGenerator<
 >;
 
 using CaveSimplexNoiseGenerator = NoiseLib::Base::BaseNoiseGenerator<
-	NoiseLib::Simplex::scalar2D,
 	NoiseLib::Simplex::simd2D,
-	NoiseLib::Simplex::scalar3D,
 	NoiseLib::Simplex::simd3D,
 	false, // Not seamless
 	true,  // Aligned data
@@ -103,9 +99,7 @@ using CaveSimplexNoiseGenerator = NoiseLib::Base::BaseNoiseGenerator<
 >;
 
 using CaveWorleyUpscaledNoiseGenerator = NoiseLib::Base::BaseNoiseGenerator<
-	NoiseLib::Worley::scalar2D,
 	NoiseLib::Worley::simd2D,
-	NoiseLib::Worley::scalar3D,
 	NoiseLib::Worley::simd3D,
 	false, // Not seamless
 	false, // Unaligned data
@@ -280,43 +274,6 @@ void TerrainGenerator::computeCaveMask(bool* outArray, int chunkX, int chunkY, i
 
 			outArray[i] = value > threshold;
 		}
-//		static_assert((CHUNK_VOLUME % SimdF::lanes) == 0, "Add tail logic!");
-//
-//		const SimdF absMask = SimdI::fill_lanes_with_value(0x7fffffff).as_float();
-//		const SimdF threshold = SimdF::fill_lanes_with_value(0.1f);
-//		for (int i = 0; i + SimdF::lanes <= CHUNK_VOLUME; i += SimdF::lanes)
-//		{
-//			// Load values
-//			SimdF values = SimdF::load(caveNoiseArray + i);
-//
-//			// Convert values to absolute (positive)
-//			values &= absMask;
-//
-//			// Create a comparison mask
-//			SimdI comparisons = (values < threshold).as_int32();
-//
-//			// Pack bools: 32-bit -> 16-bit -> 8-bit
-//#ifdef SIMD_AVX2
-//			{
-//				Simd128I low = SimdI::extract_int_128<0>(comparisons);
-//				Simd128I high = SimdI::extract_int_128<1>(comparisons);
-//
-//				low = Simd128I::narrow_saturate_32_to_16(low, high);
-//				low = Simd128I::narrow_saturate_16_to_8(low, low);
-//
-//				// Store 8 bools at once
-//				low.store_lower_int_64(reinterpret_cast<int32_t*>(outArray + i));
-//			}
-//#elifdef SIMD_SSE
-//			{
-//				comparisons = Simd128I::narrow_saturate_32_to_16(comparisons, comparisons);
-//				comparisons = Simd128I::narrow_saturate_16_to_8(comparisons, comparisons);
-//
-//				// Store 4 bools at once
-//				*((int32_t*)(outArray + i)) = comparisons.get_least_significant_int_32();
-//			}
-//#endif
-//		}
 	}
 }
 

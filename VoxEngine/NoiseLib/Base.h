@@ -207,16 +207,37 @@ namespace NoiseLib::Base
     //  'step' must satisfy (1.0f / step) being a whole number (e.g. 0.5, 0.25, 0.125).
     //  The period is derived as (float)(1.0f / step) and passed directly to wrap().
     template<
-        auto Scalar2DFunc,
-        auto Simd2DFunc,
-        auto Scalar3DFunc,
-        auto Simd3DFunc,
+        auto Gen2DFunc,
+        auto Gen3DFunc,
         bool IsSeamless = false,
         bool IsDataAligned = false,
         bool HasTail = true
     >
     class BaseNoiseGenerator
     {
+        __forceinline static void store(const SimdF& values, float* ptr)
+        {
+            if constexpr (IsDataAligned)
+            {
+                values.store(ptr);
+            }
+            else
+            {
+                values.storeu(ptr);
+            }
+        }
+
+        __forceinline static SimdF load(float* ptr)
+        {
+            if constexpr (IsDataAligned)
+            {
+                return SimdF::load(ptr);
+            }
+            else
+            {
+                return SimdF::loadu(ptr);
+            }
+        }
     public:
         static void gen2D(
             float* out,
@@ -267,43 +288,33 @@ namespace NoiseLib::Base
                     SimdF values;
                     if constexpr (IsSeamless)
                     {
-                        values = Simd2DFunc(xSamplePoints, ySamplePoints, vPeriod, vSeed);
+                        values = Gen2DFunc(xSamplePoints, ySamplePoints, vPeriod, vSeed);
                     }
                     else
                     {
-                        values = Simd2DFunc(xSamplePoints, ySamplePoints, vSeed);
+                        values = Gen2DFunc(xSamplePoints, ySamplePoints, vSeed);
                     }
 
-                    if constexpr (IsDataAligned)
-                    {
-                        values.store(outRow + x);
-                    }
-                    else
-                    {
-                        values.storeu(outRow + x);
-                    }
+                    store(values, outRow + x);
 
                     xSamplePoints += xStep;
                 }
 
                 if constexpr (HasTail)
                 {
-                    // Scalar tail (handles resolution.x not divisible by LANE_COUNT)
-                    for (; x < resolution.x; x++)
+                    const int tail = resolution.x - x;
+                    if (tail > 0)
                     {
-                        glm::vec2 p = (glm::vec2(x, y) + initialOffset) * baseScale;
-
-                        float value;
+                        SimdF values;
                         if constexpr (IsSeamless)
-                        {
-                            value = Scalar2DFunc(p, period, seed);
-                        }
+                            values = Gen2DFunc(xSamplePoints, ySamplePoints, vPeriod, vSeed);
                         else
-                        {
-                            value = Scalar2DFunc(p, seed);
-                        }
+                            values = Gen2DFunc(xSamplePoints, ySamplePoints, vSeed);
 
-                        outRow[x] = value;
+                        alignas(SimdF::bytes) float tmp[LANE_COUNT];
+                        values.store(tmp);
+                        for (int t = 0; t < tail; t++)
+                            outRow[x + t] = tmp[t];
                     }
                 }
             }
@@ -380,55 +391,39 @@ namespace NoiseLib::Base
                         SimdF values;
                         if constexpr (IsSeamless)
                         {
-                            values = Simd2DFunc(xSamplePoints, ySamplePoints, vPeriod, vSeed);
+                            values = Gen2DFunc(xSamplePoints, ySamplePoints, vPeriod, vSeed);
                         }
                         else
                         {
-                            values = Simd2DFunc(xSamplePoints, ySamplePoints, vSeed);
+                            values = Gen2DFunc(xSamplePoints, ySamplePoints, vSeed);
                         }
 
-                        SimdF oldValues;
-                        if constexpr (IsDataAligned)
-                        {
-                            oldValues = SimdF::load(outRow + x);
-                        }
-                        else
-                        {
-                            oldValues = SimdF::loadu(outRow + x);
-                        }
-
+                        SimdF oldValues = load(outRow + x);
+                        
                         values = SimdF::mul_add(values, vInvAttenuation, oldValues);
 
-                        if constexpr (IsDataAligned)
-                        {
-                            values.store(outRow + x);
-                        }
-                        else
-                        {
-                            values.storeu(outRow + x);
-                        }
+                        store(values, outRow + x);
 
                         xSamplePoints += xStep;
                     }
 
                     if constexpr (HasTail)
                     {
-                        // Scalar tail (handles resolution.x not divisible by LANE_COUNT)
-                        for (; x < resolution.x; x++)
+                        const int tail = resolution.x - x;
+                        if (tail > 0)
                         {
-                            glm::vec2 p = (glm::vec2(x, y) + initialOffset) * scale;
-
-                            float value;
+                            SimdF values;
                             if constexpr (IsSeamless)
-                            {
-                                value = Scalar2DFunc(p, period, octaveSeed);
-                            }
+                                values = Gen2DFunc(xSamplePoints, ySamplePoints, vPeriod, vSeed);
                             else
-                            {
-                                value = Scalar2DFunc(p, octaveSeed);
-                            }
+                                values = Gen2DFunc(xSamplePoints, ySamplePoints, vSeed);
 
-                            outRow[x] += value * invAttenuation;
+                            values *= invAttenuation;
+
+                            alignas(SimdF::bytes) float tmp[LANE_COUNT];
+                            values.store(tmp);
+                            for (int t = 0; t < tail; t++)
+                                outRow[x + t] += tmp[t];
                         }
                     }
                 }
@@ -444,18 +439,9 @@ namespace NoiseLib::Base
             int i = 0;
             for (; i + LANE_COUNT <= resolutionArea; i += LANE_COUNT)
             {
-                if constexpr (IsDataAligned)
-                {
-                    SimdF values = SimdF::load(out + i);
-                    values = SimdF::mul(values, vFactor);
-                    values.store(out + i);
-                }
-                else
-                {
-                    SimdF values = SimdF::loadu(out + i);
-                    values = SimdF::mul(values, vFactor);
-                    values.storeu(out + i);
-                }
+                SimdF values = load(out + i);
+                values = SimdF::mul(values, vFactor);
+                store(values, out + i);
             }
 
             if constexpr (HasTail)
@@ -519,43 +505,33 @@ namespace NoiseLib::Base
                         SimdF values;
                         if constexpr (IsSeamless)
                         {
-                            values = Simd3DFunc(xSamplePoints, ySamplePoints, zSamplePoints, vPeriod, vSeed);
+                            values = Gen3DFunc(xSamplePoints, ySamplePoints, zSamplePoints, vPeriod, vSeed);
                         }
                         else
                         {
-                            values = Simd3DFunc(xSamplePoints, ySamplePoints, zSamplePoints, vSeed);
+                            values = Gen3DFunc(xSamplePoints, ySamplePoints, zSamplePoints, vSeed);
                         }
 
-                        if constexpr (IsDataAligned)
-                        {
-                            values.store(outRow + x);
-                        }
-                        else
-                        {
-                            values.storeu(outRow + x);
-                        }
+                        store(values, outRow + x);
 
                         xSamplePoints += xStep;
                     }
 
                     if constexpr (HasTail)
                     {
-                        // Scalar tail
-                        for (; x < resolution.x; x++)
+                        const int tail = resolution.x - x;
+                        if (tail > 0)
                         {
-                            glm::vec3 p = (glm::vec3(x, y, z) + initialOffset) * baseScale;
-
-                            float value;
+                            SimdF values;
                             if constexpr (IsSeamless)
-                            {
-                                value = Scalar3DFunc(p, period, seed);
-                            }
+                                values = Gen3DFunc(xSamplePoints, ySamplePoints, zSamplePoints, vPeriod, vSeed);
                             else
-                            {
-                                value = Scalar3DFunc(p, seed);
-                            }
+                                values = Gen3DFunc(xSamplePoints, ySamplePoints, zSamplePoints, vSeed);
 
-                            outRow[x] = value;
+                            alignas(SimdF::bytes) float tmp[LANE_COUNT];
+                            values.store(tmp);
+                            for (int t = 0; t < tail; t++)
+                                outRow[x + t] = tmp[t];
                         }
                     }
                 }
@@ -636,55 +612,39 @@ namespace NoiseLib::Base
                             SimdF values;
                             if constexpr (IsSeamless)
                             {
-                                values = Simd3DFunc(xSamplePoints, ySamplePoints, zSamplePoints, vPeriod, vSeed);
+                                values = Gen3DFunc(xSamplePoints, ySamplePoints, zSamplePoints, vPeriod, vSeed);
                             }
                             else
                             {
-                                values = Simd3DFunc(xSamplePoints, ySamplePoints, zSamplePoints, vSeed);
+                                values = Gen3DFunc(xSamplePoints, ySamplePoints, zSamplePoints, vSeed);
                             }
 
-                            SimdF oldValues;
-                            if constexpr (IsDataAligned)
-                            {
-                                oldValues = SimdF::load(outRow + x);
-                            }
-                            else
-                            {
-                                oldValues = SimdF::loadu(outRow + x);
-                            }
+                            SimdF oldValues = load(outRow + x);
 
                             values = SimdF::mul_add(values, vInvAttenuation, oldValues);
 
-                            if constexpr (IsDataAligned)
-                            {
-                                values.store(outRow + x);
-                            }
-                            else
-                            {
-                                values.storeu(outRow + x);
-                            }
+                            store(values, outRow + x);
 
                             xSamplePoints += xStep;
                         }
 
                         if constexpr (HasTail)
                         {
-                            // Scalar tail
-                            for (; x < resolution.x; x++)
+                            const int tail = resolution.x - x;
+                            if (tail > 0)
                             {
-                                glm::vec3 p = (glm::vec3(x, y, z) + initialOffset) * scale;
-
-                                float value;
+                                SimdF values;
                                 if constexpr (IsSeamless)
-                                {
-                                    value = Scalar3DFunc(p, period, octaveSeed);
-                                }
+                                    values = Gen3DFunc(xSamplePoints, ySamplePoints, zSamplePoints, vPeriod, vSeed);
                                 else
-                                {
-                                    value = Scalar3DFunc(p, octaveSeed);
-                                }
+                                    values = Gen3DFunc(xSamplePoints, ySamplePoints, zSamplePoints, vSeed);
 
-                                outRow[x] += value * invAttenuation;
+                                values *= vInvAttenuation;
+
+                                alignas(SimdF::bytes) float tmp[LANE_COUNT];
+                                values.store(tmp);
+                                for (int t = 0; t < tail; t++)
+                                    outRow[x + t] += tmp[t];
                             }
                         }
                     }
@@ -701,18 +661,9 @@ namespace NoiseLib::Base
             int i = 0;
             for (; i + LANE_COUNT <= resolutionVolume; i += LANE_COUNT)
             {
-                if constexpr (IsDataAligned)
-                {
-                    SimdF values = SimdF::load(out + i);
-                    values = SimdF::mul(values, vFactor);
-                    values.store(out + i);
-                }
-                else
-                {
-                    SimdF values = SimdF::loadu(out + i);
-                    values = SimdF::mul(values, vFactor);
-                    values.storeu(out + i);
-                }
+                SimdF values = load(out + i);
+                values = SimdF::mul(values, vFactor);
+                store(values, out + i);
             }
 
             if constexpr (HasTail)
@@ -725,4 +676,3 @@ namespace NoiseLib::Base
         }
     };
 }
-
