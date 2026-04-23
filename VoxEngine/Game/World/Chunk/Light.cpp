@@ -85,6 +85,26 @@ void LightPropagationStorage::swapQueuesWithLocal()
 	}
 }
 
+void LightPropagationStorage::moveQueuesDataToLocal()
+{
+	{
+		FenceGuard scopedFence(blockLightPropagationProcessingFence);
+		blockLightPropagationQueue.move_data_to(threadLocalBlockLightPropagation);
+	}
+	{
+		FenceGuard scopedFence(skyLightPropagationProcessingFence);
+		skyLightPropagationQueue.move_data_to(threadLocalSkyLightPropagation);
+	}
+	{
+		FenceGuard scopedFence(blockLightRemovalProcessingFence);
+		blockLightRemovalQueue.move_data_to(threadLocalBlockLightRemoval);
+	}
+	{
+		FenceGuard scopedFence(skyLightRemovalProcessingFence);
+		skyLightRemovalQueue.move_data_to(threadLocalSkyLightRemoval);
+	}
+}
+
 void LightPropagationStorage::reserve(size_t count)
 {
 	{

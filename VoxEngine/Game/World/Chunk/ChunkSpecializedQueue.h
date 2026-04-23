@@ -237,6 +237,35 @@ public:
         }
     }
 
+    // Dest's data gets cleared
+    void move_data_to(ChunkSpecializedQueue& dest)
+    {
+        // Clear destination state but keep its capacity
+        dest.mFrontIndex = 0;
+        dest.mSize = 0;
+
+        if (empty()) return;
+
+        // Ensure destination can fit the source data
+        dest.reserve(mSize);
+
+        if (mFrontIndex + mSize <= mCapacity)
+        {
+            // Source is contiguous - single copy to destination start
+            std::memcpy(dest.mData, mData + mFrontIndex, mSize * sizeof(T));
+        }
+        else
+        {
+            // Source is wrapped - copy both segments to destination start
+            const index_t first_part = mCapacity - mFrontIndex;
+            std::memcpy(dest.mData, mData + mFrontIndex, first_part * sizeof(T));
+            std::memcpy(dest.mData + first_part, mData, (mSize - first_part) * sizeof(T));
+        }
+
+        dest.mSize = mSize;
+        clear(); // Reset source queue
+    }
+
     // === UNSAFE METHODS ===
     // Caller must ensure the queue is not empty
 

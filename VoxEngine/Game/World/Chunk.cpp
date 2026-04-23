@@ -1298,7 +1298,11 @@ void Chunk::updateLight()
 
 	FenceGuard scopedFence(processingFence);
 
-	lightPropagation.swapQueuesWithLocal();
+	{
+		TRACY_SCOPE_NC("Transfer data to thread-local", ProfileCategory::ChunkLight);
+		//lightPropagation.swapQueuesWithLocal();
+		lightPropagation.moveQueuesDataToLocal();
+	}
 
 	uint32_t neighborDirtyMask = 0;
 
