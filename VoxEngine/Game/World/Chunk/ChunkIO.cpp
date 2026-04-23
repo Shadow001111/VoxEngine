@@ -315,39 +315,6 @@ bool ChunkIO::loadBlockChanges(const std::filesystem::path& filepath, BlockChang
 	return true;
 }
 
-void ChunkIO::applyBlockChanges(BlockChanges& blockChanges, BlockId* blocks)
-{
-	for (auto it = blockChanges.begin(); it != blockChanges.end();)
-	{
-		BlockId block = it->first;
-		auto& indices = it->second;
-
-		size_t writeIndex = 0;
-		for (uint16_t index : indices)
-		{
-			if (index >= CHUNK_VOLUME || blocks[index] == block)
-			{
-				continue;
-			}
-
-			// Apply the change
-			blocks[index] = block;
-			indices[writeIndex++] = index;
-		}
-
-		if (writeIndex == 0)
-		{
-			// No valid indices left, erase this block type entirely
-			it = blockChanges.erase(it);
-		}
-		else
-		{
-			indices.resize(writeIndex);
-			++it;
-		}
-	}
-}
-
 bool ChunkIO::checkIfShouldBeSaved(const std::filesystem::path& filepath, uint64_t hashValue)
 {
 	// Check if file exists
@@ -431,10 +398,8 @@ std::vector<ChunkIO::PackInfo> ChunkIO::transformPackDataMapToSortedVector(const
 	return packs;
 }
 
-void ChunkIO::loadBlocks(BlockChanges& blockChanges, BlockId* blocks, const glm::ivec3& chunkRegionPosition, size_t chunkIndexInRegion)
+void ChunkIO::loadBlocks(BlockChanges& blockChanges, const glm::ivec3& chunkRegionPosition, size_t chunkIndexInRegion)
 {
-	TRACY_SCOPE_NC("Load chunk blocks", ProfileCategory::ChunkBlocks);
-
 	// Get chunk file path
 	fs::path chunkRegionDirectoryPath = getFilePathFromPosition(chunkRegionPosition);
 	fs::path chunkFilePath = chunkRegionDirectoryPath / std::format("{}.bin", chunkIndexInRegion);
@@ -443,13 +408,9 @@ void ChunkIO::loadBlocks(BlockChanges& blockChanges, BlockId* blocks, const glm:
 
 	// Load and apply changes
 	bool success = loadBlockChanges(chunkFilePath, blockChanges);
-	if (success)
+	if (!success)
 	{
-		applyBlockChanges(blockChanges, blocks);
-	}
-	else
-	{
-		blockChanges.clear(); // Clear any partial changes in case of failure
+		blockChanges.clear();
 	}
 }
 
@@ -464,8 +425,6 @@ void ChunkIO::saveBlocks(const BlockChanges& blockChanges, const glm::ivec3& chu
 		std::cerr << "[ChunkIO][saveBlocks]: ChangedBlocks map size is invalid.\n";
 		return;
 	}
-
-	TRACY_SCOPE_NC("Save chunk blocks", ProfileCategory::ChunkBlocks);
 
 	// Compute hash value
 	uint64_t hashValue = computeHash(blockChanges);

@@ -47,7 +47,6 @@ private:
 	static bool readIndices(StreamReader& reader, std::vector<uint16_t>& indices);
 
 	static bool loadBlockChanges(const std::filesystem::path& filepath, BlockChanges& blockChanges);
-	static void applyBlockChanges(BlockChanges& blockChanges, BlockId* blocks);
 
 	// WRITE SECTION
 
@@ -63,7 +62,7 @@ public:
 
 	static std::filesystem::path CHUNK_SAVES_PATH;
 
-	static void loadBlocks(BlockChanges& blockChanges, BlockId* blocks, const glm::ivec3& chunkRegionPosition, size_t chunkIndexInRegion);
+	static void loadBlocks(BlockChanges& blockChanges, const glm::ivec3& chunkRegionPosition, size_t chunkIndexInRegion);
 	static void saveBlocks(const BlockChanges& blockChanges, const glm::ivec3& chunkRegionPosition, size_t chunkIndexInRegion);
 
 	static AtomicBitset<CHUNK_REGION_VOLUME, size_t> checkChunkRegionForSaves(const glm::ivec3& regionPosition);

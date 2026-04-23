@@ -121,6 +121,7 @@ void Chunk::destroy()
 	// TODO: Make it async. Mark chunk as processing.
 	save();
 	blockChanges.clear();
+	blockChanges.compact();
 }
 
 void Chunk::globalInit()
@@ -503,6 +504,8 @@ void Chunk::removeBlockChange(BlockId block, uint16_t idx)
 
 void Chunk::loadSave()
 {
+	TRACY_SCOPE_NC("Load chunk save", ProfileCategory::ChunkBlocks);
+
 	if (!parentRegion) return;
 
 	// Skip the filesystem entirely if the region tells us this chunk has never been written to disk
@@ -514,11 +517,50 @@ void Chunk::loadSave()
 	}
 	if (!hasSavedData) return;
 
-	//ChunkIO::loadBlocks(blockChanges, blocks, parentRegion->getPosition(), indexInRegion);
+	{
+		TRACY_SCOPE_NC("Load", ProfileCategory::ChunkBlocks);
+		ChunkIO::loadBlocks(blockChanges, parentRegion->getPosition(), indexInRegion);
+	}
+
+	if (!blockChanges.empty())
+	{
+		TRACY_SCOPE_NC("Apply block changes", ProfileCategory::ChunkBlocks);
+		for (auto it = blockChanges.begin(); it != blockChanges.end();)
+		{
+			BlockId block = it->first;
+			auto& indices = it->second;
+
+			size_t writeIndex = 0;
+			for (uint16_t index : indices)
+			{
+				if (index >= CHUNK_VOLUME || cells[index].block == block)
+				{
+					continue;
+				}
+
+				// Apply the change
+				cells[index].block = block;
+				indices[writeIndex++] = index;
+			}
+
+			if (writeIndex == 0)
+			{
+				// No valid indices left, erase this block type entirely
+				it = blockChanges.erase(it);
+			}
+			else
+			{
+				indices.resize(writeIndex);
+				++it;
+			}
+		}
+	}
 }
 
 void Chunk::save() const
 {
+	TRACY_SCOPE_NC("Save chunk save", ProfileCategory::ChunkBlocks);
+
 	if (!parentRegion) return;
 
 	bool hasChanges = !blockChanges.empty();
@@ -528,6 +570,7 @@ void Chunk::save() const
 
 	if (hasChanges)
 	{
+		TRACY_SCOPE_NC("Save", ProfileCategory::ChunkBlocks);
 		ChunkIO::saveBlocks(blockChanges, parentRegion->getPosition(), indexInRegion);
 	}
 }
