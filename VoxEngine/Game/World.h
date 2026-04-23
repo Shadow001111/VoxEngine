@@ -19,6 +19,8 @@ public:
 		size_t totalChunkFaceCapacity = 0;
 		size_t totalChunkFaceCapacityInBytes = 0;
 
+		size_t totalChunkLightQueuesCapacityInBytes = 0;
+
 		WorldRenderer::RenderStats renderStats;
 	};
 private:

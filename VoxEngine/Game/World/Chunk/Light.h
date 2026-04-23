@@ -46,10 +46,10 @@ struct LightPropagationStorage
 	ChunkSpecializedQueue<LightRemovalNode> blockLightRemovalQueue;
 	ChunkSpecializedQueue<LightRemovalNode> skyLightRemovalQueue;
 
-	AtomicWaitFence blockLightPropagationProcessingFence;
-	AtomicWaitFence skyLightPropagationProcessingFence;
-	AtomicWaitFence blockLightRemovalProcessingFence;
-	AtomicWaitFence skyLightRemovalProcessingFence;
+	mutable AtomicWaitFence blockLightPropagationProcessingFence;
+	mutable AtomicWaitFence skyLightPropagationProcessingFence;
+	mutable AtomicWaitFence blockLightRemovalProcessingFence;
+	mutable AtomicWaitFence skyLightRemovalProcessingFence;
 
 	static thread_local ChunkSpecializedQueue<LightPropagationNode>	threadLocalBlockLightPropagation;
 	static thread_local ChunkSpecializedQueue<LightPropagationNode>	threadLocalSkyLightPropagation;
@@ -63,4 +63,5 @@ struct LightPropagationStorage
 	static void reserveLocal(size_t count);
 
 	bool hasNodes() const noexcept;
+	size_t getTotalCapacityInBytes() const noexcept;
 };

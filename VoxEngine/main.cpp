@@ -432,9 +432,10 @@ static void renderDebugData(const WindowManager& wnd, const Player& player, cons
     // Meshes
     ss << "\nChunk meshes capacity: " << formatSizeBinary(worldData.totalChunkFaceCapacityInBytes);
 
-    // Buffer sizes
+    // Huge memory
     ss << "\nChunk draw command buffer: " << formatSizeBinary(renderStats.chunkDrawCommandBufferSizeInBytes);
     ss << "\nChunk position buffer: " << formatSizeBinary(renderStats.chunkPositionBufferSizeInBytes);
+    ss << "\nChunk light queues' total capacity: " << formatSizeBinary(worldData.totalChunkLightQueuesCapacityInBytes);
 
     // Player orientation
     //const Camera& camera = player.getCamera();

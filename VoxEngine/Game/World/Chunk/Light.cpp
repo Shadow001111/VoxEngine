@@ -87,10 +87,22 @@ void LightPropagationStorage::swapQueuesWithLocal()
 
 void LightPropagationStorage::reserve(size_t count)
 {
-	blockLightPropagationQueue.reserve(count);
-	skyLightPropagationQueue.reserve(count);
-	blockLightRemovalQueue.reserve(count);
-	skyLightRemovalQueue.reserve(count);
+	{
+		FenceGuard scopedFence(blockLightPropagationProcessingFence);
+		blockLightPropagationQueue.reserve(count);
+	}
+	{
+		FenceGuard scopedFence(skyLightPropagationProcessingFence);
+		skyLightPropagationQueue.reserve(count);
+	}
+	{
+		FenceGuard scopedFence(blockLightRemovalProcessingFence);
+		blockLightRemovalQueue.reserve(count);
+	}
+	{
+		FenceGuard scopedFence(skyLightRemovalProcessingFence);
+		skyLightRemovalQueue.reserve(count);
+	}
 }
 
 void LightPropagationStorage::reserveLocal(size_t count)
@@ -103,9 +115,44 @@ void LightPropagationStorage::reserveLocal(size_t count)
 
 bool LightPropagationStorage::hasNodes() const noexcept
 {
-	return
-		blockLightPropagationQueue.size() ||
-		skyLightPropagationQueue.size() ||
-		blockLightRemovalQueue.size() ||
-		skyLightRemovalQueue.size();
+	{
+		FenceGuard scopedFence(blockLightPropagationProcessingFence);
+		if (!blockLightPropagationQueue.empty()) return true;
+	}
+	{
+		FenceGuard scopedFence(skyLightPropagationProcessingFence);
+		if (!skyLightPropagationQueue.empty()) return true;
+	}
+	{
+		FenceGuard scopedFence(blockLightRemovalProcessingFence);
+		if (!blockLightRemovalQueue.empty()) return true;
+	}
+	{
+		FenceGuard scopedFence(skyLightRemovalProcessingFence);
+		if (!skyLightRemovalQueue.empty()) return true;
+	}
+	return false;
+}
+
+size_t LightPropagationStorage::getTotalCapacityInBytes() const noexcept
+{
+	size_t capacity = 0;
+	{
+		FenceGuard scopedFence(blockLightPropagationProcessingFence);
+		capacity += blockLightPropagationQueue.capacity();
+	}
+	{
+		FenceGuard scopedFence(skyLightPropagationProcessingFence);
+		capacity += skyLightPropagationQueue.capacity();
+	}
+	{
+		FenceGuard scopedFence(blockLightRemovalProcessingFence);
+		capacity += blockLightRemovalQueue.capacity();
+	}
+	{
+		FenceGuard scopedFence(skyLightRemovalProcessingFence);
+		capacity += skyLightRemovalQueue.capacity();
+	}
+	static_assert(sizeof(LightPropagationNode) == sizeof(LightRemovalNode), "Must be the same for correct math");
+	return capacity * sizeof(LightPropagationNode);
 }

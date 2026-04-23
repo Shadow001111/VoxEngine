@@ -251,6 +251,7 @@ const World::DebugData& World::getDebugData(bool updateIntense) const
 	{
 		debugData.chunkCount = 0;
 		debugData.totalChunkFaceCount = 0;
+		debugData.totalChunkLightQueuesCapacityInBytes = 0;
 
 		for (const auto& [_, chunkRegion] : chunkRegions)
 		{
@@ -260,6 +261,7 @@ const World::DebugData& World::getDebugData(bool updateIntense) const
 
 				debugData.chunkCount++;
 				debugData.totalChunkFaceCount += chunk->getFaceCount();
+				debugData.totalChunkLightQueuesCapacityInBytes += chunk->getLightQueuesTotalCapacityInBytes();
 			}
 		}
 	}
