@@ -57,8 +57,8 @@ struct LightPropagationStorage
 
 	void clear();
 	void swapQueuesWithLocal();
-	void moveQueuesDataToLocal();
-	void reserve(size_t count); // Not thread safe
+	void moveQueuesDataToLocalAndShrink();
+	void reserve(size_t count);
 
 	static void reserveLocal(size_t count);
 

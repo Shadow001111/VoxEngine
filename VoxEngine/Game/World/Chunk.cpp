@@ -1300,8 +1300,8 @@ void Chunk::updateLight()
 
 	{
 		TRACY_SCOPE_NC("Transfer data to thread-local", ProfileCategory::ChunkLight);
-		//lightPropagation.swapQueuesWithLocal();
-		lightPropagation.moveQueuesDataToLocal();
+		//lightPropagation.swapQueuesWithLocal(); // It's faster, but makes memory usage grow
+		lightPropagation.moveQueuesDataToLocalAndShrink();
 	}
 
 	uint32_t neighborDirtyMask = 0;

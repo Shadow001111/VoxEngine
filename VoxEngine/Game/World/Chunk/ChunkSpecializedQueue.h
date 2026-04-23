@@ -18,6 +18,7 @@ class ChunkSpecializedQueue
 {
     using index_t = uint16_t;
     static constexpr index_t DEFAULT_CAPACITY = 128;
+    static_assert((DEFAULT_CAPACITY & (DEFAULT_CAPACITY - 1)) == 0, "Default capacity must be size of two");
 
     T* mData = nullptr;
     index_t mSize = 0;
@@ -88,6 +89,7 @@ public:
     ~ChunkSpecializedQueue()
     {
         ::operator delete(mData);
+        mData = nullptr;
     }
 
     ChunkSpecializedQueue(ChunkSpecializedQueue&& other) noexcept
@@ -219,6 +221,19 @@ public:
         }
     }
 
+    // Loses data
+    void shrink_to_default()
+    {
+        if (mCapacity <= DEFAULT_CAPACITY) return;
+
+        clear();
+
+        ::operator delete(mData);
+
+        mData = static_cast<T*>(::operator new(DEFAULT_CAPACITY * sizeof(T)));
+        mCapacity = DEFAULT_CAPACITY;
+    }
+
     void copy_to(T* dst) const noexcept
     {
         if (mSize == 0) return;
@@ -241,8 +256,7 @@ public:
     void move_data_to(ChunkSpecializedQueue& dest)
     {
         // Clear destination state but keep its capacity
-        dest.mFrontIndex = 0;
-        dest.mSize = 0;
+        dest.clear();
 
         if (empty()) return;
 
