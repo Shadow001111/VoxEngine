@@ -1375,6 +1375,11 @@ void Chunk::updateMesh()
 						continue;
 					}
 
+					if (block == neighborBlock && !neighborBlockData->faceCulling[face.normal ^ 1])
+					{
+						continue;
+					}
+
 					// Calculate shading
 					LightLevel neighborLight = neighborChunk->cells[neighborBlockIndex].lightLevel; // This line adds much to execution time, x5 in total
 
