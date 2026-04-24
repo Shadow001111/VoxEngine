@@ -421,18 +421,17 @@ static void renderDebugData(const WindowManager& wnd, const Player& player, cons
     ss << "\nChunk regions: " << worldData.chunkRegionCount;
 
     // Faces
-    ss << "\nFaces: " << formatSize(worldData.totalChunkFaceCount)
-        << "/" << formatSize(worldData.totalChunkFaceCapacity)
+    ss << "\nFaces: " << formatSize(worldData.chunkFaceCount)
+        << "/" << formatSize(worldData.chunkFaceCapacity)
         << ", Rendered: " << formatSize(renderStats.renderedChunkFaceCount);
 
     // Meshes
-    ss << "\nChunk meshes capacity: " << formatSizeBinary(worldData.totalChunkFaceCapacityInBytes);
+    ss << "\nChunk meshes capacity: " << formatSizeBinary(worldData.chunkFaceCapacityInBytes);
 
     // Huge memory
     ss << "\nChunk draw command buffer: " << formatSizeBinary(renderStats.chunkDrawCommandBufferSizeInBytes);
     ss << "\nChunk position buffer: " << formatSizeBinary(renderStats.chunkPositionBufferSizeInBytes);
-    ss << "\nChunk light queues' size: " << formatSizeBinary(worldData.totalChunkLightQueuesCapacityInBytes);
-    ss << "\nChunk mesh's instance storage's size: " << formatSizeBinary(worldData.totalChunkMeshInstanceStorageCapacityInBytes);
+    ss << "\nChunk light queues' size: " << formatSizeBinary(worldData.chunkLightQueuesSizeInBytes);
 
     // Player orientation
     //const Camera& camera = player.getCamera();
@@ -621,7 +620,6 @@ static int gameFunc()
     UpdateTimer worldUpdateTimer(20.0); worldUpdateTimer.setUpdateToTrue();
     UpdateTimer profilerUpdateTimer(1.0 / 2.0);
     UpdateTimer frequentUIDataUpdateTimer(1.0);
-    UpdateTimer worldDebugDataIntenseUpdateTimer(1.0);
 
     // Frequent UI data
     DebugUIMetrics uiMetrics;
@@ -653,7 +651,6 @@ static int gameFunc()
         worldUpdateTimer.addTime(deltaTime);
         profilerUpdateTimer.addTime(deltaTime);
         frequentUIDataUpdateTimer.addTime(deltaTime);
-        worldDebugDataIntenseUpdateTimer.addTime(deltaTime);
 
         // Sounds
         soundManager.update();
@@ -721,7 +718,7 @@ static int gameFunc()
                 world.render(player.getCamera(), framebuffer, player.raycastResult);
 
                 // Update UI metrics with world debug data
-                uiMetrics.worldDebugData = world.getDebugData(worldDebugDataIntenseUpdateTimer.shouldUpdate());
+                uiMetrics.worldDebugData = world.getDebugData();
 
                 // Render UI
                 const float aspectRatio = wnd.getAspectRatio();

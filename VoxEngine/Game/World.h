@@ -15,13 +15,12 @@ public:
 		size_t chunkCount = 0;
 		size_t chunkRegionCount = 0;
 
-		size_t totalChunkFaceCount = 0;
-		size_t totalChunkFaceCapacity = 0;
-		size_t totalChunkFaceCapacityInBytes = 0;
+		size_t chunkFaceCount = 0;
+		size_t chunkFaceCapacity = 0;
+		size_t chunkFaceCapacityInBytes = 0;
 
 		size_t totalChunkSizeInBytes = 0;
-		size_t totalChunkLightQueuesCapacityInBytes = 0;
-		size_t totalChunkMeshInstanceStorageCapacityInBytes = 0;
+		size_t chunkLightQueuesSizeInBytes = 0;
 
 		WorldRenderer::RenderStats renderStats;
 	};
@@ -76,7 +75,7 @@ public:
 	// Debug
 	void rebuildAllChunkMeshes() { chunkManager.rebuildAllChunkMeshes(); }
 
-	const DebugData& getDebugData(bool updateIntense) const;
+	const DebugData& getDebugData() const;
 
 	bool placeBlock(const RaycastResult& raycast, BlockId block);
 	bool breakBlock(const RaycastResult& raycast);

@@ -29,6 +29,8 @@ constexpr size_t faceStructSize(MeshLayer layer) noexcept
 	return isAligned(layer) ? sizeof(AlignedBlockFace) : sizeof(UnalignedBlockFace);
 }
 
+class Chunk;
+
 struct ChunkMeshFaceStorage
 {
 	struct InstancesStorage
@@ -104,6 +106,4 @@ public:
 	uint32_t getAllFaceCount() const noexcept;
 	uint32_t getAllFaceCapacity() const noexcept;
 	uint32_t getAllRenderFaceCount() const noexcept;
-
-	size_t getTotalInstanceStorageCapacityinBytes() const noexcept;
 };

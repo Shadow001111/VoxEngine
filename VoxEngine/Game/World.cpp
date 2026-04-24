@@ -238,37 +238,20 @@ RaycastResult World::raycast(const glm::dvec3& origin, const glm::dvec3& directi
 	return result; // No hit
 }
 
-const World::DebugData& World::getDebugData(bool updateIntense) const
+const World::DebugData& World::getDebugData() const
 {
 	TRACY_SCOPE_NC("World debug data collection", ProfileCategory::General);
 
 	const auto& chunkRegions = Chunk::managerInstances->chunkRegion.getRegionMap();
 
-	// Chunk region count
+	debugData.chunkCount = Chunk::globalCounters.chunkCount.load(std::memory_order_relaxed);
 	debugData.chunkRegionCount = chunkRegions.size();
 
-	if (updateIntense)
-	{
-		debugData.chunkCount = 0;
-		debugData.totalChunkFaceCount = 0;
-		debugData.totalChunkLightQueuesCapacityInBytes = 0;
-		debugData.totalChunkMeshInstanceStorageCapacityInBytes = 0;
+	debugData.chunkFaceCount = Chunk::globalCounters.faceCount.load(std::memory_order_relaxed);
 
-		for (const auto& [_, chunkRegion] : chunkRegions)
-		{
-			for (Chunk* chunk : chunkRegion->getChunks())
-			{
-				if (!chunk) continue;
+	debugData.totalChunkSizeInBytes = debugData.chunkCount * sizeof(Chunk);
 
-				debugData.chunkCount++;
-				debugData.totalChunkFaceCount += chunk->getMeshFaceCount();
-				debugData.totalChunkLightQueuesCapacityInBytes += chunk->getLightQueuesTotalCapacityInBytes();
-				debugData.totalChunkMeshInstanceStorageCapacityInBytes += chunk->getMeshInstanceStorageTotalCapacityInBytes();
-			}
-		}
-
-		debugData.totalChunkSizeInBytes = debugData.chunkCount * sizeof(Chunk);
-	}
+	debugData.chunkLightQueuesSizeInBytes = debugData.chunkCount * ChunkSpecializedQueue<LightPropagationNode>::DEFAULT_CAPACITY * sizeof(LightPropagationNode) * 4;
 
 	// Chunk face capacity
 	const auto& meshAlloc = ChunkMeshAllocator::getInstance();
@@ -281,12 +264,12 @@ const World::DebugData& World::getDebugData(bool updateIntense) const
 		meshAlloc.getInstanceVBO(MeshLayer::UnalignedTranslucent).getCapacity()
 		;
 
-	debugData.totalChunkFaceCapacity =
+	debugData.chunkFaceCapacity =
 		alignedCapacity / sizeof(AlignedBlockFace) +
 		unalignedCapacity / sizeof(UnalignedBlockFace)
 		;
 
-	debugData.totalChunkFaceCapacityInBytes = alignedCapacity + unalignedCapacity;
+	debugData.chunkFaceCapacityInBytes = alignedCapacity + unalignedCapacity;
 
 	// Render stats
 	debugData.renderStats = renderer.getRenderStats();

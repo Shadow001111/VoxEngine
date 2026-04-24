@@ -161,6 +161,12 @@ public:
 		CanBeRendered,
 		ShouldUpdateConnectivity
 	};
+
+	struct GlobalCounters
+	{
+		std::atomic<uint32_t> chunkCount{ 0 };
+		std::atomic<int64_t> faceCount{ 0 };
+	};
 	
 	// Static helpers
 	static size_t getIndex(int x, int y, int z) noexcept { return (x << (CHUNK_SIZE_LOG2 << 1)) | (y << CHUNK_SIZE_LOG2) | z; };
@@ -221,6 +227,7 @@ public:
 	static CachedBlockIds CACHED_BLOCK_IDS;
 	static constexpr std::array<uint32_t, 27> PRECOMPUTED_NEIGHBOR_DIRTY_MASKS = detail::precomputeNeighborDirtyMasks();
 	static constexpr bool USE_CONNECTIVITY_TESTING = false;
+	static GlobalCounters globalCounters;
 private:
 	// Data
 	glm::ivec3 position;
@@ -362,11 +369,6 @@ public:
 	const auto& getNeighbors() const noexcept { return neighbors; };
 	auto getConnectivityMatrix() const noexcept { return sideConnectivity; }
 	ChunkRegion* getParentRegion() const noexcept { return parentRegion; }
-
-	// Chunk statistics getters
-	size_t getMeshFaceCount() const noexcept { return mesh.faceStorage.getAllFaceCount(); };
-	size_t getLightQueuesTotalCapacityInBytes() const noexcept { return lightPropagation.getTotalCapacityInBytes(); }
-	size_t getMeshInstanceStorageTotalCapacityInBytes() const noexcept;
 
 	// Getters and setters for states and flags
 	State getState() const noexcept { return state.load(std::memory_order_acquire); };

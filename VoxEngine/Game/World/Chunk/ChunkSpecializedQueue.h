@@ -17,7 +17,9 @@ template<typename T>
 class ChunkSpecializedQueue
 {
     using index_t = uint16_t;
+public:
     static constexpr index_t DEFAULT_CAPACITY = 128;
+private:
     static_assert((DEFAULT_CAPACITY & (DEFAULT_CAPACITY - 1)) == 0, "Default capacity must be size of two");
 
     T* mData = nullptr;

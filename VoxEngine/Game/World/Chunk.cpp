@@ -9,8 +9,8 @@
 #include "Core/Hashes/ivec2Hasher.h"
 
 std::unique_ptr<Chunk::ManagerInstances> Chunk::managerInstances;
-
 Chunk::CachedBlockIds Chunk::CACHED_BLOCK_IDS;
+Chunk::GlobalCounters Chunk::globalCounters;
 
 
 static uint32_t hash3(uint32_t x, uint32_t y, uint32_t z)
@@ -68,6 +68,9 @@ void Chunk::init(const glm::ivec3& newPosition, const std::array<Chunk*, 27>& ne
 	// Reset mesh data
 	mesh.faceStorage.resetRenderFaceCount();
 	mesh.setFlag(ChunkMesh::Flag::ShouldBeUploaded, false);
+
+	// Update global counters
+	globalCounters.chunkCount.fetch_add(1, std::memory_order_relaxed);
 }
 
 // Cleans up resources
@@ -95,6 +98,7 @@ void Chunk::destroy()
 		FenceGuard scopedFence(mesh.faceStorage.processingFence);
 		mesh.faceStorage.instancesStorage.clear();
 		mesh.faceStorage.instancesStorage.shrinkToFit();
+		mesh.faceStorage.updateRenderFaceCount();
 	}
 	
 	// Reset neighbors
@@ -118,10 +122,12 @@ void Chunk::destroy()
 		lightPropagation.clear();
 	}
 
-	// TODO: Make it async. Mark chunk as processing.
 	save();
 	blockChanges.clear();
 	blockChanges.compact();
+
+	// Update global counters
+	globalCounters.chunkCount.fetch_sub(1, std::memory_order_relaxed);
 }
 
 void Chunk::globalInit()
@@ -1357,7 +1363,7 @@ void Chunk::updateMesh()
 		static const BlockData::TextureSlot fallbackTextureSlot(0, BlockData::TextureSlot::TextureTransformation::None, false);
 
 		ChunkMeshFaceStorage::InstancesStorage localMeshInstances;
-		//localMeshInstances.reserve(CHUNK_VOLUME / 4); //TODO: For some reason make app freeze
+		//localMeshInstances.reserve(CHUNK_VOLUME / 4); // Note: For some reason make app freeze
 
 		const glm::ivec3 globalChunkPosition = position << CHUNK_SIZE_LOG2;
 		for (size_t currentBlockIndex = 0; currentBlockIndex < CHUNK_VOLUME; currentBlockIndex++)
@@ -2036,12 +2042,6 @@ void Chunk::addSkyLightRemovalNode(int x, int y, int z, uint8_t lightLevel)
 {
 	FenceGuard scopedFence(lightPropagation.skyLightRemovalProcessingFence);
 	lightPropagation.skyLightRemovalQueue.emplace(x, y, z, lightLevel);
-}
-
-size_t Chunk::getMeshInstanceStorageTotalCapacityInBytes() const noexcept
-{
-	FenceGuard scopedMeshFence(mesh.faceStorage.processingFence);
-	return mesh.faceStorage.getTotalInstanceStorageCapacityinBytes();
 }
 
 void Chunk::markMeshesDirtyAroundBlock(int x, int y, int z)

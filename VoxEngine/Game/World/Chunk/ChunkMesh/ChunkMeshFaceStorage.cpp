@@ -1,5 +1,7 @@
 #include "ChunkMeshFaceStorage.h"
 
+#include "Game/World/Chunk.h"
+
 ChunkMeshFaceStorage::InstancesStorage& ChunkMeshFaceStorage::InstancesStorage::operator=(InstancesStorage&& other) noexcept
 {
 	if (this != &other)
@@ -83,10 +85,16 @@ uint32_t ChunkMeshFaceStorage::InstancesStorage::capacity(MeshLayer layer) const
 
 void ChunkMeshFaceStorage::updateRenderFaceCount()
 {
+	int64_t difference = 0;
+
 	for (int i = 0; i < (int)MeshLayer::Count; i++)
 	{
-		renderFaceCounts[i] = instancesStorage.size(static_cast<MeshLayer>(i));
+		auto newFaceCount = instancesStorage.size(static_cast<MeshLayer>(i));
+		difference += (int64_t)newFaceCount - (int64_t)renderFaceCounts[i];
+		renderFaceCounts[i] = newFaceCount;
 	}
+
+	Chunk::globalCounters.faceCount.fetch_add(difference, std::memory_order_relaxed);
 }
 
 uint32_t ChunkMeshFaceStorage::getAllFaceCount() const noexcept
@@ -112,16 +120,5 @@ uint32_t ChunkMeshFaceStorage::getAllRenderFaceCount() const noexcept
 	uint32_t total = 0;
 	for (uint32_t c : renderFaceCounts)
 		total += c;
-	return total;
-}
-
-size_t ChunkMeshFaceStorage::getTotalInstanceStorageCapacityinBytes() const noexcept
-{
-	size_t total = 0;
-	for (int i = 0; i < (int)MeshLayer::Count; i++)
-	{
-		MeshLayer layer = static_cast<MeshLayer>(i);
-		total += instancesStorage.capacity(layer) * faceStructSize(layer);
-	}
 	return total;
 }
