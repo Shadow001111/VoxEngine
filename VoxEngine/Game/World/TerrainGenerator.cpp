@@ -8,7 +8,6 @@
 #include "NoiseLib/Simplex.h"
 #include "NoiseLib/Worley.h"
 
-//============================================================================
 static float continentalSpline(float x)
 {
 	return x;
@@ -412,84 +411,89 @@ void TerrainGenerator::computeLayeredNoise_3D(float* outArray, int chunkX, int c
 void TerrainGenerator::computeLayeredNoise_3D_Upscaled(float* outArray, float* lowResArray, int chunkX, int chunkY, int chunkZ, const NoiseParams& params, int upscaleFactor)
 {
 	upscaleFactor = std::max(upscaleFactor, 2); // Safety?
+	const float invUpscaleFactor = 1.0f / (float)upscaleFactor;
 
 	// Generate noise at lower resolution
 	const int lowResSize = CHUNK_SIZE / upscaleFactor + 1; // +1 to have an extra row/column/layer for interpolation at the borders
 	const int lowResArea = lowResSize * lowResSize;
-	CaveWorleyUpscaledNoiseGenerator::genLayered3D
-	(
-		lowResArray,
-		worldSeed,
-		{ lowResSize, lowResSize, lowResSize },
-		1.0f / params.frequency,
-		{ chunkZ * lowResSize, chunkY * lowResSize, chunkX * lowResSize },
-		params.layerCount,
-		params.lacunarity
-	);
+	{
+		TRACY_SCOPE_NC("Generate", ProfileCategory::General);
+		CaveWorleyUpscaledNoiseGenerator::genLayered3D
+		(
+			lowResArray,
+			worldSeed,
+			{ lowResSize, lowResSize, lowResSize },
+			1.0f / params.frequency,
+			{ chunkZ * lowResSize, chunkY * lowResSize, chunkX * lowResSize },
+			params.layerCount,
+			params.lacunarity
+		);
+	}
 
-	auto getNormalIndex = [](int x, int y, int z) {
-		return x * CHUNK_AREA + y * CHUNK_SIZE + z;
-		};
+	// Precompute per-axis tables
+	struct AxisEntry
+	{
+		int low, high;
+		float t;
+	};
 
-	auto getLowResIndex = [lowResArea, lowResSize](int x, int y, int z) {
-		return x * lowResArea + y * lowResSize + z;
-		};
+	AxisEntry axisTable[CHUNK_SIZE];
+	for (int i = 0; i < CHUNK_SIZE; i++)
+	{
+		float f = i * invUpscaleFactor;
+		int low = (int)f;
+		int high = std::min(low + 1, lowResSize - 1);
+		axisTable[i] = { low, high, f - low };
+	}
+
+	const float tz_step = 1.0f / upscaleFactor;
 
 	// Upscale using trilinear interpolation
-	for (int z = 0; z < CHUNK_SIZE; z++)
+	TRACY_SCOPE_NC("Upscale", ProfileCategory::General);
+	for (int x = 0; x < CHUNK_SIZE; x++)
 	{
+		const auto& xe = axisTable[x];
 		for (int y = 0; y < CHUNK_SIZE; y++)
 		{
-			for (int x = 0; x < CHUNK_SIZE; x++)
+			const auto& ye = axisTable[y];
+
+			// Precompute XY bilinear weights
+			const float inv_tx = 1.0f - xe.t, inv_ty = 1.0f - ye.t;
+			const float w00 = inv_tx * inv_ty;
+			const float w10 = xe.t * inv_ty;
+			const float w01 = inv_tx * ye.t;
+			const float w11 = xe.t * ye.t;
+
+			// Four low-res row pointers, hoisted out of the z loop
+			const float* __restrict r00 = lowResArray + xe.low  * lowResArea + ye.low  * lowResSize;
+			const float* __restrict r10 = lowResArray + xe.high * lowResArea + ye.low  * lowResSize;
+			const float* __restrict r01 = lowResArray + xe.low  * lowResArea + ye.high * lowResSize;
+			const float* __restrict r11 = lowResArray + xe.high * lowResArea + ye.high * lowResSize;
+
+			float* __restrict outRow = outArray + (x << (CHUNK_SIZE_LOG2 << 1)) + (y << CHUNK_SIZE_LOG2);
+
+			float val_lo = w00 * r00[0] + w10 * r10[0] + w01 * r01[0] + w11 * r11[0];
+
+			for (int lz = 0; lz < lowResSize - 1; lz++)
 			{
-				// Calculate the corresponding low-res coordinates
-				float x0f = x / (float)upscaleFactor;
-				float y0f = y / (float)upscaleFactor;
-				float z0f = z / (float)upscaleFactor;
+				const float val_hi =
+					w00 * r00[lz + 1] + w10 * r10[lz + 1] +
+					w01 * r01[lz + 1] + w11 * r11[lz + 1];
 
-				int x0 = std::floor(x0f);
-				int y0 = std::floor(y0f);
-				int z0 = std::floor(z0f);
+				const float step = (val_hi - val_lo) * tz_step;
 
-				// Calculate next cell coordinates, clamping to the maximum index
-				int x1 = std::min(x0 + 1, lowResSize - 1);
-				int y1 = std::min(y0 + 1, lowResSize - 1);
-				int z1 = std::min(z0 + 1, lowResSize - 1);
+				int z = lz * upscaleFactor;
+				const int zEnd = std::min(z + upscaleFactor, CHUNK_SIZE);
 
-				// Calculate corner indices
-				int index000 = getLowResIndex(x0, y0, z0);
-				int index100 = getLowResIndex(x1, y0, z0);
-				int index010 = getLowResIndex(x0, y1, z0);
-				int index110 = getLowResIndex(x1, y1, z0);
-				int index001 = getLowResIndex(x0, y0, z1);
-				int index101 = getLowResIndex(x1, y0, z1);
-				int index011 = getLowResIndex(x0, y1, z1);
-				int index111 = getLowResIndex(x1, y1, z1);
+				float v = val_lo;
+				for (; z < zEnd; z++)
+				{
+					outRow[z] = v;
+					v += step;
+				}
 
-				// Calculate interpolation weights
-				float tx = x0f - x0;
-				float ty = y0f - y0;
-				float tz = z0f - z0;
-
-				// Fetch the 8 corner values from the low-res array
-				float c000 = lowResArray[index000];
-				float c100 = lowResArray[index100];
-				float c010 = lowResArray[index010];
-				float c110 = lowResArray[index110];
-				float c001 = lowResArray[index001];
-				float c101 = lowResArray[index101];
-				float c011 = lowResArray[index011];
-				float c111 = lowResArray[index111];
-
-				// Perform trilinear interpolation
-				outArray[getNormalIndex(x, y, z)] = trilerp(
-					c000, c100, c010, c110,
-					c001, c101, c011, c111,
-					tx, ty, tz
-				);
+				val_lo = val_hi;
 			}
 		}
 	}
 }
-
-//============================================================================
