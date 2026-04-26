@@ -164,12 +164,13 @@ void Chunk::buildBlocks()
 
 	// Reset blocks
 	{
-		TRACY_SCOPE_NC("Reset blocks", ProfileCategory::General);
+		TRACY_SCOPE_NC("Reset blocks and light levels", ProfileCategory::General);
 		//std::memset(blocks, CACHED_BLOCK_IDS.airId, sizeof(blocks));
 		
 		for (int i = 0; i < CHUNK_VOLUME; i++)
 		{
 			cells[i].block = CACHED_BLOCK_IDS.airId;
+			cells[i].lightLevel.fullByte = 0;
 		}
 	}
 
@@ -1004,30 +1005,15 @@ void Chunk::buildLight()
 
 	FenceGuard scopedFence(processingFence);
 
-	// Reset light levels
-	{
-		TRACY_SCOPE_NC("Reset light levels", ProfileCategory::General);
-		//std::memset(lightLevels, 0, sizeof(lightLevels));
-
-		for (int i = 0; i < CHUNK_VOLUME; i++)
-		{
-			cells[i].lightLevel.fullByte = 0;
-		}
-	}
-
 	const Chunk* topNeighbor = neighbors[getNeighborIndex(0, 1, 0)];
 
 	// Collect block light sources
 	{
 		TRACY_SCOPE_NC("Collect block light sources", ProfileCategory::ChunkLight);
-		for (int x = 0; x < CHUNK_SIZE; x++)
-		for (int y = 0; y < CHUNK_SIZE; y++)
-		for (int z = 0; z < CHUNK_SIZE; z++)
+		for (int index = 0; index < CHUNK_VOLUME; index++)
 		{
-			size_t index = getIndex(x, y, z);
-
 			const auto* blockData = AssetRegistry::getBlockData(cells[index].block);
-			if (!blockData)
+			if (!blockData) [[unlikely]]
 			{
 				continue;
 			}
@@ -1039,7 +1025,9 @@ void Chunk::buildLight()
 			}
 
 			cells[index].lightLevel.blockLight = emission;
-			LightPropagationStorage::threadLocalBlockLightPropagation.emplace(x, y, z);
+
+			auto pos = getPositionFromIndex(index);
+			LightPropagationStorage::threadLocalBlockLightPropagation.emplace(pos.x, pos.y, pos.z);
 		}
 	}
 
