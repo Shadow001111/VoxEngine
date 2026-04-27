@@ -298,7 +298,7 @@ public:
 	void collectRenderData(BufferStreamWriter<DrawArraysIndirectCommand>& drawCommands, BufferStreamWriter<glm::ivec3>& positions) const
 	{
 		constexpr size_t layerIndex = (size_t)layer;
-		constexpr ChunkMeshFaceStorage::Flag createdFlag = ChunkMeshFaceStorage::createdFlag(layer);
+		//constexpr ChunkMeshFaceStorage::Flag createdFlag = ChunkMeshFaceStorage::createdFlag(layer);
 
 		// Check if face created and it's not empty
 		unsigned int faceCount = mesh.faceStorage.renderFaceCounts[layerIndex];

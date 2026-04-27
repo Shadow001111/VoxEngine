@@ -1026,8 +1026,11 @@ void Chunk::buildLight()
 
 			cells[index].lightLevel.blockLight = emission;
 
-			auto pos = getPositionFromIndex(index);
-			LightPropagationStorage::threadLocalBlockLightPropagation.emplace(pos.x, pos.y, pos.z);
+			if (emission > 1)
+			{
+				auto pos = getPositionFromIndex(index);
+				LightPropagationStorage::threadLocalBlockLightPropagation.emplace(pos.x, pos.y, pos.z);
+			}
 		}
 	}
 
@@ -1036,107 +1039,31 @@ void Chunk::buildLight()
 	{
 		TRACY_SCOPE_NC("Collect sky light sources", ProfileCategory::ChunkLight);
 
-		// Compute local heightmap for this chunk
-		std::array<int, CHUNK_AREA> heightMap{};
+		for (int x = 0; x < CHUNK_SIZE; x++)
+		for (int z = 0; z < CHUNK_SIZE; z++)
 		{
-			TRACY_SCOPE_NC("Compute local heightmap", ProfileCategory::ChunkLight);
-			heightMap.fill(-1);
-			for (int x = 0; x < CHUNK_SIZE; x++)
+			// Find the highest non-solid block in this column
+			int highestAirY = -1;
+			for (int y = CHUNK_SIZE - 1; y >= 0; y--)
 			{
-				for (int z = 0; z < CHUNK_SIZE; z++)
+				size_t idx = getIndex(x, y, z);
+				BlockId block = cells[idx].block;
+				const BlockData* blockData = AssetRegistry::getBlockData(block);
+				if (!blockData || !blockData->absorbsLight)
 				{
-					for (int y = CHUNK_SIZE - 1; y >= 0; y--)
-					{
-						BlockId block = cells[getIndex(x, y, z)].block;
-						const auto* blockData = AssetRegistry::getBlockData(block);
-						if (!blockData || blockData->absorbsLight)
-						{
-							heightMap[getIndex(x, z)] = y;
-							break;
-						}
-					}
+					highestAirY = y;
+					break;
 				}
 			}
-		}
-		
-		// Compute array of heights from where to start adding nodes
-		constexpr int MAX_LOCAL_HEIGHT = CHUNK_SIZE - 1;
-		std::array<int, CHUNK_AREA> addNodeHeightMap;
-		addNodeHeightMap.fill(MAX_LOCAL_HEIGHT); // Unfilled values will make nodes appear on every y coord
-		// Coords won't be on border, so values on borders won't change
-		{
-			TRACY_SCOPE_NC("Compute height for nods", ProfileCategory::ChunkLight);
-			for (int x = 1; x < CHUNK_SIZE - 1; x++)
+
+			if (highestAirY >= 0)
 			{
-				for (int z = 1; z < CHUNK_SIZE - 1; z++)
-				{
-					// Get neighbor heights (in index increasing order)
-					const int nxHeight = heightMap[getIndex(x - 1, z)];
-					const int nzHeight = heightMap[getIndex(x, z - 1)];
-					const int pzHeight = heightMap[getIndex(x, z + 1)];
-					const int pxHeight = heightMap[getIndex(x + 1, z)];
-
-					// Get max height
-					const int maxXHeight = std::max(nxHeight, pxHeight);
-					const int maxZHeight = std::max(pzHeight, nzHeight);
-					const int maxHeight = std::max(maxXHeight, maxZHeight);
-
-					// Set localHeightToStartAddingNodes to the corresponding max height minus one (there can be nothing under toppest block)
-					int localHeightToStartAddingNodes = maxHeight - 1;
-					localHeightToStartAddingNodes = std::max(localHeightToStartAddingNodes, 0); // Must place at bottom, so it can propagate on neighbor chunk
-
-					addNodeHeightMap[getIndex(x, z)] = localHeightToStartAddingNodes;
-				}
+				size_t idx = getIndex(x, highestAirY, z);
+				cells[idx].lightLevel.skyLight = 15;
+				LightPropagationStorage::threadLocalSkyLightPropagation.emplace(
+					x, highestAirY, z);
 			}
 		}
-		
-		// Create nodes and fill light levels
-		{
-			TRACY_SCOPE_NC("Create nodes and fill light levels", ProfileCategory::ChunkLight);
-			for (int x = 0; x < CHUNK_SIZE; x++)
-			{
-				for (int z = 0; z < CHUNK_SIZE; z++)
-				{
-					const size_t index = getIndex(x, z);
-					const int firstExposedY = heightMap[index] + 1;
-
-					if (firstExposedY >= CHUNK_SIZE)
-					{
-						continue; // No exposed blocks in this column
-					}
-
-					// Filling light
-
-					const int localHeightToStartAddingNodes = addNodeHeightMap[index];
-
-					for (int y = localHeightToStartAddingNodes; y < CHUNK_SIZE; y++)
-					{
-						cells[getIndex(x, y, z)].lightLevel.skyLight = 15;
-					}
-
-					LightPropagationStorage::threadLocalSkyLightPropagation.emplace(x, localHeightToStartAddingNodes, z);
-				}
-			}
-		}
-
-		// // This code above can be simplified to this, but for some reason it results in slower execution
-		// // Maybe because overhead of running propagateSkyLight
-		//for (int x = 0; x < CHUNK_SIZE; x++)
-		//{
-		//	for (int z = 0; z < CHUNK_SIZE; z++)
-		//	{
-		//		size_t index = getIndex(x, CHUNK_SIZE - 1, z);
-		//		BlockId block = cells[index].block;
-		//		const auto* blockData = AssetRegistry::getBlockData(block);
-		//		if (!blockData || blockData->absorbsLight)
-		//		{
-		//			continue;
-		//		}
-		//
-		//		cells[index].lightLevel.skyLight = 15;
-		//		LightPropagationStorage::threadLocalSkyLightPropagation.queue.emplace(x, CHUNK_SIZE - 1, z);
-		//	}
-		//}
 	}
 
 	// Collect light from neighbors
@@ -1161,7 +1088,10 @@ void Chunk::buildLight()
 				if (currentLight.blockLight + 1 < neighborLight.blockLight)
 				{
 					currentLight.blockLight = neighborLight.blockLight - 1;
-					LightPropagationStorage::threadLocalBlockLightPropagation.emplace(x, y, z);
+					if (currentLight.blockLight > 1)
+					{
+						LightPropagationStorage::threadLocalBlockLightPropagation.emplace(x, y, z);
+					}
 				}
 
 				// Sky light
@@ -1169,7 +1099,10 @@ void Chunk::buildLight()
 				if (currentLight.skyLight + skyLightAbsorption < neighborLight.skyLight)
 				{
 					currentLight.skyLight = neighborLight.skyLight - skyLightAbsorption;
-					LightPropagationStorage::threadLocalSkyLightPropagation.emplace(x, y, z);
+					if (currentLight.skyLight > 1)
+					{
+						LightPropagationStorage::threadLocalSkyLightPropagation.emplace(x, y, z);
+					}
 				}
 			};
 
@@ -1265,6 +1198,7 @@ void Chunk::buildLight()
 
 	// Let neighbor chunks' lights be updated
 	bool hasNeighborToUpdate = false;
+	// TODO: Store array with side neighbor indices
 	for (int i = 0; i < 6; i++)
 	{
 		auto index = getSideNeighborIndex(i);

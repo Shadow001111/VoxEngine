@@ -18,17 +18,6 @@ static float lerp(float a, float b, float t)
 	return a + t * (b - a);
 }
 
-static float trilerp(float c000, float c100, float c010, float c110, float c001, float c101, float c011, float c111, float tx, float ty, float tz)
-{
-	float x00 = lerp(c000, c100, tx);
-	float x10 = lerp(c010, c110, tx);
-	float x01 = lerp(c001, c101, tx);
-	float x11 = lerp(c011, c111, tx);
-	float y0 = lerp(x00, x10, ty);
-	float y1 = lerp(x01, x11, ty);
-	return lerp(y0, y1, tz);
-}
-
 
 #define MIN_FUNCTION(a, b) a < b ? a : b
 #define MAX_FUNCTION(a, b) a > b ? a : b
