@@ -1500,7 +1500,7 @@ void Chunk::updateMesh()
 		// Set mesh data
 		FenceGuard scopedMeshFence(mesh.faceStorage.processingFence);
 
-		mesh.faceStorage.instancesStorage.swap(localMeshInstances);
+		mesh.faceStorage.instancesStorage = std::move(localMeshInstances);
 
 		size_t faceCount = mesh.faceStorage.getAllFaceCount();
 		if (faceCount == 0)

@@ -239,7 +239,7 @@ private:
 
 	AtomicWaitFence processingFence;
 
-	Cell cells[CHUNK_VOLUME];
+	Cell cells[CHUNK_VOLUME]; // Storing block and light level close in memory for best cache-locality
 
 	LightPropagationStorage lightPropagation;
 
