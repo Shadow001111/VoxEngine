@@ -56,7 +56,7 @@ struct ChunkMeshFaceStorage
 	{
 		ShouldBeUploaded = 0,
 
-		// These four must stay contiguous – createdFlag() relies on it.
+		// These four must stay contiguous - createdFlag() relies on it.
 		AlignedOpaqueCreated = 1,
 		AlignedTranslucentCreated = 2,
 		UnalignedOpaqueCreated = 3,

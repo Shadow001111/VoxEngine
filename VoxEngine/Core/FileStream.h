@@ -16,7 +16,7 @@ public:
     bool open(const std::filesystem::path& filepath, Mode mode);
     void close();
 
-    // Rule of 5 – movable, not copyable
+    // Rule of 5 - movable, not copyable
     FileStream(const FileStream&) = delete;
     FileStream& operator=(const FileStream&) = delete;
     FileStream(FileStream&& other) noexcept = default;
