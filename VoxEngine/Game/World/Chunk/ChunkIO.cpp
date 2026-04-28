@@ -2,8 +2,7 @@
 
 #include "Game/DataPackManagment/AssetRegistry.h"
 
-#include "Core/Stream/StreamReader.h"
-#include "Core/Stream/StreamWriter.h"
+#include "Core/Stream/FileStream.h"
 #include "Game/TracyProfiler.h"
 
 #include <format>
@@ -113,7 +112,7 @@ bool ChunkIO::areChangesValid(BlockId BlockId, const std::vector<uint16_t>& indi
 	return true;
 }
 
-bool ChunkIO::readPackCount(StreamReader& reader, uint16_t& packCount)
+bool ChunkIO::readPackCount(FileStream& reader, uint16_t& packCount)
 {
 	if (!reader.read(&packCount))
 	{
@@ -130,7 +129,7 @@ bool ChunkIO::readPackCount(StreamReader& reader, uint16_t& packCount)
 	return true;
 }
 
-bool ChunkIO::readPackBlockCount(StreamReader& reader, uint16_t& packBlockCount)
+bool ChunkIO::readPackBlockCount(FileStream& reader, uint16_t& packBlockCount)
 {
 	if (!reader.read(&packBlockCount))
 	{
@@ -147,7 +146,7 @@ bool ChunkIO::readPackBlockCount(StreamReader& reader, uint16_t& packBlockCount)
 	return true;
 }
 
-bool ChunkIO::readPackName(StreamReader& reader, std::string& packName)
+bool ChunkIO::readPackName(FileStream& reader, std::string& packName)
 {
 	uint8_t packNameLen = 0;
 	if (!reader.read(&packNameLen))
@@ -173,7 +172,7 @@ bool ChunkIO::readPackName(StreamReader& reader, std::string& packName)
 	return true;
 }
 
-bool ChunkIO::readBlockName(StreamReader& reader, std::string& blockName)
+bool ChunkIO::readBlockName(FileStream& reader, std::string& blockName)
 {
 	// Read block name length
 	uint8_t blockNameLen = 0;
@@ -201,7 +200,7 @@ bool ChunkIO::readBlockName(StreamReader& reader, std::string& blockName)
 	return true;
 }
 
-bool ChunkIO::readIndices(StreamReader& reader, std::vector<uint16_t>& indices)
+bool ChunkIO::readIndices(FileStream& reader, std::vector<uint16_t>& indices)
 {
 	// Read indices count for this block
 	uint16_t indicesCount = 0;
@@ -231,8 +230,8 @@ bool ChunkIO::readIndices(StreamReader& reader, std::vector<uint16_t>& indices)
 bool ChunkIO::loadBlockChanges(const std::filesystem::path& filepath, BlockChanges& blockChanges)
 {
 	// Load file
-	StreamReader reader(filepath);
-	if (!reader)
+	FileStream file(filepath, FileStream::Mode::Read);
+	if (!file)
 	{
 		std::cerr << "[ChunkIO][loadBlocks]: Failed to open file.\n";
 		return false;
@@ -242,7 +241,7 @@ bool ChunkIO::loadBlockChanges(const std::filesystem::path& filepath, BlockChang
 	const BlockId AIR_BLOCK_ID = AssetRegistry::getBlockNumericalId("core:air");
 
 	// Skip hash value
-	if (!reader.skip(8))
+	if (!file.skip(8))
 	{
 		std::cerr << "[ChunkIO][loadBlocks]: Failed to skip hash.\n";
 		return false;
@@ -250,7 +249,7 @@ bool ChunkIO::loadBlockChanges(const std::filesystem::path& filepath, BlockChang
 
 	// Read pack count
 	uint16_t packCount = 0;
-	readPackCount(reader, packCount);
+	readPackCount(file, packCount);
 
 	// Clear existing changes
 	blockChanges.clear();
@@ -260,14 +259,14 @@ bool ChunkIO::loadBlockChanges(const std::filesystem::path& filepath, BlockChang
 	{
 		// Read block count for this pack
 		uint16_t packBlockCount = 0;
-		if (!readPackBlockCount(reader, packBlockCount))
+		if (!readPackBlockCount(file, packBlockCount))
 		{
 			return false;
 		}
 
 		// Read pack name
 		std::string packName;
-		if (!readPackName(reader, packName))
+		if (!readPackName(file, packName))
 		{
 			return false;
 		}
@@ -277,7 +276,7 @@ bool ChunkIO::loadBlockChanges(const std::filesystem::path& filepath, BlockChang
 		{
 			// Read block name
 			std::string blockName;
-			if (!readBlockName(reader, blockName))
+			if (!readBlockName(file, blockName))
 			{
 				return false;
 			}
@@ -296,7 +295,7 @@ bool ChunkIO::loadBlockChanges(const std::filesystem::path& filepath, BlockChang
 
 			// Read indices
 			std::vector<uint16_t> indices;
-			if (!readIndices(reader, indices))
+			if (!readIndices(file, indices))
 			{
 				return false;
 			}
@@ -315,25 +314,17 @@ bool ChunkIO::loadBlockChanges(const std::filesystem::path& filepath, BlockChang
 	return true;
 }
 
-bool ChunkIO::checkIfShouldBeSaved(const std::filesystem::path& filepath, uint64_t hashValue)
+bool ChunkIO::checkIfShouldBeSaved(FileStream& file, uint64_t hashValue)
 {
-	// Check if file exists
-	if (!doesFileExist(filepath))
+	// Check if file exists and is open
+	if (!file)
 	{
-		return true; // If it doesn't exist, create it
-	}
-
-	// Open file for reading
-	StreamReader reader(filepath);
-	if (!reader)
-	{
-		std::cerr << "[ChunkIO][saveBlocks]: Failed to open file.\n";
-		return true; // Let writer try to open it
+		return true;
 	}
 	
 	// Read hash value
 	uint64_t storedHasValue;
-	if (!reader.read(&storedHasValue))
+	if (!file.read(&storedHasValue))
 	{
 		std::cerr << "[ChunkIO][saveBlocks]: Read error for hash value.\n";
 		return true;
@@ -416,6 +407,8 @@ void ChunkIO::loadBlocks(BlockChanges& blockChanges, const glm::ivec3& chunkRegi
 
 void ChunkIO::saveBlocks(const BlockChanges& blockChanges, const glm::ivec3& chunkRegionPosition, size_t chunkIndexInRegion)
 {
+	TRACY_SCOPE_NC("Save blocks", ProfileCategory::ChunkIO);
+
 	if (blockChanges.empty())
 	{
 		return;
@@ -434,32 +427,35 @@ void ChunkIO::saveBlocks(const BlockChanges& blockChanges, const glm::ivec3& chu
 	fs::path chunkFilePath = chunkRegionDirectoryPath / std::format("{}.bin", chunkIndexInRegion);
 
 	// Ensure region directory exists
-	if (!doesDirectoryExist(chunkRegionDirectoryPath))
+	std::error_code ec;
+	fs::create_directories(chunkRegionDirectoryPath, ec);
+	if (ec)
 	{
-		std::error_code ec;
-		if (!fs::create_directories(chunkRegionDirectoryPath, ec))
-		{
-			std::cerr << "[ChunkIO][saveBlocks]: Failed to create directory '" << chunkRegionDirectoryPath << "'. Error: " << ec.message() << "\n";
-			return;
-		}
+		std::cerr << "[ChunkIO][saveBlocks]: Failed to create directory '"
+			<< chunkRegionDirectoryPath << "'. Error: " << ec.message() << "\n";
+		return;
 	}
 
-	// Check if we actually need to write to file (if changes are the same as what's already on disk, skip writing)
-	if (!checkIfShouldBeSaved(chunkFilePath, hashValue))
+	// Open file for reading
+	FileStream file(chunkFilePath, FileStream::Mode::Read);
+
+	// Check if we actually need to write to file (if changes are the same as what's already on drive, skip writing)
+	if (!checkIfShouldBeSaved(file, hashValue))
 	{
 		return;
 	}
 
 	// Open file for writing
-	StreamWriter writer(chunkFilePath);
-	if (!writer)
+	file.close();
+	file.open(chunkFilePath, FileStream::Mode::Write);
+	if (!file)
 	{
 		std::cerr << "[ChunkIO][saveBlocks]: Failed to create file.\n";
 		return;
 	}
 
 	// Filter valid changes and collect block names
-	robin_hood::unordered_flat_map<BlockId, std::string> idToString = collectBlockIdStrings(blockChanges);
+	Map<BlockId, std::string> idToString = collectBlockIdStrings(blockChanges);
 	
 	// Check if any block id strings were collected
 	if (idToString.empty())
@@ -468,13 +464,13 @@ void ChunkIO::saveBlocks(const BlockChanges& blockChanges, const glm::ivec3& chu
 	}
 
 	// Extract pack information from block names
-	robin_hood::unordered_flat_map<std::string, PackInfo> packMap = transformBlockDataIntoPackData(idToString);
+	Map<std::string, PackInfo> packMap = transformBlockDataIntoPackData(idToString);
 
 	// Create sorted list of packs
 	std::vector<PackInfo> packs = transformPackDataMapToSortedVector(packMap);
 
 	// Write hash value
-	if (!writer.write(&hashValue))
+	if (!file.write(&hashValue))
 	{
 		std::cerr << "[ChunkIO][saveBlocks]: Failed to write has value.\n";
 		return;
@@ -482,7 +478,7 @@ void ChunkIO::saveBlocks(const BlockChanges& blockChanges, const glm::ivec3& chu
 
 	// Write pack count
 	uint16_t packCount = static_cast<uint16_t>(packs.size());
-	if (!writer.write(&packCount))
+	if (!file.write(&packCount))
 	{
 		std::cerr << "[ChunkIO][saveBlocks]: Failed to write pack count.\n";
 		return;
@@ -493,7 +489,7 @@ void ChunkIO::saveBlocks(const BlockChanges& blockChanges, const glm::ivec3& chu
 	{
 		// Write block count for this pack
 		uint16_t blockCount = static_cast<uint16_t>(pack.blocks.size());
-		if (!writer.write(&blockCount))
+		if (!file.write(&blockCount))
 		{
 			std::cerr << "[ChunkIO][saveBlocks]: Failed to write block count.\n";
 			return;
@@ -501,8 +497,8 @@ void ChunkIO::saveBlocks(const BlockChanges& blockChanges, const glm::ivec3& chu
 
 		// Write pack name
 		uint8_t packNameLen = static_cast<uint8_t>(pack.name.size());
-		if (!writer.write(&packNameLen) ||
-			!writer.writeBytes(pack.name.data(), packNameLen))
+		if (!file.write(&packNameLen) ||
+			!file.writeBytes(pack.name.data(), packNameLen))
 		{
 			std::cerr << "[ChunkIO][saveBlocks]: Failed to write pack name.\n";
 			return;
@@ -513,8 +509,8 @@ void ChunkIO::saveBlocks(const BlockChanges& blockChanges, const glm::ivec3& chu
 		{
 			// Write block name
 			uint8_t blockNameLen = static_cast<uint8_t>(blockName.size());
-			if (!writer.write(&blockNameLen) ||
-				!writer.writeBytes(blockName.data(), blockNameLen))
+			if (!file.write(&blockNameLen) ||
+				!file.writeBytes(blockName.data(), blockNameLen))
 			{
 				std::cerr << "[ChunkIO][saveBlocks]: Failed to write block name.\n";
 				return;
@@ -523,8 +519,8 @@ void ChunkIO::saveBlocks(const BlockChanges& blockChanges, const glm::ivec3& chu
 			// Write indices for this block
 			const auto& indices = blockChanges.at(globalID);
 			uint16_t indicesCount = static_cast<uint16_t>(indices.size());
-			if (!writer.write(&indicesCount) ||
-				(indicesCount > 0 && !writer.write(indices.data(), indicesCount)))
+			if (!file.write(&indicesCount) ||
+				(indicesCount > 0 && !file.write(indices.data(), indicesCount)))
 			{
 				std::cerr << "[ChunkIO][saveBlocks]: Failed to write indices.\n";
 				return;
@@ -533,7 +529,7 @@ void ChunkIO::saveBlocks(const BlockChanges& blockChanges, const glm::ivec3& chu
 	}
 
 	// Ensure everything is written to disk
-	if (!writer.flush())
+	if (!file.flush())
 	{
 		std::cerr << "[ChunkIO][saveBlocks]: Failed to flush data to disk.\n";
 	}
@@ -541,7 +537,7 @@ void ChunkIO::saveBlocks(const BlockChanges& blockChanges, const glm::ivec3& chu
 
 AtomicBitset<CHUNK_REGION_VOLUME, size_t> ChunkIO::checkChunkRegionForSaves(const glm::ivec3& regionPosition)
 {
-	TRACY_SCOPE_NC("Scan chunk region directory", ProfileCategory::ChunkBlocks);
+	TRACY_SCOPE_NC("Scan chunk region directory", ProfileCategory::ChunkIO);
 
 	AtomicBitset<CHUNK_REGION_VOLUME, size_t> mask;
 

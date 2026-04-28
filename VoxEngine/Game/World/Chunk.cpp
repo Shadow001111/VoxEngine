@@ -7,6 +7,7 @@
 
 #include "Core/Assert.h"
 #include "Core/Hashes/ivec2Hasher.h"
+#include "Core/Multithreading/ThreadPool.h"
 
 std::unique_ptr<Chunk::ManagerInstances> Chunk::managerInstances;
 Chunk::CachedBlockIds Chunk::CACHED_BLOCK_IDS;
@@ -123,8 +124,6 @@ void Chunk::destroy()
 	}
 
 	save();
-	blockChanges.clear();
-	blockChanges.compact();
 
 	// Update global counters
 	globalCounters.chunkCount.fetch_sub(1, std::memory_order_relaxed);
@@ -554,7 +553,7 @@ void Chunk::loadSave()
 	}
 }
 
-void Chunk::save() const
+void Chunk::save()
 {
 	TRACY_SCOPE_NC("Save chunk save", ProfileCategory::ChunkBlocks);
 
@@ -567,8 +566,14 @@ void Chunk::save() const
 
 	if (hasChanges)
 	{
-		TRACY_SCOPE_NC("Save", ProfileCategory::ChunkBlocks);
-		ChunkIO::saveBlocks(blockChanges, parentRegion->getPosition(), indexInRegion);
+		ThreadPool& pool = ParallelUtils::getGlobalThreadPool();
+
+		auto parentRegionPosition = parentRegion->getPosition();
+
+		pool.enqueue([movedBlockChanges = std::move(blockChanges), parentRegionPosition, indexInRegion]()
+			{
+				ChunkIO::saveBlocks(movedBlockChanges, parentRegionPosition, indexInRegion);
+			});
 	}
 }
 

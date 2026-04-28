@@ -25,7 +25,7 @@
 
 #include <tracy/Tracy.hpp>
 
-const int CHUNK_LOAD_DISTANCE = 24;
+const int CHUNK_LOAD_DISTANCE = 12;
 
 
 static std::string formatSize(size_t value)

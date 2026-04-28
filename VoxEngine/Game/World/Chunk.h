@@ -396,7 +396,7 @@ private:
 
 	// IO
 	void loadSave();
-	void save() const;
+	void save();
 
 	// Light
 	uint32_t propagateBlockLight();

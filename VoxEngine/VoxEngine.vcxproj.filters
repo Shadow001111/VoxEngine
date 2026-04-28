@@ -159,12 +159,6 @@
     <ClCompile Include="Game\World\Chunk\ChunkIO.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="Core\Stream\StreamReader.cpp">
-      <Filter>Исходные файлы</Filter>
-    </ClCompile>
-    <ClCompile Include="Core\Stream\StreamWriter.cpp">
-      <Filter>Исходные файлы</Filter>
-    </ClCompile>
     <ClCompile Include="Game\World\ChunkRegionManager.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
@@ -184,6 +178,9 @@
       <Filter>Исходные файлы</Filter>
     </ClCompile>
     <ClCompile Include="Core\TracyPtofiler.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\Stream\FileStream.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
   </ItemGroup>
@@ -401,12 +398,6 @@
     <ClInclude Include="Game\World\Chunk\ChunkIO.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="Core\Stream\StreamReader.h">
-      <Filter>Файлы заголовков</Filter>
-    </ClInclude>
-    <ClInclude Include="Core\Stream\StreamWriter.h">
-      <Filter>Файлы заголовков</Filter>
-    </ClInclude>
     <ClInclude Include="Game\World\ChunkRegionManager.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
@@ -459,6 +450,9 @@
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Game\TracyProfiler.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\Stream\FileStream.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
   </ItemGroup>

@@ -9,6 +9,7 @@ enum class ProfileCategory : uint64_t
 	ChunkBlocks,
 	ChunkLight,
 	ChunkMesh,
+	ChunkIO,
 	ChunkColumnData,
 	TerrainGeneration,
 	__COUNT__

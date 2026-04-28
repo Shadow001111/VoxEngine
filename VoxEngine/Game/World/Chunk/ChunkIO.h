@@ -11,7 +11,7 @@
 #include <filesystem>
 #include <glm/vec3.hpp>
 
-class StreamReader;
+class FileStream;
 
 class ChunkIO
 {
@@ -38,19 +38,19 @@ private:
 
 	// READ SECTION
 
-	static bool readPackCount(StreamReader& reader, uint16_t& packCount);
+	static bool readPackCount(FileStream& reader, uint16_t& packCount);
 
-	static bool readPackBlockCount(StreamReader& reader, uint16_t& packBlockCount);
-	static bool readPackName(StreamReader& reader, std::string& packName);
+	static bool readPackBlockCount(FileStream& reader, uint16_t& packBlockCount);
+	static bool readPackName(FileStream& reader, std::string& packName);
 
-	static bool readBlockName(StreamReader& reader, std::string& blockName);
-	static bool readIndices(StreamReader& reader, std::vector<uint16_t>& indices);
+	static bool readBlockName(FileStream& reader, std::string& blockName);
+	static bool readIndices(FileStream& reader, std::vector<uint16_t>& indices);
 
 	static bool loadBlockChanges(const std::filesystem::path& filepath, BlockChanges& blockChanges);
 
 	// WRITE SECTION
 
-	static bool checkIfShouldBeSaved(const std::filesystem::path& filepath, uint64_t hashValue);
+	static bool checkIfShouldBeSaved(FileStream& file, uint64_t hashValue);
 
 	static Map<BlockId, std::string> collectBlockIdStrings(const BlockChanges& blockChanges);
 
@@ -58,8 +58,6 @@ private:
 
 	static std::vector<PackInfo> transformPackDataMapToSortedVector(const Map<std::string, PackInfo>& packDataMap);
 public:
-	using BlockChanges = Map<BlockId, std::vector<uint16_t>>;
-
 	static std::filesystem::path CHUNK_SAVES_PATH;
 
 	static void loadBlocks(BlockChanges& blockChanges, const glm::ivec3& chunkRegionPosition, size_t chunkIndexInRegion);

@@ -160,6 +160,7 @@
   <ItemGroup>
     <ClCompile Include="..\..\..\tracy\public\TracyClient.cpp" />
     <ClCompile Include="Core\TracyPtofiler.cpp" />
+    <ClCompile Include="Core\Stream\FileStream.cpp" />
     <ClCompile Include="Game\World\ChunkRegionManager.cpp" />
     <ClCompile Include="Game\World\Chunk\ChunkIO.cpp" />
     <ClCompile Include="Game\World\Chunk\ChunkMesh\ChunkMesh.cpp" />
@@ -210,8 +211,6 @@
     <ClCompile Include="OpenGLWrappers\ImmutableBuffer.cpp" />
     <ClCompile Include="Core\Random.cpp" />
     <ClCompile Include="Game\SoundManager.cpp" />
-    <ClCompile Include="Core\Stream\StreamReader.cpp" />
-    <ClCompile Include="Core\Stream\StreamWriter.cpp" />
     <ClCompile Include="WindowManager.cpp" />
     <ClCompile Include="Game\WorldImpl\WorldChunkManager.cpp" />
     <ClCompile Include="Game\WorldImpl\WorldRenderer.cpp" />
@@ -225,6 +224,7 @@
     <ClInclude Include="Core\Flags.h" />
     <ClInclude Include="Core\MemoryAllocation\AlignedStorage.h" />
     <ClInclude Include="Core\Simd.h" />
+    <ClInclude Include="Core\Stream\FileStream.h" />
     <ClInclude Include="Game\ProfileCategories.h" />
     <ClInclude Include="Game\TracyProfiler.h" />
     <ClInclude Include="Game\World\ChunkRegionManager.h" />
@@ -301,8 +301,6 @@
     <ClInclude Include="OpenGLWrappers\ImmutableBuffer.h" />
     <ClInclude Include="Core\Random.h" />
     <ClInclude Include="Game\SoundManager.h" />
-    <ClInclude Include="Core\Stream\StreamReader.h" />
-    <ClInclude Include="Core\Stream\StreamWriter.h" />
     <ClInclude Include="Core\Multithreading\move_only_function.h" />
     <ClInclude Include="Core\TracyProfiler.h" />
     <ClInclude Include="WindowManager.h" />
