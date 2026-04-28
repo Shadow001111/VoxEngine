@@ -31,3 +31,17 @@ void StringIndexer::clear()
 {
     nameToID.clear();
 }
+
+bool StringIndexer::swapIds(const std::string& a, const std::string& b)
+{
+    auto itA = nameToID.find(a);
+    auto itB = nameToID.find(b);
+    auto end = nameToID.end();
+    if (itA == end || itB == end)
+    {
+        return false;
+    }
+
+    std::swap(itA->second, itB->second);
+    return true;
+}

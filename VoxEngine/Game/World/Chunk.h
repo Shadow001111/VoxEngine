@@ -111,7 +111,7 @@ class Chunk
 
 	struct CachedBlockIds
 	{
-		BlockId airId;
+		constexpr static BlockId airId = 0;
 		BlockId waterId;
 		BlockId grassBlockId;
 		BlockId dirtId;
@@ -237,7 +237,7 @@ private:
 
 	uint8_t loaderCount = 0;
 
-	TracyLockableN(AtomicWaitFence, processingFence, "Processing fence");
+	AtomicWaitFence processingFence; // Making it a TracyLockable makes Tracy lag, probably because of size of data, even if nothing is getting displayed :/
 
 	Cell cells[CHUNK_VOLUME]; // Storing block and light level close in memory for best cache-locality
 
@@ -378,7 +378,7 @@ public:
 	bool readFlag(Flag flag) const noexcept { return chunkFlags.read(static_cast<unsigned>(flag)); }
 	bool readAndSetFlag(Flag flag, bool value) noexcept { return chunkFlags.readAndSet(static_cast<unsigned>(flag), value); }
 
-	bool getIsProcessing() const noexcept { return processingFence.m_lockable.isLocked(); };
+	bool getIsProcessing() const noexcept { return processingFence.isLocked(); };
 
 	bool getIsLoadedInWorld() const noexcept { return chunkFlags.read(Flag::IsLoadedInWorld); };
 

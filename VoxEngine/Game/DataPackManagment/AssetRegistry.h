@@ -64,7 +64,7 @@ class AssetRegistry
 	static StringIndexer itemUITextureIndexer;
 	
 	// Fallback ids
-	static BlockId FALLBACK_BLOCK_ID;
+	constexpr static BlockId FALLBACK_BLOCK_ID = 0;
 	static ModelId FALLBACK_BLOCK_MODEL_ID;
 	static ItemId FALLBACK_ITEM_ID;
 	static ModelId FALLBACK_ITEM_MODEL_ID;
@@ -83,6 +83,8 @@ public:
 private:
 	static bool linkBlockAssets();
 	static bool linkItemAssets();
+
+	static bool ensureAirIdIs0();
 public:
 	// Data id getters
 	static BlockId getBlockNumericalId(const std::string& stringId);

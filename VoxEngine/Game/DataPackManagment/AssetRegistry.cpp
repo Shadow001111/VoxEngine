@@ -23,7 +23,6 @@ StringIndexer AssetRegistry::itemModelIndexer;
 StringIndexer AssetRegistry::blockTextureIndexer;
 StringIndexer AssetRegistry::itemUITextureIndexer;
 
-BlockId AssetRegistry::FALLBACK_BLOCK_ID;
 ModelId AssetRegistry::FALLBACK_BLOCK_MODEL_ID;
 ItemId AssetRegistry::FALLBACK_ITEM_ID;
 ModelId AssetRegistry::FALLBACK_ITEM_MODEL_ID;
@@ -339,19 +338,11 @@ bool AssetRegistry::linkAssets()
 		return false;
 	}
 
-	// Get fallback ids
+	if (!ensureAirIdIs0())
 	{
-		auto result = blockIndexer.getId("core:air");
-		if (result.has_value())
-		{
-			FALLBACK_BLOCK_ID = result.value();
-		}
-		else
-		{
-			std::cerr << "[AssetRegistry]: core:air block is not found\n";
-			return false;
-		}
+		return false;
 	}
+
 	FALLBACK_BLOCK_MODEL_ID = -1;
 	FALLBACK_ITEM_ID = -1;
 	FALLBACK_ITEM_MODEL_ID = -1;
@@ -362,6 +353,7 @@ bool AssetRegistry::linkAssets()
 		!linkItemAssets()
 		)
 	{
+		std::cerr << "[AssetRegistry]: Failed to link assets";
 		return false;
 	}
 
@@ -486,6 +478,33 @@ bool AssetRegistry::linkItemAssets()
 			}
 		}
 	}
+	return true;
+}
+
+bool AssetRegistry::ensureAirIdIs0()
+{
+	// Find current ID of core:air
+	auto airIdOpt = blockIndexer.getId("core:air");
+	if (!airIdOpt.has_value())
+	{
+		std::cerr << "[AssetRegistry]: 'core:air' not registered!\n";
+		return false;
+	}
+
+	BlockId airId = airIdOpt.value();
+	if (airId == 0) return true;
+
+	// Swap the indexer mappings so the string IDs match the new positions
+	const std::string& firstBlockStringId = blockDataStorage[0].stringId;
+	if (!blockIndexer.swapIds("core:air", firstBlockStringId))
+	{
+		std::cerr << "[AssetRegistry]: Failed to swap 'core:air' with other block\n";
+		return false;
+	}
+
+	// Swap block data entries
+	std::swap(blockDataStorage[0], blockDataStorage[airId]);
+
 	return true;
 }
 

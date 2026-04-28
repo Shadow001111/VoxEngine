@@ -23,4 +23,6 @@ public:
 	const robin_hood::unordered_flat_map<std::string, size_t>& getNameToIDMap() const { return nameToID; };
 
 	void clear();
+
+	bool swapIds(const std::string& a, const std::string& b);
 };

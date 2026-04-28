@@ -136,7 +136,7 @@ void Chunk::globalInit()
 	managerInstances = std::make_unique<ManagerInstances>();
 
 	// Cache block ids
-	CACHED_BLOCK_IDS.airId = AssetRegistry::getBlockNumericalId("core:air");
+	ASSERT(AssetRegistry::getBlockNumericalId("core:air") == 0);
 	CACHED_BLOCK_IDS.waterId = AssetRegistry::getBlockNumericalId("core:water");
 	CACHED_BLOCK_IDS.grassBlockId = AssetRegistry::getBlockNumericalId("core:grass_block");
 	CACHED_BLOCK_IDS.dirtId = AssetRegistry::getBlockNumericalId("core:dirt");
@@ -162,21 +162,11 @@ void Chunk::buildBlocks()
 
 	FenceGuard scopedFence(processingFence);
 
-	// Reset blocks
-	{
-		TRACY_SCOPE_NC("Reset blocks and light levels", ProfileCategory::General);
-		//std::memset(blocks, CACHED_BLOCK_IDS.airId, sizeof(blocks));
-		
-		for (int i = 0; i < CHUNK_VOLUME; i++)
-		{
-			cells[i].block = CACHED_BLOCK_IDS.airId;
-			cells[i].lightLevel.fullByte = 0;
-		}
-	}
+	// Reset blocks and light levels
+	std::memset(cells, 0, sizeof(cells));
 
 	// Load chunk column data
-	const ChunkColumnData* chunkColumnData;
-	chunkColumnData = TerrainGenerator::getInstance().loadChunkColumnData(position.x, position.z);
+	const ChunkColumnData* chunkColumnData = TerrainGenerator::getInstance().loadChunkColumnData(position.x, position.z);
 	chunkFlags.set(Flag::IsLoadedChunkColumnData, true);
 	const int* heightMap = chunkColumnData->heightMapRead();
 
