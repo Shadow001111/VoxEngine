@@ -1192,8 +1192,32 @@ void Chunk::buildLight()
 	// Set state
 	setState(State::LightsBuilt);
 
+	//
+	Chunk* lowerNeighbor = neighbors[getNeighborIndex(0, -1, 0)];
+	if (lowerNeighbor)
+	{
+		// Note: Doesn't work
+		//FenceGuard fence(lowerNeighbor->processingFence);
+		//for (int x = 0; x < CHUNK_SIZE; x++)
+		//for (int z = 0; z < CHUNK_SIZE; z++)
+		//{
+		//	size_t idx = getIndex(x, 0, z);
+		//	BlockId block = cells[idx].block;
+		//	const BlockData* blockData = AssetRegistry::getBlockData(block);
+		//	if (blockData && blockData->absorbsLight)
+		//	{
+		//		size_t lowerIdx = getIndex(x, CHUNK_SIZE - 1, z);
+		//		LightLevel lowerLight = lowerNeighbor->cells[lowerIdx].lightLevel;
+		//		if (lowerLight.skyLight > 0)
+		//		{
+		//			lowerNeighbor->cells[lowerIdx].lightLevel.skyLight = 0;
+		//			lowerNeighbor->addSkyLightRemovalNode(x, CHUNK_SIZE - 1, z, lowerLight.skyLight);
+		//		}
+		//	}
+		//}
+	}
+
 	// Apply dirty mask
-	//applyNeighborDirtyMask(neighborDirtyMask);
 	applyNeighborDirtyMask(-1); // Update all neighbors, because 'buildLight' is called after 'buildBlocks', so every neighbor is dirty
 
 	// Let neighbor chunks' lights be updated

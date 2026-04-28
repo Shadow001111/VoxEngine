@@ -264,7 +264,7 @@ void WorldChunkManager::startBuildingChunkBlocks()
 					}
 
 					{
-						std::lock_guard<LockableBase(std::mutex)> lock(buildContainers.lightsMutex);
+						std::lock_guard lock(buildContainers.lightsMutex);
 						buildContainers.lightsIncoming.insert(batch_.begin(), batch_.end());
 					}
 				});
@@ -279,19 +279,19 @@ void WorldChunkManager::startBuildingChunkLights()
 
 	chunksToProcess.clear();
 
-	// 1. Swap/Move incoming chunks to a local temporary set
+	// Swap/move incoming chunks to a local temporary set
 	static robin_hood::unordered_flat_set<Chunk*> localIncoming;
 	localIncoming.clear();
 	{
 		TRACY_SCOPE_NC("Sync Light Containers", ProfileCategory::ChunkLight);
-		std::lock_guard<LockableBase(std::mutex)> lock(buildContainers.lightsMutex);
+		std::lock_guard lock(buildContainers.lightsMutex);
 		if (!buildContainers.lightsIncoming.empty())
 		{
 			localIncoming.swap(buildContainers.lightsIncoming);
 		}
 	}
 
-	// 2. Merge new incoming chunks into our long-term processing set
+	// Merge new incoming chunks into our long-term processing set
 	if (!localIncoming.empty())
 	{
 		buildContainers.lightsProcessing.insert(localIncoming.begin(), localIncoming.end());
@@ -299,7 +299,7 @@ void WorldChunkManager::startBuildingChunkLights()
 
 	if (buildContainers.lightsProcessing.empty()) return;
 
-	// 3. Process the local set (No lock held here!)
+	// Process the local set
 	{
 		TRACY_SCOPE_NC("Check Ready Chunks", ProfileCategory::ChunkLight);
 
@@ -314,7 +314,7 @@ void WorldChunkManager::startBuildingChunkLights()
 				continue;
 			}
 
-			// Check neighbors (CPU intensive part now outside the lock)
+			// Check neighbors
 			bool allNeighborsReady = true;
 			const auto& neighbors = chunk->getNeighbors();
 			for (int i = 0; i < 6; i++)
@@ -340,7 +340,7 @@ void WorldChunkManager::startBuildingChunkLights()
 		}
 	}
 
-	// 4. Submit chunks to thread pool
+	// Submit chunks to thread pool
 	if (!chunksToProcess.empty())
 	{
 		TRACY_SCOPE_NC("Send chunks to light building", ProfileCategory::ChunkLight);

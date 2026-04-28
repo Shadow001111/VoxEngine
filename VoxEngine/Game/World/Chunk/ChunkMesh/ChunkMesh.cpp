@@ -24,7 +24,7 @@ void ChunkMesh::sendMeshesToGPU()
 		TRACY_SCOPE_NC("Lock processing fence", ProfileCategory::ChunkMesh);
 		for (Chunk* chunk : pendingMeshUploads)
 		{
-			chunk->mesh.faceStorage.processingFence.startProcessing();
+			chunk->mesh.faceStorage.processingFence.lock();
 		}
 	}
 
@@ -82,7 +82,7 @@ void ChunkMesh::sendMeshesToGPU()
 			faceStorage.setFlag(ChunkMesh::Flag::ShouldBeUploaded, false);
 			faceStorage.instancesStorage.clear();
 			faceStorage.instancesStorage.shrinkToFit();
-			faceStorage.processingFence.stopProcessing();
+			faceStorage.processingFence.unlock();
 			chunk->updateCanBeRenderedFlag();
 		}
 	}

@@ -237,7 +237,7 @@ private:
 
 	uint8_t loaderCount = 0;
 
-	AtomicWaitFence processingFence;
+	TracyLockableN(AtomicWaitFence, processingFence, "Processing fence");
 
 	Cell cells[CHUNK_VOLUME]; // Storing block and light level close in memory for best cache-locality
 
@@ -378,7 +378,7 @@ public:
 	bool readFlag(Flag flag) const noexcept { return chunkFlags.read(static_cast<unsigned>(flag)); }
 	bool readAndSetFlag(Flag flag, bool value) noexcept { return chunkFlags.readAndSet(static_cast<unsigned>(flag), value); }
 
-	bool getIsProcessing() const noexcept { return processingFence.isProcessing(); };
+	bool getIsProcessing() const noexcept { return processingFence.m_lockable.isLocked(); };
 
 	bool getIsLoadedInWorld() const noexcept { return chunkFlags.read(Flag::IsLoadedInWorld); };
 

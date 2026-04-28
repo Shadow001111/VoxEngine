@@ -12,11 +12,12 @@ public:
     NothingFence(NothingFence&&) = delete;
     NothingFence& operator=(NothingFence&&) = delete;
 
-    void startProcessing() {}
-    void stopProcessing() {}
+    void lock() {}
+    void unlock() {}
+    bool try_lock() { return true; }
 
     // Note: This is not thread-safe. It should be used only for quick checks, where it's not critical if it returns a slightly outdated value.
-    [[nodiscard]] bool isProcessing() const noexcept { return false; };
+    [[nodiscard]] bool isLocked() const noexcept { return false; };
 };
 
 class AtomicWaitFence
@@ -30,10 +31,11 @@ public:
     AtomicWaitFence(AtomicWaitFence&&) = delete;
     AtomicWaitFence& operator=(AtomicWaitFence&&) = delete;
 
-    void startProcessing();
-    void stopProcessing();
+    void lock();
+    void unlock();
+    bool try_lock();
 
-    [[nodiscard]] bool isProcessing() const noexcept { return processing.load(std::memory_order_acquire); };
+    [[nodiscard]] bool isLocked() const noexcept { return processing.load(std::memory_order_acquire); };
 };
 
 class SemaphoreFence
@@ -48,10 +50,11 @@ public:
     SemaphoreFence(SemaphoreFence&&) = delete;
     SemaphoreFence& operator=(SemaphoreFence&&) = delete;
 
-    void startProcessing();
-    void stopProcessing();
+    void lock();
+    void unlock();
+    bool try_lock();
 
-    [[nodiscard]] bool isProcessing() const noexcept { return processing.load(std::memory_order_acquire); };
+    [[nodiscard]] bool isLocked() const noexcept { return processing.load(std::memory_order_acquire); };
 };
 
 template <typename T>
@@ -62,12 +65,12 @@ public:
     explicit FenceGuard(T& fence) :
         fence(fence)
     {
-		fence.startProcessing();
+		fence.lock();
     }
 
     ~FenceGuard()
     {
-		fence.stopProcessing();
+		fence.unlock();
     }
 
     FenceGuard(const FenceGuard&) = delete;
