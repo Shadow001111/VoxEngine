@@ -106,7 +106,6 @@ private:
 
     void createInstanceVBO(size_t glyphCount);
 
-    static void getFontInfo(FT_Face& face, glm::ivec2& maxGlyphSize, size_t& glyphCount);
     static void loadGlyphs(FT_Face& face, Font& font);
 
     static void renderTextInternal(const void* text, size_t textLength, UTFDecoderFunction decoder, float x, float y, float rowHeight,

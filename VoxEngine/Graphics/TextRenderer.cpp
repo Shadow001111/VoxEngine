@@ -148,35 +148,6 @@ void TextRenderer::createInstanceVBO(size_t glyphCount)
     textVAO.setAttributeDivisor(3, 1);
 }
 
-void TextRenderer::getFontInfo(FT_Face& face, glm::ivec2& maxGlyphSize, size_t& glyphCount)
-{
-    TRACY_SCOPE_NC("Get font info", ProfileCategory::General);
-
-    static_assert(sizeof(FT_ULong) == sizeof(uint32_t), "FT_Ulong != uint32_t");
-
-    FT_UInt gindex;
-    FT_ULong charcode = FT_Get_First_Char(face, &gindex);
-
-    maxGlyphSize = { 0, 0 };
-    glyphCount = 0;
-
-    // TODO: Don't load charcodes <= 32 whatsoever. Add them to banned characters.
-    while (gindex != 0)
-    {
-        if (FT_Load_Char(face, charcode, FT_LOAD_RENDER))
-        {
-            std::cerr << "[TextRenderer]: Failed to load glyph: '" << charcode << "'.\n";
-            continue;
-        }
-
-        glm::ivec2 glyphSize = glm::ivec2(face->glyph->bitmap.width, face->glyph->bitmap.rows);
-        maxGlyphSize = glm::max(maxGlyphSize, glyphSize);
-
-        charcode = FT_Get_Next_Char(face, charcode, &gindex);
-        glyphCount++;
-    }
-}
-
 void TextRenderer::loadGlyphs(FT_Face& face, Font& font)
 {
     TRACY_SCOPE_NC("Load glyphs", ProfileCategory::General);
@@ -540,8 +511,12 @@ bool TextRenderer::loadFont(const std::string& fontName, GLuint fontSize)
     font.fontSize = fontSize;
 
     // Get font info
-    size_t glyphCount;
-    getFontInfo(face, font.maxGlyphSize, glyphCount);
+    size_t glyphCount = face->num_glyphs;
+    {
+        float scale = (float)fontSize / (float)face->units_per_EM;
+        font.maxGlyphSize.x = (int)std::ceil((face->bbox.xMax - face->bbox.xMin) * scale);
+        font.maxGlyphSize.y = (int)std::ceil((face->bbox.yMax - face->bbox.yMin) * scale);
+    }
 
     // Create texture array
     GLint oldAlignment;
