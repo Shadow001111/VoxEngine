@@ -28,6 +28,7 @@ struct Font
     robin_hood::unordered_flat_map<uint32_t, Glyph> glyphs;
     float fontSize = 0.0f;
     glm::ivec2 maxGlyphSize = { 0, 0 };
+    size_t glyphCount = 0;
 
     Texture textureArray;
 

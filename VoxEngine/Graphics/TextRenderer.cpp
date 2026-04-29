@@ -154,14 +154,17 @@ void TextRenderer::loadGlyphs(FT_Face& face, Font& font)
     
     static_assert(sizeof(FT_ULong) == sizeof(uint32_t), "FT_Ulong != uint32_t");
 
+    font.glyphs.reserve(font.glyphCount);
+
     FT_UInt gindex;
     FT_ULong charcode = FT_Get_First_Char(face, &gindex);
 
-    uint32_t textureID = 1;
+    uint32_t textureIdCounter = 1;
 
     const bool isTextureCompressed = font.textureArray.isCompressed();
 
-    std::vector<uint8_t> paddedBitmap;
+    const size_t layerSize = font.maxGlyphSize.x * font.maxGlyphSize.y;
+    std::vector<uint8_t> textureData(layerSize * font.glyphCount, 0);
 
     while (gindex != 0)
     {
@@ -174,57 +177,31 @@ void TextRenderer::loadGlyphs(FT_Face& face, Font& font)
             }
         }
 
-        uint32_t texture = 0;
+        uint32_t glyphTextureId = 0;
         if (charcode > ' ')
         {
             TRACY_SCOPE_NC("Process char", ProfileCategory::General);
 
-            texture = textureID++;
+            glyphTextureId = textureIdCounter++;
 
-            int srcW = (int)face->glyph->bitmap.width;
-            int srcH = (int)face->glyph->bitmap.rows;
+            const int srcW = (int)face->glyph->bitmap.width;
+            const int srcH = (int)face->glyph->bitmap.rows;
 
-            // For block-compressed textures every upload region must have
-            // width and height that are multiples of 4 (or reach the texture
-            // edge, which we can not guarantee for arbitrary glyph sizes).
-            const void* uploadPtr = face->glyph->bitmap.buffer;
+            uint8_t* destSlice = textureData.data() + (glyphTextureId - 1) * layerSize;
+            const uint8_t* srcBuffer = face->glyph->bitmap.buffer;
 
-            if (isTextureCompressed) //[[likely]]
+            for (int row = 0; row < srcH; row++)
             {
-                int padW = (srcW + 3) & ~3;
-                int padH = (srcH + 3) & ~3;
-
-                if (padW != srcW || padH != srcH)
-                {
-                    paddedBitmap.resize(padW * padH, 0);
-                    for (int row = 0; row < srcH; row++)
-                    {
-                        std::memcpy(
-                            paddedBitmap.data() + row * padW,
-                            face->glyph->bitmap.buffer + row * srcW,
-                            srcW);
-                    }
-                    uploadPtr = paddedBitmap.data();
-                    srcW = padW;
-                    srcH = padH;
-                }
-            }
-
-            {
-                TRACY_SCOPE_NC("Upload data to gpu", ProfileCategory::General);
-                font.textureArray.uploadSubData2DArray(
-                    uploadPtr,
-                    0, 0,
-                    texture - 1,
-                    srcW, srcH,
-                    GL_UNSIGNED_BYTE
-                );
+                std::memcpy(
+                    destSlice + (row * font.maxGlyphSize.x),
+                    srcBuffer + (row * srcW),
+                    srcW);
             }
         }
 
         Glyph glyph =
         {
-            texture,
+            glyphTextureId,
             glm::ivec2(face->glyph->bitmap.width, face->glyph->bitmap.rows),
             glm::ivec2(face->glyph->bitmap_left, face->glyph->bitmap_top),
             (GLuint)face->glyph->advance.x
@@ -236,6 +213,16 @@ void TextRenderer::loadGlyphs(FT_Face& face, Font& font)
             TRACY_SCOPE_NC("Next char", ProfileCategory::General);
             charcode = FT_Get_Next_Char(face, charcode, &gindex);
         }
+    }
+
+    {
+        TRACY_SCOPE_NC("Upload data to gpu", ProfileCategory::General);
+        font.textureArray.uploadSubData3D(
+            textureData.data(),
+            0, 0, 0,
+            font.maxGlyphSize.x, font.maxGlyphSize.y, textureIdCounter - 1,
+            GL_UNSIGNED_BYTE
+        );
     }
 }
 
@@ -491,7 +478,7 @@ bool TextRenderer::loadFont(const std::string& fontName, GLuint fontSize)
         }
     }
 
-    std::string fontPath = "res/fonts/" + fontName + ".ttf";
+    const std::string fontPath = "res/fonts/" + fontName + ".ttf";
 
     FT_Face face;
     {
@@ -511,7 +498,7 @@ bool TextRenderer::loadFont(const std::string& fontName, GLuint fontSize)
     font.fontSize = fontSize;
 
     // Get font info
-    size_t glyphCount = face->num_glyphs;
+    font.glyphCount = face->num_glyphs;
     {
         float scale = (float)fontSize / (float)face->units_per_EM;
         font.maxGlyphSize.x = (int)std::ceil((face->bbox.xMax - face->bbox.xMin) * scale);
@@ -537,7 +524,7 @@ bool TextRenderer::loadFont(const std::string& fontName, GLuint fontSize)
 
     {
         TRACY_SCOPE_NC("Create 2d array", ProfileCategory::General);
-        font.textureArray.create2DArray(font.maxGlyphSize.x, font.maxGlyphSize.y, glyphCount, internalFormat);
+        font.textureArray.create2DArray(font.maxGlyphSize.x, font.maxGlyphSize.y, font.glyphCount, internalFormat);
     }
 
     {

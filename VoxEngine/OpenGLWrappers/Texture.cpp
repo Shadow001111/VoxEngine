@@ -671,7 +671,7 @@ void Texture::uploadSubData3D(
 	const void* data, texture_size xOffset, texture_size yOffset, texture_size zOffset,
 	texture_size width, texture_size height, texture_size depth, GLenum dataType, mip_level level)
 {
-	if (type != GL_TEXTURE_3D)
+	if (type != GL_TEXTURE_3D && type != GL_TEXTURE_2D_ARRAY)
 	{
 		std::cerr << "[Texture][uploadSubData3D]: Texture is not 3D type. Actual type: " << type << "\n";
 		return;
