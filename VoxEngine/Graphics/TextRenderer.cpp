@@ -161,8 +161,6 @@ void TextRenderer::loadGlyphs(FT_Face& face, Font& font)
 
     uint32_t textureIdCounter = 1;
 
-    const bool isTextureCompressed = font.textureArray.isCompressed();
-
     const size_t layerSize = font.maxGlyphSize.x * font.maxGlyphSize.y;
     std::vector<uint8_t> textureData(layerSize * font.glyphCount, 0);
 
