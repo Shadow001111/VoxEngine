@@ -51,6 +51,20 @@ struct GlyphInstance
 
 class TextRenderer
 {
+    struct CacheHeader
+    {
+        uint32_t magic = 0x464F4E54; // "FONT"
+        uint32_t version = 1;
+        uint32_t fontSize;
+        glm::ivec2 maxGlyphSize;
+        uint32_t glyphCount;
+    };
+
+    struct CacheGlyphEntry
+    {
+        uint32_t codepoint;
+        Glyph glyph;
+    };
 public:
     enum class TextAlignment
     {
@@ -108,6 +122,9 @@ private:
     void createInstanceVBO(size_t glyphCount);
 
     static void loadGlyphs(FT_Face& face, Font& font);
+
+    static bool saveFontCache(const std::string& cachePath, const Font& font);
+    static bool loadFontCache(const std::string& cachePath, Font& font);
 
     static void renderTextInternal(const void* text, size_t textLength, UTFDecoderFunction decoder, float x, float y, float rowHeight,
         const glm::vec3& color, TextAlignment alignment, const glm::vec2& bounds);

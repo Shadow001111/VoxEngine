@@ -3,11 +3,12 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "Game/TracyProfiler.h"
-#include "Core/Decoding/UTFDecoder.h"
 
-#include "Game/ProfileCategories.h"
+#include "Core/Decoding/UTFDecoder.h"
+#include "Core/FileStream.h"
 
 #include <iostream>
+#include <fstream>
 
 Glyph::Glyph(uint32_t textureID, const glm::ivec2& size, const glm::ivec2& bearing, GLuint advance) :
     textureID(textureID), size(size), bearing(bearing), advance(advance)
@@ -163,6 +164,8 @@ void TextRenderer::loadGlyphs(FT_Face& face, Font& font)
 
     const size_t layerSize = font.maxGlyphSize.x * font.maxGlyphSize.y;
     std::vector<uint8_t> textureData(layerSize * font.glyphCount, 0);
+    
+    // Note: font.glyphs.size() != face->num_glyphs
 
     while (gindex != 0)
     {
@@ -171,6 +174,7 @@ void TextRenderer::loadGlyphs(FT_Face& face, Font& font)
             if (FT_Load_Char(face, charcode, FT_LOAD_RENDER))
             {
                 std::cerr << "[TextRenderer]: Failed to load glyph: '" << charcode << "'.\n";
+                charcode = FT_Get_Next_Char(face, charcode, &gindex);
                 continue;
             }
         }
@@ -222,6 +226,94 @@ void TextRenderer::loadGlyphs(FT_Face& face, Font& font)
             GL_UNSIGNED_BYTE
         );
     }
+}
+
+bool TextRenderer::saveFontCache(const std::string& cachePath, const Font& font)
+{
+    TRACY_SCOPE_NC("Save font cache", ProfileCategory::General);
+
+    FileStream file(cachePath, FileStream::Mode::Write);
+    if (!file)
+    {
+        std::cerr << "[TextRenderer][saveFontCache]: Failed to create/open file\n";
+        return false;
+    }
+
+    CacheHeader header;
+    header.fontSize = static_cast<uint32_t>(font.fontSize);
+    header.maxGlyphSize = font.maxGlyphSize;
+    header.glyphCount = static_cast<uint32_t>(font.glyphs.size()); // Total unique glyphs
+
+    file.writeObjects(&header);
+
+    // Write glyph Map
+    for (const auto& [codepoint, glyph] : font.glyphs)
+    {
+        CacheGlyphEntry entry = { codepoint, glyph };
+        file.writeObjects(&entry);
+    }
+
+    // Download the entire 2D Array from the GPU
+    size_t totalBufferSize = font.textureArray.getWidth() * font.textureArray.getHeight() * font.textureArray.getDepth();
+    std::vector<uint8_t> pixels(totalBufferSize);
+
+    glPixelStorei(GL_PACK_ALIGNMENT, 1);
+    font.textureArray.readData(pixels.data(), pixels.size(), GL_UNSIGNED_BYTE);
+
+    size_t newBufferSize = font.maxGlyphSize.x * font.maxGlyphSize.y * header.glyphCount;
+
+    file.writeBytes(pixels.data(), newBufferSize);
+
+    return true;
+}
+
+bool TextRenderer::loadFontCache(const std::string& cachePath, Font& font)
+{
+    TRACY_SCOPE_NC("Load font cache", ProfileCategory::General);
+
+    FileStream file(cachePath, FileStream::Mode::Read);
+    if (!file)
+    {
+        std::cerr << "[TextRenderer][loadFontCache]: Failed to open file\n";
+        return false;
+    }
+
+    CacheHeader header;
+    file.readObjects(&header);
+
+    if (header.magic != 0x464F4E54 || header.version != 1) return false;
+
+    font.fontSize = header.fontSize;
+    font.maxGlyphSize = header.maxGlyphSize;
+    font.glyphCount = header.glyphCount;
+
+    // Load glyph Map
+    font.glyphs.reserve(header.glyphCount);
+    for (uint32_t i = 0; i < header.glyphCount; i++)
+    {
+        CacheGlyphEntry entry;
+        file.readObjects(&entry);
+        font.glyphs.emplace(entry.codepoint, entry.glyph);
+    }
+
+    // 2. Load Texture Data and upload to GPU in one go
+    size_t textureSize = header.maxGlyphSize.x * header.maxGlyphSize.y * header.glyphCount;
+    std::vector<uint8_t> pixels(textureSize);
+    file.readBytes(pixels.data(), textureSize);
+
+    GLenum internalFormat = TextureCompression::resolveInternalFormat(TextureCompression::Format::AUTO, TextureCompression::Channels::R, false);
+
+    font.textureArray.create2DArray(font.maxGlyphSize.x, font.maxGlyphSize.y, header.glyphCount, internalFormat);
+
+    // Upload data to texture array
+    font.textureArray.uploadSubData3D(
+        pixels.data(),
+        0, 0, 0,
+        font.maxGlyphSize.x, font.maxGlyphSize.y, header.glyphCount,
+        GL_UNSIGNED_BYTE
+    );
+
+    return true;
 }
 
 void TextRenderer::renderTextInternal(const void* text, size_t textLength, UTFDecoderFunction decoder, float x, float y, float rowHeight,
@@ -465,6 +557,34 @@ bool TextRenderer::loadFont(const std::string& fontName, GLuint fontSize)
         return false;
     }
 
+    //
+    GLint oldAlignment;
+    glGetIntegerv(GL_UNPACK_ALIGNMENT, &oldAlignment);
+
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+    // Try loading from cache first
+    const std::string cachePath = "cache/" + fontName + "_" + std::to_string(fontSize) + ".fcache";
+    Font font;
+    if (inst.loadFontCache(cachePath, font))
+    {
+        std::cout << "[TextRenderer]: Loaded '" << fontName << "' from cache.\n";
+
+        // Setup parameters and bindless handle for cached font
+        Texture::Parameters params{ .minFilter = GL_NEAREST, .magFilter = GL_NEAREST, .wrapS = GL_CLAMP_TO_EDGE, .wrapT = GL_CLAMP_TO_EDGE };
+        font.textureArray.setParameters(params);
+
+        if (Texture::getExtensions().bindless)
+        {
+            font.textureArray.initHandle();
+            font.textureArray.makeResident();
+        }
+
+        inst.fonts.emplace(fontName, std::move(font));
+        glPixelStorei(GL_UNPACK_ALIGNMENT, oldAlignment);
+        return true;
+    }
+
     // Init FreeType
     FT_Library ft;
     {
@@ -472,6 +592,7 @@ bool TextRenderer::loadFont(const std::string& fontName, GLuint fontSize)
         if (FT_Init_FreeType(&ft))
         {
             std::cerr << "[TextRenderer][loadFont]: Couldn't init FreeType Library\n";
+            glPixelStorei(GL_UNPACK_ALIGNMENT, oldAlignment);
             return false;
         }
     }
@@ -485,6 +606,7 @@ bool TextRenderer::loadFont(const std::string& fontName, GLuint fontSize)
         {
             std::cerr << "[TextRenderer][loadFont]: Failed to load font: " << fontPath << "\n";
             FT_Done_FreeType(ft);
+            glPixelStorei(GL_UNPACK_ALIGNMENT, oldAlignment);
             return false;
         }
     }
@@ -492,7 +614,6 @@ bool TextRenderer::loadFont(const std::string& fontName, GLuint fontSize)
     FT_Set_Pixel_Sizes(face, 0, fontSize);
 
     // Create font
-    Font font;
     font.fontSize = fontSize;
 
     // Get font info
@@ -503,23 +624,17 @@ bool TextRenderer::loadFont(const std::string& fontName, GLuint fontSize)
         font.maxGlyphSize.y = (int)std::ceil((face->bbox.yMax - face->bbox.yMin) * scale);
     }
 
-    // Create texture array
-    GLint oldAlignment;
-    glGetIntegerv(GL_UNPACK_ALIGNMENT, &oldAlignment);
-
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-
-	GLenum internalFormat = TextureCompression::resolveInternalFormat(TextureCompression::Format::AUTO, TextureCompression::Channels::R, false);
-
     // Block-compressed formats operate on 4x4 pixel blocks.
     // The texture dimensions must be multiples of 4 so every glyph
     // upload can be padded to a valid block-aligned size.
+    GLenum internalFormat = TextureCompression::resolveInternalFormat(TextureCompression::Format::AUTO, TextureCompression::Channels::R);
     if (Texture::isFormatCompressed(internalFormat))
     {
         font.maxGlyphSize.x = (font.maxGlyphSize.x + 3) & ~3;
         font.maxGlyphSize.y = (font.maxGlyphSize.y + 3) & ~3;
     }
 
+    // Create texture array
     {
         TRACY_SCOPE_NC("Create 2d array", ProfileCategory::General);
         font.textureArray.create2DArray(font.maxGlyphSize.x, font.maxGlyphSize.y, font.glyphCount, internalFormat);
@@ -558,12 +673,16 @@ bool TextRenderer::loadFont(const std::string& fontName, GLuint fontSize)
         FT_Done_Face(face);
         FT_Done_FreeType(ft);
     }
-
-	// Restore alignment
     glPixelStorei(GL_UNPACK_ALIGNMENT, oldAlignment);
 
 	// Store font
     fonts.emplace(fontName, std::move(font));
+
+    // After successful FreeType load, save the cache for next time
+    if (inst.saveFontCache(cachePath, inst.fonts[fontName]))
+    {
+        std::cout << "[TextRenderer]: Saved '" << fontName << "' to cache.\n";
+    }
 
     return true;
 }

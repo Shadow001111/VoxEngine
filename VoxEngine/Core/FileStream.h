@@ -37,14 +37,14 @@ public:
 
     // ---- Reading methods (only valid in Read mode) ----
     template<typename T>
-    bool read(T* dest, size_t count = 1);
+    bool readObjects(T* dest, size_t count = 1);
     bool readBytes(void* dest, size_t bytes);
     bool readString(std::string& out, size_t maxLength = 1024);
     bool readLine(std::string& out, char delimiter = '\n');
 
     // ---- Writing methods (only valid in Write mode) ----
     template<typename T>
-    bool write(const T* src, size_t count = 1);
+    bool writeObjects(const T* src, size_t count = 1);
     bool writeBytes(const void* src, size_t bytes);
     bool writeString(const std::string& str);
     bool writeString(const char* str);
@@ -68,7 +68,7 @@ private:
 
 // ---- Template implementations ----
 template<typename T>
-bool FileStream::read(T* dest, size_t count) {
+bool FileStream::readObjects(T* dest, size_t count) {
     static_assert(std::is_trivially_copyable_v<T>,
         "Type must be trivially copyable for binary read");
     if (m_mode != Mode::Read || !dest || !m_stream)
@@ -77,7 +77,7 @@ bool FileStream::read(T* dest, size_t count) {
 }
 
 template<typename T>
-bool FileStream::write(const T* src, size_t count) {
+bool FileStream::writeObjects(const T* src, size_t count) {
     static_assert(std::is_trivially_copyable_v<T>,
         "Type must be trivially copyable for binary write");
     if (m_mode != Mode::Write || !src || !m_stream)

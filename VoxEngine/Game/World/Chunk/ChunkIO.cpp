@@ -114,7 +114,7 @@ bool ChunkIO::areChangesValid(BlockId BlockId, const std::vector<uint16_t>& indi
 
 bool ChunkIO::readPackCount(FileStream& reader, uint16_t& packCount)
 {
-	if (!reader.read(&packCount))
+	if (!reader.readObjects(&packCount))
 	{
 		std::cerr << "[ChunkIO][loadBlocks]: Read error for pack count.\n";
 		return false;
@@ -131,7 +131,7 @@ bool ChunkIO::readPackCount(FileStream& reader, uint16_t& packCount)
 
 bool ChunkIO::readPackBlockCount(FileStream& reader, uint16_t& packBlockCount)
 {
-	if (!reader.read(&packBlockCount))
+	if (!reader.readObjects(&packBlockCount))
 	{
 		std::cerr << "[ChunkIO][loadBlocks]: Read error for pack block count.\n";
 		return false;
@@ -149,7 +149,7 @@ bool ChunkIO::readPackBlockCount(FileStream& reader, uint16_t& packBlockCount)
 bool ChunkIO::readPackName(FileStream& reader, std::string& packName)
 {
 	uint8_t packNameLen = 0;
-	if (!reader.read(&packNameLen))
+	if (!reader.readObjects(&packNameLen))
 	{
 		std::cerr << "[ChunkIO][loadBlocks]: Read error for pack name length.\n";
 		return false;
@@ -176,7 +176,7 @@ bool ChunkIO::readBlockName(FileStream& reader, std::string& blockName)
 {
 	// Read block name length
 	uint8_t blockNameLen = 0;
-	if (!reader.read(&blockNameLen))
+	if (!reader.readObjects(&blockNameLen))
 	{
 		std::cerr << "[ChunkIO][loadBlocks]: Read error for block name length.\n";
 		return false;
@@ -204,7 +204,7 @@ bool ChunkIO::readIndices(FileStream& reader, std::vector<uint16_t>& indices)
 {
 	// Read indices count for this block
 	uint16_t indicesCount = 0;
-	if (!reader.read(&indicesCount))
+	if (!reader.readObjects(&indicesCount))
 	{
 		std::cerr << "[ChunkIO][loadBlocks]: Read error for indices count.\n";
 		return false;
@@ -218,7 +218,7 @@ bool ChunkIO::readIndices(FileStream& reader, std::vector<uint16_t>& indices)
 
 	// Read indices
 	indices.resize(indicesCount);
-	if (!reader.read(indices.data(), indicesCount))
+	if (!reader.readObjects(indices.data(), indicesCount))
 	{
 		std::cerr << "[ChunkIO][loadBlocks]: Read error for indices.\n";
 		return false;
@@ -324,7 +324,7 @@ bool ChunkIO::checkIfShouldBeSaved(FileStream& file, uint64_t hashValue)
 	
 	// Read hash value
 	uint64_t storedHasValue;
-	if (!file.read(&storedHasValue))
+	if (!file.readObjects(&storedHasValue))
 	{
 		std::cerr << "[ChunkIO][saveBlocks]: Read error for hash value.\n";
 		return true;
@@ -470,7 +470,7 @@ void ChunkIO::saveBlocks(const BlockChanges& blockChanges, const glm::ivec3& chu
 	std::vector<PackInfo> packs = transformPackDataMapToSortedVector(packMap);
 
 	// Write hash value
-	if (!file.write(&hashValue))
+	if (!file.writeObjects(&hashValue))
 	{
 		std::cerr << "[ChunkIO][saveBlocks]: Failed to write has value.\n";
 		return;
@@ -478,7 +478,7 @@ void ChunkIO::saveBlocks(const BlockChanges& blockChanges, const glm::ivec3& chu
 
 	// Write pack count
 	uint16_t packCount = static_cast<uint16_t>(packs.size());
-	if (!file.write(&packCount))
+	if (!file.writeObjects(&packCount))
 	{
 		std::cerr << "[ChunkIO][saveBlocks]: Failed to write pack count.\n";
 		return;
@@ -489,7 +489,7 @@ void ChunkIO::saveBlocks(const BlockChanges& blockChanges, const glm::ivec3& chu
 	{
 		// Write block count for this pack
 		uint16_t blockCount = static_cast<uint16_t>(pack.blocks.size());
-		if (!file.write(&blockCount))
+		if (!file.writeObjects(&blockCount))
 		{
 			std::cerr << "[ChunkIO][saveBlocks]: Failed to write block count.\n";
 			return;
@@ -497,7 +497,7 @@ void ChunkIO::saveBlocks(const BlockChanges& blockChanges, const glm::ivec3& chu
 
 		// Write pack name
 		uint8_t packNameLen = static_cast<uint8_t>(pack.name.size());
-		if (!file.write(&packNameLen) ||
+		if (!file.writeObjects(&packNameLen) ||
 			!file.writeBytes(pack.name.data(), packNameLen))
 		{
 			std::cerr << "[ChunkIO][saveBlocks]: Failed to write pack name.\n";
@@ -509,7 +509,7 @@ void ChunkIO::saveBlocks(const BlockChanges& blockChanges, const glm::ivec3& chu
 		{
 			// Write block name
 			uint8_t blockNameLen = static_cast<uint8_t>(blockName.size());
-			if (!file.write(&blockNameLen) ||
+			if (!file.writeObjects(&blockNameLen) ||
 				!file.writeBytes(blockName.data(), blockNameLen))
 			{
 				std::cerr << "[ChunkIO][saveBlocks]: Failed to write block name.\n";
@@ -519,8 +519,8 @@ void ChunkIO::saveBlocks(const BlockChanges& blockChanges, const glm::ivec3& chu
 			// Write indices for this block
 			const auto& indices = blockChanges.at(globalID);
 			uint16_t indicesCount = static_cast<uint16_t>(indices.size());
-			if (!file.write(&indicesCount) ||
-				(indicesCount > 0 && !file.write(indices.data(), indicesCount)))
+			if (!file.writeObjects(&indicesCount) ||
+				(indicesCount > 0 && !file.writeObjects(indices.data(), indicesCount)))
 			{
 				std::cerr << "[ChunkIO][saveBlocks]: Failed to write indices.\n";
 				return;

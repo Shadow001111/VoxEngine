@@ -866,6 +866,33 @@ void Texture::uploadCompressedSubData2DArray(const void* data, size_t dataSize, 
 		internalFormat, static_cast<GLsizei>(dataSize), data);
 }
 
+void Texture::readData(void* outData, GLsizei bufSize, GLenum dataType, mip_level level) const
+{
+	if (id == 0)
+	{
+		std::cerr << "[Texture][readData]: Texture is not initialized (id=0).\n";
+		return;
+	}
+	if (level >= mipLevels)
+	{
+		std::cerr << "[Texture][readData]: Invalid mipmap level: " << (unsigned)level
+			<< ". Texture has " << (unsigned)mipLevels << " mipLevels.\n";
+		return;
+	}
+	if (!outData)
+	{
+		std::cerr << "[Texture][readData]: Provided output buffer is null.\n";
+		return;
+	}
+
+	GLenum format = getFormatFromInternalFormat();
+
+	// glGetTextureImage (DSA) downloads the specified mip level into the buffer.
+	// If the internal format is compressed, the driver will decompress it 
+	// into the requested 'format' and 'dataType' during the download.
+	glGetTextureImage(id, level, format, dataType, bufSize, outData);
+}
+
 void Texture::generateMipmaps()
 {
 	if (mipLevels > 1)

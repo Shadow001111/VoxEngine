@@ -257,6 +257,10 @@ public:
 		texture_size xOffset, texture_size yOffset, texture_size layer,
 		texture_size width, texture_size height,
 		mip_level level = 0);
+
+	// Data download functions
+	void readData(void* outData, GLsizei bufSize, GLenum dataType, mip_level level = 0) const;
+
 	//
 	void generateMipmaps();
 
