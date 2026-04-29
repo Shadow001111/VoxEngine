@@ -14,17 +14,6 @@ Chunk::CachedBlockIds Chunk::CACHED_BLOCK_IDS;
 Chunk::GlobalCounters Chunk::globalCounters;
 
 
-static uint32_t hash3(uint32_t x, uint32_t y, uint32_t z)
-{
-	uint32_t data = x * 0x27d4eb2du + y * 0x165667b1u + z * 0x1b873593u;
-	data ^= data >> 15u;
-	data *= 0x85ebca6bu;
-	data ^= data >> 13u;
-	data *= 0xc2b2ae35u;
-	data ^= data >> 16u;
-	return data;
-}
-
 static uint32_t hash3(const glm::ivec3& p)
 {
 	uint32_t data = (uint32_t)p.x * 0x27d4eb2du + (uint32_t)p.y * 0x165667b1u + (uint32_t)p.z * 0x1b873593u;
@@ -913,6 +902,9 @@ uint32_t Chunk::propagateSkyLightRemoval()
 	{
 		// Get node data
 		const auto data = LightPropagationStorage::threadLocalSkyLightRemoval.pop_and_return_unsafe();
+		const int x = data.x;
+		const int y = data.y;
+		const int z = data.z;
 
 		const bool isMaxLightLevel = data.lightLevel == 15;
 
@@ -921,9 +913,9 @@ uint32_t Chunk::propagateSkyLightRemoval()
 		{
 			// Calculate neighbor block coordinates
 			const glm::ivec3 offset = DirectionsTable::directionsXYZ[i];
-			const int nx = data.x + offset.x;
-			const int ny = data.y + offset.y;
-			const int nz = data.z + offset.z;
+			const int nx = x + offset.x;
+			const int ny = y + offset.y;
+			const int nz = z + offset.z;
 
 			// Get neighbor chunk and block index
 			size_t neighborBlockIndex;
@@ -940,6 +932,12 @@ uint32_t Chunk::propagateSkyLightRemoval()
 				neighborChunk = neighbors[getSideNeighborIndex(i)];
 				if (!neighborChunk)
 				{
+					// If chunk at neighbor position is 'nullptr', that means it's open to sky light and will propagate it
+					if (i == 3)
+					{
+						cells[getIndex(x, y, z)].lightLevel.skyLight = 15;
+						LightPropagationStorage::threadLocalSkyLightPropagation.emplace(x, y, z);
+					}
 					continue;
 				}
 				neighborBlockIndex = getIndex(nx & CHUNK_LOWER_BITS_MASK, ny & CHUNK_LOWER_BITS_MASK, nz & CHUNK_LOWER_BITS_MASK);

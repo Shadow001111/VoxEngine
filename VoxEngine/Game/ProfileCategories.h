@@ -12,5 +12,6 @@ enum class ProfileCategory : uint64_t
 	ChunkIO,
 	ChunkColumnData,
 	TerrainGeneration,
+	Sound,
 	__COUNT__
 };

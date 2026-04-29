@@ -160,7 +160,7 @@
   <ItemGroup>
     <ClCompile Include="..\..\..\tracy\public\TracyClient.cpp" />
     <ClCompile Include="Core\TracyPtofiler.cpp" />
-    <ClCompile Include="Core\Stream\FileStream.cpp" />
+    <ClCompile Include="Core\FileStream.cpp" />
     <ClCompile Include="Game\World\ChunkRegionManager.cpp" />
     <ClCompile Include="Game\World\Chunk\ChunkIO.cpp" />
     <ClCompile Include="Game\World\Chunk\ChunkMesh\ChunkMesh.cpp" />
@@ -224,7 +224,7 @@
     <ClInclude Include="Core\Flags.h" />
     <ClInclude Include="Core\MemoryAllocation\AlignedStorage.h" />
     <ClInclude Include="Core\Simd.h" />
-    <ClInclude Include="Core\Stream\FileStream.h" />
+    <ClInclude Include="Core\FileStream.h" />
     <ClInclude Include="Game\ProfileCategories.h" />
     <ClInclude Include="Game\TracyProfiler.h" />
     <ClInclude Include="Game\World\ChunkRegionManager.h" />

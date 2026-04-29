@@ -55,6 +55,8 @@ World::World() :
 
 void World::preparation()
 {
+	TRACY_SCOPE_NC("World preparation", ProfileCategory::General);
+
 	int area = 0;
 	{
 		int P = 0;

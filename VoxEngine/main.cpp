@@ -25,7 +25,7 @@
 
 #include <tracy/Tracy.hpp>
 
-const int CHUNK_LOAD_DISTANCE = 12;
+const int CHUNK_LOAD_DISTANCE = 1;
 
 
 static std::string formatSize(size_t value)
@@ -101,6 +101,8 @@ struct DebugUIMetrics
 
 static void setupContainerUI(ContainerUI& c)
 {
+    TRACY_SCOPE_NC("Setup container ui", ProfileCategory::General);
+
     // Hotbar
     {
         std::vector<Shader::ShaderSource> sources =
@@ -539,8 +541,11 @@ static int gameFunc()
         .strictAspectRatio = true
         });
 
-    // Init textures
-    Texture::initGlobalData();
+    // Init texture global data
+    {
+        TRACY_SCOPE_NC("Init texture global data", ProfileCategory::General);
+        Texture::initGlobalData();
+    }
 
     // SoundManager
     auto& soundManager = SoundManager::getInstance();
@@ -551,6 +556,8 @@ static int gameFunc()
     // Create framebuffer
     FrameBuffer framebuffer;
     {
+        TRACY_SCOPE_NC("Create framebuffer", ProfileCategory::General);
+
         framebuffer.create(wnd.getWidth(), wnd.getHeight());
 
         const Texture::Parameters params
@@ -585,7 +592,10 @@ static int gameFunc()
     }
 
     // OpenGL states
-    setupOpenGLStates();
+    {
+        TRACY_SCOPE_NC("Setup opengl states", ProfileCategory::General);
+        setupOpenGLStates();
+    }
 
     // Text renderer
     TextRenderer::init();

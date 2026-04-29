@@ -150,6 +150,8 @@ void TextRenderer::createInstanceVBO(size_t glyphCount)
 
 void TextRenderer::getFontInfo(FT_Face& face, glm::ivec2& maxGlyphSize, size_t& glyphCount)
 {
+    TRACY_SCOPE_NC("Get font info", ProfileCategory::General);
+
     static_assert(sizeof(FT_ULong) == sizeof(uint32_t), "FT_Ulong != uint32_t");
 
     FT_UInt gindex;
@@ -177,6 +179,8 @@ void TextRenderer::getFontInfo(FT_Face& face, glm::ivec2& maxGlyphSize, size_t& 
 
 void TextRenderer::loadGlyphs(FT_Face& face, Font& font)
 {
+    TRACY_SCOPE_NC("Load glyphs", ProfileCategory::General);
+    
     static_assert(sizeof(FT_ULong) == sizeof(uint32_t), "FT_Ulong != uint32_t");
 
     FT_UInt gindex;
@@ -184,17 +188,26 @@ void TextRenderer::loadGlyphs(FT_Face& face, Font& font)
 
     uint32_t textureID = 1;
 
+    const bool isTextureCompressed = font.textureArray.isCompressed();
+
+    std::vector<uint8_t> paddedBitmap;
+
     while (gindex != 0)
     {
-        if (FT_Load_Char(face, charcode, FT_LOAD_RENDER))
         {
-            std::cerr << "[TextRenderer]: Failed to load glyph: '" << charcode << "'.\n";
-            continue;
+            TRACY_SCOPE_NC("Load char", ProfileCategory::General);
+            if (FT_Load_Char(face, charcode, FT_LOAD_RENDER))
+            {
+                std::cerr << "[TextRenderer]: Failed to load glyph: '" << charcode << "'.\n";
+                continue;
+            }
         }
 
         uint32_t texture = 0;
         if (charcode > ' ')
         {
+            TRACY_SCOPE_NC("Process char", ProfileCategory::General);
+
             texture = textureID++;
 
             int srcW = (int)face->glyph->bitmap.width;
@@ -204,9 +217,8 @@ void TextRenderer::loadGlyphs(FT_Face& face, Font& font)
             // width and height that are multiples of 4 (or reach the texture
             // edge, which we can not guarantee for arbitrary glyph sizes).
             const void* uploadPtr = face->glyph->bitmap.buffer;
-            std::vector<uint8_t> paddedBitmap;
 
-            if (font.textureArray.isCompressed())
+            if (isTextureCompressed) //[[likely]]
             {
                 int padW = (srcW + 3) & ~3;
                 int padH = (srcH + 3) & ~3;
@@ -214,7 +226,7 @@ void TextRenderer::loadGlyphs(FT_Face& face, Font& font)
                 if (padW != srcW || padH != srcH)
                 {
                     paddedBitmap.resize(padW * padH, 0);
-                    for (int row = 0; row < srcH; ++row)
+                    for (int row = 0; row < srcH; row++)
                     {
                         std::memcpy(
                             paddedBitmap.data() + row * padW,
@@ -227,13 +239,16 @@ void TextRenderer::loadGlyphs(FT_Face& face, Font& font)
                 }
             }
 
-            font.textureArray.uploadSubData2DArray(
-                uploadPtr,
-                0, 0,
-                texture - 1,
-                srcW, srcH,
-                GL_UNSIGNED_BYTE
-            );
+            {
+                TRACY_SCOPE_NC("Upload data to gpu", ProfileCategory::General);
+                font.textureArray.uploadSubData2DArray(
+                    uploadPtr,
+                    0, 0,
+                    texture - 1,
+                    srcW, srcH,
+                    GL_UNSIGNED_BYTE
+                );
+            }
         }
 
         Glyph glyph =
@@ -246,7 +261,10 @@ void TextRenderer::loadGlyphs(FT_Face& face, Font& font)
 
         font.glyphs.emplace(charcode, glyph);
 
-        charcode = FT_Get_Next_Char(face, charcode, &gindex);
+        {
+            TRACY_SCOPE_NC("Next char", ProfileCategory::General);
+            charcode = FT_Get_Next_Char(face, charcode, &gindex);
+        }
     }
 }
 
@@ -472,12 +490,14 @@ void TextRenderer::updateProjectionMatrixInternal()
 
 void TextRenderer::init()
 {
+    TRACY_SCOPE_NC("Init text renderer", ProfileCategory::General);
+
     getInstance();
 }
 
 bool TextRenderer::loadFont(const std::string& fontName, GLuint fontSize)
 {
-    TRACY_SCOPE_NC("Loading font", ProfileCategory::General);
+    TRACY_SCOPE_NC("Load font", ProfileCategory::General);
 
     TextRenderer& inst = getInstance();
     auto& fonts = inst.fonts;
@@ -491,20 +511,26 @@ bool TextRenderer::loadFont(const std::string& fontName, GLuint fontSize)
 
     // Init FreeType
     FT_Library ft;
-    if (FT_Init_FreeType(&ft))
     {
-        std::cerr << "[TextRenderer][loadFont]: Couldn't init FreeType Library\n";
-        return false;
+        TRACY_SCOPE_NC("Init FreeType", ProfileCategory::General);
+        if (FT_Init_FreeType(&ft))
+        {
+            std::cerr << "[TextRenderer][loadFont]: Couldn't init FreeType Library\n";
+            return false;
+        }
     }
 
     std::string fontPath = "res/fonts/" + fontName + ".ttf";
 
     FT_Face face;
-    if (FT_New_Face(ft, fontPath.c_str(), 0, &face))
     {
-        std::cerr << "[TextRenderer][loadFont]: Failed to load font: " << fontPath << "\n";
-        FT_Done_FreeType(ft);
-        return false;
+        TRACY_SCOPE_NC("Loading font", ProfileCategory::General);
+        if (FT_New_Face(ft, fontPath.c_str(), 0, &face))
+        {
+            std::cerr << "[TextRenderer][loadFont]: Failed to load font: " << fontPath << "\n";
+            FT_Done_FreeType(ft);
+            return false;
+        }
     }
 
     FT_Set_Pixel_Sizes(face, 0, fontSize);
@@ -534,7 +560,10 @@ bool TextRenderer::loadFont(const std::string& fontName, GLuint fontSize)
         font.maxGlyphSize.y = (font.maxGlyphSize.y + 3) & ~3;
     }
 
-    font.textureArray.create2DArray(font.maxGlyphSize.x, font.maxGlyphSize.y, glyphCount, internalFormat);
+    {
+        TRACY_SCOPE_NC("Create 2d array", ProfileCategory::General);
+        font.textureArray.create2DArray(font.maxGlyphSize.x, font.maxGlyphSize.y, glyphCount, internalFormat);
+    }
 
     {
         Texture::Parameters textureParametrs
@@ -564,8 +593,11 @@ bool TextRenderer::loadFont(const std::string& fontName, GLuint fontSize)
         << ". Max glyph size: (" << font.maxGlyphSize.x << ", " << font.maxGlyphSize.y << ").\n";
 
 	// Free FreeType resources
-    FT_Done_Face(face);
-    FT_Done_FreeType(ft);
+    {
+        TRACY_SCOPE_NC("Free FreeType resources", ProfileCategory::General);
+        FT_Done_Face(face);
+        FT_Done_FreeType(ft);
+    }
 
 	// Restore alignment
     glPixelStorei(GL_UNPACK_ALIGNMENT, oldAlignment);

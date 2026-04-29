@@ -98,6 +98,8 @@ SoundManager& SoundManager::getInstance()
 
 SoundManager::SoundManager()
 {
+	TRACY_SCOPE_NC("SoundManager construction", ProfileCategory::Sound);
+
 	device = alcOpenDevice(nullptr);
 	if (!device)
 	{
@@ -118,6 +120,8 @@ SoundManager::SoundManager()
 
 SoundManager::~SoundManager()
 {
+	TRACY_SCOPE_NC("SoundManager destruction", ProfileCategory::Sound);
+
 	for (ALuint src : sources)
 		alDeleteSources(1, &src);
 	sources.clear();
@@ -142,6 +146,8 @@ SoundManager::~SoundManager()
 
 bool SoundManager::loadWav(const std::string& name, const std::string& filename)
 {
+	TRACY_SCOPE_NC("SoundManager load wav", ProfileCategory::Sound);
+
 	if (buffers.contains(name))
 		return true; // already loaded
 
@@ -158,6 +164,8 @@ bool SoundManager::loadWav(const std::string& name, const std::string& filename)
 
 bool SoundManager::loadOgg(const std::string& name, const std::string& filename)
 {
+	TRACY_SCOPE_NC("SoundManager load ogg", ProfileCategory::Sound);
+
 	if (buffers.contains(name))
 		return true; // already loaded
 
@@ -175,7 +183,8 @@ bool SoundManager::loadOgg(const std::string& name, const std::string& filename)
 void SoundManager::play(const std::string& name, float pitch, float gain, bool loop)
 {
 	auto it = buffers.find(name);
-	if (it == buffers.end()) {
+	if (it == buffers.end())
+	{
 		std::cerr << "[Sound] Unknown sound: " << name << "\n";
 		return;
 	}
@@ -196,7 +205,7 @@ void SoundManager::play(const std::string& name, float pitch, float gain, bool l
 
 void SoundManager::update()
 {
-	TRACY_SCOPE_NC("SoundManager update", ProfileCategory::General);
+	TRACY_SCOPE_NC("SoundManager update", ProfileCategory::Sound);
 
 	for (size_t i = 0; i < sources.size();)
 	{

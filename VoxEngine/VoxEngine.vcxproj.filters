@@ -180,7 +180,7 @@
     <ClCompile Include="Core\TracyPtofiler.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="Core\Stream\FileStream.cpp">
+    <ClCompile Include="Core\FileStream.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
   </ItemGroup>
@@ -452,7 +452,7 @@
     <ClInclude Include="Game\TracyProfiler.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="Core\Stream\FileStream.h">
+    <ClInclude Include="Core\FileStream.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
   </ItemGroup>

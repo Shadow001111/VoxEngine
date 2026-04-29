@@ -27,7 +27,7 @@ class WindowManager
 	float aspectRatio = 1.0f;
     bool vsync = false;
 public:
-    WindowManager(const WindowParams& params);
+    explicit WindowManager(const WindowParams& params);
 	~WindowManager();
 
 	void pollEvents() const;

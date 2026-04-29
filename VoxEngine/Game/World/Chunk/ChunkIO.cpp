@@ -2,7 +2,7 @@
 
 #include "Game/DataPackManagment/AssetRegistry.h"
 
-#include "Core/Stream/FileStream.h"
+#include "Core/FileStream.h"
 #include "Game/TracyProfiler.h"
 
 #include <format>
