@@ -23,8 +23,6 @@
 #include <iomanip>
 #include <glm/gtc/matrix_transform.hpp>
 
-#include <tracy/Tracy.hpp>
-
 const int CHUNK_LOAD_DISTANCE = 1;
 
 

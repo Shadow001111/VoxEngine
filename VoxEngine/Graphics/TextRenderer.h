@@ -28,7 +28,6 @@ struct Font
     robin_hood::unordered_flat_map<uint32_t, Glyph> glyphs;
     float fontSize = 0.0f;
     glm::ivec2 maxGlyphSize = { 0, 0 };
-    size_t glyphCount = 0;
 
     Texture textureArray;
 
@@ -121,10 +120,12 @@ private:
 
     void createInstanceVBO(size_t glyphCount);
 
-    static void loadGlyphs(FT_Face& face, Font& font);
+    static void loadGlyphs(FT_Face& face, Font& font, size_t maximumGlyphCount);
 
     static bool saveFontCache(const std::string& cachePath, const Font& font);
     static bool loadFontCache(const std::string& cachePath, Font& font);
+
+    static void finalizeFontTexture(Font& font);
 
     static void renderTextInternal(const void* text, size_t textLength, UTFDecoderFunction decoder, float x, float y, float rowHeight,
         const glm::vec3& color, TextAlignment alignment, const glm::vec2& bounds);

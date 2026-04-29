@@ -10,6 +10,87 @@
 #include <iostream>
 #include <fstream>
 
+struct GlPixelAligmentRAII
+{
+    GLint oldAlignment;
+
+    GlPixelAligmentRAII(int newAlignment)
+    {
+        glGetIntegerv(GL_UNPACK_ALIGNMENT, &oldAlignment);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, newAlignment);
+    }
+
+    ~GlPixelAligmentRAII()
+    {
+        glPixelStorei(GL_UNPACK_ALIGNMENT, oldAlignment);
+    }
+};
+
+
+class FreeTypeLibrary
+{
+    FT_Library lib = nullptr;
+    FT_Face face = nullptr;
+public:
+    bool initLibrary()
+    {
+        TRACY_SCOPE_NC("Init FreeType library", ProfileCategory::General);
+
+        if (FT_Init_FreeType(&lib))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    bool initFace(const char* fontPath)
+    {
+        TRACY_SCOPE_NC("Init FreeType face", ProfileCategory::General);
+
+        if (FT_New_Face(lib, fontPath, 0, &face))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    ~FreeTypeLibrary()
+    {
+        TRACY_SCOPE_NC("Free FreeType resources", ProfileCategory::General);
+
+        if (face)
+        {
+            FT_Done_Face(face);
+            face = nullptr;
+        }
+
+        if (lib)
+        {
+            FT_Done_FreeType(lib);
+            lib = nullptr;
+        }
+    }
+
+    FT_Face getFace() noexcept { return face; }
+};
+
+
+static uint32_t getMappedGlyphCount(FT_Face face)
+{
+    uint32_t count = 0;
+    FT_UInt gindex;
+    FT_ULong charcode = FT_Get_First_Char(face, &gindex);
+    while (gindex != 0)
+    {
+        count++;
+        charcode = FT_Get_Next_Char(face, charcode, &gindex);
+    }
+    return count;
+}
+
+
 Glyph::Glyph(uint32_t textureID, const glm::ivec2& size, const glm::ivec2& bearing, GLuint advance) :
     textureID(textureID), size(size), bearing(bearing), advance(advance)
 {
@@ -149,13 +230,13 @@ void TextRenderer::createInstanceVBO(size_t glyphCount)
     textVAO.setAttributeDivisor(3, 1);
 }
 
-void TextRenderer::loadGlyphs(FT_Face& face, Font& font)
+void TextRenderer::loadGlyphs(FT_Face& face, Font& font, size_t maximumGlyphCount)
 {
     TRACY_SCOPE_NC("Load glyphs", ProfileCategory::General);
-    
+
     static_assert(sizeof(FT_ULong) == sizeof(uint32_t), "FT_Ulong != uint32_t");
 
-    font.glyphs.reserve(font.glyphCount);
+    font.glyphs.reserve(maximumGlyphCount);
 
     FT_UInt gindex;
     FT_ULong charcode = FT_Get_First_Char(face, &gindex);
@@ -163,9 +244,7 @@ void TextRenderer::loadGlyphs(FT_Face& face, Font& font)
     uint32_t textureIdCounter = 1;
 
     const size_t layerSize = font.maxGlyphSize.x * font.maxGlyphSize.y;
-    std::vector<uint8_t> textureData(layerSize * font.glyphCount, 0);
-    
-    // Note: font.glyphs.size() != face->num_glyphs
+    std::vector<uint8_t> textureData(layerSize * maximumGlyphCount, 0);
 
     while (gindex != 0)
     {
@@ -257,7 +336,6 @@ bool TextRenderer::saveFontCache(const std::string& cachePath, const Font& font)
     size_t totalBufferSize = font.textureArray.getWidth() * font.textureArray.getHeight() * font.textureArray.getDepth();
     std::vector<uint8_t> pixels(totalBufferSize);
 
-    glPixelStorei(GL_PACK_ALIGNMENT, 1);
     font.textureArray.readData(pixels.data(), pixels.size(), GL_UNSIGNED_BYTE);
 
     size_t newBufferSize = font.maxGlyphSize.x * font.maxGlyphSize.y * header.glyphCount;
@@ -272,11 +350,7 @@ bool TextRenderer::loadFontCache(const std::string& cachePath, Font& font)
     TRACY_SCOPE_NC("Load font cache", ProfileCategory::General);
 
     FileStream file(cachePath, FileStream::Mode::Read);
-    if (!file)
-    {
-        std::cerr << "[TextRenderer][loadFontCache]: Failed to open file\n";
-        return false;
-    }
+    if (!file) return false;
 
     CacheHeader header;
     file.readObjects(&header);
@@ -285,7 +359,6 @@ bool TextRenderer::loadFontCache(const std::string& cachePath, Font& font)
 
     font.fontSize = header.fontSize;
     font.maxGlyphSize = header.maxGlyphSize;
-    font.glyphCount = header.glyphCount;
 
     // Load glyph Map
     font.glyphs.reserve(header.glyphCount);
@@ -314,6 +387,23 @@ bool TextRenderer::loadFontCache(const std::string& cachePath, Font& font)
     );
 
     return true;
+}
+
+void TextRenderer::finalizeFontTexture(Font& font)
+{
+    const Texture::Parameters defaultParams{
+        .minFilter = GL_NEAREST,
+        .magFilter = GL_NEAREST,
+        .wrapS = GL_CLAMP_TO_EDGE,
+        .wrapT = GL_CLAMP_TO_EDGE
+    };
+    font.textureArray.setParameters(defaultParams);
+
+    if (Texture::getExtensions().bindless)
+    {
+        font.textureArray.initHandle();
+        font.textureArray.makeResident();
+    }
 }
 
 void TextRenderer::renderTextInternal(const void* text, size_t textLength, UTFDecoderFunction decoder, float x, float y, float rowHeight,
@@ -357,7 +447,7 @@ void TextRenderer::renderTextInternal(const void* text, size_t textLength, UTFDe
     int lineCount = 1;
     float currentLineWidth = 0.0f;
 
-    const uint32_t replaceCodepoint = '?';
+    constexpr uint32_t replaceCodepoint = '?';
     const bool doesNotReplaceCodepointExist = glyphs.find(replaceCodepoint) == glyphs.end();
 
     {
@@ -557,11 +647,7 @@ bool TextRenderer::loadFont(const std::string& fontName, GLuint fontSize)
         return false;
     }
 
-    //
-    GLint oldAlignment;
-    glGetIntegerv(GL_UNPACK_ALIGNMENT, &oldAlignment);
-
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    GlPixelAligmentRAII(1);
 
     // Try loading from cache first
     const std::string cachePath = "cache/" + fontName + "_" + std::to_string(fontSize) + ".fcache";
@@ -570,54 +656,34 @@ bool TextRenderer::loadFont(const std::string& fontName, GLuint fontSize)
     {
         std::cout << "[TextRenderer]: Loaded '" << fontName << "' from cache.\n";
 
-        // Setup parameters and bindless handle for cached font
-        Texture::Parameters params{ .minFilter = GL_NEAREST, .magFilter = GL_NEAREST, .wrapS = GL_CLAMP_TO_EDGE, .wrapT = GL_CLAMP_TO_EDGE };
-        font.textureArray.setParameters(params);
-
-        if (Texture::getExtensions().bindless)
-        {
-            font.textureArray.initHandle();
-            font.textureArray.makeResident();
-        }
+        finalizeFontTexture(font);
 
         inst.fonts.emplace(fontName, std::move(font));
-        glPixelStorei(GL_UNPACK_ALIGNMENT, oldAlignment);
         return true;
     }
 
     // Init FreeType
-    FT_Library ft;
+    FreeTypeLibrary freeTypeLibrary;
+    if (!freeTypeLibrary.initLibrary())
     {
-        TRACY_SCOPE_NC("Init FreeType", ProfileCategory::General);
-        if (FT_Init_FreeType(&ft))
-        {
-            std::cerr << "[TextRenderer][loadFont]: Couldn't init FreeType Library\n";
-            glPixelStorei(GL_UNPACK_ALIGNMENT, oldAlignment);
-            return false;
-        }
+        std::cerr << "[TextRenderer][loadFont]: Failed to init FreeType Library\n";
+        return false;
     }
 
     const std::string fontPath = "res/fonts/" + fontName + ".ttf";
 
-    FT_Face face;
+    if (!freeTypeLibrary.initFace(fontPath.c_str()))
     {
-        TRACY_SCOPE_NC("Loading font", ProfileCategory::General);
-        if (FT_New_Face(ft, fontPath.c_str(), 0, &face))
-        {
-            std::cerr << "[TextRenderer][loadFont]: Failed to load font: " << fontPath << "\n";
-            FT_Done_FreeType(ft);
-            glPixelStorei(GL_UNPACK_ALIGNMENT, oldAlignment);
-            return false;
-        }
+        std::cerr << "[TextRenderer][loadFont]: Failed to load font: " << fontPath << "\n";
+        return false;
     }
 
+    auto face = freeTypeLibrary.getFace();
     FT_Set_Pixel_Sizes(face, 0, fontSize);
 
-    // Create font
+    //
     font.fontSize = fontSize;
-
-    // Get font info
-    font.glyphCount = face->num_glyphs;
+    const size_t maximumGlyphCount = getMappedGlyphCount(face);
     {
         float scale = (float)fontSize / (float)face->units_per_EM;
         font.maxGlyphSize.x = (int)std::ceil((face->bbox.xMax - face->bbox.xMin) * scale);
@@ -637,7 +703,7 @@ bool TextRenderer::loadFont(const std::string& fontName, GLuint fontSize)
     // Create texture array
     {
         TRACY_SCOPE_NC("Create 2d array", ProfileCategory::General);
-        font.textureArray.create2DArray(font.maxGlyphSize.x, font.maxGlyphSize.y, font.glyphCount, internalFormat);
+        font.textureArray.create2DArray(font.maxGlyphSize.x, font.maxGlyphSize.y, maximumGlyphCount, internalFormat);
     }
 
     {
@@ -653,27 +719,15 @@ bool TextRenderer::loadFont(const std::string& fontName, GLuint fontSize)
     }
 
     // Load glyphs
-    loadGlyphs(face, font);
+    loadGlyphs(face, font, maximumGlyphCount);
 
-	// Make bindless if supported
-    if (Texture::getExtensions().bindless)
-    {
-        font.textureArray.initHandle();
-        font.textureArray.makeResident();
-	}
+	//
+    finalizeFontTexture(font);
 
 	// Report
     std::cout
         << "[TextRenderer][loadFont]: Loaded font: '" << fontName << "' (" << fontPath << "). Character count: " << font.glyphs.size()
         << ". Max glyph size: (" << font.maxGlyphSize.x << ", " << font.maxGlyphSize.y << ").\n";
-
-	// Free FreeType resources
-    {
-        TRACY_SCOPE_NC("Free FreeType resources", ProfileCategory::General);
-        FT_Done_Face(face);
-        FT_Done_FreeType(ft);
-    }
-    glPixelStorei(GL_UNPACK_ALIGNMENT, oldAlignment);
 
 	// Store font
     fonts.emplace(fontName, std::move(font));
@@ -681,7 +735,7 @@ bool TextRenderer::loadFont(const std::string& fontName, GLuint fontSize)
     // After successful FreeType load, save the cache for next time
     if (inst.saveFontCache(cachePath, inst.fonts[fontName]))
     {
-        std::cout << "[TextRenderer]: Saved '" << fontName << "' to cache.\n";
+        std::cout << "[TextRenderer][loadFont]: Saved '" << fontName << "' to cache.\n";
     }
 
     return true;
@@ -762,25 +816,25 @@ void TextRenderer::startTextRendering()
 void TextRenderer::renderText(const std::string& text, float x, float y, float rowHeight,
     const glm::vec3& color, TextAlignment alignment, const glm::vec2& bounds)
 {
-    renderTextInternal(reinterpret_cast<const void*>(text.c_str()), text.length(), decodeStdString, x, y, rowHeight, color, alignment, bounds);
+    renderTextInternal(text.c_str(), text.length(), decodeStdString, x, y, rowHeight, color, alignment, bounds);
 }
 
 void TextRenderer::renderText(const std::u8string& text, float x, float y, float rowHeight,
     const glm::vec3& color, TextAlignment alignment, const glm::vec2& bounds)
 {
-    renderTextInternal(reinterpret_cast<const void*>(text.c_str()), text.length(), decodeUTF8, x, y, rowHeight, color, alignment, bounds);
+    renderTextInternal(text.c_str(), text.length(), decodeUTF8, x, y, rowHeight, color, alignment, bounds);
 }
 
 void TextRenderer::renderText(const std::u16string& text, float x, float y, float rowHeight,
     const glm::vec3& color, TextAlignment alignment, const glm::vec2& bounds)
 {
-    renderTextInternal(reinterpret_cast<const void*>(text.c_str()), text.length(), decodeUTF16, x, y, rowHeight, color, alignment, bounds);
+    renderTextInternal(text.c_str(), text.length(), decodeUTF16, x, y, rowHeight, color, alignment, bounds);
 }
 
 void TextRenderer::renderText(const std::u32string& text, float x, float y, float rowHeight,
     const glm::vec3& color, TextAlignment alignment, const glm::vec2& bounds)
 {
-    renderTextInternal(reinterpret_cast<const void*>(text.c_str()), text.length(), decodeUTF32, x, y, rowHeight, color, alignment, bounds);
+    renderTextInternal(text.c_str(), text.length(), decodeUTF32, x, y, rowHeight, color, alignment, bounds);
 }
 
 void TextRenderer::setPixelCoordinateSpace(int width, int height)

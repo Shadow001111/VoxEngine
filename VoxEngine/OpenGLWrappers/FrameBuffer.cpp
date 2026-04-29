@@ -1,6 +1,8 @@
 #include "FrameBuffer.h"
+
 #include <utility>
 #include <iostream>
+#include <tracy/Tracy.hpp>
 
 FrameBuffer::~FrameBuffer()
 {
@@ -160,6 +162,8 @@ void FrameBuffer::unbind(GLenum target)
 
 void FrameBuffer::setDrawBuffers(const std::vector<std::string>& attachmentNames)
 {
+    ZoneScopedN("Set draw buffers");
+
     if (attachmentNames.empty())
     {
         // If no attachments specified, disable drawing
@@ -213,6 +217,8 @@ void FrameBuffer::setDrawBuffers(const std::vector<std::string>& attachmentNames
 
 void FrameBuffer::setReadBuffer(const std::string& attachmentName) const
 {
+    ZoneScopedN("Set read buffers");
+
     auto it = attachments.find(attachmentName);
     if (it != attachments.end())
     {
@@ -320,6 +326,8 @@ void FrameBuffer::clearAttachment(const std::string& name, const float* clearVal
 
 void FrameBuffer::clearDrawBuffer(const std::string& name, const float* clearValue) const
 {
+    ZoneScopedN("Clear draw buffers");
+
     bool found = false;
     int index = 0;
 
