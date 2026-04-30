@@ -2,32 +2,19 @@
 #include <glad/glad.h>
 #include <cstdint>
 
-// ============================================================================
-//  TextureCompression
-//  Detects hardware support and maps user-facing Format choices to concrete
-//  OpenGL internal formats.  Use Format::AUTO to let the system pick the
-//  best available format for the given channel count.
-// ============================================================================
 namespace TextureCompression
 {
-	// -----------------------------------------------------------------------
-	//  User-visible compression choices
-	// -----------------------------------------------------------------------
 	enum class Format
 	{
-		// No compression. Pass any uncompressed internalFormat directly to
-		// create2D / create2DArray. All other formats below allocate compressed
-		// GPU storage and let the driver compress on upload.
+		// No compression.
 		NONE,
 
 		// Automatically selects the best available format for the given channel
-		// count. Priority: BPTC > RGTC/S3TC > ASTC > generic GL_COMPRESSED_*.
-		// Recommended default for most use cases.
+		// count.
 		AUTO,
 
 		// -------------------------------------------------------------------
 		// S3TC / DXT  (GL_EXT_texture_compression_s3tc)
-		// Supported on virtually all desktop GPUs since ~2000.
 		// -------------------------------------------------------------------
 
 		// BC1 (DXT1): RGB or RGBA with 1-bit alpha. ~8:1 ratio.
@@ -111,14 +98,10 @@ namespace TextureCompression
 		ASTC_8x8,
 	};
 
-	// -----------------------------------------------------------------------
-	//  Per-channel hint used by AUTO resolution
-	// -----------------------------------------------------------------------
+	// Per-channel hint
 	enum class Channels { R = 1, RG = 2, RGB = 3, RGBA = 4 };
 
-	// -----------------------------------------------------------------------
-	//  Extension availability (populated by init())
-	// -----------------------------------------------------------------------
+	// Extension availability
 	struct Support
 	{
 		bool s3tc = false;   // BC1 / BC3
@@ -127,7 +110,9 @@ namespace TextureCompression
 		bool astc = false;   // ASTC LDR
 	};
 
-	// Call once after a GL context exists (e.g. alongside Texture::initGlobalData)
+	using block_size = uint32_t;
+	struct BlockDimensions { block_size w, h; };
+
 	void init();
 	const Support& getSupport();
 	bool isFormatSupported(Format format);
@@ -141,8 +126,12 @@ namespace TextureCompression
 	// Returns 0 for NONE / unknown formats.
 	size_t calcCompressedSize(Format format, int width, int height);
 
-	// Human-readable name, useful for logging.
+	// Human-readable name of format
 	const char* getName(Format format);
+
+	// Block size of texture format
+	BlockDimensions getBlockSize(Format format);
+	BlockDimensions getBlockSize(GLenum internalFormat);
 }
 
 class Texture
@@ -244,19 +233,6 @@ public:
 	void uploadSubData2DArray(
 		const void* data, texture_size xOffset, texture_size yOffset, texture_size layer,
 		texture_size width, texture_size height, GLenum dataType, mip_level level = 0);
-
-	void uploadCompressedData(
-		const void* data, size_t dataSize, mip_level level = 0);
-	void uploadCompressedSubData2D(
-		const void* data, size_t dataSize,
-		texture_size xOffset, texture_size yOffset,
-		texture_size width, texture_size height,
-		mip_level level = 0);
-	void uploadCompressedSubData2DArray(
-		const void* data, size_t dataSize,
-		texture_size xOffset, texture_size yOffset, texture_size layer,
-		texture_size width, texture_size height,
-		mip_level level = 0);
 
 	// Data download functions
 	void readData(void* outData, GLsizei bufSize, GLenum dataType, mip_level level = 0) const;

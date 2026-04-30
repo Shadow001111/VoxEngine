@@ -27,7 +27,6 @@ struct Font
 {
     robin_hood::unordered_flat_map<uint32_t, Glyph> glyphs;
     float fontSize = 0.0f;
-    glm::ivec2 maxGlyphSize = { 0, 0 };
 
     Texture textureArray;
 
@@ -39,6 +38,8 @@ struct Font
 
     Font(Font&& other) noexcept;
     Font& operator=(Font&& other) noexcept;
+
+    glm::ivec2 getTextureArrayDims() const noexcept { return { textureArray.getWidth(), textureArray.getHeight() }; }
 };
 
 struct GlyphInstance
@@ -55,7 +56,7 @@ class TextRenderer
         uint32_t magic = 0x464F4E54; // "FONT"
         uint32_t version = 1;
         uint32_t fontSize;
-        glm::ivec2 maxGlyphSize;
+        glm::ivec2 textureArrayDims;
         uint32_t glyphCount;
     };
 

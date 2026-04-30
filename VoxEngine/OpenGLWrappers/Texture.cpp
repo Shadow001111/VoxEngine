@@ -54,6 +54,39 @@ namespace TextureCompression
 
 	GLenum resolveInternalFormat(Format format, Channels channels, bool isHDR)
 	{
+		if (format == Format::AUTO)
+		{
+			// AUTO resolution rules (priority: BPTC > RGTC/S3TC > ASTC > generic)
+			switch (channels)
+			{
+			case Channels::R:
+				if (g_support.rgtc) return GL_COMPRESSED_RED_RGTC1;
+				return GL_COMPRESSED_RED;
+
+			case Channels::RG:
+				if (g_support.rgtc) return GL_COMPRESSED_RG_RGTC2;
+				return GL_COMPRESSED_RG;
+
+			case Channels::RGB:
+				if (isHDR)
+				{
+					if (g_support.bptc) return GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT;
+				}
+				if (g_support.bptc)  return GL_COMPRESSED_RGBA_BPTC_UNORM;   // BC7 handles RGB too
+				if (g_support.s3tc)  return GL_COMPRESSED_RGB_S3TC_DXT1_EXT;
+				if (g_support.astc)  return GL_COMPRESSED_RGBA_ASTC_4x4_KHR;
+				return GL_COMPRESSED_RGB;
+
+			case Channels::RGBA:
+				if (g_support.bptc)  return GL_COMPRESSED_RGBA_BPTC_UNORM;
+				if (g_support.s3tc)  return GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
+				if (g_support.astc)  return GL_COMPRESSED_RGBA_ASTC_4x4_KHR;
+				return GL_COMPRESSED_RGBA;
+			}
+
+			return GL_COMPRESSED_RGBA; // Unreachable, but keeps compilers happy
+		}
+
 		switch (format)
 		{
 		case Format::NONE:
@@ -156,44 +189,10 @@ namespace TextureCompression
 				return GL_NONE;
 			}
 			return GL_COMPRESSED_RGBA_ASTC_8x8_KHR;
-
-		case Format::AUTO:
-			break;
-
 		default:
 			std::cerr << "[TextureCompression]: Unknown Format value. Falling back to NONE.\n";
 			return GL_NONE;
 		}
-
-		// AUTO resolution rules (priority: BPTC > RGTC/S3TC > ASTC > generic)
-		switch (channels)
-		{
-		case Channels::R:
-			if (g_support.rgtc) return GL_COMPRESSED_RED_RGTC1;
-			return GL_COMPRESSED_RED;
-
-		case Channels::RG:
-			if (g_support.rgtc) return GL_COMPRESSED_RG_RGTC2;
-			return GL_COMPRESSED_RG;
-
-		case Channels::RGB:
-			if (isHDR)
-			{
-				if (g_support.bptc) return GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT;
-			}
-			if (g_support.bptc)  return GL_COMPRESSED_RGBA_BPTC_UNORM;   // BC7 handles RGB too
-			if (g_support.s3tc)  return GL_COMPRESSED_RGB_S3TC_DXT1_EXT;
-			if (g_support.astc)  return GL_COMPRESSED_RGBA_ASTC_4x4_KHR;
-			return GL_COMPRESSED_RGB;
-
-		case Channels::RGBA:
-			if (g_support.bptc)  return GL_COMPRESSED_RGBA_BPTC_UNORM;
-			if (g_support.s3tc)  return GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
-			if (g_support.astc)  return GL_COMPRESSED_RGBA_ASTC_4x4_KHR;
-			return GL_COMPRESSED_RGBA;
-		}
-
-		return GL_COMPRESSED_RGBA; // Unreachable, but keeps compilers happy
 	}
 
 	size_t calcCompressedSize(Format format, int width, int height)
@@ -262,6 +261,53 @@ namespace TextureCompression
 		case Format::ASTC_6x6:    return "ASTC_6x6";
 		case Format::ASTC_8x8:    return "ASTC_8x8";
 		default:                  return "UNKNOWN";
+		}
+	}
+
+	BlockDimensions getBlockSize(Format format)
+	{
+		switch (format)
+		{
+		case Format::BC1:
+		case Format::BC3:
+		case Format::BC4:
+		case Format::BC4_SIGNED:
+		case Format::BC5:
+		case Format::BC5_SIGNED:
+		case Format::BC6H:
+		case Format::BC6H_SIGNED:
+		case Format::BC7:         return { 4, 4 };
+		case Format::ASTC_4x4:    return { 4, 4 };
+		case Format::ASTC_6x6:    return { 6, 6 };
+		case Format::ASTC_8x8:    return { 8, 8 };
+		default:                  return { 1, 1 };
+		}
+	}
+
+	BlockDimensions getBlockSize(GLenum internalFormat)
+	{
+		switch (internalFormat) {
+		case GL_COMPRESSED_RGB_S3TC_DXT1_EXT:
+		case GL_COMPRESSED_RGBA_S3TC_DXT1_EXT:
+		case GL_COMPRESSED_RGBA_S3TC_DXT3_EXT:
+		case GL_COMPRESSED_RGBA_S3TC_DXT5_EXT:
+		case GL_COMPRESSED_RED_RGTC1:
+		case GL_COMPRESSED_SIGNED_RED_RGTC1:
+		case GL_COMPRESSED_RG_RGTC2:
+		case GL_COMPRESSED_SIGNED_RG_RGTC2:
+		case GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT:
+		case GL_COMPRESSED_RGB_BPTC_SIGNED_FLOAT:
+		case GL_COMPRESSED_RGBA_BPTC_UNORM:
+		case GL_COMPRESSED_SRGB_ALPHA_BPTC_UNORM:
+			return { 4, 4 };
+		case GL_COMPRESSED_RGBA_ASTC_4x4_KHR:
+			return { 4, 4 };
+		case GL_COMPRESSED_RGBA_ASTC_6x6_KHR:
+			return { 6, 6 };
+		case GL_COMPRESSED_RGBA_ASTC_8x8_KHR:
+			return { 8, 8 };
+		default:
+			return { 1, 1 };
 		}
 	}
 }
@@ -449,7 +495,7 @@ void Texture::create2DArray(texture_size width, texture_size height, texture_siz
 	glTextureStorage3D(id, mipLevels, internalFormat, width, height, layers);
 }
 
-// TODO: Either fall back to uncompressed forma or return success status
+// TODO: Either fall back to uncompressed format or return success status
 void Texture::create2DCompressed(texture_size width, texture_size height, TextureCompression::Channels channels, TextureCompression::Format compression, mip_level mipLevels, bool isHDR)
 {
 	GLenum fmt = TextureCompression::resolveInternalFormat(compression, channels, isHDR);
@@ -462,7 +508,12 @@ void Texture::create2DCompressed(texture_size width, texture_size height, Textur
 		return;
 	}
 
-	create2D(width, height, fmt, mipLevels);
+	// Round up to next multiple of block size
+	TextureCompression::BlockDimensions bdim = TextureCompression::getBlockSize(fmt);
+	texture_size alignedW = ((width + bdim.w - 1) / bdim.w) * bdim.w;
+	texture_size alignedH = ((height + bdim.h - 1) / bdim.h) * bdim.h;
+
+	create2D(alignedW, alignedH, fmt, mipLevels);
 }
 
 void Texture::create2DArrayCompressed(texture_size width, texture_size height, texture_size layers, TextureCompression::Channels channels, TextureCompression::Format compression, mip_level mipLevels, bool isHDR)
@@ -477,7 +528,12 @@ void Texture::create2DArrayCompressed(texture_size width, texture_size height, t
 		return;
 	}
 
-	create2DArray(width, height, layers, fmt, mipLevels);
+	// Round up to next multiple of block size
+	TextureCompression::BlockDimensions bdim = TextureCompression::getBlockSize(fmt);
+	texture_size alignedW = ((width + bdim.w - 1) / bdim.w) * bdim.w;
+	texture_size alignedH = ((height + bdim.h - 1) / bdim.h) * bdim.h;
+
+	create2DArray(alignedW, alignedH, layers, fmt, mipLevels);
 }
 
 void Texture::recreate1D(texture_size width)
@@ -733,137 +789,6 @@ void Texture::uploadSubData2DArray(
 	auto format = getFormatFromInternalFormat();
 	// Upload a single layer (depth = 1)
 	glTextureSubImage3D(id, level, xOffset, yOffset, layer, width, height, 1, format, dataType, data);
-}
-
-void Texture::uploadCompressedData(const void* data, size_t dataSize, mip_level level)
-{
-	if (!isCompressed())
-	{
-		std::cerr << "[Texture][uploadCompressedData]: Texture internal format is not compressed. "
-			"Use uploadData() for uncompressed formats.\n";
-		return;
-	}
-	if (level >= mipLevels)
-	{
-		std::cerr << "[Texture][uploadCompressedData]: Invalid mipmap level: " << (unsigned)level
-			<< ". Texture has " << (unsigned)mipLevels << " mipLevels.\n";
-		return;
-	}
-	if (!data || dataSize == 0)
-	{
-		std::cerr << "[Texture][uploadCompressedData]: Null or zero-size data.\n";
-		return;
-	}
-
-	// Mip-level dimensions
-	int mipWidth = std::max(1, (int)width >> level);
-	int mipHeight = std::max(1, (int)height >> level);
-
-	switch (type)
-	{
-	case GL_TEXTURE_2D:
-		glCompressedTextureSubImage2D(
-			id, level,
-			0, 0, mipWidth, mipHeight,
-			internalFormat, static_cast<GLsizei>(dataSize), data);
-		break;
-
-	case GL_TEXTURE_2D_ARRAY:
-	case GL_TEXTURE_3D:
-	{
-		int mipDepth = std::max(1, (int)depth >> level);
-		glCompressedTextureSubImage3D(
-			id, level,
-			0, 0, 0, mipWidth, mipHeight, mipDepth,
-			internalFormat, static_cast<GLsizei>(dataSize), data);
-		break;
-	}
-
-	default:
-		std::cerr << "[Texture][uploadCompressedData]: Unsupported texture type for compressed upload: "
-			<< type << "\n";
-		break;
-	}
-}
-
-void Texture::uploadCompressedSubData2D(const void* data, size_t dataSize, texture_size xOffset, texture_size yOffset, texture_size width, texture_size height, mip_level level)
-{
-	if (type != GL_TEXTURE_2D)
-	{
-		std::cerr << "[Texture][uploadCompressedSubData2D]: Texture is not 2D type. Actual type: " << type << "\n";
-		return;
-	}
-	if (!isCompressed())
-	{
-		std::cerr << "[Texture][uploadCompressedSubData2D]: Texture internal format is not compressed.\n";
-		return;
-	}
-	if (level >= mipLevels)
-	{
-		std::cerr << "[Texture][uploadCompressedSubData2D]: Invalid mipmap level: " << (unsigned)level
-			<< ". Texture has " << (unsigned)mipLevels << " mipLevels.\n";
-		return;
-	}
-	if (!data || dataSize == 0)
-	{
-		std::cerr << "[Texture][uploadCompressedSubData2D]: Null or zero-size data.\n";
-		return;
-	}
-	// Offsets for block-compressed formats must be multiples of the block size (4)
-	if ((xOffset % 4) != 0 || (yOffset % 4) != 0)
-	{
-		std::cerr << "[Texture][uploadCompressedSubData2D]: xOffset and yOffset must be "
-			"multiples of 4 for block-compressed formats.\n";
-		return;
-	}
-
-	glCompressedTextureSubImage2D(
-		id, level,
-		xOffset, yOffset, width, height,
-		internalFormat, static_cast<GLsizei>(dataSize), data);
-}
-
-void Texture::uploadCompressedSubData2DArray(const void* data, size_t dataSize, texture_size xOffset, texture_size yOffset, texture_size layer, texture_size width, texture_size height, mip_level level)
-{
-	if (type != GL_TEXTURE_2D_ARRAY)
-	{
-		std::cerr << "[Texture][uploadCompressedSubData2DArray]: Texture is not 2D Array type. Actual type: " << type << "\n";
-		return;
-	}
-	if (!isCompressed())
-	{
-		std::cerr << "[Texture][uploadCompressedSubData2DArray]: Texture internal format is not compressed.\n";
-		return;
-	}
-	if (level >= mipLevels)
-	{
-		std::cerr << "[Texture][uploadCompressedSubData2DArray]: Invalid mipmap level: " << (unsigned)level
-			<< ". Texture has " << (unsigned)mipLevels << " mipLevels.\n";
-		return;
-	}
-	if (!data || dataSize == 0)
-	{
-		std::cerr << "[Texture][uploadCompressedSubData2DArray]: Null or zero-size data.\n";
-		return;
-	}
-	if ((xOffset % 4) != 0 || (yOffset % 4) != 0)
-	{
-		std::cerr << "[Texture][uploadCompressedSubData2DArray]: xOffset and yOffset must be "
-			"multiples of 4 for block-compressed formats.\n";
-		return;
-	}
-	if (layer >= this->depth)
-	{
-		std::cerr << "[Texture][uploadCompressedSubData2DArray]: layer " << layer
-			<< " out of range (depth=" << this->depth << ").\n";
-		return;
-	}
-
-	// Upload a single layer (depth=1)
-	glCompressedTextureSubImage3D(
-		id, level,
-		xOffset, yOffset, layer, width, height, 1,
-		internalFormat, static_cast<GLsizei>(dataSize), data);
 }
 
 void Texture::readData(void* outData, GLsizei bufSize, GLenum dataType, mip_level level) const
