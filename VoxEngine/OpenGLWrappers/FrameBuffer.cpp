@@ -13,7 +13,8 @@ FrameBuffer::FrameBuffer(FrameBuffer&& other) noexcept :
     id(std::exchange(other.id, 0)),
     width(std::exchange(other.width, 0)),
     height(std::exchange(other.height, 0)),
-    attachments(std::move(other.attachments))
+    attachments(std::move(other.attachments)),
+    drawBufferIndices(std::move(drawBufferIndices))
 {
 }
 
@@ -27,6 +28,7 @@ FrameBuffer& FrameBuffer::operator=(FrameBuffer&& other) noexcept
         width = std::exchange(other.width, 0);
         height = std::exchange(other.height, 0);
         attachments = std::move(other.attachments);
+        drawBufferIndices = std::move(drawBufferIndices);
     }
     return *this;
 }
@@ -60,8 +62,9 @@ void FrameBuffer::destroy()
         attachments.clear();
 
         glDeleteFramebuffers(1, &id);
+        id = 0;
 
-        drawBuffers.clear();
+        drawBufferIndices.clear();
     }
 }
 
@@ -164,6 +167,8 @@ void FrameBuffer::setDrawBuffers(const std::vector<std::string>& attachmentNames
 {
     ZoneScopedN("Set draw buffers");
 
+    drawBufferIndices.clear();
+
     if (attachmentNames.empty())
     {
         // If no attachments specified, disable drawing
@@ -172,11 +177,8 @@ void FrameBuffer::setDrawBuffers(const std::vector<std::string>& attachmentNames
         return;
     }
 
-    std::vector<GLenum> drawBuffers;
-    drawBuffers.reserve(attachmentNames.size());
-
-    this->drawBuffers.clear();
-    this->drawBuffers.reserve(attachmentNames.size());
+    std::vector<GLenum> drawBufferAttachmentPoints;
+    drawBufferAttachmentPoints.reserve(attachmentNames.size());
 
     for (const auto& name : attachmentNames)
     {
@@ -186,8 +188,10 @@ void FrameBuffer::setDrawBuffers(const std::vector<std::string>& attachmentNames
             // Only COLOR attachments can be draw buffers
             if (it->second.type == AttachmentType::COLOR)
             {
-                drawBuffers.push_back(it->second.attachmentPoint);
-                this->drawBuffers.push_back(name);
+                int index = static_cast<int>(drawBufferAttachmentPoints.size());
+                drawBufferIndices[name] = index;
+
+                drawBufferAttachmentPoints.push_back(it->second.attachmentPoint);
             }
             else
             {
@@ -203,7 +207,7 @@ void FrameBuffer::setDrawBuffers(const std::vector<std::string>& attachmentNames
         }
     }
 
-    if (drawBuffers.empty())
+    if (drawBufferAttachmentPoints.empty())
     {
         // No valid color attachments found
         glNamedFramebufferDrawBuffer(id, GL_NONE);
@@ -211,7 +215,7 @@ void FrameBuffer::setDrawBuffers(const std::vector<std::string>& attachmentNames
     }
     else
     {
-        glNamedFramebufferDrawBuffers(id, static_cast<GLsizei>(drawBuffers.size()), drawBuffers.data());
+        glNamedFramebufferDrawBuffers(id, static_cast<GLsizei>(drawBufferAttachmentPoints.size()), drawBufferAttachmentPoints.data());
     }
 }
 
@@ -293,6 +297,8 @@ void FrameBuffer::blitToDefaultFramebuffer(int dstWidth, int dstHeight, GLbitfie
 
 void FrameBuffer::clearAttachment(const std::string& name, const float* clearValue) const
 {
+    ZoneScopedN("Clear attachment");
+
     auto it = attachments.find(name);
     if (it == attachments.end())
     {
@@ -328,24 +334,15 @@ void FrameBuffer::clearDrawBuffer(const std::string& name, const float* clearVal
 {
     ZoneScopedN("Clear draw buffers");
 
-    bool found = false;
-    int index = 0;
-
-    for (index = 0; index < drawBuffers.size(); index++)
+    auto it = drawBufferIndices.find(name);
+    if (it != drawBufferIndices.end())
     {
-        if (name == drawBuffers[index])
-        {
-            found = true;
-            break;
-        }
-    }
-    if (found)
-    {
-        glClearNamedFramebufferfv(id, GL_COLOR, index, clearValue);
+        glClearNamedFramebufferfv(id, GL_COLOR, it->second, clearValue);
     }
     else
     {
-        std::cerr << "[FrameBuffer][setDrawBuffers]: Attachment '" << name << "' not found in draw buffers for clearing\n";
+        std::cerr << "[FrameBuffer][clearDrawBuffer]: Attachment '"
+            << name << "' not found in draw buffers for clearing\n";
     }
 }
 

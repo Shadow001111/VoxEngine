@@ -35,7 +35,7 @@ class FrameBuffer
     int width = 0, height = 0;
 
     robin_hood::unordered_flat_map<std::string, Attachment> attachments;
-    std::vector<std::string> drawBuffers;
+    robin_hood::unordered_flat_map<std::string, int> drawBufferIndices;
 public:
     FrameBuffer() = default;
     ~FrameBuffer();

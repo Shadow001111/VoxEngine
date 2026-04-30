@@ -23,7 +23,7 @@
 #include <iomanip>
 #include <glm/gtc/matrix_transform.hpp>
 
-const int CHUNK_LOAD_DISTANCE = 1;
+const int CHUNK_LOAD_DISTANCE = 8;
 
 
 static std::string formatSize(size_t value)
