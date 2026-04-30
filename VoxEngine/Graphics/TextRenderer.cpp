@@ -268,18 +268,33 @@ std::vector<uint8_t> TextRenderer::loadGlyphs(FT_Face& face, Font& font, size_t 
 
             glyphTextureId = textureIdCounter++;
 
-            const int srcW = (int)face->glyph->bitmap.width;
-            const int srcH = (int)face->glyph->bitmap.rows;
+            const FT_Bitmap& bitmap = face->glyph->bitmap;
+
+            const int srcW = (int)bitmap.width;
+            const int srcH = (int)bitmap.rows;
+            const int pitch = std::abs(bitmap.pitch);
 
             uint8_t* destSlice = textureData.data() + (glyphTextureId - 1) * layerSizeInBytes;
-            const uint8_t* srcBuffer = face->glyph->bitmap.buffer;
+            const uint8_t* srcBuffer = bitmap.buffer;
 
             for (int row = 0; row < srcH; row++)
             {
-                std::memcpy(
-                    destSlice + (row * arrayWidth),
-                    srcBuffer + (row * srcW),
-                    srcW);
+                uint8_t* destRow = destSlice + (row * arrayWidth);
+                const uint8_t* srcRow = srcBuffer + (row * pitch);
+
+                if (bitmap.pixel_mode == FT_PIXEL_MODE_MONO)
+                {
+                    // 1-bit packed -> expand to 8-bit
+                    for (int col = 0; col < srcW; col++)
+                    {
+                        destRow[col] = (srcRow[col >> 3] & (0x80 >> (col & 7))) ? 255 : 0;
+                    }
+                }
+                else
+                {
+                    // Assume 8-bit grayscale (FT_PIXEL_MODE_GRAY)
+                    std::memcpy(destRow, srcRow, srcW);
+                }
             }
         }
 
@@ -315,6 +330,12 @@ std::vector<uint8_t> TextRenderer::loadGlyphs(FT_Face& face, Font& font, size_t 
 bool TextRenderer::saveFontCache(const std::string& cachePath, const Font& font, const std::vector<uint8_t>& textureData)
 {
     TRACY_SCOPE_NC("Save font cache", ProfileCategory::General);
+
+    if (!std::filesystem::create_directories("cache"))
+    {
+        std::cerr << "[TextRenderer][saveFontCache]: Failed to create cache folder\n";
+        return false;
+    }
 
     FileStream file(cachePath, FileStream::Mode::Write);
     if (!file)
