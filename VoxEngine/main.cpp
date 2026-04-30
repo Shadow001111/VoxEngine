@@ -125,6 +125,7 @@ static void setupContainerUI(ContainerUI& c)
     }
 
     TextureLoader::TextureLoadParams textureLoadParametrs;
+    textureLoadParametrs.desiredChannels = 4;
     textureLoadParametrs.compression = TextureCompression::Format::AUTO;
 
     Texture::Parameters textureParametrs
@@ -138,10 +139,7 @@ static void setupContainerUI(ContainerUI& c)
     {
         std::vector<std::string> itemTextureNames = AssetRegistry::getItemUITextureNames();
 
-        {
-            TRACY_SCOPE_NC("Item ui texture array creation", ProfileCategory::General);
-            TextureLoader::createTextureArrayFromImages(c.itemUITextureArray, "res/ItemUITextures", itemTextureNames, textureLoadParametrs);
-        }
+        TextureLoader::createTextureArrayFromImages(c.itemUITextureArray, "res/ItemUITextures", itemTextureNames, textureLoadParametrs);
 
         c.itemUITextureArray.setParameters(textureParametrs);
     }

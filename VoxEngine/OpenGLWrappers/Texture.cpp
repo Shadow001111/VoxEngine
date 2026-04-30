@@ -8,10 +8,10 @@ namespace TextureCompression
 
 	void init()
 	{
-		g_support.s3tc = static_cast<bool>(GLAD_GL_EXT_texture_compression_s3tc);
-		g_support.rgtc = static_cast<bool>(GLAD_GL_ARB_texture_compression_rgtc);
-		g_support.bptc = static_cast<bool>(GLAD_GL_ARB_texture_compression_bptc);
-		g_support.astc = static_cast<bool>(GLAD_GL_KHR_texture_compression_astc_ldr);
+		g_support.s3tc = false;//static_cast<bool>(GLAD_GL_EXT_texture_compression_s3tc);
+		g_support.rgtc = false;//static_cast<bool>(GLAD_GL_ARB_texture_compression_rgtc);
+		g_support.bptc = false;//static_cast<bool>(GLAD_GL_ARB_texture_compression_bptc);
+		g_support.astc = false;//static_cast<bool>(GLAD_GL_KHR_texture_compression_astc_ldr);
 	}
 
 	const Support& getSupport()
@@ -52,146 +52,171 @@ namespace TextureCompression
 		}
 	}
 
+	GLenum uncompressedInternalFormat(Channels channels, bool isHDR)
+	{
+		if (isHDR)
+		{
+			switch (channels)
+			{
+			case Channels::R:    return GL_R16F;
+			case Channels::RG:   return GL_RG16F;
+			case Channels::RGB:  return GL_RGB16F;
+			case Channels::RGBA: return GL_RGBA16F;
+			default:             return GL_RGBA16F;
+			}
+		}
+
+		switch (channels)
+		{
+		case Channels::R:    return GL_R8;
+		case Channels::RG:   return GL_RG8;
+		case Channels::RGB:  return GL_RGB8;
+		case Channels::RGBA: return GL_RGBA8;
+		default:             return GL_RGBA8;
+		}
+	}
+
+	void logUnsupported(const char* name)
+	{
+		std::cerr << "[TextureCompression]: " << name << " requested but not supported.\n";
+	}
+
 	GLenum resolveInternalFormat(Format format, Channels channels, bool isHDR)
 	{
-		if (format == Format::AUTO)
+		// Safety net for invalid channel values.
+		switch (channels)
 		{
-			// AUTO resolution rules (priority: BPTC > RGTC/S3TC > ASTC > generic)
+		case Channels::R:
+		case Channels::RG:
+		case Channels::RGB:
+		case Channels::RGBA:
+			break;
+		default:
+			return uncompressedInternalFormat(Channels::RGBA, isHDR);
+		}
+
+		if (format == Format::NONE)
+		{
+			return uncompressedInternalFormat(channels, isHDR);
+		}
+		else if (format == Format::AUTO)
+		{
 			switch (channels)
 			{
 			case Channels::R:
-				if (g_support.rgtc) return GL_COMPRESSED_RED_RGTC1;
-				return GL_COMPRESSED_RED;
+				// BC4/RGTC is fine for LDR normalized data, but not for true HDR values.
+				if (!isHDR && g_support.rgtc) return GL_COMPRESSED_RED_RGTC1;
+				return uncompressedInternalFormat(channels, isHDR);
 
 			case Channels::RG:
-				if (g_support.rgtc) return GL_COMPRESSED_RG_RGTC2;
-				return GL_COMPRESSED_RG;
+				if (!isHDR && g_support.rgtc) return GL_COMPRESSED_RG_RGTC2;
+				return uncompressedInternalFormat(channels, isHDR);
 
 			case Channels::RGB:
 				if (isHDR)
 				{
 					if (g_support.bptc) return GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT;
+					return uncompressedInternalFormat(channels, true);
 				}
-				if (g_support.bptc)  return GL_COMPRESSED_RGBA_BPTC_UNORM;   // BC7 handles RGB too
-				if (g_support.s3tc)  return GL_COMPRESSED_RGB_S3TC_DXT1_EXT;
-				if (g_support.astc)  return GL_COMPRESSED_RGBA_ASTC_4x4_KHR;
-				return GL_COMPRESSED_RGB;
+
+				if (g_support.bptc) return GL_COMPRESSED_RGBA_BPTC_UNORM;
+				if (g_support.s3tc) return GL_COMPRESSED_RGB_S3TC_DXT1_EXT;
+				if (g_support.astc) return GL_COMPRESSED_RGBA_ASTC_4x4_KHR;
+				return uncompressedInternalFormat(channels, false);
 
 			case Channels::RGBA:
-				if (g_support.bptc)  return GL_COMPRESSED_RGBA_BPTC_UNORM;
-				if (g_support.s3tc)  return GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
-				if (g_support.astc)  return GL_COMPRESSED_RGBA_ASTC_4x4_KHR;
-				return GL_COMPRESSED_RGBA;
-			}
+				if (isHDR)
+				{
+					// No HDR RGBA compressed choice in this set; fall back to float.
+					return uncompressedInternalFormat(channels, true);
+				}
 
-			return GL_COMPRESSED_RGBA; // Unreachable, but keeps compilers happy
+				if (g_support.bptc) return GL_COMPRESSED_RGBA_BPTC_UNORM;
+				if (g_support.s3tc) return GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
+				if (g_support.astc) return GL_COMPRESSED_RGBA_ASTC_4x4_KHR;
+				return uncompressedInternalFormat(channels, false);
+			}
 		}
 
 		switch (format)
 		{
-		case Format::NONE:
-			return GL_NONE;
-
 		case Format::BC1:
-			if (!g_support.s3tc)
-			{
-				std::cerr << "[TextureCompression]: BC1 (DXT1) requested but S3TC not supported. Falling back to NONE.\n";
-				return GL_NONE;
-			}
-			return (channels == Channels::RGBA)
+			if (g_support.s3tc)
+				return (channels == Channels::RGBA)
 				? GL_COMPRESSED_RGBA_S3TC_DXT1_EXT
 				: GL_COMPRESSED_RGB_S3TC_DXT1_EXT;
+			logUnsupported("BC1 (DXT1)");
+			return uncompressedInternalFormat(channels, isHDR);
 
 		case Format::BC3:
-			if (!g_support.s3tc)
-			{
-				std::cerr << "[TextureCompression]: BC3 (DXT5) requested but S3TC not supported. Falling back to NONE.\n";
-				return GL_NONE;
-			}
-			return GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
+			if (g_support.s3tc)
+				return GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
+			logUnsupported("BC3 (DXT5)");
+			return uncompressedInternalFormat(channels, isHDR);
 
 		case Format::BC4:
-			if (!g_support.rgtc)
-			{
-				std::cerr << "[TextureCompression]: BC4 requested but RGTC not supported. Falling back to NONE.\n";
-				return GL_NONE;
-			}
-			return GL_COMPRESSED_RED_RGTC1;
+			if (g_support.rgtc)
+				return GL_COMPRESSED_RED_RGTC1;
+			logUnsupported("BC4");
+			return uncompressedInternalFormat(channels, isHDR);
 
 		case Format::BC4_SIGNED:
-			if (!g_support.rgtc)
-			{
-				std::cerr << "[TextureCompression]: BC4_SIGNED requested but RGTC not supported. Falling back to NONE.\n";
-				return GL_NONE;
-			}
-			return GL_COMPRESSED_SIGNED_RED_RGTC1;
+			if (g_support.rgtc)
+				return GL_COMPRESSED_SIGNED_RED_RGTC1;
+			logUnsupported("BC4_SIGNED");
+			return uncompressedInternalFormat(channels, isHDR);
 
 		case Format::BC5:
-			if (!g_support.rgtc)
-			{
-				std::cerr << "[TextureCompression]: BC5 requested but RGTC not supported. Falling back to NONE.\n";
-				return GL_NONE;
-			}
-			return GL_COMPRESSED_RG_RGTC2;
+			if (g_support.rgtc)
+				return GL_COMPRESSED_RG_RGTC2;
+			logUnsupported("BC5");
+			return uncompressedInternalFormat(channels, isHDR);
 
 		case Format::BC5_SIGNED:
-			if (!g_support.rgtc)
-			{
-				std::cerr << "[TextureCompression]: BC5_SIGNED requested but RGTC not supported. Falling back to NONE.\n";
-				return GL_NONE;
-			}
-			return GL_COMPRESSED_SIGNED_RG_RGTC2;
+			if (g_support.rgtc)
+				return GL_COMPRESSED_SIGNED_RG_RGTC2;
+			logUnsupported("BC5_SIGNED");
+			return uncompressedInternalFormat(channels, isHDR);
 
 		case Format::BC6H:
-			if (!g_support.bptc)
-			{
-				std::cerr << "[TextureCompression]: BC6H requested but BPTC not supported. Falling back to NONE.\n";
-				return GL_NONE;
-			}
-			return GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT;
+			if (g_support.bptc)
+				return GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT;
+			logUnsupported("BC6H");
+			return uncompressedInternalFormat(channels, true);
 
 		case Format::BC6H_SIGNED:
-			if (!g_support.bptc)
-			{
-				std::cerr << "[TextureCompression]: BC6H_SIGNED requested but BPTC not supported. Falling back to NONE.\n";
-				return GL_NONE;
-			}
-			return GL_COMPRESSED_RGB_BPTC_SIGNED_FLOAT;
+			if (g_support.bptc)
+				return GL_COMPRESSED_RGB_BPTC_SIGNED_FLOAT;
+			logUnsupported("BC6H_SIGNED");
+			return uncompressedInternalFormat(channels, true);
 
 		case Format::BC7:
-			if (!g_support.bptc)
-			{
-				std::cerr << "[TextureCompression]: BC7 requested but BPTC not supported. Falling back to NONE.\n";
-				return GL_NONE;
-			}
-			return GL_COMPRESSED_RGBA_BPTC_UNORM;
+			if (g_support.bptc)
+				return GL_COMPRESSED_RGBA_BPTC_UNORM;
+			logUnsupported("BC7");
+			return uncompressedInternalFormat(channels, isHDR);
 
 		case Format::ASTC_4x4:
-			if (!g_support.astc)
-			{
-				std::cerr << "[TextureCompression]: ASTC_4x4 requested but ASTC not supported. Falling back to NONE.\n";
-				return GL_NONE;
-			}
-			return GL_COMPRESSED_RGBA_ASTC_4x4_KHR;
+			if (g_support.astc)
+				return GL_COMPRESSED_RGBA_ASTC_4x4_KHR;
+			logUnsupported("ASTC_4x4");
+			return uncompressedInternalFormat(channels, isHDR);
 
 		case Format::ASTC_6x6:
-			if (!g_support.astc)
-			{
-				std::cerr << "[TextureCompression]: ASTC_6x6 requested but ASTC not supported. Falling back to NONE.\n";
-				return GL_NONE;
-			}
-			return GL_COMPRESSED_RGBA_ASTC_6x6_KHR;
+			if (g_support.astc)
+				return GL_COMPRESSED_RGBA_ASTC_6x6_KHR;
+			logUnsupported("ASTC_6x6");
+			return uncompressedInternalFormat(channels, isHDR);
 
 		case Format::ASTC_8x8:
-			if (!g_support.astc)
-			{
-				std::cerr << "[TextureCompression]: ASTC_8x8 requested but ASTC not supported. Falling back to NONE.\n";
-				return GL_NONE;
-			}
-			return GL_COMPRESSED_RGBA_ASTC_8x8_KHR;
+			if (g_support.astc)
+				return GL_COMPRESSED_RGBA_ASTC_8x8_KHR;
+			logUnsupported("ASTC_8x8");
+			return uncompressedInternalFormat(channels, isHDR);
+
 		default:
-			std::cerr << "[TextureCompression]: Unknown Format value. Falling back to NONE.\n";
-			return GL_NONE;
+			std::cerr << "[TextureCompression]: Unknown Format value.\n";
+			return uncompressedInternalFormat(channels, isHDR);
 		}
 	}
 
@@ -500,14 +525,6 @@ void Texture::create2DCompressed(texture_size width, texture_size height, Textur
 {
 	GLenum fmt = TextureCompression::resolveInternalFormat(compression, channels, isHDR);
 
-	if (fmt == GL_NONE)
-	{
-		std::cerr << "[Texture][create2DCompressed]: Could not resolve a compressed internal format "
-			<< "for compression=" << TextureCompression::getName(compression)
-			<< ". The texture will not be created.\n";
-		return;
-	}
-
 	// Round up to next multiple of block size
 	TextureCompression::BlockDimensions bdim = TextureCompression::getBlockSize(fmt);
 	texture_size alignedW = ((width + bdim.w - 1) / bdim.w) * bdim.w;
@@ -519,14 +536,6 @@ void Texture::create2DCompressed(texture_size width, texture_size height, Textur
 void Texture::create2DArrayCompressed(texture_size width, texture_size height, texture_size layers, TextureCompression::Channels channels, TextureCompression::Format compression, mip_level mipLevels, bool isHDR)
 {
 	GLenum fmt = TextureCompression::resolveInternalFormat(compression, channels, isHDR);
-
-	if (fmt == GL_NONE)
-	{
-		std::cerr << "[Texture][create2DArrayCompressed]: Could not resolve a compressed internal format "
-			<< "for compression=" << TextureCompression::getName(compression)
-			<< ". The texture will not be created.\n";
-		return;
-	}
 
 	// Round up to next multiple of block size
 	TextureCompression::BlockDimensions bdim = TextureCompression::getBlockSize(fmt);

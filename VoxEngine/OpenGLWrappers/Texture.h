@@ -99,7 +99,7 @@ namespace TextureCompression
 	};
 
 	// Per-channel hint
-	enum class Channels { R = 1, RG = 2, RGB = 3, RGBA = 4 };
+	enum class Channels : uint32_t { R = 1, RG = 2, RGB = 3, RGBA = 4 };
 
 	// Extension availability
 	struct Support

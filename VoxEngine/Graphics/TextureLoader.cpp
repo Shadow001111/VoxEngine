@@ -48,34 +48,6 @@ namespace TextureLoader
             }
         }
 
-        // Returns the best GL internal format for the given params.
-        // Falls back to plain uncompressed if the requested compression is unavailable.
-        GLenum resolveInternalFormat(const TextureLoadParams& params)
-        {
-            if (params.compression != TextureCompression::Format::NONE)
-            {
-                const GLenum compressed = TextureCompression::resolveInternalFormat(
-                    params.compression,
-                    toCompressionChannels(params.desiredChannels),
-                    params.isHDR);
-
-                if (compressed != GL_NONE)
-                    return compressed;
-
-                std::cerr << "[TextureLoader]: Requested compression ("
-                    << TextureCompression::getName(params.compression)
-                    << ") is unavailable. Falling back to uncompressed storage.\n";
-            }
-
-            switch (params.desiredChannels)
-            {
-            case 1:  return GL_R8;
-            case 2:  return GL_RG8;
-            case 3:  return GL_RGB8;
-            default: return GL_RGBA8;
-            }
-        }
-
         int calculateMipmapLevels(int width, int height, bool createMipmaps)
         {
             if (!createMipmaps) return 1;
@@ -147,16 +119,17 @@ namespace TextureLoader
         const bool loaded = loadAndProcessImage(
             texturePath, params.desiredChannels, imageData, width, height);
 
+        const GLenum fmt = TextureCompression::resolveInternalFormat(
+            params.compression,
+            toCompressionChannels(params.desiredChannels),
+            params.isHDR);
+
         if (!loaded)
         {
-            // Fallback: small magenta checkerboard. Compression is intentionally
-            // skipped — drivers may produce poor quality on tiny images.
+            // Fallback: small magenta checkerboard
             constexpr int defaultSize = 16;
-
-            TextureLoadParams uncompressedParams = params;
-            uncompressedParams.compression = TextureCompression::Format::NONE;
-            const GLenum fmt  = resolveInternalFormat(uncompressedParams);
-            const int    mips = calculateMipmapLevels(defaultSize, defaultSize, params.createMipmaps);
+            
+            const int mips = calculateMipmapLevels(defaultSize, defaultSize, params.createMipmaps);
 
             imageData = createUndefinedTexture(defaultSize, defaultSize, params.desiredChannels);
             texture.create2D(defaultSize, defaultSize, fmt, mips);
@@ -166,8 +139,7 @@ namespace TextureLoader
             return;
         }
 
-        const GLenum fmt  = resolveInternalFormat(params);
-        const int    mips = calculateMipmapLevels(width, height, params.createMipmaps);
+        const int mips = calculateMipmapLevels(width, height, params.createMipmaps);
 
         // When the internal format is compressed, OpenGL accepts ordinary pixel data via
         // glTextureSubImage* and compresses it on the driver — no special path needed.
@@ -193,7 +165,7 @@ namespace TextureLoader
         const size_t layerCount = textureNames.size();
         if (layerCount == 0) return;
 
-        // Determine shared dimensions from the largest image in the set.
+        // Determine shared dimensions from the largest image in the set
         int sharedWidth = 0, sharedHeight = 0;
         for (const auto& name : textureNames)
         {
@@ -209,8 +181,11 @@ namespace TextureLoader
         if (sharedWidth == 0 || sharedHeight == 0)
             sharedWidth = sharedHeight = 16;
 
-        const GLenum fmt  = resolveInternalFormat(params);
-        const int    mips = calculateMipmapLevels(sharedWidth, sharedHeight, params.createMipmaps);
+        const GLenum fmt = TextureCompression::resolveInternalFormat(
+            params.compression,
+            toCompressionChannels(params.desiredChannels),
+            params.isHDR);
+        const int mips = calculateMipmapLevels(sharedWidth, sharedHeight, params.createMipmaps);
 
         texture.create2DArray(sharedWidth, sharedHeight, static_cast<uint16_t>(layerCount), fmt, mips);
 

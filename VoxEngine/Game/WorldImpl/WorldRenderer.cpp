@@ -91,7 +91,7 @@ void WorldRenderer::initTextures(const std::vector<std::string>& blockTextureNam
 		// Load
 		TextureLoader::TextureLoadParams textureLoadParametrs;
 		textureLoadParametrs.createMipmaps = true;
-		textureLoadParametrs.compression = TextureCompression::Format::AUTO;
+		textureLoadParametrs.compression = TextureCompression::Format::NONE;
 
 		{
 			TRACY_SCOPE_NC("Block texture array creation", ProfileCategory::General);
