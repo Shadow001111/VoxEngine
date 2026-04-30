@@ -231,7 +231,7 @@ void TextRenderer::createInstanceVBO(size_t glyphCount)
     textVAO.setAttributeDivisor(3, 1);
 }
 
-void TextRenderer::loadGlyphs(FT_Face& face, Font& font, size_t maximumGlyphCount)
+std::vector<uint8_t> TextRenderer::loadGlyphs(FT_Face& face, Font& font, size_t maximumGlyphCount)
 {
     TRACY_SCOPE_NC("Load glyphs", ProfileCategory::General);
 
@@ -308,9 +308,11 @@ void TextRenderer::loadGlyphs(FT_Face& face, Font& font, size_t maximumGlyphCoun
             GL_UNSIGNED_BYTE
         );
     }
+
+    return textureData;
 }
 
-bool TextRenderer::saveFontCache(const std::string& cachePath, const Font& font)
+bool TextRenderer::saveFontCache(const std::string& cachePath, const Font& font, const std::vector<uint8_t>& textureData)
 {
     TRACY_SCOPE_NC("Save font cache", ProfileCategory::General);
 
@@ -324,33 +326,23 @@ bool TextRenderer::saveFontCache(const std::string& cachePath, const Font& font)
     CacheHeader header;
     header.fontSize = static_cast<uint32_t>(font.fontSize);
     header.textureArrayDims = font.getTextureArrayDims();
-    header.glyphCount = static_cast<uint32_t>(font.glyphs.size()); // Total unique glyphs
+    header.glyphCount = static_cast<uint32_t>(font.glyphs.size());
 
     file.writeObjects(&header);
 
-    // Write glyph Map
+    // Write glyph map
     for (const auto& [codepoint, glyph] : font.glyphs)
     {
         CacheGlyphEntry entry = { codepoint, glyph };
         file.writeObjects(&entry);
     }
 
-    // Download the entire 2D Array from the GPU
-    const size_t width = font.textureArray.getWidth();
-    const size_t height = font.textureArray.getHeight();
-    const size_t depth = font.textureArray.getDepth();
-
-    size_t totalBufferSize = width * height * depth;
-    std::vector<uint8_t> pixels(totalBufferSize);
-
-    font.textureArray.readData(pixels.data(), pixels.size(), GL_UNSIGNED_BYTE);
-
-    file.writeBytes(pixels.data(), totalBufferSize);
+    // Save textures
+    file.writeBytes(textureData.data(), textureData.size());
 
     return true;
 }
 
-// TODO: Save compression format to validate cache
 bool TextRenderer::loadFontCache(const std::string& cachePath, Font& font)
 {
     TRACY_SCOPE_NC("Load font cache", ProfileCategory::General);
@@ -711,7 +703,7 @@ bool TextRenderer::loadFont(const std::string& fontName, GLuint fontSize)
     }
 
     // Load glyphs
-    loadGlyphs(face, font, maximumGlyphCount);
+    std::vector<uint8_t> textureData = loadGlyphs(face, font, maximumGlyphCount);
 
 	//
     finalizeFontTexture(font);
@@ -721,14 +713,14 @@ bool TextRenderer::loadFont(const std::string& fontName, GLuint fontSize)
         << "[TextRenderer][loadFont]: Loaded font: '" << fontName << "' (" << fontPath << "). Character count: " << font.glyphs.size()
         << ". Max glyph size: (" << textureArrayDims.x << ", " << textureArrayDims.y << ").\n";
 
-	// Store font
-    fonts.emplace(fontName, std::move(font));
-
-    // After successful FreeType load, save the cache for next time
-    if (inst.saveFontCache(cachePath, inst.fonts[fontName]))
+    // Save the cache for next time
+    if (inst.saveFontCache(cachePath, font, textureData))
     {
         std::cout << "[TextRenderer][loadFont]: Saved '" << fontName << "' to cache.\n";
     }
+
+	// Store font
+    fonts.emplace(fontName, std::move(font));
 
     return true;
 }

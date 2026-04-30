@@ -121,9 +121,9 @@ private:
 
     void createInstanceVBO(size_t glyphCount);
 
-    static void loadGlyphs(FT_Face& face, Font& font, size_t maximumGlyphCount);
+    static std::vector<uint8_t> loadGlyphs(FT_Face& face, Font& font, size_t maximumGlyphCount);
 
-    static bool saveFontCache(const std::string& cachePath, const Font& font);
+    static bool saveFontCache(const std::string& cachePath, const Font& font, const std::vector<uint8_t>& textureData);
     static bool loadFontCache(const std::string& cachePath, Font& font);
 
     static void finalizeFontTexture(Font& font);
