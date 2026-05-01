@@ -607,7 +607,7 @@ uint32_t Chunk::propagateBlockLight()
 			else
 			{
 				neighborChunk = neighbors[getSideNeighborIndex(i)];
-				if (!neighborChunk)
+				if (!neighborChunk || !neighborChunk->isLightBuilt())
 				{
 					continue;
 				}
@@ -672,6 +672,7 @@ uint32_t Chunk::propagateSkyLight()
 			}
 			else
 			{
+				// TODO: Try to put directon and measure
 				// Neighbor chunk lookup is only needed when we actually cross a boundary
 				// For SOME reason its faster to recompute than to just pass the direction. I don't know why. It doesn't make any sense.
 				const int neighborChunkSide = includeYInSameChunkCheck ? 
@@ -680,7 +681,7 @@ uint32_t Chunk::propagateSkyLight()
 				const int neighborChunkIndex = getSideNeighborIndex(neighborChunkSide);
 
 				neighborChunk = neighbors[neighborChunkIndex];
-				if (!neighborChunk)
+				if (!neighborChunk || !neighborChunk->isLightBuilt())
 					return;
 
 				neighborBlockIndex = getIndex(
@@ -777,7 +778,7 @@ uint32_t Chunk::propagateSkyLight()
 			if (ny < 0)
 			{
 				Chunk* belowChunk = neighbors[getSideNeighborIndex(2)]; // -Y
-				if (belowChunk)
+				if (belowChunk && belowChunk->isLightBuilt())
 				{
 					constexpr int belowY = CHUNK_SIZE - 1;
 					const size_t belowIndex = getIndex(x, belowY, z);
@@ -843,7 +844,7 @@ uint32_t Chunk::propagateBlockLightRemoval()
 			else
 			{
 				neighborChunk = neighbors[getSideNeighborIndex(i)];
-				if (!neighborChunk)
+				if (!neighborChunk || !neighborChunk->isLightBuilt())
 				{
 					continue;
 				}
@@ -940,23 +941,30 @@ uint32_t Chunk::propagateSkyLightRemoval()
 					}
 					continue;
 				}
+				else if (!neighborChunk->isLightBuilt())
+				{
+					continue;
+				}
 				neighborBlockIndex = getIndex(nx & CHUNK_LOWER_BITS_MASK, ny & CHUNK_LOWER_BITS_MASK, nz & CHUNK_LOWER_BITS_MASK);
 			}
 
 			// Get neighbor block data
-			BlockId neighborBlock = neighborChunk->getBlockAt(neighborBlockIndex);
+			BlockId neighborBlock = neighborChunk->cells[neighborBlockIndex].block;
 			const auto* neighborBlockData = AssetRegistry::getBlockData(neighborBlock);
+			if (!neighborBlockData)
+			{
+				continue;
+			}
 
 			// If block absorbs light, skip
-			if (!neighborBlockData || neighborBlockData->absorbsLight)
+			if (neighborBlockData->absorbsLight && neighborBlockData->faceCulling[i ^ 1])
 			{
 				continue;
 			}
 
 			// Propagate
-			uint8_t neighborSkyLight = neighborChunk->getLightAt(neighborBlockIndex).skyLight;
-			if (neighborSkyLight > 0 &&
-				(neighborSkyLight < data.lightLevel || (isMaxLightLevel && i == 2)))
+			uint8_t neighborSkyLight = neighborChunk->cells[neighborBlockIndex].lightLevel.skyLight;
+			if (neighborSkyLight > 0 && (neighborSkyLight < data.lightLevel || (isMaxLightLevel && i == 2)))
 			{
 				neighborChunk->cells[neighborBlockIndex].lightLevel.skyLight = 0;
 				if (isNeighborBlockInSameChunk)
@@ -1187,27 +1195,25 @@ void Chunk::buildLight()
 
 	//
 	Chunk* lowerNeighbor = neighbors[getNeighborIndex(0, -1, 0)];
-	if (lowerNeighbor)
+	if (lowerNeighbor && lowerNeighbor->isLightBuilt())
 	{
-		// Note: Doesn't work
-		//FenceGuard fence(lowerNeighbor->processingFence);
-		//for (int x = 0; x < CHUNK_SIZE; x++)
-		//for (int z = 0; z < CHUNK_SIZE; z++)
-		//{
-		//	size_t idx = getIndex(x, 0, z);
-		//	BlockId block = cells[idx].block;
-		//	const BlockData* blockData = AssetRegistry::getBlockData(block);
-		//	if (blockData && blockData->absorbsLight)
-		//	{
-		//		size_t lowerIdx = getIndex(x, CHUNK_SIZE - 1, z);
-		//		LightLevel lowerLight = lowerNeighbor->cells[lowerIdx].lightLevel;
-		//		if (lowerLight.skyLight > 0)
-		//		{
-		//			lowerNeighbor->cells[lowerIdx].lightLevel.skyLight = 0;
-		//			lowerNeighbor->addSkyLightRemovalNode(x, CHUNK_SIZE - 1, z, lowerLight.skyLight);
-		//		}
-		//	}
-		//}
+		for (int x = 0; x < CHUNK_SIZE; x++)
+		for (int z = 0; z < CHUNK_SIZE; z++)
+		{
+			size_t index = getIndex(x, 0, z);
+			BlockId block = cells[index].block;
+			const BlockData* blockData = AssetRegistry::getBlockData(block);
+			if (!blockData || !blockData->absorbsLight)
+				continue;
+
+			size_t lowerIndex = getIndex(x, CHUNK_SIZE - 1, z);
+			uint8_t lowerSkyLight = lowerNeighbor->cells[lowerIndex].lightLevel.skyLight;
+			if (lowerSkyLight > 0)
+			{
+				lowerNeighbor->cells[lowerIndex].lightLevel.skyLight = 0;
+				lowerNeighbor->addSkyLightRemovalNode(x, CHUNK_SIZE - 1, z, lowerSkyLight);
+			}
+		}
 	}
 
 	// Apply dirty mask

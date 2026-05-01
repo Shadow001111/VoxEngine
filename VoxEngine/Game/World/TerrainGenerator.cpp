@@ -399,11 +399,27 @@ void TerrainGenerator::computeLayeredNoise_3D(float* outArray, int chunkX, int c
 
 void TerrainGenerator::computeLayeredNoise_3D_Upscaled(float* outArray, float* lowResArray, int chunkX, int chunkY, int chunkZ, const NoiseParams& params, int upscaleFactor)
 {
-	upscaleFactor = std::max(upscaleFactor, 2); // Safety?
+	if (upscaleFactor <= 1)
+	{
+		TRACY_SCOPE_NC("Generate", ProfileCategory::General);
+		CaveWorleyUpscaledNoiseGenerator::genLayered3D
+		(
+			outArray,
+			worldSeed,
+			{ CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE },
+			1.0f / params.frequency,
+			{ chunkZ * CHUNK_SIZE, chunkY * CHUNK_SIZE, chunkX * CHUNK_SIZE },
+			params.layerCount,
+			params.lacunarity
+		);
+		return;
+	}
+	
 	const float invUpscaleFactor = 1.0f / (float)upscaleFactor;
 
 	// Generate noise at lower resolution
-	const int lowResSize = CHUNK_SIZE / upscaleFactor + 1; // +1 to have an extra row/column/layer for interpolation at the borders
+	const int cellsPerChunk = CHUNK_SIZE / upscaleFactor;
+	const int lowResSize = cellsPerChunk + 1; // +1 to have an extra row/column/layer for interpolation at the borders
 	const int lowResArea = lowResSize * lowResSize;
 	{
 		TRACY_SCOPE_NC("Generate", ProfileCategory::General);
@@ -413,7 +429,7 @@ void TerrainGenerator::computeLayeredNoise_3D_Upscaled(float* outArray, float* l
 			worldSeed,
 			{ lowResSize, lowResSize, lowResSize },
 			1.0f / params.frequency,
-			{ chunkZ * lowResSize, chunkY * lowResSize, chunkX * lowResSize },
+			{ chunkZ * cellsPerChunk, chunkY * cellsPerChunk, chunkX * cellsPerChunk },
 			params.layerCount,
 			params.lacunarity
 		);
