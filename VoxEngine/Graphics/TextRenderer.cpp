@@ -77,23 +77,6 @@ public:
 };
 
 
-static uint32_t getMappedGlyphCount(FT_Face face)
-{
-    uint32_t count = 0;
-    FT_UInt gindex;
-    FT_ULong charcode = FT_Get_First_Char(face, &gindex);
-    while (gindex != 0)
-    {
-        if (charcode > ' ')
-        {
-            count++;
-        }
-        charcode = FT_Get_Next_Char(face, charcode, &gindex);
-    }
-    return count;
-}
-
-
 Glyph::Glyph(uint32_t textureID, const glm::ivec2& size, const glm::ivec2& bearing, GLuint advance) :
     textureID(textureID), size(size), bearing(bearing), advance(advance)
 {
@@ -231,29 +214,52 @@ void TextRenderer::createInstanceVBO(size_t glyphCount)
     textVAO.setAttributeDivisor(3, 1);
 }
 
-std::vector<uint8_t> TextRenderer::loadGlyphs(FT_Face& face, Font& font, size_t maximumGlyphCount)
+std::vector<uint8_t> TextRenderer::loadGlyphs(FT_Face face, Font& font)
 {
     TRACY_SCOPE_NC("Load glyphs", ProfileCategory::General);
 
-    font.glyphs.reserve(maximumGlyphCount);
+    // Pre-pass
+    uint32_t glyphDataCount = 0;
+    font.glyphTextureCount = 0;
 
     FT_UInt gindex;
     FT_ULong charcode = FT_Get_First_Char(face, &gindex);
+    while (gindex != 0)
+    {
+        glyphDataCount++;
+        if (charcode > ' ') font.glyphTextureCount++;
+        charcode = FT_Get_Next_Char(face, charcode, &gindex);
+    }
+    font.glyphs.reserve(glyphDataCount);
 
-    uint32_t textureIdCounter = 1;
+    // Create texture array
+    {
+        float scale = (float)font.fontSize / (float)face->units_per_EM;
+        int width = (int)std::ceil((face->bbox.xMax - face->bbox.xMin) * scale);
+        int height = (int)std::ceil((face->bbox.yMax - face->bbox.yMin) * scale);
+    
+        font.textureArray.create2DArrayCompressed(
+            width, height, font.glyphTextureCount,
+            TextureCompression::Channels::R,
+            TextureCompression::Format::AUTO
+        );
+    }
 
     const size_t arrayWidth = font.textureArray.getWidth();
     const size_t arrayHeight = font.textureArray.getHeight();
-    const size_t arrayDepth = font.textureArray.getDepth();
+    const size_t arrayDepth = font.glyphTextureCount;
 
     const size_t layerSizeInBytes = arrayWidth * arrayHeight;
     std::vector<uint8_t> textureData(layerSizeInBytes * arrayDepth, 0);
 
+    // Main pass
+    uint32_t textureIdCounter = 0;
+    charcode = FT_Get_First_Char(face, &gindex);
     while (gindex != 0)
     {
         {
             TRACY_SCOPE_NC("Load char", ProfileCategory::General);
-            if (FT_Load_Char(face, charcode, FT_LOAD_RENDER))
+            if (FT_Load_Char(face, charcode, FT_LOAD_RENDER)) [[unlikely]]
             {
                 std::cerr << "[TextRenderer]: Failed to load glyph: '" << charcode << "'.\n";
                 charcode = FT_Get_Next_Char(face, charcode, &gindex);
@@ -261,7 +267,7 @@ std::vector<uint8_t> TextRenderer::loadGlyphs(FT_Face& face, Font& font, size_t 
             }
         }
 
-        uint32_t glyphTextureId = 0;
+        uint32_t glyphTextureId = Glyph::INVALID_GLYPH_TEXTUREE_ID;
         if (charcode > ' ')
         {
             TRACY_SCOPE_NC("Process char", ProfileCategory::General);
@@ -274,7 +280,7 @@ std::vector<uint8_t> TextRenderer::loadGlyphs(FT_Face& face, Font& font, size_t 
             const int srcH = (int)bitmap.rows;
             const int pitch = std::abs(bitmap.pitch);
 
-            uint8_t* destSlice = textureData.data() + (glyphTextureId - 1) * layerSizeInBytes;
+            uint8_t* destSlice = textureData.data() + glyphTextureId * layerSizeInBytes;
             const uint8_t* srcBuffer = bitmap.buffer;
 
             for (int row = 0; row < srcH; row++)
@@ -319,7 +325,7 @@ std::vector<uint8_t> TextRenderer::loadGlyphs(FT_Face& face, Font& font, size_t 
         font.textureArray.uploadSubData3D(
             textureData.data(),
             0, 0, 0,
-            arrayWidth, arrayHeight, textureIdCounter - 1,
+            arrayWidth, arrayHeight, arrayDepth,
             GL_UNSIGNED_BYTE
         );
     }
@@ -331,7 +337,9 @@ bool TextRenderer::saveFontCache(const std::string& cachePath, const Font& font,
 {
     TRACY_SCOPE_NC("Save font cache", ProfileCategory::General);
 
-    if (!std::filesystem::create_directories("cache"))
+    std::error_code ec;
+    std::filesystem::create_directories("cache", ec);
+    if (ec)
     {
         std::cerr << "[TextRenderer][saveFontCache]: Failed to create cache folder\n";
         return false;
@@ -347,7 +355,8 @@ bool TextRenderer::saveFontCache(const std::string& cachePath, const Font& font,
     CacheHeader header;
     header.fontSize = static_cast<uint32_t>(font.fontSize);
     header.textureArrayDims = font.getTextureArrayDims();
-    header.glyphCount = static_cast<uint32_t>(font.glyphs.size());
+    header.glyphCount = font.glyphs.size();
+    header.glyphTextureCount = font.glyphTextureCount;
 
     file.writeObjects(&header);
 
@@ -377,6 +386,7 @@ bool TextRenderer::loadFontCache(const std::string& cachePath, Font& font)
     if (header.magic != 0x464F4E54 || header.version != 1) return false;
 
     font.fontSize = header.fontSize;
+    font.glyphTextureCount = header.glyphTextureCount;
 
     // Load glyph Map
     font.glyphs.reserve(header.glyphCount);
@@ -387,13 +397,13 @@ bool TextRenderer::loadFontCache(const std::string& cachePath, Font& font)
         font.glyphs.emplace(entry.codepoint, entry.glyph);
     }
 
-    // 2. Load Texture Data and upload to GPU in one go
-    size_t textureSize = header.textureArrayDims.x * header.textureArrayDims.y * header.glyphCount;
+    // Load Texture Data and upload to GPU in one go
+    size_t textureSize = header.textureArrayDims.x * header.textureArrayDims.y * header.glyphTextureCount;
     std::vector<uint8_t> pixels(textureSize);
     file.readBytes(pixels.data(), textureSize);
 
     font.textureArray.create2DArrayCompressed(
-        header.textureArrayDims.x, header.textureArrayDims.y, header.glyphCount,
+        header.textureArrayDims.x, header.textureArrayDims.y, header.glyphTextureCount,
         TextureCompression::Channels::R,
         TextureCompression::Format::AUTO
     );
@@ -402,7 +412,7 @@ bool TextRenderer::loadFontCache(const std::string& cachePath, Font& font)
     font.textureArray.uploadSubData3D(
         pixels.data(),
         0, 0, 0,
-        header.textureArrayDims.x, header.textureArrayDims.y, header.glyphCount,
+        header.textureArrayDims.x, header.textureArrayDims.y, header.glyphTextureCount,
         GL_UNSIGNED_BYTE
     );
 
@@ -614,7 +624,7 @@ void TextRenderer::renderTextInternal(const void* text, size_t textLength, UTFDe
 
             const Glyph& glyph = it->second;
 
-            if (glyph.textureID)
+            if (glyph.textureID != Glyph::INVALID_GLYPH_TEXTUREE_ID)
             {
                 float xpos = x + glyph.bearing.x * scale;
                 float ypos = y - (glyph.size.y - glyph.bearing.y) * scale;  // y increases downward
@@ -624,7 +634,7 @@ void TextRenderer::renderTextInternal(const void* text, size_t textLength, UTFDe
                 GlyphInstance glyphInstance = {
                     glm::vec4(xpos, ypos, w, h),
                     glm::vec2(glyph.size.x * invMaxGlyphSize.x, glyph.size.y * invMaxGlyphSize.y),
-                    glyph.textureID - 1
+                    glyph.textureID
                 };
 
                 inst.pushGlyph(glyphInstance);
@@ -673,6 +683,7 @@ bool TextRenderer::loadFont(const std::string& fontName, GLuint fontSize)
     // Try loading from cache first
     const std::string cachePath = "cache/" + fontName + "_" + std::to_string(fontSize) + ".fcache";
     Font font;
+    font.fontSize = fontSize;
     if (inst.loadFontCache(cachePath, font))
     {
         std::cout << "[TextRenderer]: Loaded '" << fontName << "' from cache.\n";
@@ -702,39 +713,13 @@ bool TextRenderer::loadFont(const std::string& fontName, GLuint fontSize)
     auto face = freeTypeLibrary.getFace();
     FT_Set_Pixel_Sizes(face, 0, fontSize);
 
-    //
-    font.fontSize = fontSize;
-    const size_t maximumGlyphCount = getMappedGlyphCount(face);
-    glm::ivec2 textureArrayDims;
-    {
-        float scale = (float)fontSize / (float)face->units_per_EM;
-        textureArrayDims.x = (int)std::ceil((face->bbox.xMax - face->bbox.xMin) * scale);
-        textureArrayDims.y = (int)std::ceil((face->bbox.yMax - face->bbox.yMin) * scale);
-    }
-
-    // Create texture array
-    {
-        TRACY_SCOPE_NC("Create 2d array", ProfileCategory::General);
-        font.textureArray.create2DArrayCompressed(
-            textureArrayDims.x, textureArrayDims.y, maximumGlyphCount,
-            TextureCompression::Channels::R,
-            TextureCompression::Format::AUTO
-        );
-        textureArrayDims = font.getTextureArrayDims();
-    }
-
     // Load glyphs
-    std::vector<uint8_t> textureData = loadGlyphs(face, font, maximumGlyphCount);
+    std::vector<uint8_t> textureData = loadGlyphs(face, font);
 
 	//
     finalizeFontTexture(font);
 
-	// Report
-    std::cout
-        << "[TextRenderer][loadFont]: Loaded font: '" << fontName << "' (" << fontPath << "). Character count: " << font.glyphs.size()
-        << ". Max glyph size: (" << textureArrayDims.x << ", " << textureArrayDims.y << ").\n";
-
-    // Save the cache for next time
+	// Save the cache for next time
     if (inst.saveFontCache(cachePath, font, textureData))
     {
         std::cout << "[TextRenderer][loadFont]: Saved '" << fontName << "' to cache.\n";

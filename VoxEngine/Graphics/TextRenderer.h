@@ -13,7 +13,9 @@
 
 struct Glyph
 {
-    uint32_t textureID = 0;
+    static constexpr uint32_t INVALID_GLYPH_TEXTUREE_ID = -1;
+
+    uint32_t textureID = INVALID_GLYPH_TEXTUREE_ID;
     glm::ivec2 size;    // Glyph size
     glm::ivec2 bearing; // Offset from baseline
     GLuint advance;     // Horizontal offset to next glyph
@@ -27,6 +29,7 @@ struct Font
 {
     robin_hood::unordered_flat_map<uint32_t, Glyph> glyphs;
     float fontSize = 0.0f;
+    uint32_t glyphTextureCount = 0;
 
     Texture textureArray;
 
@@ -57,7 +60,8 @@ class TextRenderer
         uint32_t version = 1;
         uint32_t fontSize;
         glm::ivec2 textureArrayDims;
-        uint32_t glyphCount;
+        uint32_t glyphCount;         // Count for font.glyphs (data)
+        uint32_t glyphTextureCount;  // Count for texture array layers
     };
 
     struct CacheGlyphEntry
@@ -121,7 +125,7 @@ private:
 
     void createInstanceVBO(size_t glyphCount);
 
-    static std::vector<uint8_t> loadGlyphs(FT_Face& face, Font& font, size_t maximumGlyphCount);
+    static std::vector<uint8_t> loadGlyphs(FT_Face face, Font& font);
 
     static bool saveFontCache(const std::string& cachePath, const Font& font, const std::vector<uint8_t>& textureData);
     static bool loadFontCache(const std::string& cachePath, Font& font);
