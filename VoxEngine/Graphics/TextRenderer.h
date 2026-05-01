@@ -132,7 +132,7 @@ private:
 
     static void finalizeFontTexture(Font& font);
 
-    static void renderTextInternal(const void* text, size_t textLength, UTFDecoderFunction decoder, float x, float y, float rowHeight,
+    static void renderTextInternal(const void* text, size_t textLength, UTFDecoderFunction decoder, const float x, const float y, float rowHeight,
         const glm::vec3& color, TextAlignment alignment, const glm::vec2& bounds);
 
     void updateProjectionMatrixInternal();

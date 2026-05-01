@@ -436,21 +436,21 @@ void TextRenderer::finalizeFontTexture(Font& font)
     }
 }
 
-void TextRenderer::renderTextInternal(const void* text, size_t textLength, UTFDecoderFunction decoder, float x, float y, float rowHeight,
+void TextRenderer::renderTextInternal(const void* text, size_t textLength, UTFDecoderFunction decoder, const float x, const float y, float rowHeight,
     const glm::vec3& color, TextAlignment alignment, const glm::vec2& bounds)
 {
     TRACY_SCOPE_NC("Render text", ProfileCategory::Render);
 
     TextRenderer& inst = getInstance();
 
-    // Check buffer
+    // Check buffer size
     if (inst.glyphInstanceBatchSize == 0)
     {
         std::cerr << "[TextRenderer][renderText]: Glyph instance batch size is zero\n";
         return;
     }
 
-    // Font
+    // Check if font is set
     const Font* font = inst.currentFont;
     if (!font)
     {
@@ -458,14 +458,10 @@ void TextRenderer::renderTextInternal(const void* text, size_t textLength, UTFDe
         return;
     }
 
-    //
+    // Get some data
     const auto& glyphs = font->glyphs;
     float scale = rowHeight / font->fontSize;
     const glm::vec2 invMaxGlyphSize = 1.0f / glm::vec2(font->getTextureArrayDims());
-
-    // Shader
-    const auto& textShader = inst.textShader;
-    textShader.setVec3("textColor", color.x, color.y, color.z);
 
     // Decode text
     static std::vector<uint32_t> codepoints;
@@ -473,24 +469,20 @@ void TextRenderer::renderTextInternal(const void* text, size_t textLength, UTFDe
     codepoints.reserve(textLength);
 
     size_t index = 0;
+    float currentLineWidth = 0.0f;
     float maxLineWidth = 0.0f;
     int lineCount = 1;
-    float currentLineWidth = 0.0f;
 
     constexpr uint32_t replaceCodepoint = '?';
-    const bool doesNotReplaceCodepointExist = glyphs.find(replaceCodepoint) == glyphs.end();
+    const auto replaceCodepointIT = glyphs.find(replaceCodepoint);
+    const bool hasReplacement = replaceCodepointIT != glyphs.end();
 
     {
         TRACY_SCOPE_NC("Decode text", ProfileCategory::General);
-
         while (index < textLength)
         {
             uint32_t codepoint = decoder(text, textLength, index);
-
-            if (codepoint == UTFDecoder::INVALID_CODEPOINT)
-            {
-                break;
-            }
+            if (codepoint == UTFDecoder::INVALID_CODEPOINT) break;
             else if (codepoint == '\n')
             {
                 // Update max line width for current line
@@ -505,56 +497,35 @@ void TextRenderer::renderTextInternal(const void* text, size_t textLength, UTFDe
             auto it = glyphs.find(codepoint);
             if (it == glyphs.end())
             {
-                if (doesNotReplaceCodepointExist)
-                {
-                    continue;
-                }
+                if (!hasReplacement) continue;
                 codepoint = replaceCodepoint;
-                it = glyphs.find(codepoint);
+                it = replaceCodepointIT;
             }
 
-            const Glyph& glyph = it->second;
-            currentLineWidth += (glyph.advance >> 6) * scale;
+            currentLineWidth += (it->second.advance >> 6) * scale;
 
             codepoints.push_back(codepoint);
         }
+        maxLineWidth = std::max(maxLineWidth, currentLineWidth);
     }
 
-    // Update max line width for the last line
-    maxLineWidth = std::max(maxLineWidth, currentLineWidth);
-
-    // Calculate text bounds
+    // Apply bounds scaling
     float textWidth = maxLineWidth;
     float textHeight = lineCount * rowHeight;
 
-    // Apply bounds scaling if needed
-    float widthScale = 1.0f;
-    float heightScale = 1.0f;
-
-    if (bounds.x > 0.0f && textWidth > bounds.x)
+    if ((bounds.x > 0.0f && textWidth > bounds.x) || (bounds.y > 0.0f && textHeight > bounds.y))
     {
-        widthScale = bounds.x / textWidth;
+        float widthScale = (bounds.x > 0.0f) ? bounds.x / textWidth : 1.0f;
+        float heightScale = (bounds.y > 0.0f) ? bounds.y / textHeight : 1.0f;
+        float fitScale = std::min(widthScale, heightScale);
+
+        scale *= fitScale;
+        rowHeight *= fitScale;
+        textWidth *= fitScale;
+        textHeight *= fitScale;
     }
 
-    if (bounds.y > 0.0f && textHeight > bounds.y)
-    {
-        heightScale = bounds.y / textHeight;
-    }
-
-    // Use the smaller scale factor to maintain aspect ratio
-    if (widthScale < 1.0f || heightScale < 1.0f)
-    {
-        const float tempScale = std::min(widthScale, heightScale);
-
-        scale *= tempScale;
-        rowHeight *= tempScale;
-
-        // Recalculate dimensions with new scale
-        textWidth *= tempScale;
-        textHeight *= tempScale;
-    }
-
-    // Adjust position for alignment if needed
+    // Calculate alignment offset
     glm::vec2 alignmentOffset(0.0f);
 
     if (alignment != TextAlignment::TopLeft)
@@ -567,13 +538,11 @@ void TextRenderer::renderTextInternal(const void* text, size_t textLength, UTFDe
         case TextAlignment::BottomCenter:
             alignmentOffset.x = -textWidth * 0.5f;
             break;
-
         case TextAlignment::TopRight:
         case TextAlignment::MiddleRight:
         case TextAlignment::BottomRight:
             alignmentOffset.x = -textWidth;
             break;
-
         default:
             break;
         }
@@ -586,24 +555,25 @@ void TextRenderer::renderTextInternal(const void* text, size_t textLength, UTFDe
         case TextAlignment::MiddleRight:
             alignmentOffset.y = textHeight * 0.5f;
             break;
-
         case TextAlignment::BottomLeft:
         case TextAlignment::BottomCenter:
         case TextAlignment::BottomRight:
             alignmentOffset.y = textHeight;
             break;
-
         default:
             break;
         }
-
-        x += alignmentOffset.x;
-        y += alignmentOffset.y;
     }
-    y -= rowHeight;
+
+    float currentX = x + alignmentOffset.x;
+    float currentY = y + alignmentOffset.y - rowHeight;
+
+    // Shader
+    const auto& textShader = inst.textShader;
+    textShader.setVec3("textColor", color.x, color.y, color.z);
 
     // Render glyphs
-    const float startX = x;
+    const float startX = currentX;
 
     {
         TRACY_SCOPE_NC("Render glyphs", ProfileCategory::Render);
@@ -611,23 +581,22 @@ void TextRenderer::renderTextInternal(const void* text, size_t textLength, UTFDe
         {
             if (codepoint == '\n')
             {
-                y -= rowHeight;  // y increases downward
-                x = startX;
+                currentY -= rowHeight;
+                currentX = startX;
                 continue;
             }
 
             auto it = glyphs.find(codepoint);
-            if (it == glyphs.end())
+            if (it == glyphs.end()) [[unlikely]]
             {
                 continue; // Should not happen since we filtered already
             }
 
             const Glyph& glyph = it->second;
-
             if (glyph.textureID != Glyph::INVALID_GLYPH_TEXTUREE_ID)
             {
-                float xpos = x + glyph.bearing.x * scale;
-                float ypos = y - (glyph.size.y - glyph.bearing.y) * scale;  // y increases downward
+                float xpos = currentX + glyph.bearing.x * scale;
+                float ypos = currentY - (glyph.size.y - glyph.bearing.y) * scale;
                 float w = glyph.size.x * scale;
                 float h = glyph.size.y * scale;
 
@@ -640,11 +609,11 @@ void TextRenderer::renderTextInternal(const void* text, size_t textLength, UTFDe
                 inst.pushGlyph(glyphInstance);
             }
 
-            x += (glyph.advance >> 6) * scale;
+            currentX += (glyph.advance >> 6) * scale;
         }
-    }
 
-    inst.flushGlyphs();
+        inst.flushGlyphs();
+    }
 }
 
 void TextRenderer::updateProjectionMatrixInternal()
