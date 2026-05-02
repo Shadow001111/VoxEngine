@@ -83,7 +83,8 @@ public:
 	std::optional<BlockId> getBlockAt(const glm::ivec3& globalPosition) const;
 
 	void setChunkLoadingDistance(int loadingDistanceInChunks);
-
 	void setAppTime(float time);
+
+	float getPlayerCameraFarPlaneDistance() const noexcept { return (chunkLoadingDistance + 0.5f) * CHUNK_SIZE; };
 };
 

@@ -22,9 +22,9 @@
 #include <sstream>
 #include <iomanip>
 #include <glm/gtc/matrix_transform.hpp>
+#include <json.hpp>
 
-const int CHUNK_LOAD_DISTANCE = 8;
-
+using json = nlohmann::json;
 
 static std::string formatSize(size_t value)
 {
@@ -95,6 +95,11 @@ struct DebugUIMetrics
     double frameTimeMs = 0.0;  // Accumulated milliseconds per frame
 
 	World::DebugData worldDebugData;
+};
+
+struct PlayerLoadConfig
+{
+	uint32_t chunkLoadingDistance = 8;
 };
 
 static void setupContainerUI(ContainerUI& c)
@@ -520,10 +525,67 @@ static void check()
     std::cout << std::string(100, '=') << "\n";
 }
 
+PlayerLoadConfig loadPlayerLoadConfig()
+{
+	const fs::path kConfigPath = "res/configs/player_load_config.json";
+
+    std::error_code ec;
+    fs::create_directories(kConfigPath.parent_path(), ec);   // ensure folder exists
+
+    PlayerLoadConfig config;
+    json cfg;
+    bool needsWrite = false;
+
+    // Try to load existing config
+    std::ifstream in(kConfigPath);
+    if (in.is_open())
+    {
+        try
+        {
+            in >> cfg;
+
+            // Validate 'chunkLoadingDistance'
+            if (cfg.contains("chunkLoadingDistance") && cfg["chunkLoadingDistance"].is_number_integer())
+            {
+                int rawValue = cfg["chunkLoadingDistance"].get<int>();
+                // Clamp to reasonable range for uint32_t (non‑negative, <= max)
+                if (rawValue >= 0 && static_cast<uint64_t>(rawValue) <= UINT32_MAX)
+                    config.chunkLoadingDistance = static_cast<uint32_t>(rawValue);
+                else
+					needsWrite = true;
+            }
+            else
+            {
+                needsWrite = true;
+            }
+        }
+        catch (const json::exception&)
+        {
+            needsWrite = true;
+        }
+    }
+    else
+    {
+        needsWrite = true;
+    }
+
+    // If we created a default or repaired a corrupted file, write it back
+    if (needsWrite)
+    {
+        cfg = json::object();
+        cfg["chunkLoadingDistance"] = config.chunkLoadingDistance;
+        std::ofstream out(kConfigPath, std::ios::trunc);
+        if (out.is_open())
+        {
+            out << cfg.dump(4) << '\n';
+        }
+    }
+
+    return config;
+}
+
 static int gameFunc()
 {
-    constexpr float CAMERA_FAR_PLANE = (CHUNK_LOAD_DISTANCE + 0.5f) * CHUNK_SIZE;
-
     // Window
     WindowManager wnd({
         .width = 1600,
@@ -599,15 +661,18 @@ static int gameFunc()
     TextRenderer::setCurrentFont("RusEngMinecraft");
     TextRenderer::setGlyphInstanceBatchSize(1024);
 
+	// Load player load config
+	PlayerLoadConfig playerLoadConfig = loadPlayerLoadConfig();
+
     // World
     World world;
-    world.setChunkLoadingDistance(CHUNK_LOAD_DISTANCE);
+    world.setChunkLoadingDistance(playerLoadConfig.chunkLoadingDistance);
     world.preparation();
 
     // Player
     Player& player = *world.createEntity<Player>(glm::vec3(0.0, 20.0, 0.0), glm::radians(180.0f), 0.0f);
     player.getCamera().setAspectRatio(wnd.getAspectRatio());
-    player.getCamera().setFarPlane(CAMERA_FAR_PLANE);
+    player.getCamera().setFarPlane(world.getPlayerCameraFarPlaneDistance());
 
     InputManager& playerInputManager = player.getInputManager();
     wnd.linkInputManager(&playerInputManager);
