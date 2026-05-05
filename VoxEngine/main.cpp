@@ -527,17 +527,17 @@ static void check()
 
 PlayerLoadConfig loadPlayerLoadConfig()
 {
-	const fs::path kConfigPath = "res/configs/player_load_config.json";
+	const fs::path CONFIG_PATH = "res/configs/player_load_config.json";
 
     std::error_code ec;
-    fs::create_directories(kConfigPath.parent_path(), ec);   // ensure folder exists
+    fs::create_directories(CONFIG_PATH.parent_path(), ec);   // ensure folder exists
 
     PlayerLoadConfig config;
     json cfg;
     bool needsWrite = false;
 
     // Try to load existing config
-    std::ifstream in(kConfigPath);
+    std::ifstream in(CONFIG_PATH);
     if (in.is_open())
     {
         try
@@ -574,7 +574,7 @@ PlayerLoadConfig loadPlayerLoadConfig()
     {
         cfg = json::object();
         cfg["chunkLoadingDistance"] = config.chunkLoadingDistance;
-        std::ofstream out(kConfigPath, std::ios::trunc);
+        std::ofstream out(CONFIG_PATH, std::ios::trunc);
         if (out.is_open())
         {
             out << cfg.dump(4) << '\n';

@@ -273,6 +273,7 @@ public:
 	void buildBlocks();
 	bool hasStructureBlockUpdates() const { return managerInstances->structureBlock.hasPendingChanges(position); };
 	void updateStructureBlocks();
+	bool isBlockSpecial(const BlockId block) const noexcept { return block == CACHED_BLOCK_IDS.airId || block == CACHED_BLOCK_IDS.waterId; }
 
 	// Light
 	void buildLight();

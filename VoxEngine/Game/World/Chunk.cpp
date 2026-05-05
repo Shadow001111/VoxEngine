@@ -313,7 +313,7 @@ void Chunk::buildBlocks()
 		auto pendingChanges = managerInstances->structureBlock.retrieveAndClearChanges(position);
 		for (const auto& change : pendingChanges)
 		{
-			if (!change.placeIfBlockIsAir || cells[change.index].block == CACHED_BLOCK_IDS.airId)
+			if (!change.placeIfBlockIsSpecial || isBlockSpecial(cells[change.index].block))
 			{
 				cells[change.index].block = change.block;
 			}
@@ -346,7 +346,7 @@ void Chunk::updateStructureBlocks()
 	auto pendingChanges = managerInstances->structureBlock.retrieveAndClearChanges(position);
 	for (const auto& change : pendingChanges)
 	{
-		if (!change.placeIfBlockIsAir || cells[change.index].block == CACHED_BLOCK_IDS.airId)
+		if (!change.placeIfBlockIsSpecial || isBlockSpecial(cells[change.index].block))
 		{
 			auto pos = getPositionFromIndex(change.index);
 			setBlockAt(pos.x, pos.y, pos.z, change.block, false);
