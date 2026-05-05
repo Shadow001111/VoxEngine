@@ -82,7 +82,7 @@ private:
 
 	// Render data containers
 	mutable std::vector<ChunkRenderInfo> chunksToRender;
-	mutable robin_hood::unordered_flat_map<const Chunk*, uint8_t> floodFillVisited;
+	mutable std::array<std::vector<ChunkRenderInfo>, (size_t)MeshLayer::Count> chunksToRenderPerLayer;
 
 	mutable std::vector<DrawArraysIndirectCommand> chunkDrawCommands;
 	mutable std::vector<glm::ivec3> chunkPositions;
@@ -104,6 +104,7 @@ private:
 	void collectChunksForRenderingWithConnectivity(const Camera& camera) const;
 
 	void sortChunksForRendering() const;
+	void partitionChunksByLayer() const;
 
 	void ensureCapacityForChunkRenderBuffers(size_t drawCount);
 	void passDataToChunkRenderBuffers(size_t drawCount);
@@ -143,6 +144,11 @@ inline void WorldRenderer::renderChunkGroup(const Shader& shader)
 {
 	TRACY_SCOPE_NC("Render chunk group", ProfileCategory::Render);
 
+	// Get layer-specific container
+	const auto& layerChunks = chunksToRenderPerLayer[(size_t)layer];
+	const size_t drawCount = layerChunks.size();
+	if (drawCount == 0) return;
+
 	// Check if shader is valid
 	if (!shader.isValid())
 	{
@@ -153,25 +159,21 @@ inline void WorldRenderer::renderChunkGroup(const Shader& shader)
 	shader.use();
 
 	// Collect draw commands
-	size_t drawCount;
 	{
 		TRACY_SCOPE_NC("Collect draw commands", ProfileCategory::Render);
 
-		const size_t capacity = chunksToRender.size();
+		const size_t capacity = layerChunks.size();
 		chunkDrawCommands.reserve(capacity);
 		chunkPositions.reserve(capacity);
 
 		BufferStreamWriter<DrawArraysIndirectCommand> drawCommandsWriter(chunkDrawCommands.data());
 		BufferStreamWriter<glm::ivec3> chunkPositionsWriter(chunkPositions.data());
 
-		for (const auto& info : chunksToRender)
+		for (const auto& info : layerChunks)
 		{
 			info.chunk->collectRenderData<layer>(drawCommandsWriter, chunkPositionsWriter);
 		}
-
-		drawCount = drawCommandsWriter.getDestination() - chunkDrawCommands.data();
 	}
-	if (drawCount == 0) return;
 
 	// Collect statistics
 	{

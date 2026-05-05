@@ -387,6 +387,7 @@ void WorldRenderer::collectChunksForRenderingWithConnectivity(const Camera& came
 		uint8_t* visitedPtr; // live; accumulates entry-direction bits
 	};
 
+	static robin_hood::unordered_flat_map<const Chunk*, uint8_t> floodFillVisited;
 	floodFillVisited.clear();
 
 	static std::vector<QueueNode> bfsQueue;
@@ -523,6 +524,29 @@ void WorldRenderer::sortChunksForRendering() const
 	chunksToRender.swap(sortingChunkOutputArray);
 }
 
+void WorldRenderer::partitionChunksByLayer() const
+{
+	TRACY_SCOPE_NC("Partition chunks by layer", ProfileCategory::Render);
+
+	// Reset per-layer containers, but keep allocated memory.
+	for (auto& v : chunksToRenderPerLayer)
+	{
+		v.clear();
+		v.reserve(chunksToRender.size());
+	}
+
+	for (const auto& info : chunksToRender)
+	{
+		for (int layer = 0; layer < (int)MeshLayer::Count; layer++)
+		{
+			if (info.chunk->hasFacesToRender(static_cast<MeshLayer>(layer)))
+			{
+				chunksToRenderPerLayer[layer].emplace_back(info);
+			}
+		}
+	}
+}
+
 void WorldRenderer::ensureCapacityForChunkRenderBuffers(size_t drawCount)
 {
 	TRACY_SCOPE_NC("Ensure capacity of gpu buffers", ProfileCategory::Render);
@@ -623,6 +647,7 @@ void WorldRenderer::renderChunks(const Camera& camera, const FrameBuffer& FBO)
 		collectChunksForRendering(camera);
 	}
 	sortChunksForRendering();
+	partitionChunksByLayer();
 
 	renderStats.renderedChunkCount = chunksToRender.size();
 	renderStats.renderedChunkFaceCount = 0;

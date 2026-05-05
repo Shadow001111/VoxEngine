@@ -285,6 +285,7 @@ public:
 	bool shouldUpdateMesh() noexcept { return isLightBuilt() && chunkFlags.readAndSet(Flag::ShouldUpdateMesh, false); };
 	void markAsShouldUpdateMesh() noexcept;
 	void askForMeshUpload();
+	bool hasFacesToRender(MeshLayer layer) const noexcept { return mesh.faceStorage.renderFaceCounts[(size_t)layer] > 0; }
 
 	// Connectivity
 	void updateConnectivity();
@@ -299,16 +300,8 @@ public:
 	void collectRenderData(BufferStreamWriter<DrawArraysIndirectCommand>& drawCommands, BufferStreamWriter<glm::ivec3>& positions) const
 	{
 		constexpr size_t layerIndex = (size_t)layer;
-		//constexpr ChunkMeshFaceStorage::Flag createdFlag = ChunkMeshFaceStorage::createdFlag(layer);
 
-		// Check if face created and it's not empty
 		unsigned int faceCount = mesh.faceStorage.renderFaceCounts[layerIndex];
-		if (faceCount == 0) // || !mesh.readFlag(createdFlag)
-		{
-			return;
-		}
-
-		// Get offset
 		unsigned int offset = mesh.faceStorage.facesBlocks[layerIndex].offset;
 
 		// Push data
