@@ -37,14 +37,14 @@ struct Frustum
 		Vec3Type nearMultFwd = nearPlaneDistance * forwardDirection;
 		Vec3Type farMultFwd = farPlaneDistance * forwardDirection;
 
-		PlaneType nearPlane(position + nearMultFwd, forwardDirection);
-		PlaneType farPlane(position + farMultFwd, -forwardDirection);
+		nearPlane = PlaneType(position + nearMultFwd, forwardDirection);
+		farPlane = PlaneType(position + farMultFwd, -forwardDirection);
 
-		PlaneType rightPlane(position, glm::cross(farMultFwd - rightDirection * halfHSide, upDirection));
-		PlaneType leftPlane(position, glm::cross(upDirection, farMultFwd + rightDirection * halfHSide));
+		rightPlane = PlaneType(position, glm::cross(farMultFwd - rightDirection * halfHSide, upDirection));
+		leftPlane = PlaneType(position, glm::cross(upDirection, farMultFwd + rightDirection * halfHSide));
 
-		PlaneType topPlane(position, glm::cross(rightDirection, farMultFwd - upDirection * halfVSide));
-		PlaneType bottomPlane(position, glm::cross(farMultFwd + upDirection * halfVSide, rightDirection));
+		topPlane = PlaneType(position, glm::cross(rightDirection, farMultFwd - upDirection * halfVSide));
+		bottomPlane = PlaneType(position, glm::cross(farMultFwd + upDirection * halfVSide, rightDirection));
 	}
 };
 
