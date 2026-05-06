@@ -334,7 +334,7 @@ void WorldRenderer::collectChunksForRendering(const Camera& camera) const
 
 void WorldRenderer::collectChunksForRenderingWithConnectivity(const Camera& camera) const
 {
-	TRACY_SCOPE_NC("Collect chunks (connectivity)", ProfileCategory::Render);
+	TRACY_SCOPE_NC("Collect chunks", ProfileCategory::Render);
 
 	chunksToRender.clear();
 
@@ -549,35 +549,35 @@ void WorldRenderer::partitionChunksByLayer() const
 
 void WorldRenderer::ensureCapacityForChunkRenderBuffers(size_t drawCount)
 {
-	TRACY_SCOPE_NC("Ensure capacity of gpu buffers", ProfileCategory::Render);
-
 	// Draw commands
-	const size_t drawCommandBufferRequiredCapacity = drawCount * sizeof(DrawArraysIndirectCommand);
-	if (chunkDrawCommandBuffer.getCapacity() < drawCommandBufferRequiredCapacity)
 	{
-		chunkDrawCommandBuffer.create(GL_DRAW_INDIRECT_BUFFER);
-		chunkDrawCommandBuffer.allocateStorage(drawCommandBufferRequiredCapacity, GL_DYNAMIC_STORAGE_BIT);
+		const size_t bufferCapacity = drawCount * sizeof(DrawArraysIndirectCommand);
+		if (chunkDrawCommandBuffer.getCapacity() < bufferCapacity)
+		{
+			chunkDrawCommandBuffer.create(GL_DRAW_INDIRECT_BUFFER);
+			chunkDrawCommandBuffer.allocateStorage(bufferCapacity, GL_DYNAMIC_STORAGE_BIT);
 
-		// Bind indirect buffer to allow indirect rendering
-		chunkDrawCommandBuffer.bind();
+			// Bind indirect buffer to allow indirect rendering
+			chunkDrawCommandBuffer.bind();
+		}
 	}
 
 	// Chunk positions
-	const size_t chunkPositionBufferRequiredCapacity = drawCount * sizeof(glm::ivec3);
-	if (chunkPositionSSBO.getCapacity() < chunkPositionBufferRequiredCapacity)
 	{
-		chunkPositionSSBO.create(GL_SHADER_STORAGE_BUFFER);
-		chunkPositionSSBO.allocateStorage(chunkPositionBufferRequiredCapacity, GL_DYNAMIC_STORAGE_BIT);
+		const size_t bufferCapacity = drawCount * sizeof(glm::ivec3);
+		if (chunkPositionSSBO.getCapacity() < bufferCapacity)
+		{
+			chunkPositionSSBO.create(GL_SHADER_STORAGE_BUFFER);
+			chunkPositionSSBO.allocateStorage(bufferCapacity, GL_DYNAMIC_STORAGE_BIT);
 
-		// Bind SSBO
-		chunkPositionSSBO.bindBase(0);
+			// Bind SSBO
+			chunkPositionSSBO.bindBase(0);
+		}
 	}
 }
 
 void WorldRenderer::passDataToChunkRenderBuffers(size_t drawCount)
 {
-	TRACY_SCOPE_NC("Pass data to gpu buffers", ProfileCategory::Render);
-
 	// Draw commands
 	const size_t drawCommandBufferRequiredCapacity = drawCount * sizeof(DrawArraysIndirectCommand);
 	chunkDrawCommandBuffer.write(chunkDrawCommands.data(), drawCommandBufferRequiredCapacity);

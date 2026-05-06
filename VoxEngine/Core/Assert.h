@@ -15,12 +15,12 @@
 #if ENABLE_ASSERTS
 #define ASSERT(expr)                                                             \
     do {                                                                         \
-        if (!(expr)) {                                                           \
+        if (!(expr)) [[unlikely]] {                                              \
             std::ostringstream __ASSERT_stream;                                  \
             __ASSERT_stream << "Assertion failed!\n"                             \
                             << "Expression: " << #expr << "\n"                   \
                             << "File: " << __FILE__ << "\n"                      \
-                            << "Line: " << __LINE__ << "\n";                \
+                            << "Line: " << __LINE__ << "\n";                     \
             std::cerr << __ASSERT_stream.str();                                  \
             DEBUG_BREAK();                                                       \
         }                                                                        \

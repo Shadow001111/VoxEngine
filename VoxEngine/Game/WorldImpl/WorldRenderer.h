@@ -185,8 +185,11 @@ inline void WorldRenderer::renderChunkGroup(const Shader& shader)
 	}
 
 	// Pass data to GPU
-	ensureCapacityForChunkRenderBuffers(drawCount);
-	passDataToChunkRenderBuffers(drawCount);
+	{
+		TRACY_SCOPE_NC("Ensure GPU buffers capacity and pass data", ProfileCategory::Render);
+		ensureCapacityForChunkRenderBuffers(drawCount);
+		passDataToChunkRenderBuffers(drawCount);
+	}
 
 	// Bind VAO and render
 	{

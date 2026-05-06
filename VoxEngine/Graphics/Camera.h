@@ -7,6 +7,7 @@ class Camera
 	using FloatType = double;
 	using Vec3Type = glm::vec<3, FloatType>;
 	using TransformType = Transform<FloatType>;
+	using FrustumType = Frustum<Plane<FloatType>>;
 
 	constexpr static Vec3Type worldUp = { 0, 1, 0 };
 	constexpr static FloatType HALF_PI = 1.5707;
@@ -17,7 +18,6 @@ class Camera
 	mutable Vec3Type up = {};
 	mutable Vec3Type right = {};
 
-	using FrustumType = Frustum<LitePlane<FloatType>>;
 	mutable FrustumType frustum;
 
 	mutable bool vectorsUpdateRequired = true;
