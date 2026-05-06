@@ -14,21 +14,23 @@ class ChunkRegion
 {
 	friend class WorldChunkManager;
 
+	static AtomicFlags<uint8_t> globalFlags;
+
 	std::array<Chunk*, CHUNK_REGION_VOLUME> chunks{};
-	uint8_t chunkCount = 0; // Number of chunks currently in region. Used to determine if region is empty and can be removed.
+
+	AtomicBitset<CHUNK_REGION_VOLUME, size_t> savedChunksMask;
+
+	glm::ivec3 position;
+
+	uint8_t chunkCount = 0;
 	std::atomic<uint8_t> renderChunkCount = 0;
+
+	std::atomic<bool> isSavedChunksMaskInitialized{ false };
 
 	AtomicFlags<uint8_t> flags;
 public:
 	bool isFrustumCulled = true;
-private:
-	glm::ivec3 position;
 
-	AtomicBitset<CHUNK_REGION_VOLUME, size_t> savedChunksMask;
-	std::atomic<bool> isSavedChunksMaskInitialized{ false };
-
-	static AtomicFlags<uint8_t> globalFlags;
-public:
 	enum class Flag : uint8_t
 	{
 		HasMeshToUpload = 0,

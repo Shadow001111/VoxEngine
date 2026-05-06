@@ -144,6 +144,14 @@ public:
         return true;
     }
 
+    [[nodiscard]] size_t count() const noexcept
+    {
+        size_t total = 0;
+        for (const auto& w : words)
+            total += std::popcount(w);
+        return total;
+	}
+
     // Returns the index of the first set bit, or Bits if none
     [[nodiscard]] size_t findFirst() const noexcept
     {
