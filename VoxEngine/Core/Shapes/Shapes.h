@@ -11,7 +11,7 @@
 //}
 
 template<typename T>
-bool isBoxOnOrForwardPlane(const Box<T>& box, const Plane<T>& plane)
+bool isBoxOnOrForwardPlane(const Box<T>& box, const Plane<T>& plane) noexcept
 {
 	T distance = plane.distanceToPoint(box.center);
 	T effectiveRadius = glm::dot(box.halfExtents, glm::abs(plane.normal));

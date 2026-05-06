@@ -548,7 +548,7 @@ PlayerLoadConfig loadPlayerLoadConfig()
             if (cfg.contains("chunkLoadingDistance") && cfg["chunkLoadingDistance"].is_number_integer())
             {
                 int rawValue = cfg["chunkLoadingDistance"].get<int>();
-                // Clamp to reasonable range for uint32_t (non‑negative, <= max)
+                // Clamp to reasonable range for uint32_t (non-negative, <= max)
                 if (rawValue >= 0 && static_cast<uint64_t>(rawValue) <= UINT32_MAX)
                     config.chunkLoadingDistance = static_cast<uint32_t>(rawValue);
                 else
