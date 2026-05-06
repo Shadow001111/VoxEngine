@@ -261,6 +261,7 @@ void WorldRenderer::initShaders()
 void WorldRenderer::collectChunksForRendering(const Camera& camera) const
 {
 	constexpr int CHUNK_REGION_SIZE_IN_BLOCKS = CHUNK_REGION_SIZE * CHUNK_SIZE;
+	constexpr double INV_CHUNK_SIZE = 1.0 / (double)CHUNK_SIZE;
 
 	TRACY_SCOPE_NC("Collect chunks", ProfileCategory::Render);
 
@@ -280,9 +281,10 @@ void WorldRenderer::collectChunksForRendering(const Camera& camera) const
 
 	// Get camera positions
 	const glm::dvec3 cameraPosition = camera.getPosition();
-	const glm::ivec3 cameraChunkPosition = glm::ivec3(glm::floor(cameraPosition / (double)CHUNK_SIZE));
+	const glm::ivec3 cameraChunkPosition = glm::ivec3(glm::floor(cameraPosition * INV_CHUNK_SIZE));
 
 	// Main loop
+	const Chunk* validChunkBuffer[CHUNK_REGION_VOLUME];
 	for (const auto& [regionPosition, region] : regions)
 	{
 		// Check if region has chunks to render
@@ -301,13 +303,21 @@ void WorldRenderer::collectChunksForRendering(const Camera& camera) const
 			continue;
 		}
 
-		// Iterate over chunks in region
+		// Filter valid chunks into buffer
+		size_t validChunkCount = 0;
 		for (const Chunk* chunk : region->getChunks())
 		{
 			if (chunk == nullptr || !chunk->canBeRendered())
 			{
 				continue;
 			}
+			validChunkBuffer[validChunkCount++] = chunk;
+		}
+
+		// Iterate over visible chunks and add to render array
+		for (size_t i = 0; i < validChunkCount; i++)
+		{
+			const Chunk* chunk = validChunkBuffer[i];
 
 			// Get chunk position
 			glm::ivec3 chunkPosition = chunk->getPosition();
