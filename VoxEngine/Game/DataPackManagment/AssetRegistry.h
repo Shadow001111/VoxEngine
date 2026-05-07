@@ -94,15 +94,13 @@ public:
 	// Returns valid pointer even if ID is out of bounds (points to fallback data)
 	[[nodiscard]] static __forceinline const BlockData* getBlockDataSafe(BlockId numericalId) noexcept
 	{
-		const size_t id = numericalId;
-		return id < blockDataStorage.size() ? blockDataStorage.data() + id : blockDataStorage.data() + FALLBACK_BLOCK_ID;
+		return numericalId < blockDataStorage.size() ? blockDataStorage.data() + numericalId : blockDataStorage.data() + FALLBACK_BLOCK_ID;
 	}
 
 	// Returns nullptr if ID is out of bounds
 	[[nodiscard]] static __forceinline const BlockData* getBlockData(BlockId numericalId) noexcept
 	{
-		const size_t id = numericalId;
-		return id < blockDataStorage.size() ? blockDataStorage.data() + id : nullptr;
+		return numericalId < blockDataStorage.size() ? blockDataStorage.data() + numericalId : nullptr;
 	}
 
 	static const BlockModelData* getBlockModelData(ModelId numericalId)

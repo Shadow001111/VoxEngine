@@ -1069,7 +1069,7 @@ void Chunk::buildLight()
 			{
 				size_t index = getIndex(x, y, z);
 				const auto* blockData = AssetRegistry::getBlockDataSafe(cells[index].block);
-				if (blockData->absorbsLight)
+				if (blockData->absorbsLight) // TODO: Also check face culling
 				{
 					return;
 				}

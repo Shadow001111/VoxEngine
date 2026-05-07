@@ -8,6 +8,7 @@
 #include <queue>
 
 #include "Core/Container/DynamicArray.h"
+#include "Core/TracyProfiler.h"
 
 #if defined(__cpp_lib_move_only_function) && __cpp_lib_move_only_function >= 202110L
 #include <functional>
@@ -26,9 +27,9 @@ class ThreadPool
 
     DynamicArray<std::thread> workers;
     TaskQueue tasks;
-    std::mutex queueMutex;
-	std::condition_variable newTaskCondition;
-    std::condition_variable completionCondition;
+    TracyLockable(std::mutex, queueMutex);
+	std::condition_variable_any newTaskCondition;
+    std::condition_variable_any completionCondition;
     std::atomic<bool> stop{ false };
     std::atomic<size_t> activeTaskCount{ 0 };
 

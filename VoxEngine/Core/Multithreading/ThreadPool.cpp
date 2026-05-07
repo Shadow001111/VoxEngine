@@ -34,8 +34,7 @@ void ThreadPool::shutdown()
 
         completionCondition.wait(lock, [this]
             {
-                return tasks.empty() &&
-                    activeTaskCount.load(std::memory_order_relaxed) == 0;
+                return tasks.empty() && activeTaskCount.load(std::memory_order_relaxed) == 0;
             });
     }
     stop.store(true, std::memory_order_release);
@@ -69,37 +68,38 @@ void ThreadPool::workerThread(int id)
 
             task = std::move(tasks.front());
             tasks.pop();
+            activeTaskCount.fetch_add(1, std::memory_order_relaxed);
         }
 
-        if (!task)
+        if (task) [[likely]]
+        {
+            try
+            {
+                task();
+            }
+            catch (const std::exception& e)
+            {
+                FileLogger logger("log/warnings.txt");
+                logger.add(std::string("Exception in thread pool worker thread: ") + e.what());
+            }
+            catch (...)
+            {
+                FileLogger logger("log/warnings.txt");
+                logger.add("Unknown exception in thread pool worker thread");
+            }
+        }
+        else
         {
             FileLogger logger("log/warnings.txt");
-			logger.add("Warning: Invalid task encountered in thread pool worker thread");
-            
-            completionCondition.notify_all();
-            continue; // Skip invalid tasks
-		}
+            logger.add("Warning: Invalid task encountered in thread pool worker thread");
+        }
 
-        activeTaskCount.fetch_add(1, std::memory_order_relaxed);
-        try
-        {
-            task();
-        }
-        catch (const std::exception& e)
-        {
-            FileLogger logger("log/warnings.txt");
-			logger.add(std::string("Exception in thread pool worker thread: ") + e.what());
-        }
-        catch (...)
-        {
-			FileLogger logger("log/warnings.txt");
-			logger.add("Unknown exception in thread pool worker thread");
-        }
-        activeTaskCount.fetch_sub(1, std::memory_order_relaxed);
+        const size_t oldTaskCount = activeTaskCount.fetch_sub(1, std::memory_order_relaxed);
 
+        if (oldTaskCount == 1)
         {
-            std::unique_lock lock(queueMutex);
-            if (tasks.empty() && activeTaskCount.load(std::memory_order_relaxed) == 0)
+            std::lock_guard lock(queueMutex);
+            if (tasks.empty())
             {
                 completionCondition.notify_all();
             }
