@@ -6,6 +6,7 @@
 #include <functional>
 #include <atomic>
 #include <queue>
+#include <latch>
 
 #include "Core/Container/DynamicArray.h"
 #include "Core/TracyProfiler.h"
@@ -27,7 +28,7 @@ class ThreadPool
 
     DynamicArray<std::thread> workers;
     TaskQueue tasks;
-    TracyLockable(std::mutex, queueMutex);
+    TracyLockableN(std::mutex, queueMutex, "ThreadPool queue mutex");
 	std::condition_variable_any newTaskCondition;
     std::condition_variable_any completionCondition;
     std::atomic<bool> stop{ false };
@@ -154,29 +155,24 @@ void ParallelUtils::parallelFor(size_t start, size_t end, size_t minChunkSize, F
     size_t chunks = (totalItems + chunkSize - 1) / chunkSize;
     chunkSize = (totalItems + chunks - 1) / chunks;
 
-    std::vector<std::future<void>> futures;
-    futures.reserve(chunks);
+	std::latch doneLatch(chunks);
 
     {
 		TRACY_SCOPE_N("Enqueue chunks");
         for (size_t i = start; i < end; i += chunkSize)
         {
             size_t chunkEnd = std::min(i + chunkSize, end);
-            futures.emplace_back(pool.enqueueFuture([i, chunkEnd, func]()
+            pool.enqueue([&, i, chunkEnd]()
                 {
                     for (size_t j = i; j < chunkEnd; j++)
-                    {
                         func(j);
-                    }
-                }));
+                    doneLatch.count_down();
+                });
         }
     }
 
     // Wait for all chunks to complete
-    for (auto& future : futures)
-    {
-        future.wait();
-    }
+	doneLatch.wait();
 }
 
 template<typename Container, typename Func>
