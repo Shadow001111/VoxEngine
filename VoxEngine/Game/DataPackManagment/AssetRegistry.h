@@ -64,7 +64,7 @@ class AssetRegistry
 	static StringIndexer itemUITextureIndexer;
 	
 	// Fallback ids
-	constexpr static BlockId FALLBACK_BLOCK_ID = 0;
+	constexpr static BlockId FALLBACK_BLOCK_ID = 0; // Air id
 	static ModelId FALLBACK_BLOCK_MODEL_ID;
 	static ItemId FALLBACK_ITEM_ID;
 	static ModelId FALLBACK_ITEM_MODEL_ID;
@@ -91,16 +91,18 @@ public:
 	//static ModelId getBlockModelNumericalId(const std::string& stringId);
 	static ItemId getItemNumericalId(const std::string& stringId);
 
-	// Always returns valid pointer - never nullptr
+	// Returns valid pointer even if ID is out of bounds (points to fallback data)
 	[[nodiscard]] static __forceinline const BlockData* getBlockDataSafe(BlockId numericalId) noexcept
 	{
-		return blockDataStorage.data() + (numericalId < blockDataStorage.size() ? numericalId : FALLBACK_BLOCK_ID);
+		const size_t id = numericalId;
+		return id < blockDataStorage.size() ? blockDataStorage.data() + id : blockDataStorage.data() + FALLBACK_BLOCK_ID;
 	}
 
 	// Returns nullptr if ID is out of bounds
 	[[nodiscard]] static __forceinline const BlockData* getBlockData(BlockId numericalId) noexcept
 	{
-		return numericalId < blockDataStorage.size() ? blockDataStorage.data() + numericalId : nullptr;
+		const size_t id = numericalId;
+		return id < blockDataStorage.size() ? blockDataStorage.data() + id : nullptr;
 	}
 
 	static const BlockModelData* getBlockModelData(ModelId numericalId)
