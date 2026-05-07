@@ -61,19 +61,22 @@ private:
 template<class F, class ...Args>
 inline void ThreadPool::enqueue(F&& f, Args && ...args)
 {
+	TRACY_SCOPE_N("ThreadPool::enqueue");
+
     // If the pool is stopped, reject the task
     if (stop.load(std::memory_order_relaxed))
     {
         throw std::runtime_error("enqueue on stopped ThreadPool");
     }
 
-    auto bound = std::bind(std::forward<F>(f), std::forward<Args>(args)...);
-
-    auto task = [bound = std::move(bound)]() mutable { bound(); };
+    auto task = [f = std::forward<F>(f),
+        ...args = std::forward<Args>(args)]() mutable {
+        std::invoke(std::move(f), std::move(args)...);
+        };
 
     // Push the task into the queue
     {
-        std::unique_lock lock(queueMutex);
+        std::lock_guard lock(queueMutex);
         tasks.push(std::move(task));
     }
     newTaskCondition.notify_one();
@@ -83,6 +86,8 @@ inline void ThreadPool::enqueue(F&& f, Args && ...args)
 template<class F, class ...Args>
 inline auto ThreadPool::enqueueFuture(F&& f, Args && ...args) -> std::future<typename std::invoke_result_t<F, Args...>>
 {
+    TRACY_SCOPE_N("ThreadPool::enqueueFuture");
+
     // If the pool is stopped, reject the task
     if (stop.load(std::memory_order_relaxed))
     {
@@ -98,7 +103,7 @@ inline auto ThreadPool::enqueueFuture(F&& f, Args && ...args) -> std::future<typ
     std::future<return_type> res = task.get_future();
     
     {
-        std::unique_lock lock(queueMutex);
+        std::lock_guard lock(queueMutex);
         tasks.emplace([task = std::move(task)]() mutable { task(); });
     }
     newTaskCondition.notify_one();
@@ -127,6 +132,8 @@ private:
 template<typename Func>
 void ParallelUtils::parallelFor(size_t start, size_t end, size_t minChunkSize, Func func)
 {
+    TRACY_SCOPE_N("ThreadPool::parallelFor");
+
     if (end <= start) return;
 
     const size_t totalItems = end - start;
@@ -150,16 +157,19 @@ void ParallelUtils::parallelFor(size_t start, size_t end, size_t minChunkSize, F
     std::vector<std::future<void>> futures;
     futures.reserve(chunks);
 
-    for (size_t i = start; i < end; i += chunkSize)
     {
-        size_t chunkEnd = std::min(i + chunkSize, end);
-        futures.emplace_back(pool.enqueueFuture([i, chunkEnd, func]()
-            {
-            for (size_t j = i; j < chunkEnd; j++)
-            {
-                func(j);
-            }
-            }));
+		TRACY_SCOPE_N("Enqueue chunks");
+        for (size_t i = start; i < end; i += chunkSize)
+        {
+            size_t chunkEnd = std::min(i + chunkSize, end);
+            futures.emplace_back(pool.enqueueFuture([i, chunkEnd, func]()
+                {
+                    for (size_t j = i; j < chunkEnd; j++)
+                    {
+                        func(j);
+                    }
+                }));
+        }
     }
 
     // Wait for all chunks to complete
