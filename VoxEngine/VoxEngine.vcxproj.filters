@@ -183,6 +183,9 @@
     <ClCompile Include="Core\FileStream.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
+    <ClCompile Include="Core\Multithreading\WorkerThread.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="WindowManager.h">
@@ -453,6 +456,9 @@
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Core\FileStream.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\Multithreading\WorkerThread.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
   </ItemGroup>

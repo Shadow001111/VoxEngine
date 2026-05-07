@@ -214,6 +214,7 @@
     <ClCompile Include="WindowManager.cpp" />
     <ClCompile Include="Game\WorldImpl\WorldChunkManager.cpp" />
     <ClCompile Include="Game\WorldImpl\WorldRenderer.cpp" />
+    <ClCompile Include="Core\Multithreading\WorkerThread.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Core\AtomicBitset.h" />
@@ -306,6 +307,7 @@
     <ClInclude Include="WindowManager.h" />
     <ClInclude Include="Game\WorldImpl\WorldChunkManager.h" />
     <ClInclude Include="Game\WorldImpl\WorldRenderer.h" />
+    <ClInclude Include="Core\Multithreading\WorkerThread.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

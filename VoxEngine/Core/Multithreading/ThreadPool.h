@@ -1,4 +1,6 @@
 #pragma once
+#include "WorkerThread.h"
+
 #include <thread>
 #include <mutex>
 #include <condition_variable>
@@ -11,28 +13,10 @@
 #include "Core/Container/DynamicArray.h"
 #include "Core/TracyProfiler.h"
 
-#if defined(__cpp_lib_move_only_function) && __cpp_lib_move_only_function >= 202110L
-#include <functional>
-template <class F>
-using move_only_function_impl = std::move_only_function<F>;
-#else
-#include "move_only_function.h"
-template <class F>
-using move_only_function_impl = move_only_function<F>;
-#endif
-
 class ThreadPool
 {
-    using Task = move_only_function_impl<void()>;
-    using TaskQueue = std::queue<Task>;// Queue<Task>;
-
-    DynamicArray<std::thread> workers;
-    TaskQueue tasks;
-    TracyLockableN(std::mutex, queueMutex, "ThreadPool queue mutex");
-	std::condition_variable_any newTaskCondition;
-    std::condition_variable_any completionCondition;
-    std::atomic<bool> stop{ false };
-    std::atomic<size_t> activeTaskCount{ 0 };
+	WorkerThread::Context context;
+    DynamicArray<WorkerThread> workers;
 
     // Statistics
     std::atomic<size_t> taskTotalCount{ 0 };
@@ -53,10 +37,8 @@ public:
 
 	//void waitForCompletion();
     size_t getThreadCount() const { return workers.size(); };
-    size_t getTaskCount() const { return tasks.size(); }
+    size_t getTaskCount() const { return context.tasks.size(); }
     size_t getTaskTotalCount() const { return taskTotalCount.load(std::memory_order_relaxed); }
-private:
-	void workerThread(int id);
 };
 
 template<class F, class ...Args>
@@ -65,7 +47,7 @@ inline void ThreadPool::enqueue(F&& f, Args && ...args)
 	TRACY_SCOPE_N("ThreadPool::enqueue");
 
     // If the pool is stopped, reject the task
-    if (stop.load(std::memory_order_relaxed))
+    if (context.stop.load(std::memory_order_relaxed))
     {
         throw std::runtime_error("enqueue on stopped ThreadPool");
     }
@@ -77,10 +59,10 @@ inline void ThreadPool::enqueue(F&& f, Args && ...args)
 
     // Push the task into the queue
     {
-        std::lock_guard lock(queueMutex);
-        tasks.push(std::move(task));
+        std::lock_guard lock(context.queueMutex);
+        context.tasks.push(std::move(task));
     }
-    newTaskCondition.notify_one();
+    context.newTaskCondition.notify_one();
     taskTotalCount.fetch_add(1, std::memory_order_relaxed);
 }
 
@@ -90,7 +72,7 @@ inline auto ThreadPool::enqueueFuture(F&& f, Args && ...args) -> std::future<typ
     TRACY_SCOPE_N("ThreadPool::enqueueFuture");
 
     // If the pool is stopped, reject the task
-    if (stop.load(std::memory_order_relaxed))
+    if (context.stop.load(std::memory_order_relaxed))
     {
         throw std::runtime_error("enqueue on stopped ThreadPool");
     }
@@ -104,10 +86,10 @@ inline auto ThreadPool::enqueueFuture(F&& f, Args && ...args) -> std::future<typ
     std::future<return_type> res = task.get_future();
     
     {
-        std::lock_guard lock(queueMutex);
-        tasks.emplace([task = std::move(task)]() mutable { task(); });
+        std::lock_guard lock(context.queueMutex);
+        context.tasks.emplace([task = std::move(task)]() mutable { task(); });
     }
-    newTaskCondition.notify_one();
+    context.newTaskCondition.notify_one();
     taskTotalCount.fetch_add(1, std::memory_order_relaxed);
     return res;
 }
