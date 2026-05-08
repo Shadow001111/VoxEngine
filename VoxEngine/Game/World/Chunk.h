@@ -195,16 +195,36 @@ public:
 
 	static int getSideNeighborIndex(int side) noexcept
 	{
-		switch (side)
-		{
-		case 0: return getNeighborIndex(-1, 0, 0);
-		case 1: return getNeighborIndex(1, 0, 0);
-		case 2: return getNeighborIndex(0, -1, 0);
-		case 3: return getNeighborIndex(0, 1, 0);
-		case 4: return getNeighborIndex(0, 0, -1);
-		case 5: return getNeighborIndex(0, 0, 1);
-		}
-		return 0;
+		constexpr std::array<int, 6> sideToNeighborIndex = {
+			getNeighborIndex(-1,  0,  0),
+			getNeighborIndex( 1,  0,  0),
+			getNeighborIndex( 0, -1,  0),
+			getNeighborIndex( 0,  1,  0),
+			getNeighborIndex( 0,  0, -1),
+			getNeighborIndex( 0,  0,  1)
+		};
+
+		return sideToNeighborIndex[side];
+	}
+
+	static __forceinline bool isInsideChunk(int x, int y) noexcept
+	{
+		return ((x | y) & CHUNK_UPPER_BITS_MASK) == 0;
+	}
+
+	static __forceinline bool isInsideChunk(const glm::ivec2& vec) noexcept
+	{
+		return ((vec.x | vec.y) & CHUNK_UPPER_BITS_MASK) == 0;
+	}
+
+	static __forceinline bool isInsideChunk(int x, int y, int z) noexcept
+	{
+		return ((x | y | z) & CHUNK_UPPER_BITS_MASK) == 0;
+	}
+
+	static __forceinline bool isInsideChunk(const glm::ivec3& vec) noexcept
+	{
+		return ((vec.x | vec.y | vec.z) & CHUNK_UPPER_BITS_MASK) == 0;
 	}
 
 	static glm::ivec3 getPositionFromIndex(int index) noexcept
@@ -412,10 +432,10 @@ private:
 		uint32_t outLightLevel = 0;
 
 		// In values
-		const glm::ivec3 position;
-		const int normal;
-		const LightLevel centerFaceLight;
-		const bool centerFaceIsSolid = false;
+		glm::ivec3 position;
+		int normal;
+		LightLevel centerFaceLight;
+		bool centerFaceIsSolid = false;
 	};
 
 	void calculateVertexAmbientOcclusionAndLight(unsigned int& ao, LightLevel& light, const LightLevel& centerLight, const LightLevelAndIsSolid& side1, const LightLevelAndIsSolid& side2, const LightLevelAndIsSolid& corner) const;

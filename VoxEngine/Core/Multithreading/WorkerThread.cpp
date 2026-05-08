@@ -18,6 +18,8 @@ void WorkerThread::run()
     Task task;
     while (true)
     {
+        TRACY_SCOPE_N("WorkerThread loop");
+
         {
             std::unique_lock lock(context.queueMutex);
             context.newTaskCondition.wait(lock, [this] { return !context.tasks.empty() || context.stop.load(std::memory_order_relaxed); });

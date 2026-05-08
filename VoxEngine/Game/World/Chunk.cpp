@@ -375,7 +375,7 @@ void Chunk::generateTree(const glm::ivec3& rootPosition)
 		int y = rootPosition.y + i;
 		int z = rootPosition.z;
 
-		if (((x | y | z) & CHUNK_UPPER_BITS_MASK) == 0)
+		if (isInsideChunk(x, y, z))
 		{
 			size_t index = getIndex(x, y, z);
 			if (cells[index].block == CACHED_BLOCK_IDS.airId)
@@ -428,7 +428,7 @@ void Chunk::generateTree(const glm::ivec3& rootPosition)
 					continue;
 				}
 
-				if (((lx | ly | lz) & CHUNK_UPPER_BITS_MASK) == 0)
+				if (isInsideChunk(lx, ly, lz))
 				{
 					size_t index = getIndex(lx, ly, lz);
 					if (cells[index].block == CACHED_BLOCK_IDS.airId)
@@ -598,7 +598,7 @@ uint32_t Chunk::propagateBlockLight()
 			size_t neighborBlockIndex;
 			Chunk* neighborChunk;
 
-			const bool isNeighborBlockInSameChunk = ((nx | ny | nz) & CHUNK_UPPER_BITS_MASK) == 0;
+			const bool isNeighborBlockInSameChunk = isInsideChunk(nx, ny, nz);
 			if (isNeighborBlockInSameChunk)
 			{
 				neighborChunk = this;
@@ -656,14 +656,16 @@ uint32_t Chunk::propagateSkyLight()
 
 	uint32_t neighborDirtyMask = 0;
 
-	auto tryPropagate = [&](int nx, int ny, int nz, uint8_t lightToSet, bool includeYInSameChunkCheck) -> void
+	auto tryPropagate = [&](int nx, int ny, int nz, uint8_t lightToSet) -> void
 		{
 			size_t neighborBlockIndex;
 			Chunk* neighborChunk;
 
-			const bool inSameChunk = includeYInSameChunkCheck
-				? (((nx | ny | nz) & CHUNK_UPPER_BITS_MASK) == 0)
-				: (((nx | nz) & CHUNK_UPPER_BITS_MASK) == 0);
+			const int dirX = (nx < 0) ? -1 : (nx >= CHUNK_SIZE) ? 1 : 0;
+			const int dirY = (ny < 0) ? -1 : (ny >= CHUNK_SIZE) ? 1 : 0;
+			const int dirZ = (nz < 0) ? -1 : (nz >= CHUNK_SIZE) ? 1 : 0;
+
+			const bool inSameChunk = (dirX | dirY | dirZ) == 0;
 
 			if (inSameChunk)
 			{
@@ -672,13 +674,7 @@ uint32_t Chunk::propagateSkyLight()
 			}
 			else
 			{
-				// TODO: Try to put directon and measure
-				// Neighbor chunk lookup is only needed when we actually cross a boundary
-				// For SOME reason its faster to recompute than to just pass the direction. I don't know why. It doesn't make any sense.
-				const int neighborChunkSide = includeYInSameChunkCheck ? 
-					(nx < 0) ? 0 : (nx >= CHUNK_SIZE ? 1 : (ny < 0 ? 2 : (ny >= CHUNK_SIZE ? 3 : (nz < 0 ? 4 : 5)))) :
-					(nx < 0) ? 0 : (nx >= CHUNK_SIZE ? 1 : (nz < 0 ? 4 : 5));
-				const int neighborChunkIndex = getSideNeighborIndex(neighborChunkSide);
+				const int neighborChunkIndex = getNeighborIndex(dirX, dirY, dirZ);
 
 				neighborChunk = neighbors[neighborChunkIndex];
 				if (!neighborChunk || !neighborChunk->isLightBuilt())
@@ -770,7 +766,7 @@ uint32_t Chunk::propagateSkyLight()
 					const glm::ivec2 nXZ = nXZs[i];
 					const int nx = nXZ.x;
 					const int nz = nXZ.y;
-					tryPropagate(nx, ny, nz, 14, false);
+					tryPropagate(nx, ny, nz, 14);
 				}
 			}
 
@@ -805,7 +801,7 @@ uint32_t Chunk::propagateSkyLight()
 			const int ny = y + offset.y;
 			const int nz = z + offset.z;
 
-			tryPropagate(nx, ny, nz, nextLight, true);
+			tryPropagate(nx, ny, nz, nextLight);
 		}
 	}
 
@@ -835,7 +831,7 @@ uint32_t Chunk::propagateBlockLightRemoval()
 			size_t neighborBlockIndex;
 			Chunk* neighborChunk;
 
-			const bool isNeighborBlockInSameChunk = ((nx | ny | nz) & CHUNK_UPPER_BITS_MASK) == 0;
+			const bool isNeighborBlockInSameChunk = isInsideChunk(nx, ny, nz);
 			if (isNeighborBlockInSameChunk)
 			{
 				neighborChunk = this;
@@ -856,7 +852,7 @@ uint32_t Chunk::propagateBlockLightRemoval()
 			const auto* neighborBlockData = AssetRegistry::getBlockDataSafe(neighborBlock);
 
 			// If block absorbs light, skip
-			if (neighborBlockData->absorbsLight)
+			if (neighborBlockData->absorbsLight && neighborBlockData->faceCulling[i ^ 1])
 			{
 				continue;
 			}
@@ -922,7 +918,7 @@ uint32_t Chunk::propagateSkyLightRemoval()
 			size_t neighborBlockIndex;
 			Chunk* neighborChunk;
 
-			const bool isNeighborBlockInSameChunk = ((nx | ny | nz) & CHUNK_UPPER_BITS_MASK) == 0;
+			const bool isNeighborBlockInSameChunk = isInsideChunk(nx, ny, nz);
 			if (isNeighborBlockInSameChunk)
 			{
 				neighborChunk = this;
@@ -1306,6 +1302,8 @@ void Chunk::updateMesh()
 		ChunkMeshFaceStorage::InstancesStorage localMeshInstances;
 		//localMeshInstances.reserve(CHUNK_VOLUME / 4); // Note: For some reason make app freeze
 
+		ContextFaceAOAL aoData{};
+
 		const glm::ivec3 globalChunkPosition = position << CHUNK_SIZE_LOG2;
 		for (size_t currentBlockIndex = 0; currentBlockIndex < CHUNK_VOLUME; currentBlockIndex++)
 		{
@@ -1343,7 +1341,7 @@ void Chunk::updateMesh()
 					size_t neighborBlockIndex;
 					const Chunk* neighborChunk;
 
-					const bool inSameChunk = ((neighborBlockPosition.x | neighborBlockPosition.y | neighborBlockPosition.z) & CHUNK_UPPER_BITS_MASK) == 0;
+					const bool inSameChunk = isInsideChunk(neighborBlockPosition);
 
 					if (inSameChunk)
 					{
@@ -1375,15 +1373,11 @@ void Chunk::updateMesh()
 					}
 
 					// Calculate shading
-					LightLevel neighborLight = neighborChunk->cells[neighborBlockIndex].lightLevel; // This line adds much to execution time, x5 in total
+					LightLevel neighborLight = neighborChunk->cells[neighborBlockIndex].lightLevel;
 
-					ContextFaceAOAL aoData
-					{
-						.position = currentBlockPosition,
-						.normal = face.normal,
-						.centerFaceLight = neighborLight
-					};
-
+					aoData.position = currentBlockPosition;
+					aoData.normal = face.normal;
+					aoData.centerFaceLight = neighborLight;
 					calculateFaceAmbientOcclusionAndLight(aoData);
 
 					// Get texture
@@ -1626,7 +1620,7 @@ void Chunk::updateConnectivity()
 					const glm::ivec3 neighborPos = currentPosition + DirectionsTable::directionsXYZ[dir];
 
 					// Bounds check
-					if (((neighborPos.x | neighborPos.y | neighborPos.z) & CHUNK_UPPER_BITS_MASK) != 0)
+					if (!isInsideChunk(neighborPos))
 						continue;
 
 					const int neighborIdx = getIndex(neighborPos);
@@ -1722,7 +1716,7 @@ void Chunk::updateCanBeRenderedFlag() noexcept
 
 Chunk* Chunk::traverseToSideNeighbor(int x, int y, int z, int side, size_t& outIndex) const
 {
-	if (((x | y | z) & CHUNK_UPPER_BITS_MASK) == 0)
+	if (isInsideChunk(x, y, z))
 	{
 		outIndex = getIndex(x, y, z);
 		return const_cast<Chunk*>(this);
@@ -1737,7 +1731,7 @@ Chunk* Chunk::traverseToSideNeighbor(int x, int y, int z, int side, size_t& outI
 
 Chunk* Chunk::traverseThroughNeighbors(int x, int y, int z, size_t& outIndex) const
 {
-	if (((x | y | z) & CHUNK_UPPER_BITS_MASK) == 0)
+	if (isInsideChunk(x, y, z))
 	{
 		outIndex = getIndex(x, y, z);
 		return const_cast<Chunk*>(this);
@@ -2371,7 +2365,7 @@ void Chunk::calculateBlockVertexLight(BlockVertexData& result, const glm::ivec3&
 		BlockId centerFaceBlock = {};
 		LightLevel centerFaceLight = {};
 
-		if (((neighborPos.x | neighborPos.y | neighborPos.z) & CHUNK_UPPER_BITS_MASK) == 0)
+		if (isInsideChunk(neighborPos))
 		{
 			auto index = getIndex(neighborPos);
 			centerFaceBlock = cells[index].block;
