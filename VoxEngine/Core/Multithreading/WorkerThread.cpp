@@ -15,23 +15,19 @@ WorkerThread::WorkerThread(uint32_t id, Context& ctx) :
 
 void WorkerThread::run()
 {
-    Task task;
     while (true)
     {
-        TRACY_SCOPE_N("WorkerThread loop");
+        Task task;
 
+        // Try to get task
         {
-            std::unique_lock lock(context.queueMutex);
-            context.newTaskCondition.wait(lock, [this] { return !context.tasks.empty() || context.stop.load(std::memory_order_relaxed); });
-
-            if (context.stop.load(std::memory_order_relaxed))
+            std::lock_guard lock(context.queueMutex);
+            if (!context.tasks.empty())
             {
-                break;
+                task = std::move(context.tasks.front());
+                context.tasks.pop();
+                context.activeTaskCount.fetch_add(1, std::memory_order_relaxed);
             }
-
-            task = std::move(context.tasks.front());
-            context.tasks.pop();
-            context.activeTaskCount.fetch_add(1, std::memory_order_relaxed);
         }
 
         if (task) [[likely]]
@@ -50,21 +46,26 @@ void WorkerThread::run()
                 FileLogger logger("log/warnings.txt");
                 logger.add("Unknown exception in thread pool worker thread");
             }
+
+            const size_t oldTaskCount = context.activeTaskCount.fetch_sub(1, std::memory_order_relaxed);
+            if (oldTaskCount <= 1)
+            {
+                std::lock_guard lock(context.queueMutex);
+                if (context.tasks.empty())
+                {
+                    context.completionCondition.notify_all();
+                }
+            }
         }
         else
         {
-            FileLogger logger("log/warnings.txt");
-            logger.add("Warning: Invalid task encountered in thread pool worker thread");
-        }
-
-        const size_t oldTaskCount = context.activeTaskCount.fetch_sub(1, std::memory_order_relaxed);
-
-        if (oldTaskCount == 1)
-        {
-            std::lock_guard lock(context.queueMutex);
-            if (context.tasks.empty())
+            // No job found, wait for a task to appear or a shutdown
+            std::unique_lock lock(context.queueMutex);
+            context.newTaskCondition.wait(lock, [this] { return !context.tasks.empty() || context.stop.load(std::memory_order_relaxed); });
+            
+            if (context.stop.load(std::memory_order_relaxed))
             {
-                context.completionCondition.notify_all();
+                break;
             }
         }
     }

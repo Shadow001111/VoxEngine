@@ -1,7 +1,5 @@
 #include "ThreadPool.h"
 
-#include "FileLogger.h"
-
 #include "Core/TracyProfiler.h"
 
 ThreadPool::ThreadPool(int numThreads)
@@ -36,8 +34,9 @@ void ThreadPool::shutdown()
             {
                 return context.tasks.empty() && context.activeTaskCount.load(std::memory_order_relaxed) == 0;
             });
+
+        context.stop.store(true, std::memory_order_release);
     }
-    context.stop.store(true, std::memory_order_release);
     context.newTaskCondition.notify_all();
 
     for (auto& worker : workers)
