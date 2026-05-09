@@ -11,8 +11,8 @@ class WorldChunkManager
     struct BuildContainers
     {
         std::vector<Chunk*> blocks;
-        robin_hood::unordered_flat_set<Chunk*> lightsIncoming; // Producers (Workers) push here
-        robin_hood::unordered_flat_set<Chunk*> lightsProcessing; // Consumer (Main Thread) processes here
+        std::vector<Chunk*> lightsIncoming; // Producers (Workers) push here
+        std::vector<Chunk*> lightsProcessing; // Consumer (Main Thread) processes here
         TracyLockable(std::mutex, lightsMutex);
 
         std::vector<Chunk*> lightUpdateA;

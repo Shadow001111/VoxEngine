@@ -1,6 +1,5 @@
 #include "WorldChunkManager.h"
 
-#include "Game/TracyProfiler.h"
 #include "Core/Multithreading/ThreadPool.h"
 
 #include "Game/ProfileCategories.h"
@@ -8,8 +7,6 @@
 #include "../World/ChunkLoaders/SphericalChunkLoader.h"
 
 #include "../World/ChunkRegionManager.h"
-
-#include <iostream>
 
 constexpr size_t CHUNKS_PER_BATCH = 16;
 
@@ -269,7 +266,7 @@ void WorldChunkManager::startBuildingChunkBlocks()
 
 					{
 						std::lock_guard lock(buildContainers.lightsMutex);
-						buildContainers.lightsIncoming.insert(batch_.begin(), batch_.end());
+						buildContainers.lightsIncoming.insert(buildContainers.lightsIncoming.end(), batch_.begin(), batch_.end());
 					}
 				});
 		}
@@ -286,7 +283,7 @@ void WorldChunkManager::startBuildingChunkLights()
 	chunksToProcess.clear();
 
 	// Swap/move incoming chunks to a local temporary set
-	static robin_hood::unordered_flat_set<Chunk*> localIncoming;
+	static std::vector<Chunk*> localIncoming;
 	localIncoming.clear();
 	{
 		TRACY_SCOPE_NC("Sync Light Containers", ProfileCategory::ChunkLight);
@@ -301,27 +298,23 @@ void WorldChunkManager::startBuildingChunkLights()
 	if (!localIncoming.empty())
 	{
 		TRACY_SCOPE_NC("Merge chunk sets", ProfileCategory::ChunkLight);
-		buildContainers.lightsProcessing.insert(localIncoming.begin(), localIncoming.end());
+		buildContainers.lightsProcessing.insert(buildContainers.lightsProcessing.end(), localIncoming.begin(), localIncoming.end());
 	}
 
 	if (buildContainers.lightsProcessing.empty()) return;
 
 	// Process the local set
 	{
-		TRACY_SCOPE_NC("Check Ready Chunks", ProfileCategory::ChunkLight);
+		TRACY_SCOPE_NC("Check ready chunks", ProfileCategory::ChunkLight);
+		
+		static std::vector<Chunk*> survivors;
+		survivors.clear();
 
-		// We use an iterator to erase chunks as they become ready
-		for (auto it = buildContainers.lightsProcessing.begin(); it != buildContainers.lightsProcessing.end();)
+		for (Chunk* chunk : buildContainers.lightsProcessing)
 		{
-			Chunk* chunk = *it;
-
 			if (!chunk->areBlocksBuilt() || chunk->isLightBuilt())
-			{
-				it = buildContainers.lightsProcessing.erase(it);
-				continue;
-			}
+				continue; // discard
 
-			// Check neighbors
 			bool allNeighborsReady = true;
 			const auto& neighbors = chunk->getNeighbors();
 			for (int i = 0; i < 6; i++)
@@ -338,18 +331,23 @@ void WorldChunkManager::startBuildingChunkLights()
 			{
 				chunk->setState(Chunk::State::BuildingLight);
 				chunksToProcess.push_back(chunk);
-				it = buildContainers.lightsProcessing.erase(it); // Remove from processing
 			}
 			else
 			{
-				++it; // Keep in processing for next frame
+				survivors.push_back(chunk);
 			}
 		}
+
+		// One clear + bulk insert instead of N individual O(n) erases
+		buildContainers.lightsProcessing.clear();
+		buildContainers.lightsProcessing.insert(buildContainers.lightsProcessing.end(), survivors.begin(), survivors.end());
 	}
 
 	// Submit chunks to thread pool
 	if (!chunksToProcess.empty())
 	{
+		// TODO: Use single vector with shared_ptr
+
 		TRACY_SCOPE_NC("Send chunks to light building", ProfileCategory::ChunkLight);
 		ThreadPool& pool = ParallelUtils::getGlobalThreadPool();
 		const size_t chunkCount = chunksToProcess.size();

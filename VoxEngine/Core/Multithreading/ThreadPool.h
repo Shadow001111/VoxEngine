@@ -141,19 +141,6 @@ void ParallelUtils::parallelFor(size_t start, size_t end, size_t minChunkSize, F
 
 	std::latch doneLatch(chunks);
 
-    //{
-	//	TRACY_SCOPE_N("Enqueue chunks");
-    //    for (size_t i = start; i < end; i += chunkSize)
-    //    {
-    //        size_t chunkEnd = std::min(i + chunkSize, end);
-    //        pool.enqueue([&, i, chunkEnd]()
-    //            {
-    //                for (size_t j = i; j < chunkEnd; j++)
-    //                    func(j);
-    //                doneLatch.count_down();
-    //            });
-    //    }
-    //}
     {
         TRACY_SCOPE_N("Enqueue chunks");
 
