@@ -25,6 +25,27 @@ ThreadPool::~ThreadPool()
     shutdown();
 }
 
+void ThreadPool::enqueueBulk(std::vector<WorkerThread::Task> tasks)
+{
+    TRACY_SCOPE_N("ThreadPool::enqueueBulk");
+
+    // If the pool is stopped, reject the task
+    if (context.stop.load(std::memory_order_relaxed))
+    {
+        throw std::runtime_error("enqueue on stopped ThreadPool");
+    }
+
+    // Push the tasks into the queue
+    const size_t count = tasks.size();
+    {
+        std::lock_guard lock(context.queueMutex);
+        for (auto& task : tasks)
+            context.tasks.push(std::move(task));
+    }
+    context.newTaskCondition.notify_all();
+    taskTotalCount.fetch_add(count, std::memory_order_relaxed);
+}
+
 void ThreadPool::shutdown()
 {
     {

@@ -9,14 +9,14 @@
 #include <atomic>
 #include <queue>
 #include <latch>
+#include <vector>
 
-#include "Core/Container/DynamicArray.h"
 #include "Core/TracyProfiler.h"
 
 class ThreadPool
 {
 	WorkerThread::Context context;
-    DynamicArray<WorkerThread> workers;
+    std::vector<WorkerThread> workers;
 
     // Statistics
     std::atomic<size_t> taskTotalCount{ 0 };
@@ -32,6 +32,8 @@ public:
 
 	template<class F, class... Args>
     auto enqueueFuture(F&& f, Args&&... args) -> std::future<typename std::invoke_result_t<F, Args...>>;
+
+    void enqueueBulk(std::vector<WorkerThread::Task> tasks);
 
     void shutdown();
 
@@ -139,18 +141,37 @@ void ParallelUtils::parallelFor(size_t start, size_t end, size_t minChunkSize, F
 
 	std::latch doneLatch(chunks);
 
+    //{
+	//	TRACY_SCOPE_N("Enqueue chunks");
+    //    for (size_t i = start; i < end; i += chunkSize)
+    //    {
+    //        size_t chunkEnd = std::min(i + chunkSize, end);
+    //        pool.enqueue([&, i, chunkEnd]()
+    //            {
+    //                for (size_t j = i; j < chunkEnd; j++)
+    //                    func(j);
+    //                doneLatch.count_down();
+    //            });
+    //    }
+    //}
     {
-		TRACY_SCOPE_N("Enqueue chunks");
+        TRACY_SCOPE_N("Enqueue chunks");
+
+        std::vector<WorkerThread::Task> tasks;
+        tasks.reserve(chunks);
+
         for (size_t i = start; i < end; i += chunkSize)
         {
             size_t chunkEnd = std::min(i + chunkSize, end);
-            pool.enqueue([&, i, chunkEnd]()
+            tasks.emplace_back([&, i, chunkEnd]()
                 {
                     for (size_t j = i; j < chunkEnd; j++)
                         func(j);
                     doneLatch.count_down();
                 });
         }
+
+        pool.enqueueBulk(std::move(tasks));
     }
 
     // Wait for all chunks to complete

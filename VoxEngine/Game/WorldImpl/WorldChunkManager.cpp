@@ -250,12 +250,16 @@ void WorldChunkManager::startBuildingChunkBlocks()
 		ThreadPool& pool = ParallelUtils::getGlobalThreadPool();
 
 		const size_t chunkCount = chunksToProcess.size();
+
+		std::vector<WorkerThread::Task> tasks;
+		tasks.reserve((chunkCount + CHUNKS_PER_BATCH - 1) / CHUNKS_PER_BATCH);
+
 		for (size_t i = 0; i < chunkCount; i += CHUNKS_PER_BATCH)
 		{
 			size_t batchEnd = std::min(i + CHUNKS_PER_BATCH, chunkCount);
 			std::vector<Chunk*> batch(chunksToProcess.begin() + i, chunksToProcess.begin() + batchEnd);
 
-			pool.enqueue([this, batch_ = std::move(batch)]()
+			tasks.emplace_back([this, batch_ = std::move(batch)]()
 				{
 					for (Chunk* chunk : batch_)
 					{
@@ -269,6 +273,8 @@ void WorldChunkManager::startBuildingChunkBlocks()
 					}
 				});
 		}
+
+		pool.enqueueBulk(std::move(tasks));
 	}
 	chunksToProcess.clear();
 }
@@ -294,6 +300,7 @@ void WorldChunkManager::startBuildingChunkLights()
 	// Merge new incoming chunks into our long-term processing set
 	if (!localIncoming.empty())
 	{
+		TRACY_SCOPE_NC("Merge chunk sets", ProfileCategory::ChunkLight);
 		buildContainers.lightsProcessing.insert(localIncoming.begin(), localIncoming.end());
 	}
 
@@ -347,19 +354,22 @@ void WorldChunkManager::startBuildingChunkLights()
 		ThreadPool& pool = ParallelUtils::getGlobalThreadPool();
 		const size_t chunkCount = chunksToProcess.size();
 
+		std::vector<WorkerThread::Task> tasks;
+		tasks.reserve((chunkCount + CHUNKS_PER_BATCH - 1) / CHUNKS_PER_BATCH);
+
 		for (size_t i = 0; i < chunkCount; i += CHUNKS_PER_BATCH)
 		{
 			size_t batchEnd = std::min(i + CHUNKS_PER_BATCH, chunkCount);
 			std::vector<Chunk*> batch(chunksToProcess.begin() + i, chunksToProcess.begin() + batchEnd);
 
-			pool.enqueue([batch_ = std::move(batch)]()
+			tasks.emplace_back([batch_ = std::move(batch)]()
 				{
 					for (Chunk* chunk : batch_)
-					{
 						chunk->buildLight();
-					}
 				});
 		}
+
+		pool.enqueueBulk(std::move(tasks));
 	}
 	chunksToProcess.clear();
 }
