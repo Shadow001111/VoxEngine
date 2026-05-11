@@ -6,9 +6,7 @@
 #include "Core/Container/DynamicArray.h"
 #include "Core/Bitset.h"
 
-// TODO: Reduce size
-// TODO: Use flags
-struct BlockData
+struct BlockDataHot
 {
 	struct TextureSlot
 	{
@@ -24,20 +22,22 @@ struct BlockData
 		bool isTranslucent = false;
 	};
 
-	//
-	std::string stringId;
-
 	// Properties
-	std::array<bool, 6> lightAbsorbing{};
+	Bitset<6, uint8_t> lightAbsorbing{};
 	uint8_t lightEmission = 0;
 	bool raycastable = true;
-
 	bool hasFaces = false;
 	Bitset<6, uint8_t> faceCulling{};
 
 	// Visuals
 	ModelId modelId = 0;
-	DynamicArray<TextureSlot> textureSlots;
+	DynamicArray<TextureSlot> textureSlots; // TODO: Replace it with custom container, that won't store capacity and will be more memory efficient
+};
+
+struct BlockDataCold
+{
+	// String id
+	std::string stringId;
 
 	// Sounds
 	// TODO: Keep ids only

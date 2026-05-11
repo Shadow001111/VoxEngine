@@ -34,7 +34,7 @@ private:
 
 	static uint64_t computeHash(const BlockChanges& blockChanges);
 
-	static bool areChangesValid(BlockId BlockId, const std::vector<uint16_t>& indices, const BlockData*& outBlockData);
+	static bool areChangesValid(BlockId BlockId, const std::vector<uint16_t>& indices, const BlockDataCold*& outBlockData);
 
 	// READ SECTION
 

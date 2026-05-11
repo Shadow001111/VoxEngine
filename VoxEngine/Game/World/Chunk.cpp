@@ -621,7 +621,7 @@ uint32_t Chunk::propagateBlockLight()
 
 			// Get neighbor block data
 			const BlockId neighborBlock = neighborChunk->getBlockAt(neighborBlockIndex);
-			const BlockData* neighborBlockData = AssetRegistry::getBlockDataSafe(neighborBlock);
+			const BlockDataHot* neighborBlockData = AssetRegistry::getBlockDataHotSafe(neighborBlock);
 
 			// If block absorbs light, skip
 			if (neighborBlockData->lightAbsorbing[i ^ 1])
@@ -690,7 +690,7 @@ uint32_t Chunk::propagateSkyLight()
 				return;
 
 			const BlockId neighborBlock = neighborChunk->cells[neighborBlockIndex].block;
-			const auto* neighborBlockData = AssetRegistry::getBlockDataSafe(neighborBlock);
+			const auto* neighborBlockData = AssetRegistry::getBlockDataHotSafe(neighborBlock);
 			if (neighborBlockData->lightAbsorbing[0]) // TODO: Add face culling check here
 				return;
 
@@ -750,8 +750,8 @@ uint32_t Chunk::propagateSkyLight()
 					break;
 
 				const BlockId block = cells[belowIndex].block;
-				const auto* blockData = AssetRegistry::getBlockDataSafe(block);
-				if (blockData->lightAbsorbing[3]) // 3 = 2 ^ 1 (xor)
+				const auto* blockDataHot = AssetRegistry::getBlockDataHotSafe(block);
+				if (blockDataHot->lightAbsorbing[3]) // 3 = 2 ^ 1 (xor)
 					break;
 
 				cells[belowIndex].lightLevel.skyLight = 15;
@@ -777,8 +777,8 @@ uint32_t Chunk::propagateSkyLight()
 
 					if (belowChunk->cells[belowIndex].lightLevel.skyLight < 15)
 					{
-						const auto* blockData = AssetRegistry::getBlockDataSafe(belowChunk->cells[belowIndex].block);
-						if (!(blockData->lightAbsorbing[3]))
+						const auto* blockDataHot = AssetRegistry::getBlockDataHotSafe(belowChunk->cells[belowIndex].block);
+						if (!(blockDataHot->lightAbsorbing[3]))
 						{
 							belowChunk->cells[belowIndex].lightLevel.skyLight = 15;
 							belowChunk->addSkyLightPropagationNode(currentPos.x, belowY, currentPos.z);
@@ -845,7 +845,7 @@ uint32_t Chunk::propagateBlockLightRemoval()
 
 			// Get neighbor block data
 			BlockId neighborBlock = neighborChunk->getBlockAt(neighborBlockIndex);
-			const auto* neighborBlockData = AssetRegistry::getBlockDataSafe(neighborBlock);
+			const auto* neighborBlockData = AssetRegistry::getBlockDataHotSafe(neighborBlock);
 
 			// If block absorbs light, skip
 			if (neighborBlockData->lightAbsorbing[i ^ 1])
@@ -954,7 +954,7 @@ uint32_t Chunk::propagateSkyLightRemoval()
 
 			// Get neighbor block data
 			BlockId neighborBlock = neighborChunk->cells[neighborBlockIndex].block;
-			const auto* neighborBlockData = AssetRegistry::getBlockDataSafe(neighborBlock);
+			const auto* neighborBlockData = AssetRegistry::getBlockDataHotSafe(neighborBlock);
 
 			// If block absorbs light, skip
 			if (neighborBlockData->lightAbsorbing[i ^ 1])
@@ -1019,9 +1019,9 @@ void Chunk::buildLight()
 		TRACY_SCOPE_NC("Collect block light sources", ProfileCategory::ChunkLight);
 		for (int index = 0; index < CHUNK_VOLUME; index++)
 		{
-			const auto* blockData = AssetRegistry::getBlockDataSafe(cells[index].block);
+			const auto* blockDataHot = AssetRegistry::getBlockDataHotSafe(cells[index].block);
 
-			uint8_t emission = blockData->lightEmission;
+			uint8_t emission = blockDataHot->lightEmission;
 			if (emission == 0)
 			{
 				continue;
@@ -1051,8 +1051,8 @@ void Chunk::buildLight()
 			{
 				size_t idx = getIndex(x, y, z);
 				BlockId block = cells[idx].block;
-				const BlockData* blockData = AssetRegistry::getBlockDataSafe(block);
-				if (!(blockData->lightAbsorbing[3]))
+				const BlockDataHot* blockDataHot = AssetRegistry::getBlockDataHotSafe(block);
+				if (!(blockDataHot->lightAbsorbing[3]))
 				{
 					highestAirY = y;
 					break;
@@ -1078,8 +1078,8 @@ void Chunk::buildLight()
 		auto processNeighborFace = [&](int x, int y, int z, int nx, int ny, int nz, int side, const Chunk* neighbor, bool propagatingFromTop)
 			{
 				size_t index = getIndex(x, y, z);
-				const auto* blockData = AssetRegistry::getBlockDataSafe(cells[index].block);
-				if (blockData->lightAbsorbing[side ^ 1]) // TODO: Also check for face culling
+				const auto* blockDataHot = AssetRegistry::getBlockDataHotSafe(cells[index].block);
+				if (blockDataHot->lightAbsorbing[side ^ 1]) // TODO: Also check for face culling
 				{
 					return;
 				}
@@ -1206,10 +1206,10 @@ void Chunk::buildLight()
 	//
 	//		// Get block data
 	//		BlockId block = cells[index].block;
-	//		const BlockData* blockData = AssetRegistry::getBlockDataSafe(block);
+	//		const BlockDataHot* blockDataHot = AssetRegistry::getBlockDataHotSafe(block);
 	//
 	//		// If block absorbs light, then make sure to remove sky light from the block below in the neighbor chunk, because it should be fully dark there
-	//		if (!blockData->lightAbsorbing[3])
+	//		if (!blockDataHot->lightAbsorbing[3])
 	//			continue;
 	//
 	//		size_t lowerIndex = getIndex(x, CHUNK_SIZE - 1, z);
@@ -1254,11 +1254,7 @@ void Chunk::updateLight()
 
 	FenceGuard scopedFence(processingFence);
 
-	{
-		TRACY_SCOPE_NC("Transfer data to thread-local", ProfileCategory::ChunkLight);
-		//lightPropagation.swapQueuesWithLocal(); // It's faster, but makes memory usage grow
-		lightPropagation.moveQueuesDataToLocalAndShrink();
-	}
+	lightPropagation.moveQueuesDataToLocalAndShrink();
 
 	uint32_t neighborDirtyMask = 0;
 
@@ -1278,20 +1274,24 @@ void Chunk::updateLight()
 	applyNeighborDirtyMask(neighborDirtyMask);
 
 	// Let neighbor chunks' lights be updated
-	bool hasNeighborToUpdate = false;
-	for (int i = 0; i < 6; i++)
 	{
-		auto index = getSideNeighborIndex(i);
-		Chunk* neighbor = neighbors[index];
-		if (neighbor && neighbor->lightPropagation.hasNodes())
+
+
+		bool hasNeighborToUpdate = false;
+		for (int i = 0; i < 6; i++)
 		{
-			neighbor->parentRegion->setFlag(ChunkRegion::Flag::HasLightToUpdate, true);
-			hasNeighborToUpdate = true;
+			auto index = getSideNeighborIndex(i);
+			Chunk* neighbor = neighbors[index];
+			if (neighbor && neighbor->lightPropagation.hasNodes())
+			{
+				neighbor->parentRegion->setFlag(ChunkRegion::Flag::HasLightToUpdate, true);
+				hasNeighborToUpdate = true;
+			}
 		}
-	}
-	if (hasNeighborToUpdate)
-	{
-		ChunkRegion::setGlobalFlag(ChunkRegion::Flag::HasLightToUpdate, true);
+		if (hasNeighborToUpdate)
+		{
+			ChunkRegion::setGlobalFlag(ChunkRegion::Flag::HasLightToUpdate, true);
+		}
 	}
 }
 
@@ -1310,7 +1310,7 @@ void Chunk::updateMesh()
 	{
 		constexpr uint32_t transformationBitMasks[3] = { 0u, 0b11u, 0b111u };
 
-		static const BlockData::TextureSlot fallbackTextureSlot(0, BlockData::TextureSlot::TextureTransformation::None, false);
+		static const BlockDataHot::TextureSlot fallbackTextureSlot(0, BlockDataHot::TextureSlot::TextureTransformation::None, false);
 
 		ChunkMeshFaceStorage::InstancesStorage localMeshInstances;
 		//localMeshInstances.reserve(CHUNK_VOLUME / 4); // Note: For some reason make app freeze
@@ -1324,19 +1324,19 @@ void Chunk::updateMesh()
 
 			// Generate new faces for this block
 			BlockId block = cells[currentBlockIndex].block;
-			const BlockData* blockData = AssetRegistry::getBlockDataSafe(block);
-			if (!blockData->hasFaces)
+			const BlockDataHot* blockDataHot = AssetRegistry::getBlockDataHotSafe(block);
+			if (!blockDataHot->hasFaces)
 			{
 				continue;
 			}
 
-			const auto* model = AssetRegistry::getBlockModelData(blockData->modelId);
+			const auto* model = AssetRegistry::getBlockModelData(blockDataHot->modelId);
 			if (!model) [[unlikely]]
 			{
 				continue;
 			}
 
-			const auto& textureSlots = blockData->textureSlots;
+			const auto& textureSlots = blockDataHot->textureSlots;
 
 			// TODO: Maybe translucent faces shouldn't be culled. Maybe they should be drawn using GL_LEQUAL for depth test.
 
@@ -1374,7 +1374,7 @@ void Chunk::updateMesh()
 					// Get neighbor block and data
 					BlockId neighborBlock = neighborChunk->cells[neighborBlockIndex].block;
 
-					const BlockData* neighborBlockData = AssetRegistry::getBlockDataSafe(neighborBlock);
+					const BlockDataHot* neighborBlockData = AssetRegistry::getBlockDataHotSafe(neighborBlock);
 					if (neighborBlockData->faceCulling[face.normal ^ 1])
 					{
 						continue;
@@ -1580,7 +1580,7 @@ void Chunk::updateConnectivity()
 		struct StackEntry
 		{
 			glm::ivec3 pos;
-			const BlockData* blockData;
+			const BlockDataHot* blockDataHot;
 		};
 		std::vector<StackEntry> stack;
 		stack.reserve(CHUNK_VOLUME);
@@ -1607,7 +1607,7 @@ void Chunk::updateConnectivity()
 			visited[startIdx] = true;
 
 			// Solid / unknown blocks need no flood fill
-			const BlockData* startData = AssetRegistry::getBlockDataSafe(cells[startIdx].block);
+			const BlockDataHot* startData = AssetRegistry::getBlockDataHotSafe(cells[startIdx].block);
 
 			// Early-out: if the matrix is already fully connected, there is
 			// nothing left to discover regardless of what this component touches.
@@ -1622,7 +1622,7 @@ void Chunk::updateConnectivity()
 				auto cell = stack.back();
 				stack.pop_back();
 				const auto currentPosition = cell.pos;
-				const BlockData* currentBlockData = cell.blockData;
+				const BlockDataHot* currentBlockData = cell.blockDataHot;
 
 				bool wasAbleToMoveOut = false;
 				for (int dir = 0; dir < 6; dir++)
@@ -1640,7 +1640,7 @@ void Chunk::updateConnectivity()
 					if (visited[neighborIdx]) continue;
 					visited[neighborIdx] = true; // Mark as visited
 
-					const BlockData* neighborData = AssetRegistry::getBlockDataSafe(cells[neighborIdx].block);
+					const BlockDataHot* neighborData = AssetRegistry::getBlockDataHotSafe(cells[neighborIdx].block);
 
 					if (neighborData->faceCulling[dir ^ 1]) continue;
 
@@ -1775,10 +1775,7 @@ uint32_t Chunk::getNeighborDirtyMask(int x, int y, int z) noexcept
 
 void Chunk::applyNeighborDirtyMask(uint32_t mask) noexcept
 {
-	TRACY_SCOPE_NC("Apply neighbor dirty mask", ProfileCategory::General);
-
 	// Using a loop with bit manipulation because it should reduce the number of branching and memory fetchesd
-
 	constexpr size_t neighborCount = sizeof(neighbors) / sizeof(neighbors[0]); // Idk, neighbor.size() doesn't work (because 'this' can't be used as constant)
 	constexpr uint32_t clearTrashMask = (1u << neighborCount) - 1; // Mask to clear bits that are out of bounds
 	mask &= clearTrashMask;
@@ -1824,10 +1821,10 @@ void Chunk::setBlockAt(int x, int y, int z, BlockId block, bool saveBlockChanges
 	}
 
 	// Light update
-	const BlockData* previousBlockData = AssetRegistry::getBlockDataSafe(previousBlock);
+	const BlockDataHot* previousBlockData = AssetRegistry::getBlockDataHotSafe(previousBlock);
 	uint8_t previousEmission = previousBlockData->lightEmission;
 
-	const BlockData* newBlockData = AssetRegistry::getBlockDataSafe(block);
+	const BlockDataHot* newBlockData = AssetRegistry::getBlockDataHotSafe(block);
 	uint8_t newEmission = newBlockData->lightEmission;
 
 	// TODO: Now both blocks can absorb light, but can have different faceCulling values
@@ -2087,8 +2084,8 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(ContextFaceAOAL& context) cons
 
 			neighborData[dataIdx].lightLevel = lightLevel;
 
-			const BlockData* blockData = AssetRegistry::getBlockDataSafe(block);
-			neighborData[dataIdx].isSolid = blockData->faceCulling[fcn];
+			const BlockDataHot* blockDataHot = AssetRegistry::getBlockDataHotSafe(block);
+			neighborData[dataIdx].isSolid = blockDataHot->faceCulling[fcn];
 		};
 
 	auto getSafe2 = [this, &neighborData](size_t dataIdx, int x_, int y_, int z_, int fcn1, int fcn2)
@@ -2103,8 +2100,8 @@ void Chunk::calculateFaceAmbientOcclusionAndLight(ContextFaceAOAL& context) cons
 
 			neighborData[dataIdx].lightLevel = lightLevel;
 
-			const BlockData* blockData = AssetRegistry::getBlockDataSafe(block);
-			neighborData[dataIdx].isSolid = blockData->faceCulling[fcn1] || blockData->faceCulling[fcn2];
+			const BlockDataHot* blockDataHot = AssetRegistry::getBlockDataHotSafe(block);
+			neighborData[dataIdx].isSolid = blockDataHot->faceCulling[fcn1] || blockDataHot->faceCulling[fcn2];
 		};
 
 	switch (normal)
@@ -2274,8 +2271,8 @@ void Chunk::calculateFaceAmbientOcclusionAndLightUnaligned(ContextFaceAOAL& cont
 			BlockId    block = chunk->cells[index].block;
 			LightLevel lightLevel = chunk->cells[index].lightLevel;
 			neighborData[dataIdx].lightLevel = lightLevel;
-			const BlockData* blockData = AssetRegistry::getBlockDataSafe(block);
-			neighborData[dataIdx].isSolid = blockData->faceCulling[fcn];
+			const BlockDataHot* blockDataHot = AssetRegistry::getBlockDataHotSafe(block);
+			neighborData[dataIdx].isSolid = blockDataHot->faceCulling[fcn];
 		};
 
 	auto getSafe2 = [this, &neighborData](size_t dataIdx, int x_, int y_, int z_, int fcn1, int fcn2)
@@ -2286,8 +2283,8 @@ void Chunk::calculateFaceAmbientOcclusionAndLightUnaligned(ContextFaceAOAL& cont
 			BlockId    block = chunk->cells[index].block;
 			LightLevel lightLevel = chunk->cells[index].lightLevel;
 			neighborData[dataIdx].lightLevel = lightLevel;
-			const BlockData* blockData = AssetRegistry::getBlockDataSafe(block);
-			neighborData[dataIdx].isSolid = blockData->faceCulling[fcn1] || blockData->faceCulling[fcn2];
+			const BlockDataHot* blockDataHot = AssetRegistry::getBlockDataHotSafe(block);
+			neighborData[dataIdx].isSolid = blockDataHot->faceCulling[fcn1] || blockDataHot->faceCulling[fcn2];
 		};
 
 	// Helper alias — reduces noise in the switch below
@@ -2408,7 +2405,7 @@ void Chunk::calculateBlockVertexLight(BlockVertexData& result, const glm::ivec3&
 			}
 		}
 
-		const BlockData* centerFaceBlockData = AssetRegistry::getBlockDataSafe(centerFaceBlock);
+		const BlockDataHot* centerFaceBlockData = AssetRegistry::getBlockDataHotSafe(centerFaceBlock);
 		const bool centerFaceIsSolid = centerFaceBlockData->faceCulling[face ^ 1];
 
 		ContextFaceAOAL aoData

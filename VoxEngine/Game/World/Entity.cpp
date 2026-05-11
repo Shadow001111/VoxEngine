@@ -210,6 +210,6 @@ bool Entity::isBlockSolidAt(const glm::ivec3 pos) const
 		return false;
 	}
 
-	const auto* blockData = AssetRegistry::getBlockData(block.value());
+	const BlockDataHot* blockData = AssetRegistry::getBlockDataHot(block.value());
 	return blockData ? blockData->hasFaces : false;
 }

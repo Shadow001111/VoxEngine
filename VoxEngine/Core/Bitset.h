@@ -83,6 +83,13 @@ public:
         }
     }
 
+    void fill(bool value) noexcept
+    {
+        Word fillValue = value ? ~Word(0) : Word(0);
+        for (auto& w : words)
+            w = fillValue;
+	}
+
     [[nodiscard]] bool read(size_t index) const noexcept
     {
         const size_t w = wordIndex(index);

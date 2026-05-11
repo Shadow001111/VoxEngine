@@ -49,7 +49,9 @@ class AssetRegistry
 	static DynamicArray<ItemAsset> itemAssetStorage;
 
 	// Data objects are used directly in game
-	static DynamicArray<BlockData> blockDataStorage;
+	static DynamicArray<BlockDataHot> blockDataHotStorage;
+	static DynamicArray<BlockDataCold> blockDataColdStorage;
+
 	static DynamicArray<BlockModelData> blockModelDataStorage;
 	static DynamicArray<ItemData> itemDataStorage;
 	static DynamicArray<ItemModelData> itemModelDataStorage;
@@ -92,15 +94,27 @@ public:
 	static ItemId getItemNumericalId(const std::string& stringId);
 
 	// Returns valid pointer even if ID is out of bounds (points to fallback data)
-	[[nodiscard]] static __forceinline const BlockData* getBlockDataSafe(BlockId numericalId) noexcept
+	[[nodiscard]] static __forceinline const BlockDataHot* getBlockDataHotSafe(BlockId numericalId) noexcept
 	{
-		return numericalId < blockDataStorage.size() ? blockDataStorage.data() + numericalId : blockDataStorage.data() + FALLBACK_BLOCK_ID;
+		return numericalId < blockDataHotStorage.size() ? blockDataHotStorage.data() + numericalId : blockDataHotStorage.data() + FALLBACK_BLOCK_ID;
+	}
+
+	// Returns valid pointer even if ID is out of bounds (points to fallback data)
+	[[nodiscard]] static __forceinline const BlockDataCold* getBlockDataColdSafe(BlockId numericalId) noexcept
+	{
+		return numericalId < blockDataColdStorage.size() ? blockDataColdStorage.data() + numericalId : blockDataColdStorage.data() + FALLBACK_BLOCK_ID;
 	}
 
 	// Returns nullptr if ID is out of bounds
-	[[nodiscard]] static __forceinline const BlockData* getBlockData(BlockId numericalId) noexcept
+	[[nodiscard]] static __forceinline const BlockDataHot* getBlockDataHot(BlockId numericalId) noexcept
 	{
-		return numericalId < blockDataStorage.size() ? blockDataStorage.data() + numericalId : nullptr;
+		return numericalId < blockDataHotStorage.size() ? blockDataHotStorage.data() + numericalId : nullptr;
+	}
+
+	// Returns nullptr if ID is out of bounds
+	[[nodiscard]] static __forceinline const BlockDataCold* getBlockDataCold(BlockId numericalId) noexcept
+	{
+		return numericalId < blockDataColdStorage.size() ? blockDataColdStorage.data() + numericalId : nullptr;
 	}
 
 	static const BlockModelData* getBlockModelData(ModelId numericalId)

@@ -10,7 +10,8 @@
 DynamicArray<BlockAsset> AssetRegistry::blockAssetStorage;
 DynamicArray<ItemAsset> AssetRegistry::itemAssetStorage;
 
-DynamicArray<BlockData> AssetRegistry::blockDataStorage;
+DynamicArray<BlockDataHot> AssetRegistry::blockDataHotStorage;
+DynamicArray<BlockDataCold> AssetRegistry::blockDataColdStorage;
 DynamicArray<BlockModelData> AssetRegistry::blockModelDataStorage;
 DynamicArray<ItemData> AssetRegistry::itemDataStorage;
 DynamicArray<ItemModelData> AssetRegistry::itemModelDataStorage;
@@ -223,7 +224,8 @@ void AssetRegistry::reset()
 	blockAssetStorage.clear();
 	itemAssetStorage.clear();
 
-	blockDataStorage.clear();
+	blockDataHotStorage.clear();
+	blockDataColdStorage.clear();
 	blockModelDataStorage.clear();
 	itemDataStorage.clear();
 	itemModelDataStorage.clear();
@@ -251,28 +253,29 @@ void AssetRegistry::registerBlock(const BlockAsset& asset)
 	blockAssetStorage.push_back(asset);
 
 	// Create data object
-	BlockData& data = blockDataStorage.emplace_back();
+	BlockDataHot& dataHot = blockDataHotStorage.emplace_back();
+	BlockDataCold& dataCold = blockDataColdStorage.emplace_back();
 
 	// Properties
-	data.stringId = asset.stringId;
-	data.lightAbsorbing = asset.lightAbsorbing;
-	data.lightEmission = asset.lightEmission;
-	data.raycastable = asset.raycastable;
+	dataCold.stringId = asset.stringId;
+	dataHot.lightAbsorbing = asset.lightAbsorbing;
+	dataHot.lightEmission = asset.lightEmission;
+	dataHot.raycastable = asset.raycastable;
 
 	// Visuals
-	data.textureSlots.reserve(asset.textureInfo.size());
+	dataHot.textureSlots.reserve(asset.textureInfo.size());
 	for (const auto& assetTexture : asset.textureInfo)
 	{
-		auto& dataTexture = data.textureSlots.emplace_back();
+		auto& dataTexture = dataHot.textureSlots.emplace_back();
 		dataTexture.textureId = blockTextureIndexer.registerAndGetId(assetTexture.textureName);
-		dataTexture.transformation = static_cast<BlockData::TextureSlot::TextureTransformation>(assetTexture.transformation);
+		dataTexture.transformation = static_cast<BlockDataHot::TextureSlot::TextureTransformation>(assetTexture.transformation);
 		dataTexture.isTranslucent = assetTexture.isTranslucent;
 	}
 
 	// Sounds
-	data.breakSounds = asset.breakSounds;
-	data.placeSounds = asset.placeSounds;
-	data.stepSounds = asset.stepSounds;
+	dataCold.breakSounds = asset.breakSounds;
+	dataCold.placeSounds = asset.placeSounds;
+	dataCold.stepSounds = asset.stepSounds;
 }
 
 void AssetRegistry::registerBlockModel(const BlockModelData& asset, const std::string& modelStringId)
@@ -330,7 +333,8 @@ bool AssetRegistry::linkAssets()
 {
 	// Check
 	if (
-		blockAssetStorage.size() != blockDataStorage.size() ||
+		blockAssetStorage.size() != blockDataHotStorage.size() ||
+		blockAssetStorage.size() != blockDataColdStorage.size() ||
 		itemAssetStorage.size() != itemDataStorage.size()
 		)
 	{
@@ -384,38 +388,38 @@ bool AssetRegistry::linkBlockAssets()
 		for (size_t i = 0; i < blockCount; i++)
 		{
 			const auto& asset = blockAssetStorage[i];
-			auto& data = blockDataStorage[i];
+			auto& dataHot = blockDataHotStorage[i];
 
 			// Model
 			if (asset.modelName == "None")
 			{
-				data.modelId = FALLBACK_BLOCK_MODEL_ID;
+				dataHot.modelId = FALLBACK_BLOCK_MODEL_ID;
 			}
 			else
 			{
 				auto blockModelIdResult = blockModelIndexer.getId(asset.modelName);
 				if (blockModelIdResult.has_value())
 				{
-					data.modelId = static_cast<ModelId>(blockModelIdResult.value());
+					dataHot.modelId = static_cast<ModelId>(blockModelIdResult.value());
 				}
 				else
 				{
 					std::cerr << "[AssetRegistry]: Block model " << asset.modelName << " is not registered\n";
-					data.modelId = FALLBACK_BLOCK_MODEL_ID;
+					dataHot.modelId = FALLBACK_BLOCK_MODEL_ID;
 				}
 			}
 
 			// Has faces
-			data.hasFaces = !data.textureSlots.empty();
+			dataHot.hasFaces = !dataHot.textureSlots.empty();
 
 			// Enable culling for faces that have opaque aligned faces in the model
 			for (int i = 0; i < 6; i++)
 			{
-				data.faceCulling.set(i, false);
+				dataHot.faceCulling.set(i, false);
 			}
-			if (data.hasFaces)
+			if (dataHot.hasFaces)
 			{
-				const auto* model = getBlockModelData(data.modelId);
+				const auto* model = getBlockModelData(dataHot.modelId);
 				if (model)
 				{
 					for (const auto& alignedFace : model->alignedFaces)
@@ -427,23 +431,20 @@ bool AssetRegistry::linkBlockAssets()
 
 						bool shouldCull = true;
 
-						if (alignedFace.textureSlot < data.textureSlots.size())
+						if (alignedFace.textureSlot < dataHot.textureSlots.size())
 						{
-							const auto& textureSlot = data.textureSlots[alignedFace.textureSlot];
+							const auto& textureSlot = dataHot.textureSlots[alignedFace.textureSlot];
 							if (textureSlot.isTranslucent)
 							{
 								shouldCull = false;
 							}
 						}
 
-						data.faceCulling.set(alignedFace.normal, shouldCull);
+						dataHot.faceCulling.set(alignedFace.normal, shouldCull);
 					}
 				}
 			}
-			for (int i = 0; i < 6; i++)
-			{
-				data.lightAbsorbing[i] &= data.faceCulling.read(i);
-			}
+			dataHot.lightAbsorbing &= dataHot.faceCulling;
 
 			// Collect sounds only. Load them later, once each.
 			for (const auto& s : asset.breakSounds) breakSounds.emplace(s);
@@ -499,7 +500,7 @@ bool AssetRegistry::ensureAirIdIs0()
 	if (airId == 0) return true;
 
 	// Swap the indexer mappings so the string IDs match the new positions
-	const std::string& firstBlockStringId = blockDataStorage[0].stringId;
+	const std::string& firstBlockStringId = blockDataColdStorage[0].stringId;
 	if (!blockIndexer.swapIds("core:air", firstBlockStringId))
 	{
 		std::cerr << "[AssetRegistry]: Failed to swap 'core:air' with other block\n";
@@ -507,7 +508,8 @@ bool AssetRegistry::ensureAirIdIs0()
 	}
 
 	// Swap block data entries
-	std::swap(blockDataStorage[0], blockDataStorage[airId]);
+	std::swap(blockDataHotStorage[0], blockDataHotStorage[airId]);
+	std::swap(blockDataColdStorage[0], blockDataColdStorage[airId]);
 
 	return true;
 }

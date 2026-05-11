@@ -73,7 +73,7 @@ uint64_t ChunkIO::computeHash(const BlockChanges& blockChanges)
 	return hash;
 }
 
-bool ChunkIO::areChangesValid(BlockId BlockId, const std::vector<uint16_t>& indices, const BlockData*& outBlockData)
+bool ChunkIO::areChangesValid(BlockId BlockId, const std::vector<uint16_t>& indices, const BlockDataCold*& outBlockData)
 {
 	// Check indices range
 	if (indices.size() == 0 || indices.size() > CHUNK_VOLUME)
@@ -82,7 +82,7 @@ bool ChunkIO::areChangesValid(BlockId BlockId, const std::vector<uint16_t>& indi
 	}
 
 	// Get block data
-	outBlockData = AssetRegistry::getBlockData(BlockId);
+	outBlockData = AssetRegistry::getBlockDataCold(BlockId);
 	if (!outBlockData)
 	{
 		return false;
@@ -338,12 +338,12 @@ ChunkIO::Map<BlockId, std::string> ChunkIO::collectBlockIdStrings(const BlockCha
 {
 	robin_hood::unordered_flat_map<BlockId, std::string> idToString;
 
-	const BlockData* blockData = nullptr;
+	const BlockDataCold* blockDataCold = nullptr;
 	for (const auto& [blockId, indices] : blockChanges)
 	{
-		if (areChangesValid(blockId, indices, blockData))
+		if (areChangesValid(blockId, indices, blockDataCold))
 		{
-			idToString.emplace(blockId, blockData->stringId);
+			idToString.emplace(blockId, blockDataCold->stringId);
 		}
 	}
 

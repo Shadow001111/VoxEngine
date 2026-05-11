@@ -179,7 +179,7 @@ RaycastResult World::raycast(const glm::dvec3& origin, const glm::dvec3& directi
 			glm::ivec3 localBlockPos = blockPos & CHUNK_LOWER_BITS_MASK;
 
 			BlockId block = chunk->getBlockAt(localBlockPos.x, localBlockPos.y, localBlockPos.z);
-			const BlockData* blockData = AssetRegistry::getBlockData(block);
+			const BlockDataHot* blockData = AssetRegistry::getBlockDataHot(block);
 			if (blockData && blockData->raycastable)
 			{
 				result.hit = true;
@@ -295,7 +295,7 @@ bool World::placeBlock(const RaycastResult& raycast, BlockId block)
 		return false;
 	}
 
-	const BlockData* blockData = AssetRegistry::getBlockData(block);
+	const BlockDataCold* blockData = AssetRegistry::getBlockDataCold(block);
 	if (blockData && !blockData->placeSounds.empty())
 	{
 		// Choose random sounds from vector
@@ -317,7 +317,7 @@ bool World::breakBlock(const RaycastResult& raycast)
 
 	updateBlockAt(raycast.hitBlockPosition, AssetRegistry::getBlockNumericalId("core:air"));
 
-	const BlockData* blockData = AssetRegistry::getBlockData(raycast.hitBlock);
+	const BlockDataCold* blockData = AssetRegistry::getBlockDataCold(raycast.hitBlock);
 	if (blockData && !blockData->breakSounds.empty())
 	{
 		// Choose random sounds from vector

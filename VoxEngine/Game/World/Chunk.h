@@ -97,7 +97,7 @@ struct DirectionsTable
 	} };
 };
 
-struct BlockData;
+struct BlockDataHot;
 
 class Chunk
 {
