@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <string>
+#include <array>
 #include "Core/Container/DynamicArray.h"
 
 struct BlockAsset
@@ -23,7 +24,7 @@ struct BlockAsset
 	std::string stringId;
 
 	// Properties
-	bool absorbsLight = false;
+	std::array<bool, 6> lightAbsorbing{};
 	uint8_t lightEmission = 0;
 	bool raycastable = true;
 

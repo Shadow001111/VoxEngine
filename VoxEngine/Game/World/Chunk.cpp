@@ -263,7 +263,6 @@ void Chunk::buildBlocks()
 	}
 
 	// Trees
-	// TODO: Fix, trees spawning in air
 	{
 		TRACY_SCOPE_NC("Generate trees", ProfileCategory::ChunkBlocks);
 	
@@ -575,10 +574,11 @@ uint32_t Chunk::propagateBlockLight()
 	{
 		// Get node data
 		const auto data = LightPropagationStorage::threadLocalBlockLightPropagation.pop_and_return_unsafe();
+		const glm::ivec3 currentPos{ data.x, data.y, data.z };
 
 		// Get light level at current block
-		uint8_t blockLight = cells[getIndex(data.x, data.y, data.z)].lightLevel.blockLight;
-		if (blockLight < 2)
+		uint8_t blockLight = cells[getIndex(currentPos)].lightLevel.blockLight;
+		if (blockLight <= 1)
 		{
 			continue;
 		}
@@ -590,19 +590,17 @@ uint32_t Chunk::propagateBlockLight()
 		{
 			// Calculate neighbor block coordinates
 			const glm::ivec3 offset = DirectionsTable::directionsXYZ[i];
-			const int nx = data.x + offset.x;
-			const int ny = data.y + offset.y;
-			const int nz = data.z + offset.z;
+			const glm::ivec3 neighborPos = currentPos + offset;
 
 			// Get neighbor chunk and block index
 			size_t neighborBlockIndex;
 			Chunk* neighborChunk;
 
-			const bool isNeighborBlockInSameChunk = isInsideChunk(nx, ny, nz);
+			const bool isNeighborBlockInSameChunk = isInsideChunk(neighborPos);
 			if (isNeighborBlockInSameChunk)
 			{
 				neighborChunk = this;
-				neighborBlockIndex = getIndex(nx, ny, nz);
+				neighborBlockIndex = getIndex(neighborPos);
 			}
 			else
 			{
@@ -611,7 +609,7 @@ uint32_t Chunk::propagateBlockLight()
 				{
 					continue;
 				}
-				neighborBlockIndex = getIndex(nx & CHUNK_LOWER_BITS_MASK, ny & CHUNK_LOWER_BITS_MASK, nz & CHUNK_LOWER_BITS_MASK);
+				neighborBlockIndex = getIndex(neighborPos & CHUNK_LOWER_BITS_MASK);
 			}
 
 			// Get neighbor block light level and compare it
@@ -623,10 +621,10 @@ uint32_t Chunk::propagateBlockLight()
 
 			// Get neighbor block data
 			const BlockId neighborBlock = neighborChunk->getBlockAt(neighborBlockIndex);
-			const auto* neighborBlockData = AssetRegistry::getBlockDataSafe(neighborBlock);
+			const BlockData* neighborBlockData = AssetRegistry::getBlockDataSafe(neighborBlock);
 
 			// If block absorbs light, skip
-			if (neighborBlockData->absorbsLight)
+			if (neighborBlockData->lightAbsorbing[i ^ 1])
 			{
 				continue;
 			}
@@ -635,15 +633,15 @@ uint32_t Chunk::propagateBlockLight()
 			neighborChunk->cells[neighborBlockIndex].lightLevel.blockLight = lightToSet;
 			if (isNeighborBlockInSameChunk)
 			{
-				LightPropagationStorage::threadLocalBlockLightPropagation.emplace(nx, ny, nz);
+				LightPropagationStorage::threadLocalBlockLightPropagation.emplace(neighborPos.x, neighborPos.y, neighborPos.z);
 			}
 			else
 			{
-				neighborChunk->addBlockLightPropagationNode(nx & CHUNK_LOWER_BITS_MASK, ny & CHUNK_LOWER_BITS_MASK, nz & CHUNK_LOWER_BITS_MASK);
+				neighborChunk->addBlockLightPropagationNode(neighborPos & CHUNK_LOWER_BITS_MASK);
 			}
 
 			// Accumulate dirty mask
-			neighborDirtyMask |= getNeighborDirtyMask(nx, ny, nz);
+			neighborDirtyMask |= getNeighborDirtyMask(neighborPos);
 		}
 	}
 
@@ -693,7 +691,7 @@ uint32_t Chunk::propagateSkyLight()
 
 			const BlockId neighborBlock = neighborChunk->cells[neighborBlockIndex].block;
 			const auto* neighborBlockData = AssetRegistry::getBlockDataSafe(neighborBlock);
-			if (neighborBlockData->absorbsLight)
+			if (neighborBlockData->lightAbsorbing[0]) // TODO: Add face culling check here
 				return;
 
 			dstLight.skyLight = lightToSet;
@@ -717,11 +715,9 @@ uint32_t Chunk::propagateSkyLight()
 	while (!LightPropagationStorage::threadLocalSkyLightPropagation.empty())
 	{
 		const auto data = LightPropagationStorage::threadLocalSkyLightPropagation.pop_and_return_unsafe();
-		const int x = data.x;
-		const int y = data.y;
-		const int z = data.z;
+		const glm::ivec3 currentPos{ data.x, data.y, data.z };
 
-		const size_t selfIndex = getIndex(x, y, z);
+		const size_t selfIndex = getIndex(currentPos);
 		const uint8_t skyLight = cells[selfIndex].lightLevel.skyLight;
 		if (skyLight < 2)
 			continue;
@@ -732,19 +728,19 @@ uint32_t Chunk::propagateSkyLight()
 		const bool isFullSunlight = skyLight == 15;
 		if (isFullSunlight)
 		{
-			int ny = y;
+			int ny = currentPos.y;
 			size_t belowIndex = selfIndex;
 
 			const std::array<glm::ivec2, 4> nXZs =
 			{
-				glm::ivec2(x - 1, z    ),
-				glm::ivec2(x + 1, z    ),
-				glm::ivec2(x    , z - 1),
-				glm::ivec2(x    , z + 1)
+				glm::ivec2(currentPos.x - 1, currentPos.z    ),
+				glm::ivec2(currentPos.x + 1, currentPos.z    ),
+				glm::ivec2(currentPos.x    , currentPos.z - 1),
+				glm::ivec2(currentPos.x    , currentPos.z + 1)
 			};
 
-			const uint32_t maskInteriorY = getNeighborDirtyMask(x, 1, z);        // any interior y
-			const uint32_t maskBottomY = getNeighborDirtyMask(x, 0, z);
+			const uint32_t maskInteriorY = getNeighborDirtyMask(currentPos.x, 1, currentPos.z); // any interior y
+			const uint32_t maskBottomY = getNeighborDirtyMask(currentPos.x, 0, currentPos.z);
 
 			while (--ny >= 0)
 			{
@@ -755,7 +751,7 @@ uint32_t Chunk::propagateSkyLight()
 
 				const BlockId block = cells[belowIndex].block;
 				const auto* blockData = AssetRegistry::getBlockDataSafe(block);
-				if (blockData->absorbsLight)
+				if (blockData->lightAbsorbing[3]) // 3 = 2 ^ 1 (xor)
 					break;
 
 				cells[belowIndex].lightLevel.skyLight = 15;
@@ -777,16 +773,16 @@ uint32_t Chunk::propagateSkyLight()
 				if (belowChunk && belowChunk->isLightBuilt())
 				{
 					constexpr int belowY = CHUNK_SIZE - 1;
-					const size_t belowIndex = getIndex(x, belowY, z);
+					const size_t belowIndex = getIndex(currentPos.x, belowY, currentPos.z);
 
 					if (belowChunk->cells[belowIndex].lightLevel.skyLight < 15)
 					{
 						const auto* blockData = AssetRegistry::getBlockDataSafe(belowChunk->cells[belowIndex].block);
-						if (!blockData->absorbsLight)
+						if (!(blockData->lightAbsorbing[3]))
 						{
 							belowChunk->cells[belowIndex].lightLevel.skyLight = 15;
-							belowChunk->addSkyLightPropagationNode(x, belowY, z);
-							neighborDirtyMask |= getNeighborDirtyMask(x, 0, z);
+							belowChunk->addSkyLightPropagationNode(currentPos.x, belowY, currentPos.z);
+							neighborDirtyMask |= getNeighborDirtyMask(currentPos.x, 0, currentPos.z);
 						}
 					}
 				}
@@ -797,9 +793,9 @@ uint32_t Chunk::propagateSkyLight()
 		for (int i = 0; i < dirCount; i++)
 		{
 			const glm::ivec3 offset = DirectionsTable::directionsXZY[i];
-			const int nx = x + offset.x;
-			const int ny = y + offset.y;
-			const int nz = z + offset.z;
+			const int nx = currentPos.x + offset.x;
+			const int ny = currentPos.y + offset.y;
+			const int nz = currentPos.z + offset.z;
 
 			tryPropagate(nx, ny, nz, nextLight);
 		}
@@ -817,25 +813,25 @@ uint32_t Chunk::propagateBlockLightRemoval()
 	{
 		// Get node data
 		const auto data = LightPropagationStorage::threadLocalBlockLightRemoval.pop_and_return_unsafe();
+		const glm::ivec3 currentPos{ data.x, data.y, data.z };
+		const uint8_t entryLightLevel = data.lightLevel;
 
 		// Propagate to neighbors
 		for (int i = 0; i < 6; i++)
 		{
 			// Calculate neighbor block coordinates
 			const glm::ivec3 offset = DirectionsTable::directionsXYZ[i];
-			const int nx = data.x + offset.x;
-			const int ny = data.y + offset.y;
-			const int nz = data.z + offset.z;
+			const glm::ivec3 neighborPos = currentPos + offset;
 
 			// Get neighbor chunk and block index
 			size_t neighborBlockIndex;
 			Chunk* neighborChunk;
 
-			const bool isNeighborBlockInSameChunk = isInsideChunk(nx, ny, nz);
+			const bool isNeighborBlockInSameChunk = isInsideChunk(neighborPos);
 			if (isNeighborBlockInSameChunk)
 			{
 				neighborChunk = this;
-				neighborBlockIndex = getIndex(nx, ny, nz);
+				neighborBlockIndex = getIndex(neighborPos);
 			}
 			else
 			{
@@ -844,7 +840,7 @@ uint32_t Chunk::propagateBlockLightRemoval()
 				{
 					continue;
 				}
-				neighborBlockIndex = getIndex(nx & CHUNK_LOWER_BITS_MASK, ny & CHUNK_LOWER_BITS_MASK, nz & CHUNK_LOWER_BITS_MASK);
+				neighborBlockIndex = getIndex(neighborPos & CHUNK_LOWER_BITS_MASK);
 			}
 
 			// Get neighbor block data
@@ -852,36 +848,51 @@ uint32_t Chunk::propagateBlockLightRemoval()
 			const auto* neighborBlockData = AssetRegistry::getBlockDataSafe(neighborBlock);
 
 			// If block absorbs light, skip
-			if (neighborBlockData->absorbsLight && neighborBlockData->faceCulling[i ^ 1])
+			if (neighborBlockData->lightAbsorbing[i ^ 1])
+			{
+				continue;
+			}
+
+			// Get neighbor block light level and compare it
+			uint8_t neighborBlockLight = neighborChunk->getLightAt(neighborBlockIndex).blockLight;
+			if (neighborBlockLight == 0)
 			{
 				continue;
 			}
 
 			// Propagate
-			uint8_t neighborBlockLight = neighborChunk->getLightAt(neighborBlockIndex).blockLight;
-			if (neighborBlockLight > 0 && neighborBlockLight < data.lightLevel)
+			if (neighborBlockLight < entryLightLevel)
 			{
 				neighborChunk->cells[neighborBlockIndex].lightLevel.blockLight = 0;
 				if (isNeighborBlockInSameChunk)
 				{
-					LightPropagationStorage::threadLocalBlockLightRemoval.emplace(nx, ny, nz, neighborBlockLight);
+					LightPropagationStorage::threadLocalBlockLightRemoval.emplace(
+						neighborPos.x,
+						neighborPos.y,
+						neighborPos.z,
+						neighborBlockLight
+					);
 				}
 				else
 				{
-					neighborChunk->addBlockLightRemovalNode(nx & CHUNK_LOWER_BITS_MASK, ny & CHUNK_LOWER_BITS_MASK, nz & CHUNK_LOWER_BITS_MASK, neighborBlockLight);
+					neighborChunk->addBlockLightRemovalNode(neighborPos & CHUNK_LOWER_BITS_MASK, neighborBlockLight);
 				}
 
-				neighborDirtyMask |= getNeighborDirtyMask(nx, ny, nz);
+				neighborDirtyMask |= getNeighborDirtyMask(neighborPos);
 			}
-			else if (neighborBlockLight >= data.lightLevel)
+			else if (neighborBlockLight >= entryLightLevel)
 			{
 				if (isNeighborBlockInSameChunk)
 				{
-					LightPropagationStorage::threadLocalBlockLightPropagation.emplace(nx, ny, nz);
+					LightPropagationStorage::threadLocalBlockLightPropagation.emplace(
+						neighborPos.x,
+						neighborPos.y,
+						neighborPos.z
+					);
 				}
 				else
 				{
-					neighborChunk->addBlockLightPropagationNode(nx & CHUNK_LOWER_BITS_MASK, ny & CHUNK_LOWER_BITS_MASK, nz & CHUNK_LOWER_BITS_MASK);
+					neighborChunk->addBlockLightPropagationNode(neighborPos & CHUNK_LOWER_BITS_MASK);
 				}
 			}
 		}
@@ -899,9 +910,8 @@ uint32_t Chunk::propagateSkyLightRemoval()
 	{
 		// Get node data
 		const auto data = LightPropagationStorage::threadLocalSkyLightRemoval.pop_and_return_unsafe();
-		const int x = data.x;
-		const int y = data.y;
-		const int z = data.z;
+		const glm::ivec3 currentPos{ data.x, data.y, data.z };
+		const uint8_t entryLightLevel = data.lightLevel;
 
 		const bool isMaxLightLevel = data.lightLevel == 15;
 
@@ -910,19 +920,17 @@ uint32_t Chunk::propagateSkyLightRemoval()
 		{
 			// Calculate neighbor block coordinates
 			const glm::ivec3 offset = DirectionsTable::directionsXYZ[i];
-			const int nx = x + offset.x;
-			const int ny = y + offset.y;
-			const int nz = z + offset.z;
+			const glm::ivec3 neighborPos = currentPos + offset;
 
 			// Get neighbor chunk and block index
 			size_t neighborBlockIndex;
 			Chunk* neighborChunk;
 
-			const bool isNeighborBlockInSameChunk = isInsideChunk(nx, ny, nz);
+			const bool isNeighborBlockInSameChunk = isInsideChunk(neighborPos);
 			if (isNeighborBlockInSameChunk)
 			{
 				neighborChunk = this;
-				neighborBlockIndex = getIndex(nx, ny, nz);
+				neighborBlockIndex = getIndex(neighborPos);
 			}
 			else
 			{
@@ -932,8 +940,8 @@ uint32_t Chunk::propagateSkyLightRemoval()
 					// If chunk at neighbor position is 'nullptr', that means it's open to sky light and will propagate it
 					if (i == 3)
 					{
-						cells[getIndex(x, y, z)].lightLevel.skyLight = 15;
-						LightPropagationStorage::threadLocalSkyLightPropagation.emplace(x, y, z);
+						cells[getIndex(neighborPos)].lightLevel.skyLight = 15;
+						LightPropagationStorage::threadLocalSkyLightPropagation.emplace(neighborPos.x, neighborPos.y, neighborPos.z);
 					}
 					continue;
 				}
@@ -941,7 +949,7 @@ uint32_t Chunk::propagateSkyLightRemoval()
 				{
 					continue;
 				}
-				neighborBlockIndex = getIndex(nx & CHUNK_LOWER_BITS_MASK, ny & CHUNK_LOWER_BITS_MASK, nz & CHUNK_LOWER_BITS_MASK);
+				neighborBlockIndex = getIndex(neighborPos & CHUNK_LOWER_BITS_MASK);
 			}
 
 			// Get neighbor block data
@@ -949,38 +957,42 @@ uint32_t Chunk::propagateSkyLightRemoval()
 			const auto* neighborBlockData = AssetRegistry::getBlockDataSafe(neighborBlock);
 
 			// If block absorbs light, skip
-			if (neighborBlockData->absorbsLight && neighborBlockData->faceCulling[i ^ 1])
+			if (neighborBlockData->lightAbsorbing[i ^ 1])
 			{
 				continue;
 			}
 
-			// TODO: Check if neighbor light is zero
+			// Get neighbor block light level and compare it
+			uint8_t neighborSkyLight = neighborChunk->cells[neighborBlockIndex].lightLevel.skyLight;
+			if (neighborSkyLight == 0)
+			{
+				continue;
+			}
 
 			// Propagate
-			uint8_t neighborSkyLight = neighborChunk->cells[neighborBlockIndex].lightLevel.skyLight;
-			if (neighborSkyLight > 0 && (neighborSkyLight < data.lightLevel || (isMaxLightLevel && i == 2)))
+			if (neighborSkyLight < entryLightLevel || (isMaxLightLevel && i == 2))
 			{
 				neighborChunk->cells[neighborBlockIndex].lightLevel.skyLight = 0;
 				if (isNeighborBlockInSameChunk)
 				{
-					LightPropagationStorage::threadLocalSkyLightRemoval.emplace(nx, ny, nz, neighborSkyLight);
+					LightPropagationStorage::threadLocalSkyLightRemoval.emplace(neighborPos.x, neighborPos.y, neighborPos.z, neighborSkyLight);
 				}
 				else
 				{
-					neighborChunk->addSkyLightRemovalNode(nx & CHUNK_LOWER_BITS_MASK, ny & CHUNK_LOWER_BITS_MASK, nz & CHUNK_LOWER_BITS_MASK, neighborSkyLight);
+					neighborChunk->addSkyLightRemovalNode(neighborPos & CHUNK_LOWER_BITS_MASK, neighborSkyLight);
 				}
 
-				neighborDirtyMask |= getNeighborDirtyMask(nx, ny, nz);
+				neighborDirtyMask |= getNeighborDirtyMask(neighborPos);
 			}
-			else if (neighborSkyLight >= data.lightLevel)
+			else if (neighborSkyLight >= entryLightLevel)
 			{
 				if (isNeighborBlockInSameChunk)
 				{
-					LightPropagationStorage::threadLocalSkyLightPropagation.emplace(nx, ny, nz);
+					LightPropagationStorage::threadLocalSkyLightPropagation.emplace(neighborPos.x, neighborPos.y, neighborPos.z);
 				}
 				else
 				{
-					neighborChunk->addSkyLightPropagationNode(nx & CHUNK_LOWER_BITS_MASK, ny & CHUNK_LOWER_BITS_MASK, nz & CHUNK_LOWER_BITS_MASK);
+					neighborChunk->addSkyLightPropagationNode(neighborPos & CHUNK_LOWER_BITS_MASK);
 				}
 			}
 		}
@@ -1040,7 +1052,7 @@ void Chunk::buildLight()
 				size_t idx = getIndex(x, y, z);
 				BlockId block = cells[idx].block;
 				const BlockData* blockData = AssetRegistry::getBlockDataSafe(block);
-				if (!(blockData->absorbsLight && blockData->faceCulling[3]))
+				if (!(blockData->lightAbsorbing[3]))
 				{
 					highestAirY = y;
 					break;
@@ -1063,11 +1075,11 @@ void Chunk::buildLight()
 
 		TRACY_SCOPE_NC("Collect light levels from neighbors", ProfileCategory::ChunkLight);
 
-		auto processNeighborFace = [&](int x, int y, int z, int nx, int ny, int nz, const Chunk* neighbor, bool propagatingFromTop)
+		auto processNeighborFace = [&](int x, int y, int z, int nx, int ny, int nz, int side, const Chunk* neighbor, bool propagatingFromTop)
 			{
 				size_t index = getIndex(x, y, z);
 				const auto* blockData = AssetRegistry::getBlockDataSafe(cells[index].block);
-				if (blockData->absorbsLight) // TODO: Also check for face culling
+				if (blockData->lightAbsorbing[side ^ 1]) // TODO: Also check for face culling
 				{
 					return;
 				}
@@ -1106,7 +1118,7 @@ void Chunk::buildLight()
 			for (int y = 0; y < CHUNK_SIZE; y++)
 			for (int z = 0; z < CHUNK_SIZE; z++)
 			{
-				processNeighborFace(x, y, z, neighborX, y, z, neighbor, false);
+				processNeighborFace(x, y, z, neighborX, y, z, 0, neighbor, false);
 			}
 		}
 
@@ -1119,7 +1131,7 @@ void Chunk::buildLight()
 			for (int y = 0; y < CHUNK_SIZE; y++)
 			for (int z = 0; z < CHUNK_SIZE; z++)
 			{
-				processNeighborFace(x, y, z, neighborX, y, z, neighbor, false);
+				processNeighborFace(x, y, z, neighborX, y, z, 1, neighbor, false);
 			}
 		}
 
@@ -1132,7 +1144,7 @@ void Chunk::buildLight()
 			for (int x = 0; x < CHUNK_SIZE; x++)
 			for (int z = 0; z < CHUNK_SIZE; z++)
 			{
-				processNeighborFace(x, y, z, x, neighborY, z, neighbor, false);
+				processNeighborFace(x, y, z, x, neighborY, z, 2, neighbor, false);
 			}
 		}
 
@@ -1145,7 +1157,7 @@ void Chunk::buildLight()
 			for (int x = 0; x < CHUNK_SIZE; x++)
 			for (int z = 0; z < CHUNK_SIZE; z++)
 			{
-				processNeighborFace(x, y, z, x, neighborY, z, neighbor, true);
+				processNeighborFace(x, y, z, x, neighborY, z, 3, neighbor, true);
 			}
 		}
 
@@ -1158,7 +1170,7 @@ void Chunk::buildLight()
 			for (int x = 0; x < CHUNK_SIZE; x++)
 			for (int y = 0; y < CHUNK_SIZE; y++)
 			{
-				processNeighborFace(x, y, z, x, y, neighborZ, neighbor, false);
+				processNeighborFace(x, y, z, x, y, neighborZ, 4, neighbor, false);
 			}
 		}
 
@@ -1171,7 +1183,7 @@ void Chunk::buildLight()
 			for (int x = 0; x < CHUNK_SIZE; x++)
 			for (int y = 0; y < CHUNK_SIZE; y++)
 			{
-				processNeighborFace(x, y, z, x, y, neighborZ, neighbor, false);
+				processNeighborFace(x, y, z, x, y, neighborZ, 5, neighbor, false);
 			}
 		}
 	}
@@ -1184,31 +1196,31 @@ void Chunk::buildLight()
 	setState(State::LightsBuilt);
 
 	//
-	Chunk* lowerNeighbor = neighbors[getNeighborIndex(0, -1, 0)];
-	if (lowerNeighbor && lowerNeighbor->isLightBuilt())
-	{
-		for (int x = 0; x < CHUNK_SIZE; x++)
-		for (int z = 0; z < CHUNK_SIZE; z++)
-		{
-			size_t index = getIndex(x, 0, z);
-
-			// Get block data
-			BlockId block = cells[index].block;
-			const BlockData* blockData = AssetRegistry::getBlockDataSafe(block);
-
-			// If block absorbs light, then make sure to remove sky light from the block below in the neighbor chunk, because it should be fully dark there
-			if (!blockData->absorbsLight)
-				continue;
-
-			size_t lowerIndex = getIndex(x, CHUNK_SIZE - 1, z);
-			uint8_t lowerSkyLight = lowerNeighbor->cells[lowerIndex].lightLevel.skyLight;
-			if (lowerSkyLight > 0)
-			{
-				lowerNeighbor->cells[lowerIndex].lightLevel.skyLight = 0;
-				lowerNeighbor->addSkyLightRemovalNode(x, CHUNK_SIZE - 1, z, lowerSkyLight);
-			}
-		}
-	}
+	//Chunk* lowerNeighbor = neighbors[getNeighborIndex(0, -1, 0)];
+	//if (lowerNeighbor && lowerNeighbor->isLightBuilt())
+	//{
+	//	for (int x = 0; x < CHUNK_SIZE; x++)
+	//	for (int z = 0; z < CHUNK_SIZE; z++)
+	//	{
+	//		size_t index = getIndex(x, 0, z);
+	//
+	//		// Get block data
+	//		BlockId block = cells[index].block;
+	//		const BlockData* blockData = AssetRegistry::getBlockDataSafe(block);
+	//
+	//		// If block absorbs light, then make sure to remove sky light from the block below in the neighbor chunk, because it should be fully dark there
+	//		if (!blockData->lightAbsorbing[3])
+	//			continue;
+	//
+	//		size_t lowerIndex = getIndex(x, CHUNK_SIZE - 1, z);
+	//		uint8_t lowerSkyLight = lowerNeighbor->cells[lowerIndex].lightLevel.skyLight;
+	//		if (lowerSkyLight > 0)
+	//		{
+	//			lowerNeighbor->cells[lowerIndex].lightLevel.skyLight = 0;
+	//			lowerNeighbor->addSkyLightRemovalNode(x, CHUNK_SIZE - 1, z, lowerSkyLight);
+	//		}
+	//	}
+	//}
 
 	// Apply dirty mask
 	applyNeighborDirtyMask(-1); // Update all neighbors, because 'buildLight' is called after 'buildBlocks', so every neighbor is dirty
@@ -1819,81 +1831,81 @@ void Chunk::setBlockAt(int x, int y, int z, BlockId block, bool saveBlockChanges
 	uint8_t newEmission = newBlockData->lightEmission;
 
 	// TODO: Now both blocks can absorb light, but can have different faceCulling values
-	if (previousBlockData->absorbsLight && !newBlockData->absorbsLight)
-	{
-		const glm::ivec3 currentBlockPosition = glm::ivec3(x, y, z);
-
-		// Collect maximum light level from neighbors and propagate it to this block
-		uint8_t maxBlockLightToSet = 0;
-		uint8_t maxSkyLightToSet = 0;
-		for (int i = 0; i < 6; i++)
-		{
-			glm::ivec3 npos = currentBlockPosition + DirectionsTable::directionsXYZ[i];
-
-			size_t neighborIndex;
-			Chunk* neighborChunk = traverseToSideNeighbor(npos.x, npos.y, npos.z, i, neighborIndex);
-			if (!neighborChunk)
-			{
-				continue;
-			}
-
-			LightLevel neighborLight = neighborChunk->getLightAt(neighborIndex);
-
-			if (neighborLight.blockLight > maxBlockLightToSet && neighborLight.blockLight > 1)
-			{
-				maxBlockLightToSet = neighborLight.blockLight - 1;
-			}
-
-			uint8_t skyLightAbsorption = (i == 3 && neighborLight.skyLight == 15) ? 0 : 1;
-			if (neighborLight.skyLight > maxSkyLightToSet && neighborLight.skyLight > skyLightAbsorption)
-			{
-				maxSkyLightToSet = neighborLight.skyLight - skyLightAbsorption;
-			}
-		}
-
-		if (maxBlockLightToSet > 0)
-		{
-			cells[index].lightLevel.blockLight = maxBlockLightToSet;
-			if (maxBlockLightToSet > 1) addBlockLightPropagationNode(x, y, z);
-		}
-		if (maxSkyLightToSet > 0)
-		{
-			cells[index].lightLevel.skyLight = maxSkyLightToSet;
-			if (maxSkyLightToSet > 1) addSkyLightPropagationNode(x, y, z);
-		}
-	}
-	else if (!previousBlockData->absorbsLight && newBlockData->absorbsLight)
-	{
-		// Remove light at this block
-		uint8_t currentBlockLight = cells[index].lightLevel.blockLight;
-		if (currentBlockLight > 0)
-		{
-			cells[index].lightLevel.blockLight = 0;
-			addBlockLightRemovalNode(x, y, z, currentBlockLight);
-		}
-		uint8_t currentSkyLight = cells[index].lightLevel.skyLight;
-		if (currentSkyLight > 0)
-		{
-			cells[index].lightLevel.skyLight = 0;
-			addSkyLightRemovalNode(x, y, z, currentSkyLight);
-		}
-	}
-
-	// Handle light emission changes
-	if (previousEmission != newEmission)
-	{
-		if (previousEmission > newEmission)
-		{
-			cells[index].lightLevel.blockLight = 0;
-			addBlockLightRemovalNode(x, y, z, previousEmission);
-		}
-
-		if (newEmission > 0)
-		{
-			cells[index].lightLevel.blockLight = newEmission;
-			addBlockLightPropagationNode(x, y, z);
-		}
-	}
+	//if (previousBlockData->lightAbsorbing && !newBlockData->lightAbsorbing)
+	//{
+	//	const glm::ivec3 currentBlockPosition = glm::ivec3(x, y, z);
+	//
+	//	// Collect maximum light level from neighbors and propagate it to this block
+	//	uint8_t maxBlockLightToSet = 0;
+	//	uint8_t maxSkyLightToSet = 0;
+	//	for (int i = 0; i < 6; i++)
+	//	{
+	//		glm::ivec3 npos = currentBlockPosition + DirectionsTable::directionsXYZ[i];
+	//
+	//		size_t neighborIndex;
+	//		Chunk* neighborChunk = traverseToSideNeighbor(npos.x, npos.y, npos.z, i, neighborIndex);
+	//		if (!neighborChunk)
+	//		{
+	//			continue;
+	//		}
+	//
+	//		LightLevel neighborLight = neighborChunk->getLightAt(neighborIndex);
+	//
+	//		if (neighborLight.blockLight > maxBlockLightToSet && neighborLight.blockLight > 1)
+	//		{
+	//			maxBlockLightToSet = neighborLight.blockLight - 1;
+	//		}
+	//
+	//		uint8_t skyLightAbsorption = (i == 3 && neighborLight.skyLight == 15) ? 0 : 1;
+	//		if (neighborLight.skyLight > maxSkyLightToSet && neighborLight.skyLight > skyLightAbsorption)
+	//		{
+	//			maxSkyLightToSet = neighborLight.skyLight - skyLightAbsorption;
+	//		}
+	//	}
+	//
+	//	if (maxBlockLightToSet > 0)
+	//	{
+	//		cells[index].lightLevel.blockLight = maxBlockLightToSet;
+	//		if (maxBlockLightToSet > 1) addBlockLightPropagationNode(x, y, z);
+	//	}
+	//	if (maxSkyLightToSet > 0)
+	//	{
+	//		cells[index].lightLevel.skyLight = maxSkyLightToSet;
+	//		if (maxSkyLightToSet > 1) addSkyLightPropagationNode(x, y, z);
+	//	}
+	//}
+	//else if (!previousBlockData->lightAbsorbing && newBlockData->lightAbsorbing)
+	//{
+	//	// Remove light at this block
+	//	uint8_t currentBlockLight = cells[index].lightLevel.blockLight;
+	//	if (currentBlockLight > 0)
+	//	{
+	//		cells[index].lightLevel.blockLight = 0;
+	//		addBlockLightRemovalNode(x, y, z, currentBlockLight);
+	//	}
+	//	uint8_t currentSkyLight = cells[index].lightLevel.skyLight;
+	//	if (currentSkyLight > 0)
+	//	{
+	//		cells[index].lightLevel.skyLight = 0;
+	//		addSkyLightRemovalNode(x, y, z, currentSkyLight);
+	//	}
+	//}
+	//
+	//// Handle light emission changes
+	//if (previousEmission != newEmission)
+	//{
+	//	if (previousEmission > newEmission)
+	//	{
+	//		cells[index].lightLevel.blockLight = 0;
+	//		addBlockLightRemovalNode(x, y, z, previousEmission);
+	//	}
+	//
+	//	if (newEmission > 0)
+	//	{
+	//		cells[index].lightLevel.blockLight = newEmission;
+	//		addBlockLightPropagationNode(x, y, z);
+	//	}
+	//}
 
 	// Mark meshes as dirty
 	markMeshesDirtyAroundBlock(x, y, z);

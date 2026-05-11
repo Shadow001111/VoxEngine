@@ -255,7 +255,7 @@ void AssetRegistry::registerBlock(const BlockAsset& asset)
 
 	// Properties
 	data.stringId = asset.stringId;
-	data.absorbsLight = asset.absorbsLight;
+	data.lightAbsorbing = asset.lightAbsorbing;
 	data.lightEmission = asset.lightEmission;
 	data.raycastable = asset.raycastable;
 
@@ -439,6 +439,10 @@ bool AssetRegistry::linkBlockAssets()
 						data.faceCulling.set(alignedFace.normal, shouldCull);
 					}
 				}
+			}
+			for (int i = 0; i < 6; i++)
+			{
+				data.lightAbsorbing[i] &= data.faceCulling.read(i);
 			}
 
 			// Collect sounds only. Load them later, once each.

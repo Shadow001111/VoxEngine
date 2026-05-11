@@ -248,7 +248,8 @@ bool DataPackManager::parseBlockPropertiesJson(const json& j, BlockAsset& outAss
     {
         if (j.at("absorbs_light").is_boolean())
         {
-            outAsset.absorbsLight = j.at("absorbs_light").get<bool>();
+            const bool absorbsLight = j.at("absorbs_light").get<bool>();
+			outAsset.lightAbsorbing.fill(absorbsLight);
         }
         else
         {

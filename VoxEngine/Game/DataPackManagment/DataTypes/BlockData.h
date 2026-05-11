@@ -7,6 +7,7 @@
 #include "Core/Bitset.h"
 
 // TODO: Reduce size
+// TODO: Use flags
 struct BlockData
 {
 	struct TextureSlot
@@ -27,7 +28,7 @@ struct BlockData
 	std::string stringId;
 
 	// Properties
-	bool absorbsLight = false;
+	std::array<bool, 6> lightAbsorbing{};
 	uint8_t lightEmission = 0;
 	bool raycastable = true;
 

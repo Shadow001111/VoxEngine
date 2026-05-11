@@ -331,6 +331,8 @@ public:
 
 	// Neighbor dirty mask
 	static uint32_t getNeighborDirtyMask(int x, int y, int z) noexcept;
+	static uint32_t getNeighborDirtyMask(const glm::ivec3& pos) noexcept { return getNeighborDirtyMask(pos.x, pos.y, pos.z); }
+
 	void applyNeighborDirtyMask(uint32_t mask) noexcept;
 
 	// Grid getters
@@ -377,9 +379,17 @@ public:
 
 	// Light propagation
 	void addBlockLightPropagationNode(int x, int y, int z);
+	void addBlockLightPropagationNode(const glm::ivec3& pos) { addBlockLightPropagationNode(pos.x, pos.y, pos.z); }
+
 	void addBlockLightRemovalNode(int x, int y, int z, uint8_t lightLevel);
+	void addBlockLightRemovalNode(const glm::ivec3& pos, uint8_t lightLevel) { addBlockLightRemovalNode(pos.x, pos.y, pos.z, lightLevel); }
+
 	void addSkyLightPropagationNode(int x, int y, int z);
+	void addSkyLightPropagationNode(const glm::ivec3& pos) { addSkyLightPropagationNode(pos.x, pos.y, pos.z); }
+
 	void addSkyLightRemovalNode(int x, int y, int z, uint8_t lightLevel);
+	void addSkyLightRemovalNode(const glm::ivec3& pos, uint8_t lightLevel) { addSkyLightRemovalNode(pos.x, pos.y, pos.z, lightLevel); }
+
 
 	// Chunk data getters
 	glm::ivec3 getPosition() const noexcept { return position; };
