@@ -1822,87 +1822,87 @@ void Chunk::setBlockAt(int x, int y, int z, BlockId block, bool saveBlockChanges
 
 	// Light update
 	const BlockDataHot* previousBlockData = AssetRegistry::getBlockDataHotSafe(previousBlock);
-	uint8_t previousEmission = previousBlockData->lightEmission;
 
 	const BlockDataHot* newBlockData = AssetRegistry::getBlockDataHotSafe(block);
-	uint8_t newEmission = newBlockData->lightEmission;
 
-	// TODO: Now both blocks can absorb light, but can have different faceCulling values
-	//if (previousBlockData->lightAbsorbing && !newBlockData->lightAbsorbing)
-	//{
-	//	const glm::ivec3 currentBlockPosition = glm::ivec3(x, y, z);
-	//
-	//	// Collect maximum light level from neighbors and propagate it to this block
-	//	uint8_t maxBlockLightToSet = 0;
-	//	uint8_t maxSkyLightToSet = 0;
-	//	for (int i = 0; i < 6; i++)
-	//	{
-	//		glm::ivec3 npos = currentBlockPosition + DirectionsTable::directionsXYZ[i];
-	//
-	//		size_t neighborIndex;
-	//		Chunk* neighborChunk = traverseToSideNeighbor(npos.x, npos.y, npos.z, i, neighborIndex);
-	//		if (!neighborChunk)
-	//		{
-	//			continue;
-	//		}
-	//
-	//		LightLevel neighborLight = neighborChunk->getLightAt(neighborIndex);
-	//
-	//		if (neighborLight.blockLight > maxBlockLightToSet && neighborLight.blockLight > 1)
-	//		{
-	//			maxBlockLightToSet = neighborLight.blockLight - 1;
-	//		}
-	//
-	//		uint8_t skyLightAbsorption = (i == 3 && neighborLight.skyLight == 15) ? 0 : 1;
-	//		if (neighborLight.skyLight > maxSkyLightToSet && neighborLight.skyLight > skyLightAbsorption)
-	//		{
-	//			maxSkyLightToSet = neighborLight.skyLight - skyLightAbsorption;
-	//		}
-	//	}
-	//
-	//	if (maxBlockLightToSet > 0)
-	//	{
-	//		cells[index].lightLevel.blockLight = maxBlockLightToSet;
-	//		if (maxBlockLightToSet > 1) addBlockLightPropagationNode(x, y, z);
-	//	}
-	//	if (maxSkyLightToSet > 0)
-	//	{
-	//		cells[index].lightLevel.skyLight = maxSkyLightToSet;
-	//		if (maxSkyLightToSet > 1) addSkyLightPropagationNode(x, y, z);
-	//	}
-	//}
-	//else if (!previousBlockData->lightAbsorbing && newBlockData->lightAbsorbing)
-	//{
-	//	// Remove light at this block
-	//	uint8_t currentBlockLight = cells[index].lightLevel.blockLight;
-	//	if (currentBlockLight > 0)
-	//	{
-	//		cells[index].lightLevel.blockLight = 0;
-	//		addBlockLightRemovalNode(x, y, z, currentBlockLight);
-	//	}
-	//	uint8_t currentSkyLight = cells[index].lightLevel.skyLight;
-	//	if (currentSkyLight > 0)
-	//	{
-	//		cells[index].lightLevel.skyLight = 0;
-	//		addSkyLightRemovalNode(x, y, z, currentSkyLight);
-	//	}
-	//}
-	//
-	//// Handle light emission changes
-	//if (previousEmission != newEmission)
-	//{
-	//	if (previousEmission > newEmission)
-	//	{
-	//		cells[index].lightLevel.blockLight = 0;
-	//		addBlockLightRemovalNode(x, y, z, previousEmission);
-	//	}
-	//
-	//	if (newEmission > 0)
-	//	{
-	//		cells[index].lightLevel.blockLight = newEmission;
-	//		addBlockLightPropagationNode(x, y, z);
-	//	}
-	//}
+	// Handle light absorption changes
+	const glm::ivec3 currentBlockPosition = glm::ivec3(x, y, z);
+	{
+		uint8_t maxBlockLightToSet = 0;
+		uint8_t maxSkyLightToSet = 0;
+		for (int i = 0; i < 6; i++)
+		{
+			bool wasAbsorbing = previousBlockData->lightAbsorbing[i];
+			bool isAbsorbing = newBlockData->lightAbsorbing[i];
+			if (wasAbsorbing || !isAbsorbing)
+			{
+				const glm::ivec3 npos = currentBlockPosition + DirectionsTable::directionsXYZ[i];
+				size_t neighborIndex;
+				Chunk* neighborChunk = traverseToSideNeighbor(npos.x, npos.y, npos.z, i, neighborIndex);
+				if (!neighborChunk)
+				{
+					continue;
+				}
+
+				LightLevel neighborLight = neighborChunk->getLightAt(neighborIndex);
+				if (neighborLight.blockLight > maxBlockLightToSet && neighborLight.blockLight > 1)
+				{
+					maxBlockLightToSet = neighborLight.blockLight - 1;
+				}
+
+				uint8_t skyLightAbsorption = (i == 3 && neighborLight.skyLight == 15) ? 0 : 1;
+				if (neighborLight.skyLight > maxSkyLightToSet && neighborLight.skyLight > skyLightAbsorption)
+				{
+					maxSkyLightToSet = neighborLight.skyLight - skyLightAbsorption;
+				}
+			}
+		}
+
+		if (maxBlockLightToSet > 0)
+		{
+			cells[index].lightLevel.blockLight = maxBlockLightToSet;
+			if (maxBlockLightToSet > 1) addBlockLightPropagationNode(x, y, z);
+		}
+		if (maxSkyLightToSet > 0)
+		{
+			cells[index].lightLevel.skyLight = maxSkyLightToSet;
+			if (maxSkyLightToSet > 1) addSkyLightPropagationNode(x, y, z);
+		}
+	}
+	if ((!previousBlockData->lightAbsorbing & newBlockData->lightAbsorbing).any())
+	{
+		// Remove light at this block
+		uint8_t currentBlockLight = cells[index].lightLevel.blockLight;
+		if (currentBlockLight > 0)
+		{
+			cells[index].lightLevel.blockLight = 0;
+			addBlockLightRemovalNode(x, y, z, currentBlockLight);
+		}
+		uint8_t currentSkyLight = cells[index].lightLevel.skyLight;
+		if (currentSkyLight > 0)
+		{
+			cells[index].lightLevel.skyLight = 0;
+			addSkyLightRemovalNode(x, y, z, currentSkyLight);
+		}
+	}
+
+	// Handle light emission changes
+	const uint8_t previousEmission = previousBlockData->lightEmission;
+	const uint8_t newEmission = newBlockData->lightEmission;
+	if (previousEmission != newEmission)
+	{
+		if (previousEmission > newEmission)
+		{
+			cells[index].lightLevel.blockLight = 0;
+			addBlockLightRemovalNode(x, y, z, previousEmission);
+		}
+	
+		if (newEmission > 0)
+		{
+			cells[index].lightLevel.blockLight = newEmission;
+			addBlockLightPropagationNode(x, y, z);
+		}
+	}
 
 	// Mark meshes as dirty
 	markMeshesDirtyAroundBlock(x, y, z);

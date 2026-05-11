@@ -119,12 +119,16 @@ public:
 
     [[nodiscard]] bool any() const noexcept
     {
-        for (const auto& w : words)
+        // Check all full words first
+        for (size_t i = 0; i < Bits / BitsPerWord; i++)
+			if (words[i] != 0) return true;
+
+		// Check remaining bits in the last partial word (if any)
+		constexpr size_t remainder = Bits % BitsPerWord;
+        if constexpr (remainder != 0)
         {
-            if (w != 0)
-            {
-                return true;
-            }
+            constexpr Word mask = (Word(1) << remainder) - 1;
+			if ((words[WordCount - 1] & mask) != 0) return true;
         }
         return false;
     }
@@ -226,6 +230,11 @@ public:
             result.words[i] = words[i] ^ rhs.words[i];
         return result;
     }
+
+    [[nodiscard]] Bitset operator!() const noexcept
+    {
+        return ~(*this);
+	}
 
     Bitset& operator&=(const Bitset& rhs) noexcept
     {
