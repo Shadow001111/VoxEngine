@@ -372,6 +372,9 @@ public:
 	void setBlockLightAt(size_t index, uint8_t lightLevel);
 	void setSkyLightAt(size_t index, uint8_t lightLevel);
 
+	// Neighbors
+	bool areAllSideNeighborsHaveBlocksBuilt() const noexcept;
+
 	// Light propagation
 	void addBlockLightPropagationNode(int x, int y, int z);
 	void addBlockLightRemovalNode(int x, int y, int z, uint8_t lightLevel);

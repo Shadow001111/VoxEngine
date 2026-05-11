@@ -223,6 +223,7 @@ void WorldChunkManager::startBuildingChunkBlocks()
 			Chunk* chunk = buildContainers.blocks[i];
 			if (chunk->getState() == Chunk::State::NotInitialized_NeedsBlocks)
 			{
+				chunk->setState(Chunk::State::BuildingBlocks);
 				i++;
 			}
 			else
@@ -260,7 +261,6 @@ void WorldChunkManager::startBuildingChunkBlocks()
 				{
 					for (Chunk* chunk : batch_)
 					{
-						chunk->setState(Chunk::State::BuildingBlocks);
 						chunk->buildBlocks();
 					}
 
@@ -312,22 +312,7 @@ void WorldChunkManager::startBuildingChunkLights()
 
 		for (Chunk* chunk : buildContainers.lightsProcessing)
 		{
-			if (!chunk->areBlocksBuilt() || chunk->isLightBuilt())
-				continue; // discard
-
-			bool allNeighborsReady = true;
-			const auto& neighbors = chunk->getNeighbors();
-			for (int i = 0; i < 6; i++)
-			{
-				const Chunk* neighbor = neighbors[Chunk::getSideNeighborIndex(i)];
-				if (neighbor && !neighbor->areBlocksBuilt())
-				{
-					allNeighborsReady = false;
-					break;
-				}
-			}
-
-			if (allNeighborsReady)
+			if (chunk->getState() == Chunk::State::BlocksBuit_NeedsLight && chunk->areAllSideNeighborsHaveBlocksBuilt())
 			{
 				chunk->setState(Chunk::State::BuildingLight);
 				chunksToProcess.push_back(chunk);

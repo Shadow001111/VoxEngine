@@ -122,15 +122,6 @@ void ParallelUtils::parallelFor(size_t start, size_t end, size_t minChunkSize, F
     if (end <= start) return;
 
     const size_t totalItems = end - start;
-    if (totalItems <= minChunkSize)
-    {
-        // Too small for parallelization
-        for (size_t i = start; i < end; i++)
-        {
-            func(i);
-        }
-        return;
-    }
 
     ThreadPool& pool = getGlobalThreadPool();
     size_t numThreads = pool.getThreadCount();

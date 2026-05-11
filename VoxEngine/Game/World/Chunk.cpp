@@ -954,6 +954,8 @@ uint32_t Chunk::propagateSkyLightRemoval()
 				continue;
 			}
 
+			// TODO: Check if neighbor light is zero
+
 			// Propagate
 			uint8_t neighborSkyLight = neighborChunk->cells[neighborBlockIndex].lightLevel.skyLight;
 			if (neighborSkyLight > 0 && (neighborSkyLight < data.lightLevel || (isMaxLightLevel && i == 2)))
@@ -1065,7 +1067,7 @@ void Chunk::buildLight()
 			{
 				size_t index = getIndex(x, y, z);
 				const auto* blockData = AssetRegistry::getBlockDataSafe(cells[index].block);
-				if (blockData->absorbsLight) // TODO: Also check face culling
+				if (blockData->absorbsLight) // TODO: Also check for face culling
 				{
 					return;
 				}
@@ -1216,8 +1218,7 @@ void Chunk::buildLight()
 	// TODO: Store array with side neighbor indices
 	for (int i = 0; i < 6; i++)
 	{
-		auto index = getSideNeighborIndex(i);
-		Chunk* neighbor = neighbors[index];
+		Chunk* neighbor = neighbors[getSideNeighborIndex(i)];
 		if (neighbor && neighbor->lightPropagation.hasNodes())
 		{
 			neighbor->parentRegion->setFlag(ChunkRegion::Flag::HasLightToUpdate, true);
@@ -1951,6 +1952,19 @@ void Chunk::setSkyLightAt(size_t index, uint8_t lightLevel)
 
 	glm::ivec3 pos = getPositionFromIndex(index);
 	markMeshesDirtyAroundBlock(pos.x, pos.y, pos.z);
+}
+
+bool Chunk::areAllSideNeighborsHaveBlocksBuilt() const noexcept
+{
+	for (int i = 0; i < 6; i++)
+	{
+		Chunk* neighbor = neighbors[getSideNeighborIndex(i)];
+		if (neighbor && !neighbor->areBlocksBuilt())
+		{
+			return false;
+		}
+	}
+	return true;
 }
 
 void Chunk::addBlockLightPropagationNode(int x, int y, int z)
