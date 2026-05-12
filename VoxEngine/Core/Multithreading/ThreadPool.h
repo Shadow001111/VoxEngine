@@ -148,11 +148,10 @@ void ParallelUtils::parallelFor(size_t start, size_t end, size_t minChunkSize, F
     const size_t totalItems = end - start;
 
     ThreadPool& pool = getGlobalThreadPool();
-    size_t numThreads = pool.getThreadCount();
-    size_t chunkSize = std::max(minChunkSize, (totalItems + numThreads - 1) / numThreads);
-    
-    size_t chunks = (totalItems + chunkSize - 1) / chunkSize;
-    chunkSize = (totalItems + chunks - 1) / chunks;
+
+    const size_t numThreads = pool.getThreadCount();
+    const size_t chunkSize = std::max(minChunkSize, (totalItems + numThreads - 1) / numThreads);
+    const size_t chunks = (totalItems + chunkSize - 1) / chunkSize;
 
 	std::latch doneLatch(chunks);
 

@@ -54,7 +54,7 @@ public:
     void startBuildingChunkBlocks();
     void startBuildingChunkLights();
     void collectChunksForLightUpdate();
-    void updateChunkLights();
+    void updateChunksLight();
     void updateChunkMeshes();
     void updateChunkConnectivity();
 

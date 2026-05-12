@@ -490,7 +490,7 @@ void Chunk::loadSave()
 {
 	TRACY_SCOPE_NC("Load chunk save", ProfileCategory::ChunkBlocks);
 
-	if (!parentRegion) return;
+	if (!parentRegion) [[unlikely]] return;
 
 	// Skip the filesystem entirely if the region tells us this chunk has never been written to disk
 	size_t indexInRegion = ChunkRegion::getChunkIndexInRegion(position);
@@ -545,7 +545,7 @@ void Chunk::save()
 {
 	TRACY_SCOPE_NC("Save chunk save", ProfileCategory::ChunkBlocks);
 
-	if (!parentRegion) return;
+	if (!parentRegion) [[unlikely]] return;
 
 	bool hasChanges = !blockChanges.empty();
 
@@ -1003,7 +1003,7 @@ uint32_t Chunk::propagateSkyLightRemoval()
 
 void Chunk::buildLight()
 {
-	if (!chunkFlags.read(Flag::IsLoadedInWorld))
+	if (!chunkFlags.read(Flag::IsLoadedInWorld)) [[unlikely]]
 	{
 		return;
 	}
@@ -1011,8 +1011,6 @@ void Chunk::buildLight()
 	TRACY_SCOPE_NC("Build chunk light", ProfileCategory::ChunkLight);
 
 	FenceGuard scopedFence(processingFence);
-
-	const Chunk* topNeighbor = neighbors[getNeighborIndex(0, 1, 0)];
 
 	// Collect block light sources
 	{
@@ -1033,38 +1031,6 @@ void Chunk::buildLight()
 			{
 				auto pos = getPositionFromIndex(index);
 				LightPropagationStorage::threadLocalBlockLightPropagation.emplace(pos.x, pos.y, pos.z);
-			}
-		}
-	}
-
-	// Collect sky light sources
-	if (!topNeighbor)
-	{
-		TRACY_SCOPE_NC("Collect sky light sources", ProfileCategory::ChunkLight);
-
-		for (int x = 0; x < CHUNK_SIZE; x++)
-		for (int z = 0; z < CHUNK_SIZE; z++)
-		{
-			// Find the highest non-solid block in this column
-			int highestAirY = -1;
-			for (int y = CHUNK_SIZE - 1; y >= 0; y--)
-			{
-				size_t idx = getIndex(x, y, z);
-				BlockId block = cells[idx].block;
-				const BlockDataHot* blockDataHot = AssetRegistry::getBlockDataHotSafe(block);
-				if (!(blockDataHot->lightAbsorbing[3]))
-				{
-					highestAirY = y;
-					break;
-				}
-			}
-
-			if (highestAirY >= 0)
-			{
-				size_t idx = getIndex(x, highestAirY, z);
-				cells[idx].lightLevel.skyLight = 15;
-				LightPropagationStorage::threadLocalSkyLightPropagation.emplace(
-					x, highestAirY, z);
 			}
 		}
 	}
@@ -1149,7 +1115,7 @@ void Chunk::buildLight()
 		}
 
 		// +Y
-		neighbor = topNeighbor;
+		neighbor = neighbors[getNeighborIndex(0, 1, 0)];
 		if (neighbor && neighbor->isLightBuilt())
 		{
 			const int y = CHUNK_SIZE - 1;
@@ -1186,6 +1152,38 @@ void Chunk::buildLight()
 				processNeighborFace(x, y, z, x, y, neighborZ, 5, neighbor, false);
 			}
 		}
+	}
+
+	// Collect sky light sources
+	const Chunk* topNeighbor = neighbors[getNeighborIndex(0, 1, 0)];
+	if (!topNeighbor)
+	{
+		TRACY_SCOPE_NC("Collect sky light sources", ProfileCategory::ChunkLight);
+
+		for (int x = 0; x < CHUNK_SIZE; x++)
+			for (int z = 0; z < CHUNK_SIZE; z++)
+			{
+				// Find the highest non-solid block in this column
+				int highestAirY = -1;
+				for (int y = CHUNK_SIZE - 1; y >= 0; y--)
+				{
+					size_t idx = getIndex(x, y, z);
+					BlockId block = cells[idx].block;
+					const BlockDataHot* blockDataHot = AssetRegistry::getBlockDataHotSafe(block);
+					if (!blockDataHot->lightAbsorbing[3])
+					{
+						highestAirY = y;
+						break;
+					}
+				}
+
+				if (highestAirY >= 0)
+				{
+					size_t idx = getIndex(x, highestAirY, z);
+					cells[idx].lightLevel.skyLight = 15;
+					LightPropagationStorage::threadLocalSkyLightPropagation.emplace(x, highestAirY, z);
+				}
+			}
 	}
 
 	// Propagate light

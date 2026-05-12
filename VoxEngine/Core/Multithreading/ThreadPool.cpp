@@ -79,16 +79,24 @@ void ThreadPool::workerThreadFunc(size_t threadIndex)
 
         // Try to get task
         {
-            std::lock_guard lock(context.queueMutex);
-            if (!context.tasks.empty())
+            std::unique_lock lock(context.queueMutex);
+            if (context.tasks.empty())
             {
-                task = std::move(context.tasks.front());
-                context.tasks.pop();
-                context.activeTaskCount.fetch_add(1, std::memory_order_relaxed);
+                // No job found, wait for a task to appear or a shutdown
+                context.newTaskCondition.wait(lock, [this] { return !context.tasks.empty() || context.stop.load(std::memory_order_relaxed); });
+
+                if (context.stop.load(std::memory_order_relaxed)) [[unlikely]]
+                {
+                    break;
+                }
             }
+
+            task = std::move(context.tasks.front());
+            context.tasks.pop();
+            context.activeTaskCount.fetch_add(1, std::memory_order_relaxed);
         }
 
-        if (task) [[likely]]
+        if (task)
         {
             try
             {
@@ -113,17 +121,6 @@ void ThreadPool::workerThreadFunc(size_t threadIndex)
                 {
                     context.completionCondition.notify_all();
                 }
-            }
-        }
-        else
-        {
-            // No job found, wait for a task to appear or a shutdown
-            std::unique_lock lock(context.queueMutex);
-            context.newTaskCondition.wait(lock, [this] { return !context.tasks.empty() || context.stop.load(std::memory_order_relaxed); });
-
-            if (context.stop.load(std::memory_order_relaxed))
-            {
-                break;
             }
         }
     }

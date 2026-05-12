@@ -117,18 +117,8 @@ void WorldChunkManager::update()
 	// Start building chunk lights
 	startBuildingChunkLights();
 
-	// Update chunks lights
-	for (int i = 0; i < 40; i++)
-	{
-		collectChunksForLightUpdate();
-
-		if (buildContainers.lightUpdateA.empty() && buildContainers.lightUpdateB.empty())
-		{
-			break;
-		}
-
-		updateChunkLights();
-	}
+	// Update chunks light
+	updateChunksLight();
 
 	// Update chunks meshes
 	updateChunkMeshes();
@@ -391,26 +381,38 @@ void WorldChunkManager::collectChunksForLightUpdate()
 	}
 }
 
-void WorldChunkManager::updateChunkLights()
+void WorldChunkManager::updateChunksLight()
 {
-	TRACY_SCOPE_NC("Update chunk lights", ProfileCategory::ChunkLight);
+	for (int i = 0; i < 40; i++)
+	{
+		collectChunksForLightUpdate();
 
-	// Using parallelForEach because it will assure that all tasks are done before returning
-	// Update chunks in two separate passes in checkboard pattern to make less iterations
-	// Could make this non-blocking, but I don't want to get more work because of it (idk what's better)
-	if (!buildContainers.lightUpdateA.empty())
-	{
-		ParallelUtils::parallelForEach(buildContainers.lightUpdateA, 1, [](Chunk* chunk)
+		if (buildContainers.lightUpdateA.empty() && buildContainers.lightUpdateB.empty())
+		{
+			break;
+		}
+
+		{
+			TRACY_SCOPE_NC("Update chunks light", ProfileCategory::ChunkLight);
+
+			// Using parallelForEach because it will assure that all tasks are done before returning
+			// Update chunks in two separate passes in checkboard pattern to make less iterations
+			// Could make this non-blocking, but I don't want to get more work because of it (idk what's better)
+			if (!buildContainers.lightUpdateA.empty())
 			{
-				chunk->updateLight();
-			});
-	}
-	if (!buildContainers.lightUpdateB.empty())
-	{
-		ParallelUtils::parallelForEach(buildContainers.lightUpdateB, 1, [](Chunk* chunk)
+				ParallelUtils::parallelForEach(buildContainers.lightUpdateA, 1, [](Chunk* chunk)
+					{
+						chunk->updateLight();
+					});
+			}
+			if (!buildContainers.lightUpdateB.empty())
 			{
-				chunk->updateLight();
-			});
+				ParallelUtils::parallelForEach(buildContainers.lightUpdateB, 1, [](Chunk* chunk)
+					{
+						chunk->updateLight();
+					});
+			}
+		}
 	}
 }
 
