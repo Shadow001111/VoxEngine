@@ -1,11 +1,8 @@
 #pragma once
-#include "WorkerThread.h"
-
 #include <thread>
 #include <mutex>
 #include <condition_variable>
 #include <future>
-#include <functional>
 #include <atomic>
 #include <queue>
 #include <latch>
@@ -13,10 +10,35 @@
 
 #include "Core/TracyProfiler.h"
 
+#if defined(__cpp_lib_move_only_function) && __cpp_lib_move_only_function >= 202110L
+#include <functional>
+template <class F>
+using move_only_function_impl = std::move_only_function<F>;
+#else
+#include "move_only_function.h"
+template <class F>
+using move_only_function_impl = move_only_function<F>;
+#endif
+
 class ThreadPool
 {
-	WorkerThread::Context context;
-    std::vector<WorkerThread> workers;
+public:
+    using Task = move_only_function_impl<void()>;
+private:
+    using TaskQueue = std::queue<Task>;
+
+    struct Context
+    {
+        TaskQueue tasks;
+        TracyLockableN(std::mutex, queueMutex, "ThreadPool queue mutex");
+        std::condition_variable_any newTaskCondition;
+        std::condition_variable_any completionCondition;
+        std::atomic<bool> stop{ false };
+        std::atomic<size_t> activeTaskCount{ 0 };
+    };
+
+	Context context;
+    std::vector<std::thread> workers;
 
     // Statistics
     std::atomic<size_t> taskTotalCount{ 0 };
@@ -33,7 +55,7 @@ public:
 	template<class F, class... Args>
     auto enqueueFuture(F&& f, Args&&... args) -> std::future<typename std::invoke_result_t<F, Args...>>;
 
-    void enqueueBulk(std::vector<WorkerThread::Task> tasks);
+    void enqueueBulk(std::vector<Task> tasks);
 
     void shutdown();
 
@@ -41,6 +63,8 @@ public:
     size_t getThreadCount() const { return workers.size(); };
     size_t getTaskCount() const { return context.tasks.size(); }
     size_t getTaskTotalCount() const { return taskTotalCount.load(std::memory_order_relaxed); }
+private:
+	void workerThreadFunc(size_t threadIndex);
 };
 
 template<class F, class ...Args>
@@ -135,7 +159,7 @@ void ParallelUtils::parallelFor(size_t start, size_t end, size_t minChunkSize, F
     {
         TRACY_SCOPE_N("Enqueue chunks");
 
-        std::vector<WorkerThread::Task> tasks;
+        std::vector<ThreadPool::Task> tasks;
         tasks.reserve(chunks);
 
         for (size_t i = start; i < end; i += chunkSize)

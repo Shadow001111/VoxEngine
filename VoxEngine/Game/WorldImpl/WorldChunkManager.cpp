@@ -249,7 +249,7 @@ void WorldChunkManager::startBuildingChunkBlocks()
 
 		const size_t chunkCount = chunksToProcess.size();
 
-		std::vector<WorkerThread::Task> tasks;
+		std::vector<ThreadPool::Task> tasks;
 		tasks.reserve((chunkCount + CHUNKS_PER_BATCH - 1) / CHUNKS_PER_BATCH);
 
 		for (size_t i = 0; i < chunkCount; i += CHUNKS_PER_BATCH)
@@ -337,7 +337,7 @@ void WorldChunkManager::startBuildingChunkLights()
 		ThreadPool& pool = ParallelUtils::getGlobalThreadPool();
 		const size_t chunkCount = chunksToProcess.size();
 
-		std::vector<WorkerThread::Task> tasks;
+		std::vector<ThreadPool::Task> tasks;
 		tasks.reserve((chunkCount + CHUNKS_PER_BATCH - 1) / CHUNKS_PER_BATCH);
 
 		for (size_t i = 0; i < chunkCount; i += CHUNKS_PER_BATCH)

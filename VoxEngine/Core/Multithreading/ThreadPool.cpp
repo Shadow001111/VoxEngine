@@ -1,5 +1,5 @@
 #include "ThreadPool.h"
-
+#include "FileLogger.h"
 #include "Core/TracyProfiler.h"
 
 ThreadPool::ThreadPool(int numThreads)
@@ -16,7 +16,7 @@ ThreadPool::ThreadPool(int numThreads)
     workers.reserve(numThreads);
     for (size_t i = 0; i < numThreads; i++)
     {
-        workers.emplace_back(i, context);
+		workers.emplace_back(&ThreadPool::workerThreadFunc, this, i);
     }
 }
 
@@ -25,7 +25,7 @@ ThreadPool::~ThreadPool()
     shutdown();
 }
 
-void ThreadPool::enqueueBulk(std::vector<WorkerThread::Task> tasks)
+void ThreadPool::enqueueBulk(std::vector<Task> tasks)
 {
     TRACY_SCOPE_N("ThreadPool::enqueueBulk");
 
@@ -66,6 +66,67 @@ void ThreadPool::shutdown()
     }
 
     workers.clear();
+}
+
+void ThreadPool::workerThreadFunc(size_t threadIndex)
+{
+    std::string threadName = std::to_string(threadIndex);
+    tracy::SetThreadName(threadName.c_str());
+
+    while (true)
+    {
+        Task task;
+
+        // Try to get task
+        {
+            std::lock_guard lock(context.queueMutex);
+            if (!context.tasks.empty())
+            {
+                task = std::move(context.tasks.front());
+                context.tasks.pop();
+                context.activeTaskCount.fetch_add(1, std::memory_order_relaxed);
+            }
+        }
+
+        if (task) [[likely]]
+        {
+            try
+            {
+                task();
+            }
+            catch (const std::exception& e)
+            {
+                FileLogger logger("log/warnings.txt");
+                logger.add(std::string("Exception in thread pool worker thread: ") + e.what());
+            }
+            catch (...)
+            {
+                FileLogger logger("log/warnings.txt");
+                logger.add("Unknown exception in thread pool worker thread");
+            }
+
+            const size_t oldTaskCount = context.activeTaskCount.fetch_sub(1, std::memory_order_relaxed);
+            if (oldTaskCount <= 1)
+            {
+                std::lock_guard lock(context.queueMutex);
+                if (context.tasks.empty())
+                {
+                    context.completionCondition.notify_all();
+                }
+            }
+        }
+        else
+        {
+            // No job found, wait for a task to appear or a shutdown
+            std::unique_lock lock(context.queueMutex);
+            context.newTaskCondition.wait(lock, [this] { return !context.tasks.empty() || context.stop.load(std::memory_order_relaxed); });
+
+            if (context.stop.load(std::memory_order_relaxed))
+            {
+                break;
+            }
+        }
+    }
 }
 
 ThreadPool& ParallelUtils::getGlobalThreadPool()
