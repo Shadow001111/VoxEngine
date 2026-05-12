@@ -1826,8 +1826,8 @@ void Chunk::setBlockAt(int x, int y, int z, BlockId block, bool saveBlockChanges
 	// Handle light absorption changes
 	const glm::ivec3 currentBlockPosition = glm::ivec3(x, y, z);
 	{
-		uint8_t maxBlockLightToSet = 0;
-		uint8_t maxSkyLightToSet = 0;
+		int maxBlockLightToSet = 0;
+		int maxSkyLightToSet = 0;
 		for (int i = 0; i < 6; i++)
 		{
 			bool wasAbsorbing = previousBlockData->lightAbsorbing[i];
@@ -1835,24 +1835,20 @@ void Chunk::setBlockAt(int x, int y, int z, BlockId block, bool saveBlockChanges
 			if (wasAbsorbing || !isAbsorbing)
 			{
 				const glm::ivec3 npos = currentBlockPosition + DirectionsTable::directionsXYZ[i];
+
 				size_t neighborIndex;
 				Chunk* neighborChunk = traverseToSideNeighbor(npos.x, npos.y, npos.z, i, neighborIndex);
-				if (!neighborChunk)
+				if (!(neighborChunk && neighborChunk->isLightBuilt()))
 				{
 					continue;
 				}
 
 				LightLevel neighborLight = neighborChunk->getLightAt(neighborIndex);
-				if (neighborLight.blockLight > maxBlockLightToSet && neighborLight.blockLight > 1)
-				{
-					maxBlockLightToSet = neighborLight.blockLight - 1;
-				}
 
-				uint8_t skyLightAbsorption = (i == 3 && neighborLight.skyLight == 15) ? 0 : 1;
-				if (neighborLight.skyLight > maxSkyLightToSet && neighborLight.skyLight > skyLightAbsorption)
-				{
-					maxSkyLightToSet = neighborLight.skyLight - skyLightAbsorption;
-				}
+				maxBlockLightToSet = std::max(maxBlockLightToSet, (int)neighborLight.blockLight - 1);
+
+				const int skyLightAbsorption = (i == 3 && neighborLight.skyLight == 15) ? 0 : 1;
+				maxSkyLightToSet = std::max(maxSkyLightToSet, (int)neighborLight.skyLight - skyLightAbsorption);
 			}
 		}
 
@@ -1898,7 +1894,7 @@ void Chunk::setBlockAt(int x, int y, int z, BlockId block, bool saveBlockChanges
 		if (newEmission > 0)
 		{
 			cells[index].lightLevel.blockLight = newEmission;
-			addBlockLightPropagationNode(x, y, z);
+			if (newEmission > 1) addBlockLightPropagationNode(x, y, z);
 		}
 	}
 
