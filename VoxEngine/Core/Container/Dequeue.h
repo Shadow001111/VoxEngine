@@ -508,22 +508,4 @@ public:
 
     size_t size() const { return mElementCount; }
     bool empty() const { return mElementCount == 0; }
-
-    // Debug
-
-    const T* debug_get_block_pointer(size_t block_index) const
-    {
-        return mBlocks[wrap_index(block_index)];
-    }
-
-    void debug_get_block_indices(size_t& headBlockIndex, size_t& tailBlockIndex) const
-    {
-        headBlockIndex = mHeadBlockIndex;
-        tailBlockIndex = mTailBlockIndex;
-    }
-
-    size_t debug_get_block_count() const
-    {
-        return mBlocks.size();
-    }
 };
