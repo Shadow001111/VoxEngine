@@ -1820,82 +1820,91 @@ void Chunk::setBlockAt(int x, int y, int z, BlockId block, bool saveBlockChanges
 
 	// Light update
 	const BlockDataHot* previousBlockData = AssetRegistry::getBlockDataHotSafe(previousBlock);
-
 	const BlockDataHot* newBlockData = AssetRegistry::getBlockDataHotSafe(block);
 
 	// Handle light absorption changes
 	const glm::ivec3 currentBlockPosition = glm::ivec3(x, y, z);
+	
+	int maxBlockLightToSet = 0;
+	int maxSkyLightToSet = 0;
+	int maxBlockLightToRemove = 0;
+	int maxSkyLightToRemove = 0;
+
+	for (int i = 0; i < 6; i++)
 	{
-		int maxBlockLightToSet = 0;
-		int maxSkyLightToSet = 0;
-		for (int i = 0; i < 6; i++)
+		bool wasAbsorbing = previousBlockData->lightAbsorbing[i];
+		bool isAbsorbing = newBlockData->lightAbsorbing[i];
+		if (wasAbsorbing || !isAbsorbing)
 		{
-			bool wasAbsorbing = previousBlockData->lightAbsorbing[i];
-			bool isAbsorbing = newBlockData->lightAbsorbing[i];
-			if (wasAbsorbing || !isAbsorbing)
+			const glm::ivec3 npos = currentBlockPosition + DirectionsTable::directionsXYZ[i];
+
+			size_t neighborIndex;
+			Chunk* neighborChunk = traverseToSideNeighbor(npos.x, npos.y, npos.z, i, neighborIndex);
+			if (!(neighborChunk && neighborChunk->isLightBuilt()))
 			{
-				const glm::ivec3 npos = currentBlockPosition + DirectionsTable::directionsXYZ[i];
-
-				size_t neighborIndex;
-				Chunk* neighborChunk = traverseToSideNeighbor(npos.x, npos.y, npos.z, i, neighborIndex);
-				if (!(neighborChunk && neighborChunk->isLightBuilt()))
-				{
-					continue;
-				}
-
-				LightLevel neighborLight = neighborChunk->getLightAt(neighborIndex);
-
-				maxBlockLightToSet = std::max(maxBlockLightToSet, (int)neighborLight.blockLight - 1);
-
-				const int skyLightAbsorption = (i == 3 && neighborLight.skyLight == 15) ? 0 : 1;
-				maxSkyLightToSet = std::max(maxSkyLightToSet, (int)neighborLight.skyLight - skyLightAbsorption);
+				continue;
 			}
-		}
 
-		if (maxBlockLightToSet > 0)
-		{
-			cells[index].lightLevel.blockLight = maxBlockLightToSet;
-			if (maxBlockLightToSet > 1) addBlockLightPropagationNode(x, y, z);
-		}
-		if (maxSkyLightToSet > 0)
-		{
-			cells[index].lightLevel.skyLight = maxSkyLightToSet;
-			if (maxSkyLightToSet > 1) addSkyLightPropagationNode(x, y, z);
+			LightLevel neighborLight = neighborChunk->cells[neighborIndex].lightLevel;
+
+			maxBlockLightToSet = std::max(maxBlockLightToSet, (int)neighborLight.blockLight - 1);
+
+			const int skyLightAbsorption = (i == 3 && neighborLight.skyLight == 15) ? 0 : 1;
+			maxSkyLightToSet = std::max(maxSkyLightToSet, (int)neighborLight.skyLight - skyLightAbsorption);
 		}
 	}
+
 	if ((!previousBlockData->lightAbsorbing & newBlockData->lightAbsorbing).any())
 	{
 		// Remove light at this block
-		uint8_t currentBlockLight = cells[index].lightLevel.blockLight;
-		if (currentBlockLight > 0)
-		{
-			cells[index].lightLevel.blockLight = 0;
-			addBlockLightRemovalNode(x, y, z, currentBlockLight);
-		}
-		uint8_t currentSkyLight = cells[index].lightLevel.skyLight;
-		if (currentSkyLight > 0)
-		{
-			cells[index].lightLevel.skyLight = 0;
-			addSkyLightRemovalNode(x, y, z, currentSkyLight);
-		}
+		const int currentBlockLight = cells[index].lightLevel.blockLight;
+		maxBlockLightToRemove = std::max(maxBlockLightToRemove, currentBlockLight);
+
+		const int currentSkyLight = cells[index].lightLevel.skyLight;
+		maxSkyLightToRemove = std::max(maxSkyLightToRemove, currentSkyLight);
 	}
 
 	// Handle light emission changes
-	const uint8_t previousEmission = previousBlockData->lightEmission;
-	const uint8_t newEmission = newBlockData->lightEmission;
+	const int previousEmission = previousBlockData->lightEmission;
+	const int newEmission = newBlockData->lightEmission;
 	if (previousEmission != newEmission)
 	{
-		if (previousEmission > newEmission)
+		maxBlockLightToRemove = std::max(maxBlockLightToRemove, previousEmission);
+		maxBlockLightToSet = std::max(maxBlockLightToSet, newEmission);
+	}
+
+	// Apply light changes
+	bool needsLightUpdate = false;
+	if (maxBlockLightToSet > 0)
+	{
+		cells[index].lightLevel.blockLight = maxBlockLightToSet;
+		if (maxBlockLightToSet > 1) [[likely]]
 		{
-			cells[index].lightLevel.blockLight = 0;
-			addBlockLightRemovalNode(x, y, z, previousEmission);
+			addBlockLightPropagationNode(x, y, z);
+			needsLightUpdate = true;
 		}
-	
-		if (newEmission > 0)
+	}
+	if (maxSkyLightToSet > 0)
+	{
+		cells[index].lightLevel.skyLight = maxSkyLightToSet;
+		if (maxSkyLightToSet > 1) [[likely]]
 		{
-			cells[index].lightLevel.blockLight = newEmission;
-			if (newEmission > 1) addBlockLightPropagationNode(x, y, z);
+			addSkyLightPropagationNode(x, y, z);
+			needsLightUpdate = true;
 		}
+	}
+
+	if (maxBlockLightToRemove > maxBlockLightToSet) // && maxBlockLightToRemove > 0
+	{
+		cells[index].lightLevel.blockLight = 0;
+		addBlockLightRemovalNode(x, y, z, maxBlockLightToRemove);
+		needsLightUpdate = true;
+	}
+	if (maxSkyLightToRemove > maxSkyLightToSet) // && maxSkyLightToRemove > 0
+	{
+		cells[index].lightLevel.skyLight = 0;
+		addSkyLightRemovalNode(x, y, z, maxSkyLightToRemove);
+		needsLightUpdate = true;
 	}
 
 	// Mark meshes as dirty
@@ -1908,7 +1917,7 @@ void Chunk::setBlockAt(int x, int y, int z, BlockId block, bool saveBlockChanges
 	}
 	
 	// Allow update light
-	if (lightPropagation.hasNodes())
+	if (needsLightUpdate)
 	{
 		parentRegion->setFlag(ChunkRegion::Flag::HasLightToUpdate, true);
 		ChunkRegion::setGlobalFlag(ChunkRegion::Flag::HasLightToUpdate, true);
