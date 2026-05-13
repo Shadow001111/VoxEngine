@@ -2018,6 +2018,37 @@ size_t Chunk::runLengthEncodingTest() const
 	return totalSize;
 }
 
+size_t Chunk::runLengthEncoding2Test() const
+{
+	FenceGuard scopedFence(processingFence);
+
+	static constexpr size_t kShortRunMax = 0x7F;      // 7 bits
+	//static constexpr uint16_t kLongRunFlag = 0x8000;  // top bit
+	//static constexpr uint16_t kLongRunMask = 0x7FFF;  // remove flag
+
+	size_t totalSize = 0;
+
+	for (size_t i = 0; i < CHUNK_VOLUME; )
+	{
+		const BlockId currentBlock = cells[i].block;
+		size_t runLength = 1;
+
+		while (i + runLength < CHUNK_VOLUME && cells[i + runLength].block == currentBlock)
+		{
+			runLength++;
+		}
+
+		totalSize += sizeof(BlockId);
+
+		totalSize += (runLength <= kShortRunMax) ? sizeof(uint8_t) : sizeof(uint16_t);
+
+		i += runLength;
+	}
+
+	return totalSize;
+
+}
+
 void Chunk::markMeshesDirtyAroundBlock(int x, int y, int z)
 {
 	uint32_t dirtyMask = getNeighborDirtyMask(x, y, z);

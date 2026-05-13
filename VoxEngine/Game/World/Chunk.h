@@ -392,6 +392,7 @@ public:
 
 	// Debug
 	size_t runLengthEncodingTest() const;
+	size_t runLengthEncoding2Test() const;
 
 	// Chunk data getters
 	glm::ivec3 getPosition() const noexcept { return position; };

@@ -1,6 +1,8 @@
 #pragma once
-#include "../World/ChunkPool.h"
-#include "../World/ChunkLoaders/BaseChunkLoader.h"
+#include "Game/World/ChunkPool.h"
+#include "Game/World/ChunkLoaders/BaseChunkLoader.h"
+
+#include "Core/Multithreading/ThreadPool.h"
 
 #include <memory>
 #include <mutex>
@@ -17,6 +19,14 @@ class WorldChunkManager
 
         std::vector<Chunk*> lightUpdateA;
         std::vector<Chunk*> lightUpdateB;
+    };
+
+    struct ChunkCompressionTestResult
+    {
+        std::string name;
+        size_t chunkCount = 0;
+        size_t originalSize = 0;
+        size_t compressedSize = 0;
     };
 
     ChunkPool chunkPool;
@@ -61,7 +71,59 @@ public:
     // Debug
 
     void rebuildAllChunkMeshes();
-    void chunkRunLengthEncodingTest();
+    void chunkCompressionAlgorithmsTest();
+
+    template<class CompressFn>
+    ChunkCompressionTestResult runChunkCompressionTest(std::string_view testName, CompressFn&& compressFn)
+    {
+        std::vector<Chunk*> chunksToProcess;
+        chunksToProcess.reserve(1024);
+
+        for (const auto& [_, chunkRegion] : Chunk::managerInstances->chunkRegion.getRegionMap())
+        {
+            for (Chunk* chunk : chunkRegion->chunks)
+            {
+                if (chunk)
+                    chunksToProcess.push_back(chunk);
+            }
+        }
+
+        std::atomic<size_t> totalCompressedSizeAtomic{ 0 };
+
+        ParallelUtils::parallelForEach(chunksToProcess, 1,
+            [&totalCompressedSizeAtomic, &compressFn](Chunk* chunk)
+            {
+                const size_t compressedSize = std::invoke(compressFn, *chunk);
+                totalCompressedSizeAtomic.fetch_add(compressedSize, std::memory_order_relaxed);
+            });
+
+        const size_t totalOriginalSize = chunksToProcess.size() * CHUNK_VOLUME * sizeof(BlockId);
+        const size_t totalCompressedSize = totalCompressedSizeAtomic.load(std::memory_order_relaxed);
+
+        ChunkCompressionTestResult result;
+        result.name = std::string(testName);
+        result.chunkCount = chunksToProcess.size();
+        result.originalSize = totalOriginalSize;
+        result.compressedSize = totalCompressedSize;
+
+        const float compressedPercentage =
+            totalOriginalSize ? static_cast<float>(totalCompressedSize) / totalOriginalSize * 100.0f : 0.0f;
+
+        const size_t compressionSavingsMB =
+            (totalOriginalSize > totalCompressedSize)
+            ? (totalOriginalSize - totalCompressedSize) / (1024 * 1024)
+            : 0;
+
+		std::cout << "----------------------------------------\n";
+        std::cout << "'" << testName << "' test results:\n";
+        std::cout << "Total original size: " << totalOriginalSize / (1024 * 1024) << " MB\n";
+        std::cout << "Total compressed size: " << totalCompressedSize / (1024 * 1024) << " MB\n";
+        std::cout << "Compression percentage: " << compressedPercentage << "%\n";
+        std::cout << "Compression savings: " << compressionSavingsMB << " MB\n";
+		std::cout << "----------------------------------------\n";
+
+        return result;
+    }
 private:
     void loadChunk(const glm::ivec3& chunkPosition);
     void unloadChunk(const glm::ivec3& chunkPosition);

@@ -485,7 +485,7 @@ static void renderControls(const WindowManager& wnd)
     // List all used f-keys
     std::string text =
         "F1: rebuild chunk meshes\n"
-        "F2: chunk run length encoding test\n"
+        "F2: chunk data compression algorithms\n"
     ;
 
     // Render text

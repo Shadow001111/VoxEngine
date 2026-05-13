@@ -382,6 +382,6 @@ void World::onFKeyPressed(int fkey)
 	}
 	else if (fkey == 2)
 	{
-		chunkManager.chunkRunLengthEncodingTest();
+		chunkManager.chunkCompressionAlgorithmsTest();
 	}
 }

@@ -1,6 +1,6 @@
 #include "WorldChunkManager.h"
 
-#include "Core/Multithreading/ThreadPool.h"
+//#include "Core/Multithreading/ThreadPool.h"
 
 #include "Game/ProfileCategories.h"
 #include "Game/World/ChunkLoaders/SphericalChunkLoader.h"
@@ -546,45 +546,10 @@ void WorldChunkManager::rebuildAllChunkMeshes()
 	}
 }
 
-void WorldChunkManager::chunkRunLengthEncodingTest()
+void WorldChunkManager::chunkCompressionAlgorithmsTest()
 {
-	// Collect all chunks in the world
-	chunksToProcess.clear();
-
-	for (const auto& [_, chunkRegion] : Chunk::managerInstances->chunkRegion.getRegionMap())
-	{
-		for (Chunk* chunk : chunkRegion->chunks)
-		{
-			if (!chunk) continue;
-
-			chunksToProcess.push_back(chunk);
-		}
-	}
-
-	// Run test on all threads, blocking with ParallelForEach
-	std::atomic<size_t> totalCompressedSizeAtomic{ 0 };
-
-	ParallelUtils::parallelForEach(chunksToProcess, 1, [&totalCompressedSizeAtomic](Chunk* chunk)
-		{
-			size_t compressedSize = chunk->runLengthEncodingTest();
-			totalCompressedSizeAtomic.fetch_add(compressedSize, std::memory_order_relaxed);
-		});
-
-	// Print result to console
-	const size_t totalSize = chunksToProcess.size() * CHUNK_VOLUME * sizeof(BlockId);
-	const size_t totalCompressedSize = totalCompressedSizeAtomic.load(std::memory_order_relaxed);
-
-	const float compressedPercentage = static_cast<float>(totalCompressedSize) / totalSize * 100.0f;
-	const size_t compressionSavingsMB = (totalSize - totalCompressedSize) / (1024 * 1024);
-
-	std::cout << "Run-Length Encoding Test Results:\n";
-	std::cout << "Total original size: " << totalSize / (1024 * 1024) << " MB\n";
-	std::cout << "Total compressed size: " << totalCompressedSize / (1024 * 1024) << " MB\n";
-	std::cout << "Compression percentage: " << compressedPercentage << "%\n";
-	std::cout << "Compression savings: " << compressionSavingsMB << " MB\n";
-
-	// Clear the list
-	chunksToProcess.clear();
+	runChunkCompressionTest("Run-Length Encoding", &Chunk::runLengthEncodingTest);
+	runChunkCompressionTest("Run-Length Encoding2", &Chunk::runLengthEncoding2Test);
 }
 
 void WorldChunkManager::loadChunk(const glm::ivec3& chunkPosition)
