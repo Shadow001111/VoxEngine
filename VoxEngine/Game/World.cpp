@@ -373,3 +373,15 @@ void World::setAppTime(float time)
 {
 	this->appTime = time;
 }
+
+void World::onFKeyPressed(int fkey)
+{
+	if (fkey == 1)
+	{
+		chunkManager.rebuildAllChunkMeshes();
+	}
+	else if (fkey == 2)
+	{
+		chunkManager.chunkRunLengthEncodingTest();
+	}
+}

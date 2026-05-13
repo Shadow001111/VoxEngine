@@ -48,7 +48,7 @@ public:
 	World& operator=(const World&) = delete;
 	World(World&&) = delete;
 	World& operator=(World&&) = delete;
-public:
+
 	void preparation();
 
 	void loadChunksAroundPlayer(const glm::dvec3& playerPos) { chunkManager.loadChunksAroundPlayer(playerPos, chunkLoadingDistance); }
@@ -72,9 +72,6 @@ public:
 		return raw;
 	}
 
-	// Debug
-	void rebuildAllChunkMeshes() { chunkManager.rebuildAllChunkMeshes(); }
-
 	const DebugData& getDebugData() const;
 
 	bool placeBlock(const RaycastResult& raycast, BlockId block);
@@ -86,5 +83,7 @@ public:
 	void setAppTime(float time);
 
 	float getPlayerCameraFarPlaneDistance() const noexcept { return (chunkLoadingDistance + 0.5f) * CHUNK_SIZE; };
+
+	void onFKeyPressed(int fkey);
 };
 

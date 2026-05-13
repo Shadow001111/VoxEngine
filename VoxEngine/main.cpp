@@ -476,6 +476,29 @@ static void renderDebugData(const WindowManager& wnd, const Player& player, cons
     glDepthMask(GL_TRUE);
 }
 
+static void renderControls(const WindowManager& wnd)
+{
+    constexpr float rowHeight = 0.06f;
+
+    TRACY_SCOPE_NC("Render controls", ProfileCategory::Render);
+
+    // List all used f-keys
+    std::string text =
+        "F1: rebuild chunk meshes\n"
+        "F2: chunk run length encoding test\n"
+    ;
+
+    // Render text
+    TextRenderer::startTextRendering();
+    TextRenderer::renderText(
+        text,
+        wnd.getAspectRatio() - 0.014f, 1.0f - 0.014f,
+        rowHeight,
+        glm::vec3(1.0f, 0.0f, 0.0f),
+        TextRenderer::TextAlignment::TopRight
+    );
+}
+
 static void check()
 {
     // Get data
@@ -599,6 +622,9 @@ static int gameFunc()
         .strictAspectRatio = true
         });
 
+    InputManager windowInputManager;
+    wnd.linkInputManager(&windowInputManager);
+
     // Init texture global data
     {
         TRACY_SCOPE_NC("Init texture global data", ProfileCategory::General);
@@ -674,8 +700,7 @@ static int gameFunc()
     player.getCamera().setAspectRatio(wnd.getAspectRatio());
     player.getCamera().setFarPlane(world.getPlayerCameraFarPlaneDistance());
 
-    InputManager& playerInputManager = player.getInputManager();
-    wnd.linkInputManager(&playerInputManager);
+    wnd.linkInputManager(&player.getInputManager());
 
     // Input
     glm::vec2 previousMousePos{};
@@ -707,6 +732,7 @@ static int gameFunc()
     {
         // Poll events
         wnd.pollEvents();
+        windowInputManager.processInput();
 
         // Check if window is iconified
         const bool iconified = wnd.isZeroSize();
@@ -728,10 +754,13 @@ static int gameFunc()
 
         // World
         world.setAppTime((float)time);
-        if (playerInputManager.isKeyJustPressed(GLFW_KEY_F3))
+        for (int i = 0; i < 12; i++)
         {
-            world.rebuildAllChunkMeshes();
-		}
+            if (windowInputManager.isKeyJustPressed(GLFW_KEY_F1 + i))
+            {
+                world.onFKeyPressed(i + 1);
+            }
+        }
         if (worldUpdateTimer.peek())
         {
             glm::dvec3 playerPos = player.getPosition();
@@ -782,7 +811,11 @@ static int gameFunc()
             player.getCamera().setAspectRatio(wnd.getAspectRatio());
 
             // Rendering world
-            if (framebuffer.isComplete())
+            if (!framebuffer.isComplete()) [[unlikely]]
+            {
+                std::cerr << "[main]: FBO is not complete!\n";
+            }
+            else
             {
                 framebuffer.setDrawBuffers({ "color", "geometryAlpha", "accumulation", "revealage" });
 
@@ -802,6 +835,8 @@ static int gameFunc()
 
                 renderUI(aspectRatio, containerUI, player);
 
+                renderControls(wnd);
+
                 // Render UI text
                 renderDebugData(wnd, player, uiMetrics);
 
@@ -811,10 +846,6 @@ static int gameFunc()
 
                 // Swap buffers
                 wnd.swapBuffers();
-            }
-            else
-            {
-                std::cout << "[main]: FBO is not complete!\n";
             }
         }
 

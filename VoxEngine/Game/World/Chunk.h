@@ -257,7 +257,7 @@ private:
 
 	uint8_t loaderCount = 0;
 
-	AtomicWaitFence processingFence; // Making it a TracyLockable makes Tracy lag, probably because of size of data, even if nothing is getting displayed :/
+	mutable AtomicWaitFence processingFence; // Making it a TracyLockable makes Tracy lag, probably because of size of data, even if nothing is getting displayed :/
 
 	Cell cells[CHUNK_VOLUME]; // Storing block and light level close in memory for best cache-locality
 
@@ -390,6 +390,8 @@ public:
 	void addSkyLightRemovalNode(int x, int y, int z, uint8_t lightLevel);
 	void addSkyLightRemovalNode(const glm::ivec3& pos, uint8_t lightLevel) { addSkyLightRemovalNode(pos.x, pos.y, pos.z, lightLevel); }
 
+	// Debug
+	size_t runLengthEncodingTest() const;
 
 	// Chunk data getters
 	glm::ivec3 getPosition() const noexcept { return position; };

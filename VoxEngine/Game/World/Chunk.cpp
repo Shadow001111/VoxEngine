@@ -1997,6 +1997,27 @@ void Chunk::addSkyLightRemovalNode(int x, int y, int z, uint8_t lightLevel)
 	lightPropagation.skyLightRemovalQueue.emplace(x, y, z, lightLevel);
 }
 
+size_t Chunk::runLengthEncodingTest() const
+{
+	FenceGuard scopedFence(processingFence);
+
+	size_t totalSize = 0;
+
+	// Simple RLE encoding: for each run of consecutive blocks with the same ID, we store the block ID and the run length
+	for (size_t i = 0; i < CHUNK_VOLUME;)
+	{
+		BlockId currentBlock = cells[i].block;
+		size_t runLength = 1;
+		while (i + runLength < CHUNK_VOLUME && cells[i + runLength].block == currentBlock)
+		{
+			runLength++;
+		}
+		totalSize += sizeof(BlockId) + sizeof(uint16_t); // Block ID + run length
+		i += runLength;
+	}
+	return totalSize;
+}
+
 void Chunk::markMeshesDirtyAroundBlock(int x, int y, int z)
 {
 	uint32_t dirtyMask = getNeighborDirtyMask(x, y, z);

@@ -58,7 +58,10 @@ public:
     void updateChunkMeshes();
     void updateChunkConnectivity();
 
+    // Debug
+
     void rebuildAllChunkMeshes();
+    void chunkRunLengthEncodingTest();
 private:
     void loadChunk(const glm::ivec3& chunkPosition);
     void unloadChunk(const glm::ivec3& chunkPosition);
