@@ -1161,29 +1161,29 @@ void Chunk::buildLight()
 		TRACY_SCOPE_NC("Collect sky light sources", ProfileCategory::ChunkLight);
 
 		for (int x = 0; x < CHUNK_SIZE; x++)
-			for (int z = 0; z < CHUNK_SIZE; z++)
+		for (int z = 0; z < CHUNK_SIZE; z++)
+		{
+			// Find the highest non-solid block in this column
+			int highestAirY = -1;
+			size_t index;
+			for (int y = CHUNK_SIZE - 1; y >= 0; y--)
 			{
-				// Find the highest non-solid block in this column
-				int highestAirY = -1;
-				for (int y = CHUNK_SIZE - 1; y >= 0; y--)
+				index = getIndex(x, y, z);
+				BlockId block = cells[index].block;
+				const BlockDataHot* blockDataHot = AssetRegistry::getBlockDataHotSafe(block);
+				if (!blockDataHot->lightAbsorbing[3])
 				{
-					size_t idx = getIndex(x, y, z);
-					BlockId block = cells[idx].block;
-					const BlockDataHot* blockDataHot = AssetRegistry::getBlockDataHotSafe(block);
-					if (!blockDataHot->lightAbsorbing[3])
-					{
-						highestAirY = y;
-						break;
-					}
-				}
-
-				if (highestAirY >= 0)
-				{
-					size_t idx = getIndex(x, highestAirY, z);
-					cells[idx].lightLevel.skyLight = 15;
-					LightPropagationStorage::threadLocalSkyLightPropagation.emplace(x, highestAirY, z);
+					highestAirY = y;
+					break;
 				}
 			}
+
+			if (highestAirY >= 0)
+			{
+				cells[index].lightLevel.skyLight = 15;
+				LightPropagationStorage::threadLocalSkyLightPropagation.emplace(x, highestAirY, z);
+			}
+		}
 	}
 
 	// Propagate light
@@ -1371,14 +1371,8 @@ void Chunk::updateMesh()
 
 					// Get neighbor block and data
 					BlockId neighborBlock = neighborChunk->cells[neighborBlockIndex].block;
-
 					const BlockDataHot* neighborBlockData = AssetRegistry::getBlockDataHotSafe(neighborBlock);
-					if (neighborBlockData->faceCulling[face.normal ^ 1])
-					{
-						continue;
-					}
-
-					if (block == neighborBlock && !neighborBlockData->faceCulling[face.normal ^ 1])
+					if (block == neighborBlock || neighborBlockData->faceCulling[face.normal ^ 1])
 					{
 						continue;
 					}
