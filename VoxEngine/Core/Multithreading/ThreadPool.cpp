@@ -132,10 +132,14 @@ ThreadPool& ParallelUtils::getGlobalThreadPool()
     return pool;
 }
 
-size_t ParallelUtils::calculateOptimalChunkCount(size_t totalItems, size_t minChunkSize)
+std::pair<size_t, size_t> ParallelUtils::calculateBatchCountAndSize(size_t totalItems, size_t threadCount, size_t minBatchSize)
 {
-    const ThreadPool& pool = getGlobalThreadPool();
-    size_t maxChunks = pool.getThreadCount() * 2; // Allow some load balancing
-    size_t minChunks = (totalItems - 1) / minChunkSize + 1;
-    return std::min(maxChunks, minChunks);
+	const size_t maxBatchCount = (totalItems + minBatchSize - 1) / minBatchSize;
+    const size_t targetBatchCount = threadCount * 8;
+    const size_t batchCount = std::max(size_t(1), std::min(targetBatchCount, maxBatchCount));
+
+    const size_t batchSize = (totalItems + batchCount - 1) / batchCount;
+    const size_t actualBatchCount = (totalItems + batchSize - 1) / batchSize;
+
+    return { actualBatchCount, batchSize };
 }

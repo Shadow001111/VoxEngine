@@ -127,19 +127,19 @@ public:
     static ThreadPool& getGlobalThreadPool();
 
     template<typename Func>
-    static void parallelFor(size_t start, size_t end, size_t minChunkSize, Func func);
+    static void parallelFor(size_t start, size_t end, size_t minBatchSize, Func func);
 
     template<typename Container, typename Func>
-    static void parallelForEach(Container& container, size_t minChunkSize, Func func);
+    static void parallelForEach(Container& container, size_t minBatchSize, Func func);
 
     template<typename T, typename Func>
-    static void parallelForEachInRange(T* array, size_t range, size_t minChunkSize, Func func);
+    static void parallelForEachInRange(T* array, size_t range, size_t minBatchSize, Func func);
 private:
-    static size_t calculateOptimalChunkCount(size_t totalItems, size_t minChunkSize);
+    static std::pair<size_t, size_t> calculateBatchCountAndSize(size_t totalItems, size_t threadCount, size_t minBatchSize);
 };
 
 template<typename Func>
-void ParallelUtils::parallelFor(size_t start, size_t end, size_t minChunkSize, Func func)
+void ParallelUtils::parallelFor(size_t start, size_t end, size_t minBatchSize, Func func)
 {
     TRACY_SCOPE_N("ThreadPool::parallelFor");
 
@@ -150,48 +150,43 @@ void ParallelUtils::parallelFor(size_t start, size_t end, size_t minChunkSize, F
     ThreadPool& pool = getGlobalThreadPool();
 
     const size_t numThreads = pool.getThreadCount();
-    const size_t chunkSize = std::max(minChunkSize, (totalItems + numThreads - 1) / numThreads);
-    const size_t chunks = (totalItems + chunkSize - 1) / chunkSize;
+	auto [batchCount, batchSize] = calculateBatchCountAndSize(totalItems, numThreads, minBatchSize);
 
-	std::latch doneLatch(chunks);
+    std::vector<ThreadPool::Task> tasks;
+    tasks.reserve(batchCount);
 
+    std::latch doneLatch(batchCount);
+
+    for (size_t i = start; i < end; i += batchSize)
     {
-        TRACY_SCOPE_N("Enqueue chunks");
-
-        std::vector<ThreadPool::Task> tasks;
-        tasks.reserve(chunks);
-
-        for (size_t i = start; i < end; i += chunkSize)
-        {
-            size_t chunkEnd = std::min(i + chunkSize, end);
-            tasks.emplace_back([&, i, chunkEnd]()
-                {
-                    for (size_t j = i; j < chunkEnd; j++)
-                        func(j);
-                    doneLatch.count_down();
-                });
-        }
-
-        pool.enqueueBulk(std::move(tasks));
+        size_t batchEnd = std::min(i + batchSize, end);
+        tasks.emplace_back([&, i, batchEnd]()
+            {
+                for (size_t j = i; j < batchEnd; j++)
+                    func(j);
+                doneLatch.count_down();
+            });
     }
+
+    pool.enqueueBulk(std::move(tasks));
 
     // Wait for all chunks to complete
 	doneLatch.wait();
 }
 
 template<typename Container, typename Func>
-void ParallelUtils::parallelForEach(Container& container, size_t minChunkSize, Func func)
+void ParallelUtils::parallelForEach(Container& container, size_t minBatchSize, Func func)
 {
-    parallelFor(0, container.size(), minChunkSize, [&container, func](size_t i)
+    parallelFor(0, container.size(), minBatchSize, [&container, func](size_t i)
         {
             func(container[i]);
         });
 }
 
 template<typename T, typename Func>
-void ParallelUtils::parallelForEachInRange(T* array, size_t range, size_t minChunkSize, Func func)
+void ParallelUtils::parallelForEachInRange(T* array, size_t range, size_t minBatchSize, Func func)
 {
-    parallelFor(0, range, minChunkSize, [&array, func](size_t i)
+    parallelFor(0, range, minBatchSize, [&array, func](size_t i)
         {
             func(array[i]);
         });
