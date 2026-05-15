@@ -3,10 +3,10 @@
 #include "Game/TracyProfiler.h"
 #include "Game/ProfileCategories.h"
 
-//#include "AudioEngine/AudioEngine.h"
-
 #include <iostream>
 #include <algorithm>
+
+AssetRegistry::Context AssetRegistry::globalContext;
 
 DynamicArray<BlockAsset> AssetRegistry::blockAssetStorage;
 DynamicArray<ItemAsset> AssetRegistry::itemAssetStorage;
@@ -24,6 +24,8 @@ StringIndexer AssetRegistry::itemModelIndexer;
 
 StringIndexer AssetRegistry::blockTextureIndexer;
 StringIndexer AssetRegistry::itemUITextureIndexer;
+
+robin_hood::unordered_flat_set<std::string> AssetRegistry::blockSounds;
 
 ModelId AssetRegistry::FALLBACK_BLOCK_MODEL_ID;
 ItemId AssetRegistry::FALLBACK_ITEM_ID;
@@ -238,6 +240,8 @@ void AssetRegistry::reset()
 
 	blockTextureIndexer.clear();
 	itemUITextureIndexer.clear();
+
+	blockSounds.clear();
 }
 
 void AssetRegistry::registerBlock(const BlockAsset& asset)
@@ -274,9 +278,9 @@ void AssetRegistry::registerBlock(const BlockAsset& asset)
 	}
 
 	// Sounds
-	dataCold.breakSounds = asset.breakSounds;
-	dataCold.placeSounds = asset.placeSounds;
-	dataCold.stepSounds = asset.stepSounds;
+	//dataCold.breakSounds = asset.breakSounds;
+	//dataCold.placeSounds = asset.placeSounds;
+	//dataCold.stepSounds = asset.stepSounds;
 }
 
 void AssetRegistry::registerBlockModel(const BlockModelData& asset, const std::string& modelStringId)
@@ -330,8 +334,16 @@ void AssetRegistry::registerItemModel(const ItemModelData& asset, const std::str
 	itemModelDataStorage.push_back(asset);
 }
 
-bool AssetRegistry::linkAssets()
+bool AssetRegistry::linkAssets(const Context& context)
 {
+	// Check context
+	if (!context.isValid())
+	{
+		std::cerr << "[AssetRegistry]: Invalid context provided for linking assets\n";
+		return false;
+	}
+	globalContext = context;
+
 	// Check
 	if (
 		blockAssetStorage.size() != blockDataHotStorage.size() ||
@@ -371,92 +383,168 @@ bool AssetRegistry::linkAssets()
 	return true;
 }
 
+void AssetRegistry::loadSounds()
+{
+}
+
 bool AssetRegistry::linkBlockAssets()
 {
+	TRACY_SCOPE_NC("Link assets", ProfileCategory::General);
+
 	const size_t blockCount = blockAssetStorage.size();
 
-	robin_hood::unordered_flat_set<std::string> breakSounds;
-	robin_hood::unordered_flat_set<std::string> placeSounds;
-	robin_hood::unordered_flat_set<std::string> stepSounds;
-
-	breakSounds.reserve(blockCount);
-	placeSounds.reserve(blockCount);
-	stepSounds.reserve(blockCount);
-
+	// Link models, textures and other properties that require lookup or processing
+	for (size_t i = 0; i < blockCount; i++)
 	{
-		TRACY_SCOPE_NC("Link assets", ProfileCategory::General);
+		const auto& asset = blockAssetStorage[i];
+		auto& dataHot = blockDataHotStorage[i];
 
-		for (size_t i = 0; i < blockCount; i++)
+		// Model
+		if (asset.modelName == "None")
 		{
-			const auto& asset = blockAssetStorage[i];
-			auto& dataHot = blockDataHotStorage[i];
-
-			// Model
-			if (asset.modelName == "None")
+			dataHot.modelId = FALLBACK_BLOCK_MODEL_ID;
+		}
+		else
+		{
+			auto blockModelIdResult = blockModelIndexer.getId(asset.modelName);
+			if (blockModelIdResult.has_value())
 			{
-				dataHot.modelId = FALLBACK_BLOCK_MODEL_ID;
+				dataHot.modelId = static_cast<ModelId>(blockModelIdResult.value());
 			}
 			else
 			{
-				auto blockModelIdResult = blockModelIndexer.getId(asset.modelName);
-				if (blockModelIdResult.has_value())
-				{
-					dataHot.modelId = static_cast<ModelId>(blockModelIdResult.value());
-				}
-				else
-				{
-					std::cerr << "[AssetRegistry]: Block model " << asset.modelName << " is not registered\n";
-					dataHot.modelId = FALLBACK_BLOCK_MODEL_ID;
-				}
+				std::cerr << "[AssetRegistry]: Block model " << asset.modelName << " is not registered\n";
+				dataHot.modelId = FALLBACK_BLOCK_MODEL_ID;
 			}
-
-			// Has faces
-			dataHot.hasFaces = !dataHot.textureSlots.empty();
-
-			// Enable culling for faces that have opaque aligned faces in the model
-			for (int i = 0; i < 6; i++)
-			{
-				dataHot.faceCulling.set(i, false);
-			}
-			if (dataHot.hasFaces)
-			{
-				const auto* model = getBlockModelData(dataHot.modelId);
-				if (model)
-				{
-					for (const auto& alignedFace : model->alignedFaces)
-					{
-						if (alignedFace.normal >= 6)
-						{
-							continue;
-						}
-
-						bool shouldCull = true;
-
-						if (alignedFace.textureSlot < dataHot.textureSlots.size())
-						{
-							const auto& textureSlot = dataHot.textureSlots[alignedFace.textureSlot];
-							if (textureSlot.isTranslucent)
-							{
-								shouldCull = false;
-							}
-						}
-
-						dataHot.faceCulling.set(alignedFace.normal, shouldCull);
-					}
-				}
-			}
-			dataHot.lightAbsorbing &= dataHot.faceCulling;
-
-			// Collect sounds only. Load them later, once each.
-			for (const auto& s : asset.breakSounds) breakSounds.emplace(s);
-			for (const auto& s : asset.placeSounds) placeSounds.emplace(s);
-			for (const auto& s : asset.stepSounds) stepSounds.emplace(s);
 		}
+
+		// Has faces
+		dataHot.hasFaces = !dataHot.textureSlots.empty();
+
+		// Enable culling for faces that have opaque aligned faces in the model
+		for (int i = 0; i < 6; i++)
+		{
+			dataHot.faceCulling.set(i, false);
+		}
+		if (dataHot.hasFaces)
+		{
+			const auto* model = getBlockModelData(dataHot.modelId);
+			if (model)
+			{
+				for (const auto& alignedFace : model->alignedFaces)
+				{
+					if (alignedFace.normal >= 6)
+					{
+						continue;
+					}
+
+					bool shouldCull = true;
+
+					if (alignedFace.textureSlot < dataHot.textureSlots.size())
+					{
+						const auto& textureSlot = dataHot.textureSlots[alignedFace.textureSlot];
+						if (textureSlot.isTranslucent)
+						{
+							shouldCull = false;
+						}
+					}
+
+					dataHot.faceCulling.set(alignedFace.normal, shouldCull);
+				}
+			}
+		}
+		dataHot.lightAbsorbing &= dataHot.faceCulling;
 	}
 
-	loadUniqueSounds(breakSounds, "block/break/", "res/Sounds/Blocks/Break/");
-	loadUniqueSounds(placeSounds, "block/place/", "res/Sounds/Blocks/Place/");
-	loadUniqueSounds(stepSounds, "block/step/", "res/Sounds/Blocks/Step/");
+	// Link sounds
+	{
+		TRACY_SCOPE_NC("Link sounds", ProfileCategory::General);
+
+		robin_hood::unordered_flat_set<std::string> breakSounds;
+		robin_hood::unordered_flat_set<std::string> placeSounds;
+		robin_hood::unordered_flat_set<std::string> stepSounds;
+
+		breakSounds.reserve(blockCount);
+		placeSounds.reserve(blockCount);
+		stepSounds.reserve(blockCount);
+
+		{
+			TRACY_SCOPE_NC("Get all sound names", ProfileCategory::General);
+			for (size_t i = 0; i < blockCount; i++)
+			{
+				const auto& asset = blockAssetStorage[i];
+				for (const auto& s : asset.breakSounds) breakSounds.emplace(s);
+				for (const auto& s : asset.placeSounds) placeSounds.emplace(s);
+				for (const auto& s : asset.stepSounds) stepSounds.emplace(s);
+			}
+		}
+		robin_hood::unordered_flat_map<std::string, AudioEngine::SoundId> breakSoundMap;
+		robin_hood::unordered_flat_map<std::string, AudioEngine::SoundId> placeSoundMap;
+		robin_hood::unordered_flat_map<std::string, AudioEngine::SoundId> stepSoundMap;
+		{
+			TRACY_SCOPE_NC("Load sounds", ProfileCategory::General);
+		
+			auto loadSounds = [](const std::string& path, const auto& names, auto& outMap)
+				{
+					for (const std::string& name : names)
+					{
+						std::filesystem::path fullPath = path + name + ".ogg";
+						auto soundIdOpt = globalContext.blockAudioResourceManager->loadSound(fullPath);
+						if (soundIdOpt.has_value())
+						{
+							outMap.emplace(name, soundIdOpt.value());
+						}
+						else
+						{
+							std::cerr << "[AssetRegistry] Failed to load sound: " << name << '\n';
+						}
+					}
+				};
+
+			loadSounds("res/Sounds/Blocks/Break/", breakSounds, breakSoundMap);
+			loadSounds("res/Sounds/Blocks/Place/", placeSounds, placeSoundMap);
+			loadSounds("res/Sounds/Blocks/Step/", stepSounds, stepSoundMap);
+		}
+		{
+			TRACY_SCOPE_NC("Fill data with sound ids", ProfileCategory::General);
+
+			for (size_t i = 0; i < blockCount; ++i)
+			{
+				const auto& asset = blockAssetStorage[i];
+				auto& dataCold = blockDataColdStorage[i];
+
+				// Break sounds
+				dataCold.breakSounds.clear();
+				dataCold.breakSounds.reserve(asset.breakSounds.size());
+				for (const auto& name : asset.breakSounds)
+				{
+					auto it = breakSoundMap.find(name);
+					if (it != breakSoundMap.end())
+						dataCold.breakSounds.push_back(it->second);
+				}
+
+				// Place sounds
+				dataCold.placeSounds.clear();
+				dataCold.placeSounds.reserve(asset.placeSounds.size());
+				for (const auto& name : asset.placeSounds)
+				{
+					auto it = placeSoundMap.find(name);
+					if (it != placeSoundMap.end())
+						dataCold.placeSounds.push_back(it->second);
+				}
+
+				// Step sounds
+				dataCold.stepSounds.clear();
+				dataCold.stepSounds.reserve(asset.stepSounds.size());
+				for (const auto& name : asset.stepSounds)
+				{
+					auto it = stepSoundMap.find(name);
+					if (it != stepSoundMap.end())
+						dataCold.stepSounds.push_back(it->second);
+				}
+			}
+		}
+	}
 
 	return true;
 }

@@ -39,9 +39,8 @@ struct BlockDataCold
 	// String id
 	std::string stringId;
 
-	// Sounds
-	// TODO: Keep ids only
-	DynamicArray<std::string> breakSounds;
-	DynamicArray<std::string> placeSounds;
-	DynamicArray<std::string> stepSounds;
+	// Sound ids
+	DynamicArray<uint32_t> breakSounds;
+	DynamicArray<uint32_t> placeSounds;
+	DynamicArray<uint32_t> stepSounds;
 };

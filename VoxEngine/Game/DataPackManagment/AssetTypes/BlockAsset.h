@@ -1,7 +1,6 @@
 #pragma once
 #include <cstdint>
 #include <string>
-#include <array>
 #include "Core/Container/DynamicArray.h"
 #include "Core/Bitset.h"
 

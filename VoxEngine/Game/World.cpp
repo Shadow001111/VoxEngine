@@ -12,6 +12,8 @@
 #include <stdexcept>
 #include <glm/glm.hpp>
 
+#include "Core/Random.h"
+
 World::World() :
 	// Passing references to sub-systems
 	renderer({
@@ -22,8 +24,14 @@ World::World() :
 {
 	// Datapack loading and registering assets
 	std::vector<std::string> blockTextureNames;
-	DataPackManager::loadAllDataPacks();
-	blockTextureNames = AssetRegistry::getBlockTextureNames();
+	{
+		AssetRegistry::Context context;
+
+		context.blockAudioResourceManager = &blockAudioResourceManager;
+
+		DataPackManager::loadAllDataPacks(context);
+		blockTextureNames = AssetRegistry::getBlockTextureNames();
+	}
 
 	// Init sub-systems
 	chunkManager.init();
@@ -298,11 +306,20 @@ bool World::placeBlock(const RaycastResult& raycast, BlockId block)
 	const BlockDataCold* blockData = AssetRegistry::getBlockDataCold(block);
 	if (blockData && !blockData->placeSounds.empty())
 	{
-		// Choose random sounds from vector
+		// Choose random sound from vector
 		const auto& sounds = blockData->placeSounds;
-		int soundIndex = rand() % sounds.size();
-		//auto& sndMgr = SoundManager::getInstance();
-		//sndMgr.play("block/place/" + sounds[soundIndex]);
+		size_t soundIndex = Random::integer<size_t>(0, sounds.size() - 1);
+
+		// Get sound id
+		AudioEngine::SoundId soundId = sounds[soundIndex];
+
+		// Get sound resource
+		auto soundOpt = blockAudioResourceManager.getSound(soundId);
+		if (soundOpt.has_value())
+		{
+			// Play sound
+			AudioEngine::GlobalInstances::getPlayer().play(soundOpt.value());
+		}
 	}
 
 	return true;
@@ -320,11 +337,20 @@ bool World::breakBlock(const RaycastResult& raycast)
 	const BlockDataCold* blockData = AssetRegistry::getBlockDataCold(raycast.hitBlock);
 	if (blockData && !blockData->breakSounds.empty())
 	{
-		// Choose random sounds from vector
+		// Choose random sound from vector
 		const auto& sounds = blockData->breakSounds;
-		int soundIndex = rand() % sounds.size();
-		//auto& sndMgr = SoundManager::getInstance();
-		//sndMgr.play("block/break/" + sounds[soundIndex]);
+		size_t soundIndex = Random::integer<size_t>(0, sounds.size() - 1);
+
+		// Get sound id
+		AudioEngine::SoundId soundId = sounds[soundIndex];
+
+		// Get sound resource
+		auto soundOpt = blockAudioResourceManager.getSound(soundId);
+		if (soundOpt.has_value())
+		{
+			// Play sound
+			AudioEngine::GlobalInstances::getPlayer().play(soundOpt.value());
+		}
 	}
 
 	return true;

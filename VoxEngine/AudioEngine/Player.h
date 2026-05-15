@@ -49,7 +49,7 @@ namespace AudioEngine
         std::mutex mVoiceMutex;
         std::vector<Voice> mVoices;
 
-        VoiceId mNextVoiceId = 1; // TODO: Use free lists instead of incrementing IDs forever
+        VoiceId mNextVoiceId = 0; // TODO: Use free lists instead of incrementing IDs forever
     public:
         Player() = default;
         ~Player() { shutdown(); }

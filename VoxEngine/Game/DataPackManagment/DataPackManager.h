@@ -9,6 +9,8 @@
 #include "AssetTypes/ItemAsset.h"
 #include "DataTypes/ItemModelData.h"
 
+#include "AssetRegistry.h"
+
 using json = nlohmann::json;
 
 class DataPackManager
@@ -19,7 +21,7 @@ class DataPackManager
 		std::string id;
 	};
 public:
-	static void loadAllDataPacks();
+	static void loadAllDataPacks(const AssetRegistry::Context& context);
 private:
 	static void loadDataPack(const std::filesystem::path& dataPackPath);
 

@@ -3,13 +3,13 @@
 
 namespace AudioEngine
 {
-    SoundId ResourceManager::loadSound(FileExtension ext, const std::filesystem::path& path)
+    std::optional<SoundId> ResourceManager::loadSound(FileExtension ext, const std::filesystem::path& path)
     {
         auto sound = std::make_unique<Sound>();
         if (!AudioLoader::loadAudioFile(ext, path, *sound))
         {
             std::cerr << "Failed to load audio file: " << path << "\n";
-            return 0;
+            return std::nullopt;
         }
 
         std::lock_guard<std::mutex> lock(mResourceMutex);
@@ -18,13 +18,13 @@ namespace AudioEngine
         return id;
     }
 
-    SoundId ResourceManager::loadSound(const std::filesystem::path& path)
+    std::optional<SoundId> ResourceManager::loadSound(const std::filesystem::path& path)
     {
         auto ext = path.extension().string();
         if (ext.empty())
         {
             std::cerr << "File has no extension: " << path << "\n";
-            return 0;
+            return std::nullopt;
         }
 
         // Remove the dot from the extension
@@ -33,7 +33,7 @@ namespace AudioEngine
         if (fileExt == FileExtension::UNKNOWN)
         {
             std::cerr << "Unsupported audio file extension: " << ext << "\n";
-            return 0;
+            return std::nullopt;
         }
 		return loadSound(fileExt, path);
     }
@@ -41,7 +41,7 @@ namespace AudioEngine
     bool ResourceManager::unloadSound(SoundId soundId)
     {
         std::lock_guard<std::mutex> lock(mResourceMutex);
-        return mSounds.erase(soundId) > 0;
+		return mSounds.erase(soundId) > 0; // erase returns the number of elements removed (0 or 1 for unordered_map)
     }
 
     OptionalSoundReference ResourceManager::getSound(SoundId soundId)

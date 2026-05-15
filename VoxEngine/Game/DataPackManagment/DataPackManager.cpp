@@ -1,8 +1,6 @@
 #include "DataPackManager.h"
-#include "AssetRegistry.h"
 
-#include "Game/TracyProfiler.h"
-#include "Game/ProfileCategories.h"
+//#include "Game/TracyProfiler.h"
 
 #include <iostream>
 #include <fstream>
@@ -26,8 +24,15 @@ bool fileExistsAndIsDirectory(const fs::path& path)
 // TODO: Check for dependencies
 // TODO: Check for duplicate id's
 // TODO: Require core pack
-void DataPackManager::loadAllDataPacks()
+void DataPackManager::loadAllDataPacks(const AssetRegistry::Context& context)
 {
+	// Check context
+    if (!context.isValid())
+    {
+        std::cerr << "[DataPackManager]: Invalid context provided for loading data packs\n";
+        return;
+	}
+
     // Reset
     AssetRegistry::reset();
 
@@ -53,7 +58,7 @@ void DataPackManager::loadAllDataPacks()
     }
 
     // Link
-    bool linkResult = AssetRegistry::linkAssets();
+    bool linkResult = AssetRegistry::linkAssets(context);
     if (!linkResult)
     {
         std::cerr << "[DataPackManager]: Failed to link assets\n";

@@ -5,6 +5,8 @@
 #include "World/ChunkPool.h"
 #include "World/Entity.h"
 
+#include "AudioEngine/ResourceManager.h"
+
 class World
 {
 	WorldChunkManager chunkManager;
@@ -27,6 +29,9 @@ public:
 private:
 	// Settings
 	int chunkLoadingDistance = 0;
+
+	// Audio resource managers
+	AudioEngine::ResourceManager blockAudioResourceManager;
 
 	// Debug
 	mutable DebugData debugData;

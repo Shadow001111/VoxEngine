@@ -12,6 +12,8 @@
 #include "Core/StringIndexer.h"
 #include "Core/Container/DynamicArray.h"
 
+#include "AudioEngine/ResourceManager.h"
+
 constexpr size_t MAX_OBJECT_NAME_SIZE = 64;
 constexpr size_t MAX_TEXTURE_SLOT_COUNT = 64;
 constexpr size_t MAX_MODEL_FACE_COUNT = 64;
@@ -44,6 +46,20 @@ void printObjectNameValidationError(std::ostream& os,
 
 class AssetRegistry
 {
+public:
+	struct Context
+	{
+		AudioEngine::ResourceManager* blockAudioResourceManager = nullptr;
+
+		bool isValid() const noexcept
+		{
+			return blockAudioResourceManager != nullptr;
+		}
+	};
+private:
+	// Context
+	static Context globalContext;
+
 	// Assets are used for loading and linking data objects
 	static DynamicArray<BlockAsset> blockAssetStorage;
 	static DynamicArray<ItemAsset> itemAssetStorage;
@@ -64,6 +80,9 @@ class AssetRegistry
 
 	static StringIndexer blockTextureIndexer;
 	static StringIndexer itemUITextureIndexer;
+
+	// Sets
+	static robin_hood::unordered_flat_set<std::string> blockSounds;;
 	
 	// Fallback ids
 	constexpr static BlockId FALLBACK_BLOCK_ID = 0; // Air id
@@ -81,7 +100,8 @@ public:
 	static void registerItemModel(const ItemModelData& asset, const std::string& modelStringId);
 
 	//
-	static bool linkAssets();
+	static bool linkAssets(const Context& context);
+	static void loadSounds();
 private:
 	static bool linkBlockAssets();
 	static bool linkItemAssets();
