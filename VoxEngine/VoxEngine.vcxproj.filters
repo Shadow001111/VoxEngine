@@ -63,9 +63,6 @@
     <ClCompile Include="OpenGLWrappers\VertexArray.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="Game\SoundManager.cpp">
-      <Filter>Исходные файлы</Filter>
-    </ClCompile>
     <ClCompile Include="Game\DataPackManagment\DataPackManager.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
@@ -183,7 +180,13 @@
     <ClCompile Include="Core\FileStream.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="Core\Multithreading\WorkerThread.cpp">
+    <ClCompile Include="AudioEngine\AudioLoader.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
+    <ClCompile Include="AudioEngine\Player.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
+    <ClCompile Include="AudioEngine\ResourceManager.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
   </ItemGroup>
@@ -258,9 +261,6 @@
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="OpenGLWrappers\VertexArray.h">
-      <Filter>Файлы заголовков</Filter>
-    </ClInclude>
-    <ClInclude Include="Game\SoundManager.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Game\DataPackManagment\DataPackManager.h">
@@ -458,7 +458,28 @@
     <ClInclude Include="Core\FileStream.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="Core\Multithreading\WorkerThread.h">
+    <ClInclude Include="AudioEngine\decoder_libs\minimp3.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="AudioEngine\decoder_libs\stb_vorbis.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="AudioEngine\miniaudio\miniaudio.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="AudioEngine\AudioEngine.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="AudioEngine\AudioLoader.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="AudioEngine\Player.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="AudioEngine\ResourceManager.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="AudioEngine\SoundData.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
   </ItemGroup>

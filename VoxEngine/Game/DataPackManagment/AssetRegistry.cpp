@@ -2,7 +2,8 @@
 
 #include "Game/TracyProfiler.h"
 #include "Game/ProfileCategories.h"
-#include "Game/SoundManager.h"
+
+//#include "AudioEngine/AudioEngine.h"
 
 #include <iostream>
 #include <algorithm>
@@ -194,28 +195,28 @@ static void loadUniqueSounds(
 	std::string_view logicalPrefix,
 	std::string_view diskPrefix)
 {
-	auto& sndMgr = SoundManager::getInstance();
-
-	TRACY_SCOPE_NC("Load sounds", ProfileCategory::General);
-
-	std::string logicalName;
-	std::string diskName;
-
-	for (const auto& sound : sounds)
-	{
-		logicalName.clear();
-		logicalName.reserve(logicalPrefix.size() + sound.size());
-		logicalName += logicalPrefix;
-		logicalName += sound;
-
-		diskName.clear();
-		diskName.reserve(diskPrefix.size() + sound.size() + 4);
-		diskName += diskPrefix;
-		diskName += sound;
-		diskName += ".ogg";
-
-		sndMgr.loadOgg(logicalName, diskName);
-	}
+	//auto& sndMgr = SoundManager::getInstance();
+	//
+	//TRACY_SCOPE_NC("Load sounds", ProfileCategory::General);
+	//
+	//std::string logicalName;
+	//std::string diskName;
+	//
+	//for (const auto& sound : sounds)
+	//{
+	//	logicalName.clear();
+	//	logicalName.reserve(logicalPrefix.size() + sound.size());
+	//	logicalName += logicalPrefix;
+	//	logicalName += sound;
+	//
+	//	diskName.clear();
+	//	diskName.reserve(diskPrefix.size() + sound.size() + 4);
+	//	diskName += diskPrefix;
+	//	diskName += sound;
+	//	diskName += ".ogg";
+	//
+	//	sndMgr.loadOgg(logicalName, diskName);
+	//}
 }
 
 

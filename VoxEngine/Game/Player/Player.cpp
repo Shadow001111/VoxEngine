@@ -1,10 +1,9 @@
 #include "Player.h"
 
-#include "../World.h"
+#include "Game/World.h"
 #include "Game/DataPackManagment/AssetRegistry.h"
 
 #include "Core/Random.h"
-
 
 glm::dvec3 makeVectorFlatNormalized(const glm::dvec3& vec)
 {
@@ -75,11 +74,11 @@ void Player::update(double deltaTime)
 	input.processInput();
 
 	// Get input
-	const bool moveRight	= input.isKeyPressed(GLFW_KEY_D);
-	const bool moveLeft		= input.isKeyPressed(GLFW_KEY_A);
-	const bool moveForward	= input.isKeyPressed(GLFW_KEY_W);
+	const bool moveRight = input.isKeyPressed(GLFW_KEY_D);
+	const bool moveLeft = input.isKeyPressed(GLFW_KEY_A);
+	const bool moveForward = input.isKeyPressed(GLFW_KEY_W);
 	const bool moveBackward = input.isKeyPressed(GLFW_KEY_S);
-	const bool jump			= input.isKeyPressed(GLFW_KEY_SPACE);
+	const bool jump = input.isKeyPressed(GLFW_KEY_SPACE);
 
 	// Move
 	if (!inventoryOpened)
@@ -179,17 +178,17 @@ void Player::update(double deltaTime)
 			}
 		}
 	}
-	
+
 	// Rotation
 	if (!inventoryOpened)
 	{
 		const float mouseSensitivity = 0.002f;
-		
+
 		glm::dvec2 mouseDelta = input.getMouseDelta();
 
 		rotate(-mouseDelta.x * mouseSensitivity, -mouseDelta.y * mouseSensitivity);
 	}
-	
+
 	// Selecting hotbar item
 	for (int i = 0; i < PLAYER_HOTBAR_SIZE; i++)
 	{
@@ -226,7 +225,7 @@ void Player::update(double deltaTime)
 	{
 		processInventoryInput();
 	}
-	
+
 	// Raycast
 	raycastResult = world->raycast(camera.getPosition(), camera.getForward(), 16.0f);
 	if (raycastResult.hit && !inventoryOpened)
@@ -265,11 +264,11 @@ void Player::getMovingValues(double& friction, double& maxSpeed, double& maxAcce
 {
 	if (onGround)
 	{
-		const bool moveRight	= input.isKeyPressed(GLFW_KEY_D);
-		const bool moveLeft		= input.isKeyPressed(GLFW_KEY_A);
-		const bool moveForward	= input.isKeyPressed(GLFW_KEY_W);
+		const bool moveRight = input.isKeyPressed(GLFW_KEY_D);
+		const bool moveLeft = input.isKeyPressed(GLFW_KEY_A);
+		const bool moveForward = input.isKeyPressed(GLFW_KEY_W);
 		const bool moveBackward = input.isKeyPressed(GLFW_KEY_S);
-		const bool sprint		= input.isKeyPressed(GLFW_KEY_LEFT_SHIFT);
+		const bool sprint = input.isKeyPressed(GLFW_KEY_LEFT_SHIFT);
 
 		bool moveAny = moveForward || moveBackward || moveLeft || moveRight;
 		if (sprint && moveAny)
@@ -300,7 +299,7 @@ void Player::startDragging(size_t slot)
 	{
 		return;
 	}
-	
+
 	dragState.isDragging = true;
 	dragState.draggedItem = sourceOpt.value();
 	dragState.sourceSlot = slot;
@@ -352,7 +351,7 @@ void Player::processInventoryInput()
 
 void Player::interpolateCameraTransform(double factor)
 {
-    Transform interpolatedTransform = previousTransform.interpolate(transform, factor);
+	Transform interpolatedTransform = previousTransform.interpolate(transform, factor);
 	interpolatedTransform.position.y += 1.7 * 0.5 - 0.2;
 	camera.setTransform(interpolatedTransform);
 }

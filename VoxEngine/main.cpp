@@ -1,8 +1,8 @@
 ﻿#include "WindowManager.h"
 
 #include "Core/UpdateTimer.h"
-#include "Game/TracyProfiler.h"
 
+#include "Game/TracyProfiler.h"
 #include "Game/World.h"
 #include "Game/Player/Player.h"
 #include "Game/DataPackManagment/AssetRegistry.h"
@@ -14,7 +14,7 @@
 #include "OpenGLWrappers/VertexArray.h"
 #include "OpenGLWrappers/ImmutableBuffer.h"
 
-#include "Game/SoundManager.h"
+#include "AudioEngine/AudioEngine.h"
 
 #include "FileLogger.h"
 
@@ -625,14 +625,17 @@ static int gameFunc()
     InputManager windowInputManager;
     wnd.linkInputManager(&windowInputManager);
 
+    // Audio engine
+    {
+        TRACY_SCOPE_NC("Init audio engine", ProfileCategory::General);
+        AudioEngine::GlobalInstances::getPlayer().init();
+	}
+
     // Init texture global data
     {
         TRACY_SCOPE_NC("Init texture global data", ProfileCategory::General);
         Texture::initGlobalData();
     }
-
-    // SoundManager
-    auto& soundManager = SoundManager::getInstance();
 
     // Check
     check();
@@ -748,9 +751,6 @@ static int gameFunc()
         worldUpdateTimer.addTime(deltaTime);
         profilerUpdateTimer.addTime(deltaTime);
         frequentUIDataUpdateTimer.addTime(deltaTime);
-
-        // Sounds
-        soundManager.update();
 
         // World
         world.setAppTime((float)time);

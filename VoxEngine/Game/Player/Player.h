@@ -88,4 +88,3 @@ public:
 
 	const InventoryDragState& getDragState() const { return dragState; }
 };
-

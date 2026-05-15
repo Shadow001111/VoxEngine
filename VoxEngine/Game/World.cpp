@@ -7,7 +7,7 @@
 
 #include "Game/TracyProfiler.h"
 
-#include "SoundManager.h"
+#include "AudioEngine/AudioEngine.h"
 
 #include <stdexcept>
 #include <glm/glm.hpp>
@@ -301,8 +301,8 @@ bool World::placeBlock(const RaycastResult& raycast, BlockId block)
 		// Choose random sounds from vector
 		const auto& sounds = blockData->placeSounds;
 		int soundIndex = rand() % sounds.size();
-		auto& sndMgr = SoundManager::getInstance();
-		sndMgr.play("block/place/" + sounds[soundIndex]);
+		//auto& sndMgr = SoundManager::getInstance();
+		//sndMgr.play("block/place/" + sounds[soundIndex]);
 	}
 
 	return true;
@@ -323,8 +323,8 @@ bool World::breakBlock(const RaycastResult& raycast)
 		// Choose random sounds from vector
 		const auto& sounds = blockData->breakSounds;
 		int soundIndex = rand() % sounds.size();
-		auto& sndMgr = SoundManager::getInstance();
-		sndMgr.play("block/break/" + sounds[soundIndex]);
+		//auto& sndMgr = SoundManager::getInstance();
+		//sndMgr.play("block/break/" + sounds[soundIndex]);
 	}
 
 	return true;

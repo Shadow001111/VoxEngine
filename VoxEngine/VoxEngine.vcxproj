@@ -110,12 +110,13 @@
       <AssemblerOutput>NoListing</AssemblerOutput>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Fast</FloatingPointModel>
+      <ObjectFileName>$(IntDir)%(RelativeDir)\</ObjectFileName>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(SolutionDir)Libraries\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>glfw3.lib;opengl32.lib;freetype.lib;OpenAL32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>glfw3.lib;opengl32.lib;freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <IgnoreAllDefaultLibraries>
       </IgnoreAllDefaultLibraries>
       <IgnoreSpecificDefaultLibraries>MSVCRTD;LIBCMT;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
@@ -145,12 +146,13 @@
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <EnableFiberSafeOptimizations>false</EnableFiberSafeOptimizations>
+      <ObjectFileName>$(IntDir)%(RelativeDir)\</ObjectFileName>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(SolutionDir)Libraries\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>glfw3.lib;opengl32.lib;freetype.lib;OpenAL32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>glfw3.lib;opengl32.lib;freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <IgnoreAllDefaultLibraries>
       </IgnoreAllDefaultLibraries>
       <IgnoreSpecificDefaultLibraries>MSVCRTD;LIBCMT;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
@@ -166,6 +168,9 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\tracy\public\TracyClient.cpp" />
+    <ClCompile Include="AudioEngine\AudioLoader.cpp" />
+    <ClCompile Include="AudioEngine\Player.cpp" />
+    <ClCompile Include="AudioEngine\ResourceManager.cpp" />
     <ClCompile Include="Core\TracyPtofiler.cpp" />
     <ClCompile Include="Core\FileStream.cpp" />
     <ClCompile Include="Game\World\ChunkRegionManager.cpp" />
@@ -217,12 +222,19 @@
     <ClCompile Include="Game\DataPackManagment\DataPackManager.cpp" />
     <ClCompile Include="OpenGLWrappers\ImmutableBuffer.cpp" />
     <ClCompile Include="Core\Random.cpp" />
-    <ClCompile Include="Game\SoundManager.cpp" />
     <ClCompile Include="WindowManager.cpp" />
     <ClCompile Include="Game\WorldImpl\WorldChunkManager.cpp" />
     <ClCompile Include="Game\WorldImpl\WorldRenderer.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="AudioEngine\AudioEngine.h" />
+    <ClInclude Include="AudioEngine\AudioLoader.h" />
+    <ClInclude Include="AudioEngine\decoder_libs\minimp3.h" />
+    <ClInclude Include="AudioEngine\decoder_libs\stb_vorbis.h" />
+    <ClInclude Include="AudioEngine\miniaudio\miniaudio.h" />
+    <ClInclude Include="AudioEngine\Player.h" />
+    <ClInclude Include="AudioEngine\ResourceManager.h" />
+    <ClInclude Include="AudioEngine\SoundData.h" />
     <ClInclude Include="Core\AtomicBitset.h" />
     <ClInclude Include="Core\Bitset.h" />
     <ClInclude Include="Core\Container\Dequeue.h" />
@@ -307,7 +319,6 @@
     <ClInclude Include="Game\DataPackManagment\DataPackManager.h" />
     <ClInclude Include="OpenGLWrappers\ImmutableBuffer.h" />
     <ClInclude Include="Core\Random.h" />
-    <ClInclude Include="Game\SoundManager.h" />
     <ClInclude Include="Core\Multithreading\move_only_function.h" />
     <ClInclude Include="Core\TracyProfiler.h" />
     <ClInclude Include="WindowManager.h" />
