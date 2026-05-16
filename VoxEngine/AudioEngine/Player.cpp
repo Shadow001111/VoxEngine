@@ -1,13 +1,13 @@
 #define MINIAUDIO_IMPLEMENTATION
 #include "AudioEngine.h"
 
-#include <algorithm>
-#include <cmath>
+#include "Core/TracyProfiler.h"
+
 #include <iostream>
 
 namespace AudioEngine
 {
-    static float lerpf(float a, float b, float t)
+    static inline float lerpf(float a, float b, float t)
     {
         return a + (b - a) * t;
     }
@@ -48,6 +48,9 @@ namespace AudioEngine
         }
 
         mInitialized = true;
+
+        mVoices.resize(mMaxVoices);
+
         return true;
     }
 
@@ -58,28 +61,22 @@ namespace AudioEngine
         mInitialized = false;
     }
 
-    VoiceId Player::play(Sound& sound, float volume, float pitch, float pan, bool loop)
+    std::optional<VoiceId> Player::play(Sound& sound, float volume, float pitch, float pan, bool loop)
     {
+        TRACY_SCOPE_N("Play")
+
         std::lock_guard<std::mutex> lock(mVoiceMutex);
 
-        if (mVoices.size() >= mMaxVoices)
-        {
-            auto freeIt = std::find_if(mVoices.begin(), mVoices.end(), [](const Voice& v)
-                {
-                    return !v.active;
-                });
-            if (freeIt == mVoices.end())
+        auto freeIt = std::find_if(mVoices.begin(), mVoices.end(), [](const Voice& v)
             {
-                return 0;
-            }
-            *freeIt = makeVoice(sound, volume, pitch, pan, loop);
-            return freeIt->handle;
+                return !v.active;
+            });
+        if (freeIt == mVoices.end())
+        {
+            return std::nullopt;
         }
-
-        Voice v = makeVoice(sound, volume, pitch, pan, loop);
-        VoiceId handle = v.handle;
-        mVoices.push_back(std::move(v));
-        return handle;
+        *freeIt = makeVoice(sound, volume, pitch, pan, loop);
+        return freeIt->handle;
     }
 
     void Player::stop(VoiceId voiceHandle)
@@ -93,6 +90,28 @@ namespace AudioEngine
                 break;
             }
         }
+    }
+
+    void Player::stopAll()
+    {
+        std::lock_guard<std::mutex> lock(mVoiceMutex);
+        for (auto& v : mVoices)
+        {
+            v.active = false;
+        }
+    }
+
+    bool Player::isActive(VoiceId voiceHandle)
+    {
+        std::lock_guard<std::mutex> lock(mVoiceMutex);
+        for (auto& v : mVoices)
+        {
+            if (v.active && v.handle == voiceHandle)
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     void Player::setVoiceVolume(VoiceId voiceHandle, float volume)
@@ -128,8 +147,8 @@ namespace AudioEngine
         {
             if (v.active && v.handle == voiceHandle)
             {
-                v.pan = std::clamp(pan, -1.0f, 1.0f);
-                break;
+                v.setPan(pan);
+                return;
             }
         }
     }
@@ -143,110 +162,155 @@ namespace AudioEngine
         v.loop = loop;
         v.volume = std::max(0.0f, volume);
         v.pitch = std::max(0.01f, pitch);
-        v.pan = std::clamp(pan, -1.0f, 1.0f);
+        v.setPan(pan);
         v.cursor = 0.0;
         return v;
     }
 
     void Player::mix(float* out, ma_uint32 frameCount)
     {
+        TRACY_SCOPE_N("Mix")
+
         std::fill(out, out + frameCount * mOutputChannels, 0.0f);
 
-        std::lock_guard<std::mutex> lock(mVoiceMutex);
-
-        constexpr float PI = 3.14159265358979323846f;
-
-        for (auto& v : mVoices)
         {
-            if (!v.active || !v.sound.has_value()) continue;
+            std::lock_guard<std::mutex> lock(mVoiceMutex);
 
-            const Sound& s = v.sound.value();
-            if (s.channels == 0 || s.samples.empty())
+            for (auto& voice : mVoices)
             {
-                v.active = false;
-                continue;
-            }
+                if (!voice.active || !voice.sound.has_value()) continue;
 
-            const uint32_t srcFrames = s.frameCount();
-            if (srcFrames == 0) {
-                v.active = false;
-                continue;
-            }
-
-            const float pan = std::clamp(v.pan, -1.0f, 1.0f);
-            const float panNorm = (pan + 1.0f) * 0.5f;
-            const float leftGain = std::cos(panNorm * (PI * 0.5f)) * v.volume;
-            const float rightGain = std::sin(panNorm * (PI * 0.5f)) * v.volume;
-
-            const double step = (double)s.sampleRate / (double)mOutputSampleRate * (double)v.pitch;
-
-            for (ma_uint32 i = 0; i < frameCount; i++)
-            {
-                if (v.cursor >= srcFrames)
+                const Sound& sound = voice.sound.value();
+                if (sound.channels == 0 || sound.samples.empty()) [[unlikely]]
                 {
-                    if (v.loop)
-                    {
-                        v.cursor = std::fmod(v.cursor, (double)srcFrames);
-                    }
-                    else
-                    {
-                        v.active = false;
-                        break;
-                    }
+                    voice.active = false;
+                    continue;
                 }
 
-                const uint32_t i0 = static_cast<uint32_t>(v.cursor);
-                const uint32_t i1 = (i0 + 1 < srcFrames) ? (i0 + 1) : i0;
-                const float t = static_cast<float>(v.cursor - (double)i0);
-
-                float sampleL = 0.0f;
-                float sampleR = 0.0f;
-
-                if (s.channels == 1)
+                if (sound.channels == 1)
                 {
-                    const float a = s.samples[i0];
-                    const float b = s.samples[i1];
-                    const float mono = lerpf(a, b, t);
-                    sampleL = mono;
-                    sampleR = mono;
+                    mixMonoVoice(voice, sound, out, frameCount);
                 }
                 else
                 {
-                    const size_t base0 = static_cast<size_t>(i0) * 2;
-                    const size_t base1 = static_cast<size_t>(i1) * 2;
-
-                    const float l0 = s.samples[base0 + 0];
-                    const float r0 = s.samples[base0 + 1];
-                    const float l1 = s.samples[base1 + 0];
-                    const float r1 = s.samples[base1 + 1];
-
-                    sampleL = lerpf(l0, l1, t);
-                    sampleR = lerpf(r0, r1, t);
+                    mixStereoVoice(voice, sound, out, frameCount);
                 }
-
-                const size_t dst = static_cast<size_t>(i) * mOutputChannels;
-                out[dst + 0] += sampleL * leftGain;
-                if (mOutputChannels > 1)
-                {
-                    out[dst + 1] += sampleR * rightGain;
-                }
-
-                v.cursor += step;
             }
         }
 
-        // Remove dead voices.
-        mVoices.erase(
-            std::remove_if(mVoices.begin(), mVoices.end(),
-                [](const Voice& v) { return !v.active; }),
-            mVoices.end()
-        );
-
         // Clip output to [-1, 1].
+        // No need for SIMD, compiler already optimizes it
         const size_t totalSamples = static_cast<size_t>(frameCount) * mOutputChannels;
         for (size_t i = 0; i < totalSamples; i++)
         {
             out[i] = std::clamp(out[i], -1.0f, 1.0f);
+        }
+    }
+
+    void Player::mixMonoVoice(Voice& voice, const Sound& sound, float* out, ma_uint32 frameCount)
+    {
+        TRACY_SCOPE_N("Mix mono voice")
+
+        const uint32_t srcFrames = sound.frameCount();
+        if (srcFrames == 0)
+        {
+            voice.active = false;
+            return;
+        }
+
+        const float leftGain = voice.leftGain * voice.volume;
+        const float rightGain = voice.rightGain * voice.volume;
+
+        const double step = (double)sound.sampleRate / (double)mOutputSampleRate * (double)voice.pitch;
+
+        for (ma_uint32 i = 0; i < frameCount; i++)
+        {
+            if (voice.cursor >= srcFrames)
+            {
+                if (voice.loop)
+                {
+                    voice.cursor = std::fmod(voice.cursor, (double)srcFrames);
+                }
+                else
+                {
+                    voice.active = false;
+                    return;
+                }
+            }
+
+            const uint32_t i0 = static_cast<uint32_t>(voice.cursor);
+            const uint32_t i1 = (i0 + 1 < srcFrames) ? (i0 + 1) : i0;
+            const float t = static_cast<float>(voice.cursor - (double)i0);
+
+            const float a = sound.samples[i0];
+            const float b = sound.samples[i1];
+            const float mono = lerpf(a, b, t);
+
+            const size_t dst = static_cast<size_t>(i) * mOutputChannels;
+            out[dst + 0] += mono * leftGain;
+            if (mOutputChannels > 1)
+            {
+                out[dst + 1] += mono * rightGain;
+            }
+
+            voice.cursor += step;
+        }
+    }
+
+    void Player::mixStereoVoice(Voice& voice, const Sound& sound, float* out, ma_uint32 frameCount)
+    {
+        TRACY_SCOPE_N("Mix stereo voice")
+
+        const uint32_t srcFrames = sound.frameCount();
+        if (srcFrames == 0)
+        {
+            voice.active = false;
+            return;
+        }
+
+        const float leftGain = voice.leftGain * voice.volume;
+        const float rightGain = voice.rightGain * voice.volume;
+
+        const double step = (double)sound.sampleRate / (double)mOutputSampleRate * (double)voice.pitch;
+
+        for (ma_uint32 i = 0; i < frameCount; i++)
+        {
+            if (voice.cursor >= srcFrames)
+            {
+                if (voice.loop)
+                {
+                    voice.cursor = std::fmod(voice.cursor, (double)srcFrames);
+                }
+                else
+                {
+                    voice.active = false;
+                    return;
+                }
+            }
+
+            const uint32_t i0 = static_cast<uint32_t>(voice.cursor);
+            const uint32_t i1 = (i0 + 1 < srcFrames) ? (i0 + 1) : i0;
+            const float t = static_cast<float>(voice.cursor - (double)i0);
+
+            const size_t base0 = static_cast<size_t>(i0) * 2;
+            const size_t base1 = static_cast<size_t>(i1) * 2;
+
+            const float l0 = sound.samples[base0 + 0];
+            const float r0 = sound.samples[base0 + 1];
+            const float l1 = sound.samples[base1 + 0];
+            const float r1 = sound.samples[base1 + 1];
+
+            const float sampleL = lerpf(l0, l1, t);
+            const float sampleR = lerpf(r0, r1, t);
+
+            const size_t dst = static_cast<size_t>(i) * mOutputChannels;
+            out[dst + 0] += sampleL * leftGain;
+            if (mOutputChannels > 1)
+            {
+                out[dst + 1] += sampleR * rightGain;
+            }
+
+            voice.cursor += step;
         }
     }
 }

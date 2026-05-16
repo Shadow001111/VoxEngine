@@ -191,37 +191,6 @@ void printObjectNameValidationError(std::ostream& os,
     }
 }
 
-template <class SoundSet>
-static void loadUniqueSounds(
-	const SoundSet& sounds,
-	std::string_view logicalPrefix,
-	std::string_view diskPrefix)
-{
-	//auto& sndMgr = SoundManager::getInstance();
-	//
-	//TRACY_SCOPE_NC("Load sounds", ProfileCategory::General);
-	//
-	//std::string logicalName;
-	//std::string diskName;
-	//
-	//for (const auto& sound : sounds)
-	//{
-	//	logicalName.clear();
-	//	logicalName.reserve(logicalPrefix.size() + sound.size());
-	//	logicalName += logicalPrefix;
-	//	logicalName += sound;
-	//
-	//	diskName.clear();
-	//	diskName.reserve(diskPrefix.size() + sound.size() + 4);
-	//	diskName += diskPrefix;
-	//	diskName += sound;
-	//	diskName += ".ogg";
-	//
-	//	sndMgr.loadOgg(logicalName, diskName);
-	//}
-}
-
-
 void AssetRegistry::reset()
 {
 	blockAssetStorage.clear();

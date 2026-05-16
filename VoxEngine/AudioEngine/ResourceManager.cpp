@@ -21,7 +21,7 @@ namespace AudioEngine
     std::optional<SoundId> ResourceManager::loadSound(const std::filesystem::path& path)
     {
         auto ext = path.extension().string();
-        if (ext.empty())
+        if (ext.empty()) [[unlikely]]
         {
             std::cerr << "File has no extension: " << path << "\n";
             return std::nullopt;
@@ -30,7 +30,7 @@ namespace AudioEngine
         // Remove the dot from the extension
         ext.erase(0, 1);
         FileExtension fileExt = AudioLoader::getFileExtensionFromString(ext);
-        if (fileExt == FileExtension::UNKNOWN)
+        if (fileExt == FileExtension::UNKNOWN) [[unlikely]]
         {
             std::cerr << "Unsupported audio file extension: " << ext << "\n";
             return std::nullopt;
@@ -41,7 +41,7 @@ namespace AudioEngine
     bool ResourceManager::unloadSound(SoundId soundId)
     {
         std::lock_guard<std::mutex> lock(mResourceMutex);
-		return mSounds.erase(soundId) > 0; // erase returns the number of elements removed (0 or 1 for unordered_map)
+        return mSounds.erase(soundId) > 0;
     }
 
     OptionalSoundReference ResourceManager::getSound(SoundId soundId)
